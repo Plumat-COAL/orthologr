@@ -240,7 +240,7 @@ divergence_stratigraphy <- function(query_file,
         }
         
         if (clean_folders)
-                clean_all_folders(c(file.path(tempdir(),"_alignment"), file.path(tempdir(),"_blast_db"), file.path(tempdir(),"_calculation")))
+                clean_all_folders(c(file.path(orthologr_tmpdir(),"_alignment"), file.path(orthologr_tmpdir(),"_blast_db"), file.path(orthologr_tmpdir(),"_calculation")))
         
         DivergenceMap.DF <- as.data.frame(dm_tbl)
         

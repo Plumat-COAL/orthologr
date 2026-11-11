@@ -187,12 +187,12 @@ diamond <- function(
         output = paste0("blastresult_", filename, ".csv")
         
         
-        if (!file.exists(file.path(tempdir(), "_blast_db"))) {
-                dir.create(file.path(tempdir(), "_blast_db"))
+        if (!file.exists(file.path(orthologr_tmpdir(), "_blast_db"))) {
+                dir.create(file.path(orthologr_tmpdir(), "_blast_db"))
         }
         
         currwd <- getwd()
-        setwd(file.path(tempdir(), "_blast_db"))
+        setwd(file.path(orthologr_tmpdir(), "_blast_db"))
         on.exit(setwd(currwd), add = TRUE)
         
         # determine the number of cores on a multicore machine
@@ -377,16 +377,16 @@ diamond <- function(
                 if (clean_folders) {
                         # save the DIAMOND output file to path save.output
                         if (!is.null(save.output))
-                                file.copy(file.path(tempdir(), "_blast_db", output),
+                                file.copy(file.path(orthologr_tmpdir(), "_blast_db", output),
                                           save.output)
                         
-                        clean_all_folders(file.path(tempdir(), "_blast_db"))
+                        clean_all_folders(file.path(orthologr_tmpdir(), "_blast_db"))
                 }
                 
                 if (!clean_folders) {
                         # save the DIAMOND output file to path save.output
                         if (!is.null(save.output))
-                                file.copy(file.path(tempdir(), "_blast_db", output),
+                                file.copy(file.path(orthologr_tmpdir(), "_blast_db", output),
                                           save.output)
                         
                 }

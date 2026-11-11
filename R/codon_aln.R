@@ -102,125 +102,73 @@ codon_aln <- function(file_aln,
         if (!is.element(format, c("clustal", "fasta")))
                 stop("Please choose a format that is supported by this function.", call. = FALSE)
         
-        if (!file.exists(file.path(tempdir(), "_alignment"))) {
-                dir.create(file.path(tempdir(), "_alignment"))
+        if (!file.exists(file.path(orthologr_tmpdir(), "_alignment"))) {
+                dir.create(file.path(orthologr_tmpdir(), "_alignment"))
         }
         
         
-        if (!file.exists(file.path(tempdir(), "_alignment", "codon_aln"))) {
-                dir.create(file.path(tempdir(), "_alignment", "codon_aln"))
+        if (!file.exists(file.path(orthologr_tmpdir(), "_alignment", "codon_aln"))) {
+                dir.create(file.path(orthologr_tmpdir(), "_alignment", "codon_aln"))
         }
         
         if (is.null(codon_aln_name))
                 file.out <-
-                file.path(tempdir(), "_alignment", "codon_aln", paste0(tool, ".aln"))
+                file.path(orthologr_tmpdir(), "_alignment", "codon_aln", paste0(tool, ".aln"))
         
         if (!is.null(codon_aln_name))
                 file.out <-
-                file.path(tempdir(),
+                file.path(orthologr_tmpdir(),
                           "_alignment",
                           "codon_aln",
                           paste0(codon_aln_name, "_", tool, ".aln"))
         
         
-        # test whether the connection to pal2nal works
-        
         if (tool == "pal2nal") {
+                
+                # what the alignment is for, for error messages: the gene pair and the alignment's name
+                context <- pair_context(file_nuc, codon_aln_name)
+                err_file <- paste0(file.out, ".stderr")
+                
+                # a result of an earlier call must never be taken for the result of this one
+                if (file.exists(file.out))
+                        unlink(file.out)
+                
+                pal2nal_run <- paste0(
+                        "perl ",
+                        shQuote(path),
+                        " ",
+                        shQuote(file_aln),
+                        " ",
+                        shQuote(file_nuc),
+                        " -output ",
+                        format,
+                        if (!is.null(params)) paste0(" ", params) else "",
+                        " > ",
+                        shQuote(file.out),
+                        " 2> ",
+                        shQuote(err_file)
+                )
                 
                 operating_sys <- Sys.info()[1]
                 
-                if (operating_sys == "Windows") {
-                        tryCatch({
-                                if (is.null(params))
-                                        shell(
-                                                paste0(
-                                                        "perl ",
-                                                        path,
-                                                        " ",
-                                                        file_aln,
-                                                        " ",
-                                                        file_nuc,
-                                                        " -output ",
-                                                        format,
-                                                        " >",
-                                                        file.out
-                                                )
-                                        )
-                                
-                                
-                                if (!is.null(params))
-                                        shell(
-                                                paste0(
-                                                        "perl ",
-                                                        path,
-                                                        " ",
-                                                        file_aln,
-                                                        " ",
-                                                        file_nuc,
-                                                        " -output ",
-                                                        format,
-                                                        " >",
-                                                        file.out,
-                                                        " ",
-                                                        params
-                                                )
-                                        )
-                                
-                                
-                        }, error = function(e) {
-                                stop(
-                                        "Please check the correct path to ",
-                                        tool,
-                                        "... the interface call did not work properly.", call. = FALSE
-                                )
-                        })
-                } else {
-                
-                tryCatch({
-                        if (is.null(params))
-                                system(
-                                        paste0(
-                                                "perl ",
-                                                path,
-                                                " ",
-                                                file_aln,
-                                                " ",
-                                                file_nuc,
-                                                " -output ",
-                                                format,
-                                                " >",
-                                                file.out
-                                        )
-                                )
-                        
-                        
-                        if (!is.null(params))
-                                system(
-                                        paste0(
-                                                "perl ",
-                                                path,
-                                                " ",
-                                                file_aln,
-                                                " ",
-                                                file_nuc,
-                                                " -output ",
-                                                format,
-                                                " >",
-                                                file.out,
-                                                " ",
-                                                params
-                                        )
-                                )
-                        
-                        
+                status <- tryCatch({
+                        if (operating_sys == "Windows") {
+                                shell(pal2nal_run)
+                        } else {
+                                system(pal2nal_run)
+                        }
                 }, error = function(e) {
                         stop(
-                                "Please check the correct path to ",
-                                tool,
-                                "... the interface call did not work properly.", call. = FALSE
+                                "PAL2NAL (perl) could not be started for ", context, ": ", conditionMessage(e),
+                                call. = FALSE
                         )
                 })
-            }
+                
+                # PAL2NAL reports problems (e.g. a protein that does not fit its coding sequence) on stderr and
+                # through its exit status; without this check an empty or missing codon alignment would only
+                # surface later as an unrelated error
+                check_external(status, tool = "PAL2NAL", context = context, log = err_file, output = file.out)
+                unlink(err_file)
         }
         
         if (!quiet) {

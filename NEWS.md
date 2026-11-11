@@ -1,10 +1,25 @@
 ## `orthologr` 0.5.0
 
+### Changed defaults (and how to get the old behaviour)
+
+Further behaviour that differs from 0.4.3 and cannot be switched back:
+
+- A gene pair whose alignment or estimation fails no longer ends the run: it is a row of `NA` and its reason
+  is in `attr(, "failed_pairs")`.
+
+### Fixed
+
+Results:
+
+- `dNdS()` mixed up the two species when query and subject file had the same file name in different folders.
+- Li's method returned text columns and took small values (`9.95e-05`) for the saturation marker.
+
 ### Internal
 
+- Tests: stored 0.4.3 tables (20-gene example, Comeron and YN) that `dNdS()` must reproduce (with the options
+  named in this file where a default changed).
 - GitHub Actions: R CMD check on Linux, macOS and Windows with the external programs installed, one leg without
   them; triggers for pull requests, the default branch and a manual start. Checked with `--as-cran`.
-- Tests: stored 0.4.3 tables (20-gene example, Comeron and YN) that `dNdS()` must reproduce.
 
 ## `orthologr` version 0.4.3
 
