@@ -148,6 +148,25 @@ dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'ortho
 #   score_raw <dbl>
 ```
 
+A faster way to the same kind of table uses [COAL](https://github.com/Plumat-COAL/COAL) for the alignment,
+codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")`):
+
+```r
+# orthologs by DIAMOND reciprocal best hits, then all gene pairs in one batch (no Perl, no KaKs_Calculator)
+dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
+     subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
+     dnds_est.method = "YN",      # Yang and Nielsen (2000); also NG, LWL, MLWL, LPB, MLPB, MYN
+     engine          = "coal",
+     comp_cores      = 4)
+
+# dN/dS for all gene pairs within DIAMOND DeepClust clusters, with a per-cluster summary
+dNdS_clusters(cds_file = c("species1_cds.fasta", "species2_cds.fasta"), aa_aln_tool = "clustalo")
+```
+
+See `NEWS.md` for what `codon_aln_tool = "coal"`, `kaks_tool = "coal"` and `engine = "coal"` do and how their
+results relate to the default tools.
+
+
 When running your own query file, please specify `query_file = "path/to/your/cds.fasta` instead of `system.file(..., package = "orthologr")`. The command `system.file(..., package = "orthologr")` merely references the path to the example file stored in the `orthologr` package itself.
 
 

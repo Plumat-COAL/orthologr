@@ -46,9 +46,11 @@ Suggests:
     devtools (>= 1.6.1),
     testthat (>= 3.0.0),
     pkgload,
-    metablastr
+    metablastr,
+    coalr
 Remotes:
-    drostlab/metablastr
+    drostlab/metablastr,
+    Plumat-COAL/COAL/packaging/r/coalr
 RdMacros: Rdpack
 LinkingTo: Rcpp
 URL: https://drostlab.github.io/orthologr, https://github.com/drostlab/orthologr

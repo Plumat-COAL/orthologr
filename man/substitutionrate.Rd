@@ -11,7 +11,8 @@ substitutionrate(
   quiet = FALSE,
   kaks_calc.params = NULL,
   kaks_calc_path = NULL,
-  subst_name = NULL
+  subst_name = NULL,
+  kaks_tool = "kaks_calculator"
 )
 }
 \arguments{
@@ -35,6 +36,14 @@ hence it is important to use format = "fasta" when choosing est.method = "Comero
 
 \item{subst_name}{a character string specifying the substitution name that shall be added to the internal folder path naming. 
 Default is \code{subst_name} = \code{NULL}.}
+
+\item{kaks_tool}{the program that computes the KaKs_Calculator methods (\code{est.method} = \code{"NG"}, \code{"LWL"},
+\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the
+external program KaKs_Calculator) or \code{"coal"} (COAL's implementation of the same methods, which gives
+KaKs_Calculator 2.0's values for the same alignment and runs inside R when the package \pkg{coalr} is installed;
+see \code{\link{codon_aln}} for how to install COAL). With \code{"coal"} a dN or dS of exactly 0 is returned as
+0 (KaKs_Calculator prints \code{NA} for values below 1e-6) and a saturated estimate is \code{NA}.
+The methods \code{"MA"}, \code{"MS"}, \code{"GY"}, \code{"GMYN"} and \code{"ALL"} need KaKs_Calculator.}
 }
 \value{
 A data.table storing the query_id, subject_id, dN, dS, and dNdS values or 

@@ -53,8 +53,19 @@
 #' the name of a matrix shipped with \pkg{pwalign}, e.g. \code{"BLOSUM62"} (Default), a numeric substitution matrix, or \code{NULL}
 #' for the scoring of \pkg{orthologr} <= 0.4.3 (no substitution matrix). See \code{\link{pairwise_aln}} for details and for how to
 #' reproduce dN/dS values computed with earlier versions.
-#' @param codon_aln_tool a character string specifying the codon alignment tool that shall be used. Default is \code{codon_aln_tool} = \code{"pal2nal"}.
-#' Right now only "pal2nal" can be selected as codon alignment tool.
+#' @param codon_aln_tool a character string specifying the codon alignment tool that shall be used: \code{"pal2nal"} (Default;
+#' the PAL2NAL Perl script shipped with this package) or \code{"coal"} (COAL: the same codon alignments without Perl, computed
+#' inside R when the package \pkg{coalr} is installed; see \code{\link{codon_aln}}).
+#' @param kaks_tool the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
+#' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
+#' program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).
+#' @param engine \code{"orthologr"} (Default): each gene pair is processed on its own (protein alignment, codon alignment and
+#' dN/dS estimation with the tools chosen above, with intermediate files per pair). \code{"coal"}: the batched fast path
+#' \code{\link{dNdS_coal}}: orthologs are detected as usual, then all gene pairs are aligned and estimated by COAL in one
+#' call, in memory and on \code{comp_cores} threads. \code{engine = "coal"} needs the package \pkg{coalr}, a
+#' \code{dnds_est.method} that COAL computes (e.g. \code{"YN"}; not \code{"Comeron"} or \code{"Li"}),
+#' \code{ortho_detection} \code{"RBH"} or \code{"BH"}, and ignores \code{aa_aln_type}, \code{aa_aln_tool},
+#' \code{codon_aln_tool}, \code{kaks_tool} and \code{store_locally}. It returns the same table.
 #' @param kaks_calc_path a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 #' (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).
 #' @param dnds_est.method the dNdS estimation method that shall be used.
@@ -134,6 +145,7 @@
 #' \item \code{codon_aln_tool} :
 #' \itemize{
 #'  \item \code{"pal2nal"}
+#'  \item \code{"coal"}
 #'  }
 #' \item \code{dnds_est.method} : 
 #' \itemize{
@@ -249,8 +261,52 @@ dNdS <- function(query_file,
                  quiet           = TRUE, 
                  clean_folders   = FALSE,
                  print_citation = TRUE,
-                 aa_sub_matrix   = "BLOSUM62"
+                 aa_sub_matrix   = "BLOSUM62",
+                 kaks_tool       = "kaks_calculator",
+                 engine          = "orthologr"
                  ){
+        
+        if (!is.element(engine, c("orthologr", "coal")))
+                stop("Please choose engine = \"orthologr\" or engine = \"coal\".", call. = FALSE)
+        
+        check_aa_sub_matrix(aa_sub_matrix)
+        
+        if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
+                stop("Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
+        
+        if (kaks_tool == "coal" && !is.element(dnds_est.method, c("Comeron", "Li", coal_methods())))
+                stop("kaks_tool = \"coal\" computes the methods ", paste(coal_methods(), collapse = ", "),
+                     "; dnds_est.method = \"", dnds_est.method, "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
+        
+        # COAL must be there before the search starts, not when the first gene pair needs it
+        if (engine == "orthologr" && (identical(codon_aln_tool, "coal") ||
+                                      (kaks_tool == "coal" && is.element(dnds_est.method, coal_methods()))))
+                coal_backend()
+        
+        # the batched fast path: all gene pairs in one call to COAL
+        if (engine == "coal") {
+                if (is.null(aa_sub_matrix) || !is.character(aa_sub_matrix))
+                        stop("engine = \"coal\" needs the name of a substitution matrix in aa_sub_matrix (e.g. \"BLOSUM62\").", call. = FALSE)
+                return(dNdS_coal(
+                        query_file         = query_file,
+                        subject_file       = subject_file,
+                        aligner            = aligner,
+                        sensitivity_mode   = sensitivity_mode,
+                        aligner_path       = aligner_path,
+                        seq_type           = seq_type,
+                        format             = format,
+                        ortho_detection    = ortho_detection,
+                        delete_corrupt_cds = delete_corrupt_cds,
+                        aligner_params     = aligner_params,
+                        eval               = eval,
+                        dnds_est.method    = dnds_est.method,
+                        aa_sub_matrix      = aa_sub_matrix,
+                        comp_cores         = comp_cores,
+                        quiet              = quiet,
+                        print_citation     = print_citation
+                ))
+        }
+
         
         message("\n")
         message("Starting orthology inference (",ortho_detection, ") and dNdS estimation (",dnds_est.method,") using the follwing parameters:")
@@ -492,7 +548,8 @@ dNdS <- function(query_file,
                                   quiet           = quiet,
                                   comp_cores      = comp_cores, 
                                   clean_folders   = clean_folders,
-                                  aa_sub_matrix   = aa_sub_matrix )
+                                  aa_sub_matrix   = aa_sub_matrix,
+                                  kaks_tool       = kaks_tool )
         
         subject_id <- NULL
         hit.table_selected <- dplyr::select(hit.table, -subject_id)

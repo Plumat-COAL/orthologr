@@ -1,5 +1,40 @@
 ## `orthologr` development version
 
+### New: COAL as codon-alignment tool, Ka/Ks engine and batched dN/dS path
+
+[COAL](https://github.com/Plumat-COAL/COAL) is a fast re-implementation of PAL2NAL with a native Ka/Ks engine. It
+is optional (`Suggests: coalr`): it is used inside R through the package `coalr`
+(`remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")`) or, when that is not installed,
+through the `coal-cpp` program (`pip install coal-align`; `options(orthologr.coal_path = )`). Nothing changes for
+calls that do not ask for it.
+
+- `codon_aln(tool = "coal")` and `dNdS(codon_aln_tool = "coal")` build the codon alignment with COAL instead of the
+  PAL2NAL Perl script: no Perl, and no limit on the protein length (PAL2NAL fails above about 21,800 residues).
+  The codon alignments, and so the dN/dS values, are the same as with `"pal2nal"`.
+- `substitutionrate(kaks_tool = "coal")` and `dNdS(kaks_tool = "coal")` compute the KaKs_Calculator methods
+  `"NG"`, `"LWL"`, `"MLWL"`, `"LPB"`, `"MLPB"`, `"YN"` and `"MYN"` with COAL instead of the external program
+  KaKs_Calculator (which stays the default and is needed for `"MA"`, `"MS"`, `"GY"`, `"GMYN"`, `"ALL"`). The
+  values are KaKs_Calculator 2.0's for the same alignment, with two differences: a dN or dS of exactly 0 is returned
+  as 0 (KaKs_Calculator prints `NA` for values below 1e-6), and a saturated estimate is `NA`. `"MLPB"` is now an
+  accepted `dnds_est.method`.
+- **`dNdS(..., engine = "coal")` and the new `dNdS_coal()`**: the batched fast path. Orthologs are detected with
+  orthologr's own DIAMOND/BLAST (reciprocal) best hit code; then all gene pairs are handed to COAL in one call,
+  which aligns the proteins (BLOSUM62, the scoring of `pairwise_aln()` by default; `aa_aln_scoring = "needle"` in
+  `dNdS_coal()`), threads the codons and estimates dN/dS in memory, on `comp_cores` threads, without a file or a
+  process per gene pair. The result is the table `dNdS()` returns (same columns and types, joined with the hit
+  table); COAL's full table (standard errors, sites, codons compared, status, note) is `attr(result, "coal")`.
+  Needs `coalr` and a `dnds_est.method` that COAL computes (`"YN"`, ...; not `"Comeron"` or `"Li"`).
+  The values can differ slightly from the pair-by-pair path with the same tools where the protein alignment has
+  several equally good solutions (the two aligners then place a gap differently).
+- **New function `dNdS_clusters()`**: dN, dS and dN/dS for the gene pairs within sequence clusters, e.g. of
+  `deepclust()` / `deepclust_realign()` (or run DeepClust itself), with a per-cluster summary (number of pairs,
+  median, mean, quartiles, minimum and maximum of dN, dS and dN/dS, numbers of saturated and failed pairs).
+  Clusters are aligned with Clustal Omega or MAFFT (one multiple alignment per cluster) or pairwise without an
+  external program; clusters above `max_cluster_size` are computed against their representative, sampled or
+  skipped.
+- `dNdS()` checks `aa_sub_matrix`, `kaks_tool` and `engine`, and that COAL is installed when it was asked for,
+  before the search starts. `codon_aln(get_aln = TRUE)` reads the alignment in the format it was written in.
+
 ### Changes to pairwise alignments that change dN/dS values (methods change)
 
 `dNdS()`, `divergence_stratigraphy()` and `pairwise_aln()` align each pair of orthologous proteins with
@@ -70,7 +105,7 @@ truncated overhangs, stop codon aligned, score file always written) for reproduc
 ### Miscellaneous
 
 - `compute_dnds()` uses one code path for `comp_cores = 1` and `comp_cores > 1`.
-- Unit tests for all of the above (`tests/testthat/test-robustness.R`).
+- Unit tests for all of the above (`tests/testthat/test-robustness.R`, `tests/testthat/test-coal.R`).
 - Unit tests for `pairwise_aln()`.
 
 ## `orthologr` version 0.4.3

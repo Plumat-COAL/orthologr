@@ -16,6 +16,13 @@
 #' (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).
 #' @param subst_name a character string specifying the substitution name that shall be added to the internal folder path naming. 
 #' Default is \code{subst_name} = \code{NULL}.
+#' @param kaks_tool the program that computes the KaKs_Calculator methods (\code{est.method} = \code{"NG"}, \code{"LWL"},
+#' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the
+#' external program KaKs_Calculator) or \code{"coal"} (COAL's implementation of the same methods, which gives
+#' KaKs_Calculator 2.0's values for the same alignment and runs inside R when the package \pkg{coalr} is installed;
+#' see \code{\link{codon_aln}} for how to install COAL). With \code{"coal"} a dN or dS of exactly 0 is returned as
+#' 0 (KaKs_Calculator prints \code{NA} for values below 1e-6) and a saturated estimate is \code{NA}.
+#' The methods \code{"MA"}, \code{"MS"}, \code{"GY"}, \code{"GMYN"} and \code{"ALL"} need KaKs_Calculator.
 #' @author Hajk-Georg Drost and Sarah Scharfenberg
 #' @details This function takes a pairwise alignments file as input and estimates dNdS ratios
 #' of the corresponding alignments using predefined dNdS estimation methods.
@@ -120,7 +127,8 @@ substitutionrate <- function(file,
                              quiet            = FALSE, 
                              kaks_calc.params = NULL,
                              kaks_calc_path   = NULL, 
-                             subst_name       = NULL){
+                             subst_name       = NULL,
+                             kaks_tool        = "kaks_calculator"){
         
         # dNdS estimation methods provided by the KaKs_Calculator program
         if (!is.null(kaks_calc_path))
@@ -142,6 +150,13 @@ substitutionrate <- function(file,
         
         if (!is.dnds_est_method(est.method))
                 stop("Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+        
+        if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
+                stop("Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
+        
+        if (kaks_tool == "coal" && !is.element(est.method, c("Comeron", "Li", coal_methods())))
+                stop("kaks_tool = \"coal\" computes the methods ", paste(coal_methods(), collapse = ", "),
+                     "; est.method = \"", est.method, "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
         
         if (!is.element(format, c("mase", "clustal", "phylip", "fasta" , "msf")))
                 stop("Please choose a format that is supported by seqinr::read.alignment.", call. = FALSE)
@@ -249,6 +264,16 @@ substitutionrate <- function(file,
                         print("Substitutionrate successfully calculated using Li's method.")
                 }
                 
+                return(res)
+        }
+        
+        # the KaKs_Calculator methods computed by COAL (in process, or by the coal-cpp program): no KaKs_Calculator
+        if (kaks_tool == "coal" && is.element(est.method, coal_methods())) {
+                if (format != "fasta")
+                        stop("kaks_tool = \"coal\" needs the codon alignment in fasta format.", call. = FALSE)
+                res <- coal_kaks_file(file = file, est.method = est.method, subst_name = subst_name)
+                if (!quiet)
+                        message("Substitutionrate successfully calculated by COAL.")
                 return(res)
         }
         

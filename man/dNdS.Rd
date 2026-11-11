@@ -30,7 +30,9 @@ dNdS(
   quiet = TRUE,
   clean_folders = FALSE,
   print_citation = TRUE,
-  aa_sub_matrix = "BLOSUM62"
+  aa_sub_matrix = "BLOSUM62",
+  kaks_tool = "kaks_calculator",
+  engine = "orthologr"
 )
 }
 \arguments{
@@ -100,8 +102,9 @@ selected via \code{aa_aln_tool} (e.g. \code{"clustalw"} for multiple alignment o
 Note: this controls the amino acid alignment step only, not the initial DIAMOND or BLAST homology search
 (use \code{aligner_params} for that). Default is \code{aa_aln_params} = \code{NULL} (no additional parameters are forwarded).}
 
-\item{codon_aln_tool}{a character string specifying the codon alignment tool that shall be used. Default is \code{codon_aln_tool} = \code{"pal2nal"}.
-Right now only "pal2nal" can be selected as codon alignment tool.}
+\item{codon_aln_tool}{a character string specifying the codon alignment tool that shall be used: \code{"pal2nal"} (Default;
+the PAL2NAL Perl script shipped with this package) or \code{"coal"} (COAL: the same codon alignments without Perl, computed
+inside R when the package \pkg{coalr} is installed; see \code{\link{codon_aln}}).}
 
 \item{kaks_calc_path}{a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).}
@@ -133,6 +136,18 @@ shall be removed. Default is \code{clean_folders} = \code{FALSE}.}
 the name of a matrix shipped with \pkg{pwalign}, e.g. \code{"BLOSUM62"} (Default), a numeric substitution matrix, or \code{NULL}
 for the scoring of \pkg{orthologr} <= 0.4.3 (no substitution matrix). See \code{\link{pairwise_aln}} for details and for how to
 reproduce dN/dS values computed with earlier versions.}
+
+\item{kaks_tool}{the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
+\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
+program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).}
+
+\item{engine}{\code{"orthologr"} (Default): each gene pair is processed on its own (protein alignment, codon alignment and
+dN/dS estimation with the tools chosen above, with intermediate files per pair). \code{"coal"}: the batched fast path
+\code{\link{dNdS_coal}}: orthologs are detected as usual, then all gene pairs are aligned and estimated by COAL in one
+call, in memory and on \code{comp_cores} threads. \code{engine = "coal"} needs the package \pkg{coalr}, a
+\code{dnds_est.method} that COAL computes (e.g. \code{"YN"}; not \code{"Comeron"} or \code{"Li"}),
+\code{ortho_detection} \code{"RBH"} or \code{"BH"}, and ignores \code{aa_aln_type}, \code{aa_aln_tool},
+\code{codon_aln_tool}, \code{kaks_tool} and \code{store_locally}. It returns the same table.}
 }
 \value{
 A data.table storing the dNdS values of the correspnding genes.
@@ -206,6 +221,7 @@ The \code{dNdS()} function can be used choosing the folllowing options:
 \item \code{codon_aln_tool} :
 \itemize{
  \item \code{"pal2nal"}
+ \item \code{"coal"}
  }
 \item \code{dnds_est.method} : 
 \itemize{

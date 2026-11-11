@@ -110,3 +110,12 @@ li_values <- function(ka, ks) {
                 dNdS <- NA_real_
         list(dN = dN, dS = dS, dNdS = dNdS)
 }
+
+# 'aa_sub_matrix' must be the name of a substitution matrix, a numeric matrix, or NULL.
+check_aa_sub_matrix <- function(aa_sub_matrix) {
+        if (!is.null(aa_sub_matrix) &&
+            !((is.character(aa_sub_matrix) && length(aa_sub_matrix) == 1 && !is.na(aa_sub_matrix)) ||
+              (is.matrix(aa_sub_matrix) && is.numeric(aa_sub_matrix))))
+                stop("'aa_sub_matrix' must be the name of a substitution matrix (e.g. \"BLOSUM62\"), a numeric substitution matrix, or NULL.", call. = FALSE)
+        invisible(TRUE)
+}
