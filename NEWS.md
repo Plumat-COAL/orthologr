@@ -1,3 +1,49 @@
+## `orthologr` development version
+
+### Robustness of `dNdS()`
+
+- **One gene pair can no longer end a run.** Each gene pair is processed inside `tryCatch()`. A pair for which a
+  step fails is returned with `NA` for dN, dS and dNdS; `dNdS()` gives a warning with the number of such pairs, and
+  `attr(result, "failed_pairs")` is a `data.frame` (`query_id`, `subject_id`, `reason`) that names the pair, the
+  program and its message. Before, the first failing pair stopped the whole run (and, with `comp_cores > 1`, without
+  saying which pair it was).
+- **The outcome of every external program on the dN/dS path is checked.** `codon_aln()` (PAL2NAL),
+  `substitutionrate()` (KaKs_Calculator) and `blast()` (blastp) now check the exit status, and that an output file
+  was written, and stop with a message that names the gene pair and the program and quotes what the program
+  reported. PAL2NAL exits with status 0 and an empty output when a protein does not fit its coding sequence; this
+  used to surface later as an unrelated error ("Please check the correct path to Comeron ..."). (`diamond()`,
+  `set_diamond()` and `set_blast()` already checked their exit status.) Paths are quoted, so folders with spaces work.
+- **Each `dNdS()` call works in a folder of its own**, created inside `tempdir()` and removed when the call ends,
+  also after an error. Intermediate files of an earlier or failed call can no longer be mistaken for results of the
+  current one. `options(orthologr.keep_tmp = TRUE)` keeps the folder and prints its path. `pairwise_aln()`,
+  `codon_aln()`, `substitutionrate()`, `diamond()` etc. called on their own still write to `tempdir()` as before.
+  `codon_aln()` and `substitutionrate()` delete an output file of the same name before they start.
+
+### Bug fixes
+
+- Gene IDs that contain a hyphen (e.g. `AT1G01010-1`) are no longer split when
+  `dnds_est.method` is one of the KaKs_Calculator methods (`"YN"`, `"NG"`, ...). The IDs were recovered by splitting
+  KaKs_Calculator's `<query>-<subject>` label at `-`, so `query_id` became `AT1G01010` and `subject_id` `1`, and
+  `dNdS()` then lost these pairs (or returned an empty table) when joining with the hit table. The IDs are now
+  taken from the codon alignment. The AXT input of KaKs_Calculator is written by R; the Perl script
+  `parseFastaIntoAXT.pl` is no longer run (one process less per gene pair).
+- `dNdS()` no longer mixes up the two organisms when `query_file` and `subject_file` have the same file name in
+  different folders (e.g. `a/cds.fa` and `b/cds.fa`). The proteins of both were read back from files named after
+  `basename()` of the inputs, i.e. twice from the same file, so the query proteins were replaced by the subject's
+  ("No orthologs could be found!", or codon alignments built from the wrong protein). The proteins are now
+  translated from the coding sequences that were read.
+- `substitutionrate(est.method = "Li")` (and `dNdS(dnds_est.method = "Li")`) returns numeric `dN`, `dS` and `dNdS`
+  columns. They were character columns, and the checks for values that cannot be used (`< 0`, `> 9.9`) compared
+  strings: for example a dS of `9.95e-05` was taken for a saturated value and set to `NA`. A dN/dS that is not
+  finite (dS = 0) is now `NA`.
+- `compute_dnds()` with `comp_cores > 1` and `aa_aln_type = "multiple"` looked for the protein alignment in the
+  wrong folder when `store_locally = TRUE`.
+
+### Miscellaneous
+
+- `compute_dnds()` uses one code path for `comp_cores = 1` and `comp_cores > 1`.
+- Unit tests for all of the above (`tests/testthat/test-robustness.R`).
+
 ## `orthologr` version 0.4.3
 
 ### New Function

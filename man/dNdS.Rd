@@ -130,6 +130,14 @@ shall be removed. Default is \code{clean_folders} = \code{FALSE}.}
 }
 \value{
 A data.table storing the dNdS values of the correspnding genes.
+
+A gene pair for which a step of the pipeline fails (e.g. PAL2NAL or KaKs_Calculator exit with an error) does not end
+the run: it is returned with \code{NA} for dN, dS and dNdS, a warning reports how many pairs failed, and
+\code{attr(result, "failed_pairs")} is a \code{data.frame} (\code{query_id}, \code{subject_id}, \code{reason})
+naming the pair, the program and its message.
+
+Each call keeps its intermediate files (search database, alignments, KaKs_Calculator files) in a folder of its own
+inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it.
 }
 \description{
 This function takes the CDS files of two organisms of interest (query_file and subject_file)

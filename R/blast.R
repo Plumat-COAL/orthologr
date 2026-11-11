@@ -186,12 +186,12 @@ blast <- function(query_file,
         output = paste0("blastresult_", filename, ".csv")
         
         
-        if (!file.exists(file.path(tempdir(), "_blast_db"))) {
-                dir.create(file.path(tempdir(), "_blast_db"))
+        if (!file.exists(file.path(orthologr_tmpdir(), "_blast_db"))) {
+                dir.create(file.path(orthologr_tmpdir(), "_blast_db"))
         }
         
         currwd <- getwd()
-        setwd(file.path(tempdir(), "_blast_db"))
+        setwd(file.path(orthologr_tmpdir(), "_blast_db"))
         on.exit(setwd(currwd), add = TRUE)
         
         # determine the number of cores on a multicore machine
@@ -225,11 +225,12 @@ blast <- function(query_file,
                 )
         })
         
+        blast_status <- 0L
         # test whether the connection to BLAST+ works
         tryCatch({
                 if (remote) {
                         # use the default parameters when running blastp
-                        system(
+                        blast_status <- system(
                                 paste0(
                                         "blastp -db ",
                                         db,
@@ -248,7 +249,7 @@ blast <- function(query_file,
                                 if (blast_algorithm == "blastp") {
                                         if (is.null(blast_params)) {
                                                 # use the default parameters when running blastp
-                                                system(
+                                                blast_status <- system(
                                                         paste0(
                                                                 'blastp -db ',
                                                                 database,
@@ -267,7 +268,7 @@ blast <- function(query_file,
                                                 )
                                         } else {
                                                 # add additional parameters when running blastp
-                                                system(
+                                                blast_status <- system(
                                                         paste0(
                                                                 'blastp -db ',
                                                                 database,
@@ -294,7 +295,7 @@ blast <- function(query_file,
                                 if (blast_algorithm == "blastp") {
                                         if (is.null(blast_params)) {
                                                 # use the default parameters when running blastp
-                                                system(
+                                                blast_status <- system(
                                                         paste0(
                                                                 path_prefix(path),
                                                                 'blastp -db ',
@@ -314,7 +315,7 @@ blast <- function(query_file,
                                                 )
                                         } else {
                                                 # add additional parameters when running blastp
-                                                system(
+                                                blast_status <- system(
                                                         paste0(
                                                                 path_prefix(path),
                                                                 'blastp -db ',
@@ -346,6 +347,10 @@ blast <- function(query_file,
                         "... the interface call did not work properly."
                 )
         })
+        
+        # blastp must have finished successfully: its (possibly partial) output is read below
+        check_external(blast_status, tool = blast_algorithm, context = paste0("query '", basename(query_file), "'"))
+
         
         # additional blast parameters can be found here:
         # https://www.ncbi.nlm.nih.gov/books/NBK1763/table/CmdLineAppsManual.T.options_common_to_al/?report=objectonly
@@ -431,16 +436,16 @@ blast <- function(query_file,
                 if (clean_folders) {
                         # save the BLAST output file to path save.output
                         if (!is.null(save.output))
-                                file.copy(file.path(tempdir(), "_blast_db", output),
+                                file.copy(file.path(orthologr_tmpdir(), "_blast_db", output),
                                           save.output)
                         
-                        clean_all_folders(file.path(tempdir(), "_blast_db"))
+                        clean_all_folders(file.path(orthologr_tmpdir(), "_blast_db"))
                 }
                 
                 if (!clean_folders) {
                         # save the BLAST output file to path save.output
                         if (!is.null(save.output))
-                                file.copy(file.path(tempdir(), "_blast_db", output),
+                                file.copy(file.path(orthologr_tmpdir(), "_blast_db", output),
                                           save.output)
                         
                 }
