@@ -24,6 +24,7 @@
 #' @param kaks_calc_path a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 #' (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).
 #' @param store_locally a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.
+#' @param aa_sub_matrix the substitution matrix for pairwise amino acid alignments (\code{aa_aln_type = "pairwise"}); see \code{\link{pairwise_aln}}.
 #' @param quiet a logical value specifying whether a successful interface call shall be printed out.
 #' @param comp_cores a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.
 #' @param clean_folders a boolean value spefiying whether all internall folders storing the output of used programs
@@ -61,7 +62,8 @@ compute_dnds <- function(complete_tbl,
                          kaks_calc_path  = NULL, 
                          quiet           = FALSE, 
                          comp_cores      = 1, 
-                         clean_folders   = FALSE){
+                         clean_folders   = FALSE,
+                         aa_sub_matrix   = "BLOSUM62"){
         
         if (comp_cores > parallel::detectCores())
                 stop("You assigned more cores to the comp_cores argument than are availible on your machine.")
@@ -160,7 +162,8 @@ compute_dnds <- function(complete_tbl,
                                 pairwise_aln_name = aa_aln_name,
                                 path              = aa_aln_path,
                                 quiet             = quiet,
-                                store_locally     = store_locally
+                                store_locally     = store_locally,
+                                aa_sub_matrix     = aa_sub_matrix
                         )
                         
                         aa_aln_file <-

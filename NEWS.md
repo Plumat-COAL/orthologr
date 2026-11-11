@@ -1,5 +1,33 @@
 ## `orthologr` development version
 
+### Changes to pairwise alignments that change dN/dS values (methods change)
+
+`dNdS()`, `divergence_stratigraphy()` and `pairwise_aln()` align each pair of orthologous proteins with
+`pwalign::pairwiseAlignment(type = "global")`. Three things about this step have changed. Each of them changes
+some alignments and therefore, slightly, the dN, dS and dN/dS values of the affected gene pairs; results computed
+with this version are not numerically identical to results from `orthologr` <= 0.4.3. Please report the
+`orthologr` version (and, if you changed it, `aa_sub_matrix`) in the methods of analyses based on these values.
+
+- **Amino acid alignments are scored with BLOSUM62.** Up to 0.4.3 no substitution matrix was passed to
+  `pairwiseAlignment()`, so every mismatch cost the same, whichever amino acids were exchanged, and the aligner took
+  most of the run time of `dNdS()`. The new argument `aa_sub_matrix` (in `dNdS()`, `compute_dnds()` and
+  `pairwise_aln()`, default `"BLOSUM62"`) names the substitution matrix; `aa_sub_matrix = NULL` gives the old scoring.
+- **The alignment is written full length.** `pwalign::pattern()`/`subject()` return only the aligned range, so the
+  overhanging ends of the longer protein were cut off before the codon alignment. The full rows
+  (`pwalign::alignedPattern()`/`alignedSubject()`) are written now: overhangs are aligned against gaps.
+- **A terminal stop codon is no longer aligned.** The `*` at the end of a translated protein is removed before the
+  alignment, so the stop codon is not a column of the codon alignment and is not scored in the dN/dS estimate.
+
+`options(orthologr.legacy_pairwise_aln = TRUE)` restores all of the 0.4.3 behaviour of this step (old scoring,
+truncated overhangs, stop codon aligned, score file always written) for reproducing earlier results.
+
+### Speed
+
+- `pairwise_aln()` no longer writes a second copy of every alignment (with its score, via
+  `pwalign::writePairwiseAlignments()`) into `tempdir()`; that file is only written when `store_locally = TRUE`.
+  Together with the BLOSUM62 scoring this removes most of the run time of `dNdS()` with the default
+  `aa_aln_tool = "NW"`.
+
 ### Robustness of `dNdS()`
 
 - **One gene pair can no longer end a run.** Each gene pair is processed inside `tryCatch()`. A pair for which a
@@ -43,6 +71,7 @@
 
 - `compute_dnds()` uses one code path for `comp_cores = 1` and `comp_cores > 1`.
 - Unit tests for all of the above (`tests/testthat/test-robustness.R`).
+- Unit tests for `pairwise_aln()`.
 
 ## `orthologr` version 0.4.3
 
