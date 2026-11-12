@@ -28,9 +28,9 @@ and execute test cases that are presented in each section.__
 The following bioinformatics tools you are going to install are based on
 the these programming languages:
 
- - [__R__](https://cran.r-project.org) >= 3.1.1
+ - [__R__](https://cran.r-project.org) >= 4.4 (with Bioconductor >= 3.19, which provides the `pwalign` package)
  
- - [__C++11__](https://isocpp.org/about)
+ - a __C++ compiler__ to install the package from source (any compiler R itself supports)
  
  For Windows users, see the [Setting up DIAMOND2 and BLAST+ on Windows](setup_windows.html#install-rtools) vignette for details on installing a C++ compiler (Rtools).
  
@@ -136,7 +136,7 @@ Furthermore, the following functions use `DIAMOND2` by default, though the use o
 
 _Optional: only needed if you want to use `aligner = "blast"` or the `blast*()` functions instead of `DIAMOND2`._
 
-[__BLAST__](https://www.ncbi.nlm.nih.gov/guide/howto/run-blast-local/]) (= Basic Local Alignment Search Tool) finds regions of similarity between biological sequences and is also used as underlying paradigm of most orthology inference methods.
+[__BLAST__](https://www.ncbi.nlm.nih.gov/guide/howto/run-blast-local/) (= Basic Local Alignment Search Tool) finds regions of similarity between biological sequences and is also used as underlying paradigm of most orthology inference methods.
 
 1) Go to https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ and download the system specific BLAST program.
 
@@ -145,20 +145,27 @@ _Optional: only needed if you want to use `aligner = "blast"` or the `blast*()` 
 * On a Windows machine (see [installation manual: Windows](https://www.ncbi.nlm.nih.gov/books/NBK52637/))
 -> Please carefully read the `Environment Variables` section of the `installation manual: Windows` and make sure the execution `PATH` variable is set correctly. For Windows users, see also the [Setting up DIAMOND2 and BLAST+ on Windows](setup_windows.html) vignette.
 * On a Unix machine (see [installation manual: Unix](https://www.ncbi.nlm.nih.gov/books/NBK52640/)) 
--> Please carefully read the `Configuration` section of the `installation manual: Unix` and make sure the execution `PATH` variable is set correctly to `usr/local/bin`.
+-> Please carefully read the `Configuration` section of the `installation manual: Unix` and make sure the execution `PATH` variable is set correctly to `/usr/local/bin`.
 
-<details> <summary>Example on Linux systems for BLAST+ version 2.2.31</summary>
-For example for Linux systems open the `Terminal` application and run (Thanks to Alexander Gabel):
+The simplest way on Linux and macOS is a package manager, e.g.
 
 ```
-# download BLAST+ version 2.2.31
-wget ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.2.31/ncbi-blast-2.2.31+-x64-linux.tar.gz
+conda install -c bioconda blast
+```
+
+<details> <summary>Example on Linux systems: installing the downloaded archive by hand</summary>
+For example for Linux systems open the `Terminal` application and run (Thanks to Alexander Gabel; replace
+`2.17.0` by the version you downloaded from the `LATEST` folder):
+
+```
+# download BLAST+
+wget https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.17.0/ncbi-blast-2.17.0+-x64-linux.tar.gz
 
 # extract the compiled version of BLAST
-tar zxvpf ncbi-blast+2.2.31+-x64-linux.tar.gz
+tar zxvpf ncbi-blast-2.17.0+-x64-linux.tar.gz
 
-# copy BLAST files to `usr/local/bin`
-cp ncbi-blast-2.2.31+/bin/* usr/local/bin
+# copy BLAST files to `/usr/local/bin`
+sudo cp ncbi-blast-2.17.0+/bin/* /usr/local/bin
 ```
 </details>
 
@@ -170,7 +177,7 @@ vi .bash_profile
 
 # type 'Shift' then I to edit the file .bash_profile
 # and specify the export PATH
-export PATH=${PATH}:/path/to/downloaded/blast/folder/ncbi-blast-2.2.31+/bin
+export PATH=${PATH}:/path/to/downloaded/blast/folder/ncbi-blast-2.17.0+/bin
 
 # type 'ESC' then ':' then 'w' then 'q' to save and quit the .bash_profile file 
 
@@ -258,20 +265,32 @@ After downloading and unpacking the `clustalw2` program, please go to the clusta
 to type (in this example for Mac OS X):
 
 ```
-# copy clustalw2 files to `usr/local/bin`
-cp clustalw2 usr/local/bin
+# copy clustalw2 files to `/usr/local/bin`
+sudo cp clustalw2 /usr/local/bin
 ```
+
+`orthologr` starts the program under the name `clustalw2` on every operating system. Some package managers
+(e.g. `conda install -c bioconda clustalw`) install it as both `clustalw` and `clustalw2`; if you only have
+`clustalw`, create a link named `clustalw2` in a folder on your `PATH`.
 
 ### Install `T-Coffee`
 
 To install `T-Coffee` please go to the [T-Coffee](https://tcoffee.readthedocs.io/en/latest/index.html) homepage and download
-the corresponding [T-Coffee program](https://tcoffee.readthedocs.io/en/latest/index.html) matching your operating system.
+the corresponding [T-Coffee program](https://tcoffee.readthedocs.io/en/latest/index.html) matching your operating system
+(or `conda install -c bioconda t-coffee`).
+
+`multi_aln(tool = "t_coffee")` runs T-Coffee in its default mode. The mode `-mode accurate` (the default of
+`orthologr` <= 0.4.3) needs access to a BLAST server; it can be selected with `params = "-mode accurate"`.
 
  
  
 ### Install `MUSCLE`
  
  - [__MUSCLE__](https://www.drive5.com/muscle/) : Fast and accurate multiple alignment tool of nucleic acid and protein sequences
+   (or `conda install -c bioconda muscle`).
+
+ Both MUSCLE 3.8 and MUSCLE 5 work: `multi_aln()` detects the version and uses the matching command line
+ (`-in`/`-out` for 3.8, `-align`/`-output` for 5).
  
  
 ### Install `ClustalO`
@@ -326,12 +345,12 @@ The `orthologr` package includes the most common dNdS estimation methods.
 Starting with an codon alignment returned by `codon_aln()` the function `dNdS()` computes
 the the dN, dS, and dNdS values of pairs of proteins.
 
-Based on implementations provided by `gestimator`, `ape`, and [KaKs_Calculator](https://code.google.com/archive/p/kaks-calculator),
+Based on implementations provided by `gestimator` (part of this package), `seqinr`, and [KaKs_Calculator](https://sourceforge.net/projects/kakscalculator2/),
 the following dNdS Estimation Methods are available in `orthologr`:
 
- - [Li](https://link.springer.com/article/10.1007/BF02407308) : Li's method (1993) -> provided by the `ape package`
+ - [Li](https://link.springer.com/article/10.1007/BF02407308) : Li's method (1993) -> provided by the `seqinr` package (`seqinr::kaks()`)
 
- - [Comeron](https://link.springer.com/article/10.1007/BF00173196) : Comeron's method (1995)
+ - [Comeron](https://link.springer.com/article/10.1007/BF00173196) : Comeron's method (1995) -> the default, built into `orthologr`
 
  - [NG](https://academic.oup.com/mbe/content/3/5/418.short) : Nei, M. and Gojobori, T. (1986)
 
@@ -343,26 +362,17 @@ the following dNdS Estimation Methods are available in `orthologr`:
 
  - [MYN](https://link.springer.com/article/10.1186/1471-2148-6-44) (Modified YN): Zhang, Z., et al. (2006)
 
-For this purpose you need to have __KaKs_Calculator__ installed on your system and executable from your default `PATH`, e,g, `/usr/local/bin/`.
+`Comeron` and `Li` need no external program. For all other methods (also `LPB`, `GY`, `GMYN`, `MS`, `MA` and `ALL`) you need to have __KaKs_Calculator__ installed on your system and executable from your default `PATH`, e.g. `/usr/local/bin/`.
 
 ### Install KaKs_Calculator (For Linux/Unix/OS)
 
-Please go to the [KaKs_Calculator homepage](https://code.google.com/archive/p/kaks-calculator/downloads) and download KaKs_Calculator.
-
-E.g.
+The simplest way is the bioconda package of KaKs_Calculator 2.0 (the version `orthologr` is tested with):
 
 ```shell
-# download KaKs_Calculator
-wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/kaks-calculator/KaKs_Calculator1.2.tar.gz
-# unzip
-gzip -d KaKs_Calculator1.2.tar.gz
-tar -xf KaKs_Calculator1.2.tar
-# install
-cd KaKs_Calculator1.2/src
-sudo make
-sudo cp KaKs_Calculator /usr/local/bin/
+conda install -c bioconda kakscalculator2
 ```
 
-Now you should be able to run KaKs_Calculator via `KaKs_Calculator -h` in your bash or as `system("KaKs_Calculator -h")` in R.
+The sources of `KaKs_Calculator2.0` can be found [here](https://sourceforge.net/projects/kakscalculator2/).
 
-The most recent version `KaKs_Calculator2.0` can be found [here](https://sourceforge.net/projects/kakscalculator2/). 
+Now you should be able to run KaKs_Calculator via `KaKs_Calculator -h` in your bash or as `system("KaKs_Calculator -h")` in R.
+ 

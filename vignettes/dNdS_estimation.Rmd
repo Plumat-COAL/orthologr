@@ -28,6 +28,9 @@ The `orthologr` package provides a function named `dNdS()` to perform dNdS estim
 The `dNdS()` function takes the CDS files of two organisms of interest (`query_file` and `subject_file`) 
 and computes the dNdS estimation values for orthologous gene pairs between these organisms.
 
+The default method is Comeron's (1995), which is built into the package; `"Li"` (Li 1993) is computed with
+`seqinr::kaks()`. Neither needs an external program.
+
 __Note:__ the following dNdS estimation methods are based on KaKs_Calculator 2:
 
 * "NG": Nei, M. and Gojobori, T. (1986)
@@ -36,7 +39,7 @@ __Note:__ the following dNdS estimation methods are based on KaKs_Calculator 2:
 
 * "LPB": Li, W.H. (1993) and Pamilo, P. and Bianchi, N.O. (1993)
 
-* "MLWL" (Modified LWL), MLPB (Modified LPB): Tzeng, Y.H., et al. (2004)
+* "MLWL" (Modified LWL): Tzeng, Y.H., et al. (2004)
 
 * "YN": Yang, Z. and Nielsen, R. (2000)
 
@@ -49,7 +52,7 @@ __Note:__ the following dNdS estimation methods are based on KaKs_Calculator 2:
 * "MS": (Model Selection): based on a set of candidate models, Posada, D. (2003) 
 * "MA" (Model Averaging): based on a set of candidate models, Posada, D. (2003)
 
-* "ALL": All models toghether 
+* "ALL": All models together 
 
 It is assumed that when you choose one of these dNdS estimation methods you have
 [KaKs_Calculator 2](https://sourceforge.net/projects/kakscalculator2/) installed on your machine and it can be executed from the
@@ -59,11 +62,12 @@ The following pipeline resembles an example dNdS estimation procedure:
 
  1) Orthology Inference: e.g. DIAMOND2 reciprocal best hit (RBH) — default; or BLAST reciprocal best hit
  
- 2) Pairwise sequence alignment: e.g. clustalw for pairwise amino acid sequence alignments
+ 2) Pairwise amino acid alignment of each gene pair: Needleman-Wunsch in R (`aa_aln_tool = "NW"`, the default), or an external
+    multiple alignment program (`clustalw`, `clustalo`, `mafft`, `muscle`, `t_coffee`) with `aa_aln_type = "multiple"`
  
  3) Codon Alignment: e.g. pal2nal program
  
- 4) dNdS estimation: e.g. [Yang, Z. and Nielsen, R. (2000)](https://academic.oup.com/mbe/article/17/1/32/975527) (YN)
+ 4) dNdS estimation: Comeron (1995) by default; e.g. [Yang, Z. and Nielsen, R. (2000)](https://academic.oup.com/mbe/article/17/1/32/975527) (YN) with KaKs_Calculator
 
 
 __Note:__ it is assumed that when using `dNdS()` all corresponding programs you
@@ -127,10 +131,10 @@ The `dNdS()` function can be used choosing the following options:
 
 * `aligner` : `"diamond"` (default; DIAMOND2) or `"blast"` (BLASTP)
 * `ortho_detection` : `RBH` (reciprocal best hit), `BH` (best hit) — works with both DIAMOND2 and BLAST depending on `aligner`
-* `aa_aln_type` : `multiple` or `pairwise`
-* `aa_aln_tool` : `clustalw`, `t_coffee`, `muscle`, `clustalo`, `mafft`, and `NW` (in case `aa_aln_type = "pairwise"`)
+* `aa_aln_type` : `pairwise` (default) or `multiple`
+* `aa_aln_tool` : `NW` (default; with `aa_aln_type = "pairwise"`), or with `aa_aln_type = "multiple"`: `clustalw`, `clustalo`, `mafft`, `muscle` (3.8 or 5), `t_coffee`
 * `codon_aln_tool` : `pal2nal`
-* `dnds_est.method` : `Li`, `Comeron`, `NG`, `LWL`, `LPB`, `MLWL`, `YN`, and `MYN`
+* `dnds_est.method` : `Comeron` (default), `Li`, and with KaKs_Calculator `NG`, `LWL`, `LPB`, `MLWL`, `YN`, `MYN`, `GY`, `GMYN`, `MS`, `MA`, `ALL`
 
 Please see `?dNdS` for details.
 
@@ -161,9 +165,12 @@ Additional arguments can be passed to `dNdS()`. This allows you to use more adva
 options of several interface programs.
 
 To pass additional parameters to the interface programs, you can use the
-`blast_params` and `aa_aln_params` arguments. The `aa_aln_params` argument assumes
-that when you chose e.g. `aa_aln_tool = "mafft"` you will pass the corresponding
-additional parameters in MAFFT notation.
+`aligner_params` (DIAMOND2 or BLAST) and `aa_aln_params` (multiple alignment program) arguments. The `aa_aln_params`
+argument assumes that when you chose e.g. `aa_aln_tool = "mafft"` you will pass the corresponding
+parameters in MAFFT notation. It is handed to `multi_aln()` as `params` and __replaces__ the default
+parameters of the program, so the alignment must still be written in CLUSTAL (or FASTA) format, e.g.
+`--clustalout` for MAFFT. `aa_aln_params` is only used with `aa_aln_type = "multiple"` (until version 0.4.3 it was
+accepted but not passed on to the alignment program).
 
 ```{r,eval=FALSE}
 library(orthologr)
@@ -183,7 +190,7 @@ Ath_Aly_dnds <- dNdS( query_file      = system.file('seqs/ortho_thal_cds.fasta',
                       aligner_params  = "--matrix BLOSUM80",
                       aa_aln_type     = "multiple",
                       aa_aln_tool     = "mafft",
-                      aa_aln_params   = "--maxiterate 1 --clustalout",
+                      aa_aln_params   = "--quiet --anysymbol --maxiterate 1 --clustalout",
                       dnds_est.method = "Comeron",
                       comp_cores      = 1, 
                       clean_folders   = TRUE, 
@@ -212,5 +219,5 @@ Here `aligner_params` and `aa_aln_params` take a character string specifying the
 that shall be passed to DIAMOND2 (or BLAST when `aligner = "blast"`) and MAFFT, respectively.
 The notation of these parameters must follow the command line call of the stand alone versions
 of DIAMOND2 and MAFFT: e.g. `aligner_params = "--matrix BLOSUM80"`
-and `aa_aln_params = "--maxiterate 1 --clustalout"`.
+and `aa_aln_params = "--quiet --anysymbol --maxiterate 1 --clustalout"`.
 
