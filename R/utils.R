@@ -208,7 +208,7 @@ report_dropped_cds <- function(ids, reason = "not_acgt", total = NULL, seqs = NU
         only_n <- if (!is.null(seqs)) sum(!grepl("[^ACGTNacgtn]", seqs)) else NA
         message(
                 length(ids), if (!is.null(total)) paste0(" of ", total), " coding sequence",
-                if (length(ids) > 1) "s" else "",
+                if (length(ids) > 1 || !is.null(total)) "s" else "",
                 if (!is.null(file)) paste0(" of '", basename(file), "'") else "",
                 if (length(ids) > 1) " have " else " has ", reason_text,
                 if (!is.na(only_n) && only_n > 0)
