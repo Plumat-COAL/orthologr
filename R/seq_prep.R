@@ -10,28 +10,13 @@ protein_table <- function(file, seq_type = "cds", delete_corrupt_cds = TRUE, ...
         
         if (seq_type == "cds") {
                 dt <- data.table::copy(read.cds(file = file, format = "fasta", delete_corrupt_cds = delete_corrupt_cds, ...))
-                
-                if (!is.data.table(dt))
-                        stop("Your CDS file was not corretly transformed into a data.table object.")
-                
-                # omit empty sequences
-                dt <- dt[ , .SD[sapply(seqs, function(x) {return(!(is.na(x) || x == ""))})]]
-                
-                if (delete_corrupt_cds) {
-                        # omit sequences that are not multiples of 3
-                        dt <- dt[ , .SD[sapply(seqs, function(x) {return(nchar(x) %% 3 == 0)})]]
-                }
-                
-                # omit sequences consisting of others than ACGT
-                dt <- dt[ , .SD[sapply(seqs, is.dnaSequence)]]
-                
-                # translate cds to protein sequences
-                tryCatch({
-                        dt[ , aa := transl(seqs), by = geneids]
-                }, error = function(e) {
-                        stop("The input coding sequences could not be translated properly to amino acid sequences.",
-                             "\n", " Please check whether ", file, " stores valid coding sequences.", call. = FALSE)
-                })
+                dt <- tryCatch(
+                        cds2aa(dt, delete_corrupt_cds = delete_corrupt_cds),
+                        error = function(e) {
+                                stop("The input coding sequences could not be translated properly to amino acid sequences.",
+                                     "\n", " Please check whether ", file, " stores valid coding sequences.", call. = FALSE)
+                        }
+                )
         }
         
         if (seq_type == "protein") {
@@ -71,7 +56,14 @@ db_files <- function(db_file) {
 # Build a BLAST database `db_file` (a FASTA file is written there, the index files next to it).
 make_blast_db <- function(dt, db_file, makedb_type = "protein", path = NULL) {
         unlink(db_files(db_file))
-        write_protein_fasta(dt, db_file)
+        if (makedb_type == "protein") {
+                write_protein_fasta(dt, db_file)
+        } else {
+                # a nucleotide database holds the sequences as they were read ('seqs')
+                seqs <- geneids <- NULL
+                seqinr::write.fasta(sequences = as.list(dt[ , seqs]), names = dt[ , geneids], nbchar = 80,
+                                    open = "w", file.out = db_file)
+        }
         run_tool(
                 "makeblastdb",
                 args = list("-in", blast_db_arg(db_file), "-input_type", "fasta",

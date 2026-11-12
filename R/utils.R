@@ -6,7 +6,9 @@ test <- function(x){ print(paste0("Test ",x," passed.","\n"))}
 
 is.dnaSequence <- function(seq){
         
-        return((length(grep("[^(A|C|G|T|a|c|g|t)]", seq)) == 0))
+        # only A, C, G, T (upper or lower case). The former pattern "[^(A|C|G|T|a|c|g|t)]" also let '(', ')' and
+        # '|' pass.
+        return(!grepl("[^ACGTacgt]", seq))
 }
 
 
@@ -14,7 +16,7 @@ is.dnaSequence <- function(seq){
 
 is.ortho_detection_method <- function(method = NULL){
         
-        provided <- c("BH","RBH","PO","DELTA")
+        provided <- c("BH","RBH")
         
         if(is.null(method)){
                 print("The followig methods are provided: ")
@@ -109,26 +111,20 @@ cds2aa <- function(dt, delete_corrupt_cds = TRUE){
         # define visible bindings for global variables
         seqs <- aa <- geneids <- NULL
         
-        # When using data.tables within packaes, always make sure
-        # 'data.table' is included in the DESCRIPTION file as 'Imports' AND
-        # in the NAMESPACE file with 'imports(data.table)' -> @import when using roxygen2
-        # http://stackoverflow.com/questions/10527072/using-data-table-package-inside-my-own-package
-        # https://github.com/hadley/dplyr/issues/548
-        
         # omit empty sequences
-        dt <- dt[ , .SD[sapply(seqs, function(x) {
-                return(!(is.na(x) || x == ""))
-        })]]
+        dt <- dt[!(is.na(seqs) | seqs == "")]
         
         if (delete_corrupt_cds) {
                 # omit sequences that are not multiples of 3
-                dt <- dt[ , .SD[sapply(seqs, function(x) {
-                        return(nchar(x) %% 3 == 0)
-                })]]
+                dt <- dt[nchar(seqs) %% 3 == 0]
         }
         
-        # omit sequences consisting of others than ACGT
-        dt <- dt[ , .SD[sapply(seqs, is.dnaSequence)]]
+        # omit sequences consisting of others than ACGT - and say which
+        not_acgt <- !vapply(dt[ , seqs], is.dnaSequence, logical(1), USE.NAMES = FALSE)
+        if (any(not_acgt)) {
+                report_dropped_cds(dt[not_acgt, geneids])
+                dt <- dt[!not_acgt]
+        }
         
         # translate cds to protein sequences
         tryCatch({
@@ -138,11 +134,36 @@ cds2aa <- function(dt, delete_corrupt_cds = TRUE){
                 stop(
                         "The input coding sequences could not be translated properly to amino acid sequences.",
                         "\n",
-                        " Please check whether ",
-                        file,
-                        " stores valid coding sequences."
+                        " Please check whether the input file stores valid coding sequences.",
+                        call. = FALSE
                 )
         })
         
         return(dt)
+}
+
+# Coding sequences with characters other than A, C, G, T (N, IUPAC ambiguity codes, ...) cannot be translated and
+# are left out. This used to happen silently; the genes are now named in a message (once per dNdS() call, in
+# which the same file is read several times).
+report_dropped_cds <- function(ids) {
+        if (length(ids) == 0)
+                return(invisible(NULL))
+        run_dir <- getOption("orthologr.tmpdir", NULL)
+        if (!is.null(run_dir)) {
+                # inside one dNdS() call: say it once
+                key <- paste0("dropped_cds\r", run_dir, "\r", paste(ids, collapse = "\r"))
+                if (!is.null(.orthologr_state[[key]]))
+                        return(invisible(NULL))
+                .orthologr_state[[key]] <- TRUE
+        }
+        shown <- utils::head(ids, 10)
+        message(
+                length(ids), " coding sequence", if (length(ids) > 1) "s hold" else " holds",
+                " characters other than A, C, G, T (e.g. N or IUPAC ambiguity codes) and ",
+                if (length(ids) > 1) "are" else "is", " left out: ",
+                paste(shown, collapse = ", "),
+                if (length(ids) > length(shown)) paste0(", ... (", length(ids) - length(shown), " more)") else "",
+                "."
+        )
+        invisible(ids)
 }
