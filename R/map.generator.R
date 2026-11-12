@@ -75,8 +75,10 @@ map_generator_dnds <- function(query_file,
         message("Starting pairwise genome comparisons (orthology inference and dNdS estimation) between query species: ", basename(query_file), " and subject species: ", paste0(subj.files, collapse = ", "))
         
         # initialize progress bar
-        if (progress_bar & (length(subj.files) > 1))
-                pb <- utils::txtProgressBar(1, length(subj.files), style = 3)
+        # (with one subject file the bar was not created but updated all the same: "object 'pb' not found" at
+        # the end of the run)
+        if (progress_bar)
+                pb <- utils::txtProgressBar(0, length(subj.files), style = 3)
         
         
         if (!file.exists(output_folder))

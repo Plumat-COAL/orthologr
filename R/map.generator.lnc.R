@@ -108,8 +108,10 @@ map_generator_lnc <- function(query_file,
         message("\n")
         
         # initialize progress bar
-        if (progress_bar & (length(subj.files) > 1))
-                pb <- utils::txtProgressBar(1, length(subj.files), style = 3)
+        # (with one subject file the bar was not created but updated all the same: "object 'pb' not found" at
+        # the end of the run)
+        if (progress_bar)
+                pb <- utils::txtProgressBar(0, length(subj.files), style = 3)
         
         if (!file.exists(output_folder))
                 dir.create(output_folder)
@@ -199,7 +201,10 @@ map_generator_lnc <- function(query_file,
                 suppressMessages(readr::read_delim(
                         file.path(output_folder, map),
                         col_names = TRUE,
-                        delim = sep))
+                        delim = sep,
+                        # IDs are text, whatever they look like
+                        col_types = readr::cols(query_id = readr::col_character(), subject_id = readr::col_character(),
+                                                .default = readr::col_guess())))
         })
         
         # test that only unique query IDs are present in the output datasets
