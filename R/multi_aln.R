@@ -393,10 +393,14 @@ multi_aln <- function(file,
                 # To avoid error with pal2nal when deleting * during multiple
                 # alignment add --anysymbol
                 # https://academic.oup.com/mbe/content/early/2013/02/08/molbev.mst010.full
+                # MAFFT cuts the sequence names of its CLUSTAL output to 15 characters unless --namelength says
+                # otherwise: IDs such as 'ENSMUST00000012345' or 'lcl|NC_000913.3_cds_NP_414542.1_1' came back
+                # truncated (and so did the IDs of everything computed from the alignment).
+                name_length <- max(c(15L, nchar(fasta_ids(file)) + 1L), na.rm = TRUE)
                 run_tool(
                         "mafft",
                         args = if (is.null(params))
-                                list("--quiet", "--anysymbol", "--clustalout", file)
+                                list("--quiet", "--anysymbol", "--clustalout", "--namelength", name_length, file)
                         else
                                 list(I(params), file),
                         stdout = tmp.out,
