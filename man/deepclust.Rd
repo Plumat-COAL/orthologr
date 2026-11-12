@@ -16,7 +16,8 @@ deepclust(
   eval = NULL,
   deepclust_params = NULL,
   save.output = NULL,
-  quiet = TRUE
+  quiet = TRUE,
+  direct_input = FALSE
 )
 }
 \arguments{
@@ -66,6 +67,14 @@ directory).}
 
 \item{quiet}{a logical value indicating whether DIAMOND2 should run in quiet
 mode. Default is \code{quiet = TRUE}.}
+
+\item{direct_input}{a logical value. \code{FALSE} (Default): the sequences are read into R, sorted by their IDs
+and written to one FASTA file from which the DIAMOND2 database is built (as in earlier versions). \code{TRUE}:
+the input files are handed to \code{diamond makedb} as they are (several files are copied one after the other
+into one file, without being parsed), so no sequence is held in R memory - meant for very large protein sets.
+The sequence IDs are the same, but the sequences reach DIAMOND2 in file order instead of sorted by ID, and
+\code{diamond deepclust} is sensitive to that order: \strong{cluster representatives and cluster membership
+can differ from the default}. Only for \code{seq_type = "protein"}.}
 }
 \value{
 A \code{\link[tibble]{tibble}} with two columns:
