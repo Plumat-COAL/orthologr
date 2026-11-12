@@ -31,8 +31,8 @@ test_that("cds2aa() gives the per-gene result, also for IDs that occur twice", {
         expect_identical(new$aa, old$aa)
         # an ID that occurs twice was an error of the per-gene translation and still is
         dup <- data.table::data.table(geneids = c("a", "a", "b"), seqs = c("atgaaa", "atgccc", "atgggg"))
-        expect_error(data.table::copy(dup)[ , aa := transl(seqs), by = geneids])
-        expect_error(cds2aa(data.table::copy(dup)), "could not be translated")
+        expect_error(suppressWarnings(data.table::copy(dup)[ , aa := transl(seqs), by = geneids]))
+        expect_error(suppressWarnings(cds2aa(data.table::copy(dup))), "could not be translated")
 })
 
 test_that("write_protein_fasta() writes the file seqinr::write.fasta() wrote", {
