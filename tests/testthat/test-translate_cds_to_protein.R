@@ -49,5 +49,5 @@ test_that("translate_cds_to_protein() output has 1/3 width as input (since 3 nuc
                                  delete_corrupt_cds = FALSE)
         cds_in <- Biostrings::readDNAStringSet(cds_file)
         aa_out <- Biostrings::readAAStringSet(out)
-        expect_equal(width(aa_out), width(cds_in) / 3)
+        expect_equal(Biostrings::width(aa_out), Biostrings::width(cds_in) / 3)
 })
