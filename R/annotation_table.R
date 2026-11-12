@@ -218,9 +218,9 @@ annotation_table_gff <- function(file) {
         cds <- cds[!duplicated(data.frame(ID, Parent, protein_id))]
         cds <- cds[!is.na(Parent) & is.element(Parent, feat$ID)]
 
-        # transcripts: features that are the parent of a CDS, and mRNA / transcript features
-        t_types <- c("mRNA", "transcript")
-        tx <- feat[(is.element(type, t_types) | is.element(ID, cds$Parent)) & !is.na(Parent) & is.element(Parent, feat$ID)]
+        # transcripts: the features between a gene and its CDS (mRNA, transcript, lnc_RNA, V_gene_segment, tRNA, ...),
+        # i.e. every feature other than a CDS that has a parent (exons and UTRs were not read)
+        tx <- feat[type != "CDS" & !is.na(Parent) & is.element(Parent, feat$ID)]
 
         rows <- list()
         if (nrow(cds) > 0) {
@@ -272,7 +272,9 @@ annotation_keys <- function(tbl) {
         key <- gene_id <- NULL
         add <- function(id, kind) {
                 ok <- !is.na(id)
-                data.table::data.table(key = id[ok], gene_id = tbl$gene_id[ok], kind = kind)
+                # (built as a data.frame: 'key' is an argument of data.table())
+                data.table::as.data.table(data.frame(key = id[ok], gene_id = tbl$gene_id[ok], kind = rep(kind, sum(ok)),
+                                                     stringsAsFactors = FALSE))
         }
         versioned <- function(id, version) ifelse(is.na(id) | is.na(version), NA_character_, paste0(id, ".", version))
         keys <- list(
@@ -295,19 +297,20 @@ annotation_keys <- function(tbl) {
 # Returns a data.table(id, gene_id, how) with one row per ID and locus (an ID can belong to several loci: identical
 # proteins of NCBI prokaryote annotations, 'WP_...'); IDs that were not found are not in it.
 match_ids_to_genes <- function(ids, keys) {
-        key <- gene_id <- id <- NULL
         ids <- unique(as.character(ids[!is.na(ids)]))
-        expand <- function(id, key_of_id, how) {
-                hit <- keys[is.element(key, key_of_id)]
-                if (nrow(hit) == 0)
+        key_tbl <- data.frame(k = keys$key, gene_id = keys$gene_id, stringsAsFactors = FALSE)
+        # one row per (id, gene) for the IDs whose spelling `k_of_id` is a key
+        expand <- function(id, k_of_id, how, tbl = key_tbl) {
+                m <- merge(data.frame(id = id, k = k_of_id, stringsAsFactors = FALSE), tbl, by = "k")
+                if (nrow(m) == 0)
                         return(NULL)
-                m <- merge(data.table::data.table(id = id, key = key_of_id), hit, by = "key", allow.cartesian = TRUE)
-                unique(data.table::data.table(id = m$id, gene_id = m$gene_id, how = how))
+                unique(data.frame(id = m$id, gene_id = m$gene_id, how = how, stringsAsFactors = FALSE))
         }
+        ncbi_accession <- function(x) sub("^lcl\\|.*_(?:cds|prot)_(.+)_[0-9]+$", "\\1", x, perl = TRUE)
         res <- list(expand(ids, ids, "exact"))
         left <- setdiff(ids, res[[1]]$id)
         if (length(left) > 0) {
-                acc <- sub("^lcl\\|.*_(?:cds|prot)_(.+)_[0-9]+$", "\\1", left, perl = TRUE)
+                acc <- ncbi_accession(left)
                 changed <- acc != left
                 if (any(changed)) {
                         r <- expand(left[changed], acc[changed], "ncbi_cds_id")
@@ -317,17 +320,16 @@ match_ids_to_genes <- function(ids, keys) {
         }
         if (length(left) > 0) {
                 # without versions on both sides, where that is unambiguous
-                nv <- unique(data.table::data.table(key = strip_id_version(keys$key), gene_id = keys$gene_id))
-                n_genes <- nv[ , list(n = length(unique(gene_id))), by = key]
-                nv <- nv[is.element(key, n_genes$key[n_genes$n == 1])]
-                acc <- sub("^lcl\\|.*_(?:cds|prot)_(.+)_[0-9]+$", "\\1", left, perl = TRUE)
-                m <- merge(data.table::data.table(id = left, key = strip_id_version(strip_id_prefix(acc))), nv, by = "key")
-                if (nrow(m) > 0)
-                        res[[length(res) + 1L]] <- unique(data.table::data.table(id = m$id, gene_id = m$gene_id, how = "without_version"))
+                nv <- unique(data.frame(k = strip_id_version(key_tbl$k), gene_id = key_tbl$gene_id, stringsAsFactors = FALSE))
+                n_genes <- table(nv$k)
+                nv <- nv[is.element(nv$k, names(n_genes)[n_genes == 1]), ]
+                res[[length(res) + 1L]] <- expand(left, strip_id_version(strip_id_prefix(ncbi_accession(left))), "without_version", nv)
         }
         res <- data.table::rbindlist(res)
         if (nrow(res) == 0)
                 return(data.table::data.table(id = character(0), gene_id = character(0), how = character(0)))
+        # in the order of `ids`
+        res <- res[order(match(res$id, ids))]
         res
 }
 

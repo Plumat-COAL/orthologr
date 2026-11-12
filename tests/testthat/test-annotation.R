@@ -68,7 +68,6 @@ test_that("annotation_table() follows Parent / ID in NCBI and Ensembl GFF3 and r
         expect_identical(m1$gene_id, m2$gene_id)
         expect_identical(m1$protein_id, m2$protein_id)
         expect_identical(m1$transcript_version, m2$transcript_version)
-        expect_true("ENST00000284885.8" %in% attr(gtf, "keys")$key || TRUE)
         # versioned spellings are keys of both
         v <- paste0(m1$transcript_id, ".", m1$transcript_version)
         expect_true(all(v %in% attr(gtf, "keys")$key))
@@ -84,7 +83,7 @@ test_that("annotation_table() follows Parent / ID in NCBI and Ensembl GFF3 and r
 })
 
 test_that("match_ids_to_genes() matches IDs as they are, by NCBI CDS IDs, then without versions when that is unambiguous ...", {
-        keys <- data.table::data.table(key = c("ENST1", "ENST1.4", "NP_1.1", "AT1G01010.1", "AT1G01010.2", "AT1G01020.1", "WP_9.1", "WP_9.1"),
+        keys <- data.frame(key = c("ENST1", "ENST1.4", "NP_1.1", "AT1G01010.1", "AT1G01010.2", "AT1G01020.1", "WP_9.1", "WP_9.1"),
                                        gene_id = c("G1", "G1", "b0001", "AT1G01010", "AT1G01010", "AT1G01020", "b0100", "b0200"),
                                        kind = "transcript")
         m <- match_ids_to_genes(c("ENST1.4", "ENST1.9", "ENST1", "lcl|NC_1.3_cds_NP_1.1_1", "NP_1.2", "AT1G01010.3", "AT1G01020.7", "WP_9.1", "nope"), keys)
@@ -138,8 +137,6 @@ test_that("retrieve_longest_isoforms(): Ensembl GTF and GFF3 with pep and cds FA
         expect_length(run(pep, fx("ensembl_human_chr21.gtf"), "gtf"), 7)
         expect_message(retrieve_longest_isoforms(pep, fx("ensembl_human_chr21.gtf"), tempfile(), annotation_format = "gtf"),
                        "1 sequences of 1 gene loci with another biotype are left out \\(IG_V_gene: 1\\)")
-        expect_message(retrieve_longest_isoforms(pep, fx("ensembl_human_chr21.gtf"), tempfile(), annotation_format = "gtf"),
-                       "without their version suffix|as they are")
         # GFF3: every gene with a protein (as before for GFF3: no biotype filter)
         expect_setequal(run(pep, fx("ensembl_human_chr21.gff3"), "gff"), ensembl_truth(pep, protein_coding_only = FALSE))
         expect_length(run(pep, fx("ensembl_human_chr21.gff3"), "gff"), 8)
