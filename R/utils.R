@@ -110,33 +110,43 @@ cds2aa <- function(dt, delete_corrupt_cds = TRUE){
         # define visible bindings for global variables
         seqs <- aa <- geneids <- NULL
         
-        # omit empty sequences
-        dt <- dt[!(is.na(seqs) | seqs == "")]
+        # the same ID more than once: the sequences cannot be told apart later on (hit tables, joins)
+        check_duplicate_ids(dt[ , geneids], what = "coding sequences")
+        
+        n_total <- nrow(dt)
+        
+        # omit empty sequences - and say which
+        empty <- dt[ , is.na(seqs) | seqs == ""]
+        if (any(empty)) {
+                report_dropped_cds(dt[empty, geneids], reason = "empty", total = n_total)
+                dt <- dt[!empty]
+        }
         
         if (delete_corrupt_cds) {
-                # omit sequences that are not multiples of 3
-                dt <- dt[nchar(seqs) %% 3 == 0]
+                # omit sequences that are not multiples of 3 (read.cds() has removed and reported them already
+                # when the table comes from there)
+                not3 <- dt[ , nchar(seqs) %% 3 != 0]
+                if (any(not3)) {
+                        report_dropped_cds(dt[not3, geneids], reason = "length", total = n_total)
+                        dt <- dt[!not3]
+                }
         }
         
         # omit sequences consisting of others than ACGT - and say which
         not_acgt <- !vapply(dt[ , seqs], is.dnaSequence, logical(1), USE.NAMES = FALSE)
         if (any(not_acgt)) {
-                report_dropped_cds(dt[not_acgt, geneids])
+                report_dropped_cds(dt[not_acgt, geneids], reason = "not_acgt", total = n_total,
+                                   seqs = dt[not_acgt, seqs])
                 dt <- dt[!not_acgt]
         }
         
         # translate cds to protein sequences
         tryCatch({
-                if (anyDuplicated(dt[ , geneids]) > 0) {
-                        # the same ID more than once: keep what the per-gene translation did
-                        dt[ , aa := transl(seqs), by = geneids]
-                } else {
-                        dt[ , aa := translate_cds(seqs)]
-                }
-                
+                dt[ , aa := translate_cds(seqs)]
         }, error = function(e) {
                 stop(
-                        "The input coding sequences could not be translated properly to amino acid sequences.",
+                        "The input coding sequences could not be translated properly to amino acid sequences: ",
+                        conditionMessage(e),
                         "\n",
                         " Please check whether the input file stores valid coding sequences.",
                         call. = FALSE
@@ -146,30 +156,100 @@ cds2aa <- function(dt, delete_corrupt_cds = TRUE){
         return(dt)
 }
 
-# Coding sequences with characters other than A, C, G, T (N, IUPAC ambiguity codes, ...) cannot be translated and
-# are left out. This used to happen silently; the genes are now named in a message (once per dNdS() call, in
-# which the same file is read several times).
-report_dropped_cds <- function(ids) {
+# Stop when a sequence ID occurs more than once. The ID of a sequence is its FASTA header up to the first white
+# space; two sequences with the same ID cannot be told apart in the hit tables and joins that follow (the
+# translation used to fail with "Wrong argument type in s2c()" / "could not be translated properly").
+check_duplicate_ids <- function(ids, what = "sequences", file = NULL) {
+        if (is.null(file))
+                file <- .orthologr_state$current_file
+        dup <- unique(ids[duplicated(ids)])
+        if (length(dup) == 0)
+                return(invisible(TRUE))
+        shown <- utils::head(dup, 10)
+        stop(
+                length(dup), " sequence ID", if (length(dup) > 1) "s occur" else " occurs", " more than once among the ",
+                what, if (!is.null(file)) paste0(" of '", file, "'") else "", ": ",
+                paste0("'", shown, "'", collapse = ", "),
+                if (length(dup) > length(shown)) paste0(", ... (", length(dup) - length(shown), " more)") else "",
+                ". The ID of a sequence is its FASTA header up to the first white space and must be unique within a file. ",
+                "Please rename or remove the duplicated sequences.",
+                call. = FALSE
+        )
+}
+
+# Sequences that are left out are never left out silently: a message names them, with their number, the number
+# of sequences read and the reason, and inside dNdS() they are collected for attr(<result>, "dropped_sequences").
+#   reason : "not_acgt" - characters other than A, C, G, T (cannot be translated)
+#            "empty"    - no sequence
+#            "length"   - length not a multiple of 3 (delete_corrupt_cds = TRUE)
+#   seqs   : the sequences (optional, reason "not_acgt"): used to say how many of them hold N only
+report_dropped_cds <- function(ids, reason = "not_acgt", total = NULL, seqs = NULL, file = NULL) {
         if (length(ids) == 0)
                 return(invisible(NULL))
+        if (is.null(file))
+                file <- .orthologr_state$current_file
+        reason_text <- switch(
+                reason,
+                not_acgt = "characters other than A, C, G, T (e.g. N or IUPAC ambiguity codes); they cannot be translated",
+                empty    = "no sequence",
+                length   = "a length that is not a multiple of 3 (delete_corrupt_cds = TRUE)",
+                reason
+        )
+        dropped_record(ids, reason_text, file)
         run_dir <- getOption("orthologr.tmpdir", NULL)
         if (!is.null(run_dir)) {
                 # inside one dNdS() call: say it once
-                key <- paste0("dropped_cds\r", run_dir, "\r", paste(ids, collapse = "\r"))
+                key <- paste0("dropped_cds\r", run_dir, "\r", reason, "\r", paste(ids, collapse = "\r"))
                 if (!is.null(.orthologr_state[[key]]))
                         return(invisible(NULL))
                 .orthologr_state[[key]] <- TRUE
         }
         shown <- utils::head(ids, 10)
+        only_n <- if (!is.null(seqs)) sum(!grepl("[^ACGTNacgtn]", seqs)) else NA
         message(
-                length(ids), " coding sequence", if (length(ids) > 1) "s hold" else " holds",
-                " characters other than A, C, G, T (e.g. N or IUPAC ambiguity codes) and ",
-                if (length(ids) > 1) "are" else "is", " left out: ",
+                length(ids), if (!is.null(total)) paste0(" of ", total), " coding sequence",
+                if (length(ids) > 1) "s" else "",
+                if (!is.null(file)) paste0(" of '", basename(file), "'") else "",
+                if (length(ids) > 1) " have " else " has ", reason_text,
+                if (!is.na(only_n) && only_n > 0)
+                        paste0(" (", only_n, " of them with N as the only such character, e.g. a 5'-incomplete CDS padded with N)")
+                else "",
+                " and ", if (length(ids) > 1) "are" else "is", " left out: ",
                 paste(shown, collapse = ", "),
                 if (length(ids) > length(shown)) paste0(", ... (", length(ids) - length(shown), " more)") else "",
                 "."
         )
         invisible(ids)
+}
+
+# Collect the sequences left out while a dNdS() call runs (see dropped_start()).
+dropped_record <- function(ids, reason, file = NULL) {
+        if (is.null(.orthologr_state$dropped))
+                return(invisible(NULL))
+        .orthologr_state$dropped[[length(.orthologr_state$dropped) + 1L]] <- data.frame(
+                file   = if (is.null(file)) NA_character_ else as.character(file),
+                id     = as.character(ids),
+                reason = reason,
+                stringsAsFactors = FALSE
+        )
+        invisible(NULL)
+}
+
+# Start collecting; returns a function that ends it and returns the table (file, id, reason; no row twice).
+dropped_start <- function() {
+        if (!is.null(.orthologr_state$dropped))
+                return(function() NULL)
+        .orthologr_state$dropped <- list()
+        function() {
+                res <- .orthologr_state$dropped
+                .orthologr_state$dropped <- NULL
+                if (length(res) == 0)
+                        return(data.frame(file = character(0), id = character(0), reason = character(0),
+                                          stringsAsFactors = FALSE))
+                res <- unique(do.call(rbind, res))
+                rownames(res) <- NULL
+                res
+        }
 }
 
 # Translate coding sequences (character vector) with the standard genetic code; the result is what transl()
