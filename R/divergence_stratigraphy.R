@@ -48,7 +48,17 @@
 #' @param ds.values a logical value specifying whether divergence stratum values (ds values) or dNdS values shall be returned
 #' by \code{divergence_stratigraphy}. Default is \code{ds.values} = \code{TRUE}.
 #' @param subject.id a logical value indicating whether \code{query_id} AND \code{subject_id} should be returned.
-#' @param n_quantile a numeric value specifying the number of quantiles that should be returned.
+#' @param n_quantile a numeric value specifying the number of quantiles that should be returned. Many equal dN/dS
+#' values (e.g. dN/dS = 0 for more than \code{1/n_quantile} of the genes of two closely related genomes) no longer
+#' stop the function after the run: see the section on ties in \code{\link{divergence_map}}.
+#' @param dS_zero what to do with gene pairs whose dS is 0 (dN/dS not defined): \code{"keep"} (default) keeps them
+#' with the stratum (or dNdS value) \code{NA}; \code{"drop"} leaves them out, as orthologr <= 0.4.3 did without
+#' saying so. See \code{\link{filter_dNdS}}; \code{options(orthologr.dS_zero = "drop")} sets the default.
+#' @return A \code{data.frame} with the divergence stratum (column \code{DS}; or \code{dNdS} with
+#' \code{ds.values = FALSE}) and the \code{query_id} (and \code{subject_id}) of every gene pair.
+#' \code{attr(result, "dNdS_tbl")} holds the complete dN/dS table of the run as returned by \code{\link{dNdS}},
+#' before filtering and binning, so that a finished run can be binned again (\code{\link{divergence_map}}) without
+#' computing it again.
 #' @details Introduced by Quint et al., 2012 and extended in Drost et al. 2015, divergence stratigraphy
 #'  is the process of quantifying the selection pressure (in terms of amino acid sequence divergence) acting on
 #'  orthologous genes between closely related species. The resulting sequence divergence map (short divergence map),
@@ -169,7 +179,6 @@
 #'       
 #'  }
 #'  
-#' @return A data.table storing the divergence map of the query organism.
 #' @seealso 
 #' \code{\link{dNdS}}, \code{\link{divergence_map}},\code{\link{substitutionrate}}, \code{\link{multi_aln}},
 #'   \code{\link{codon_aln}}, \code{\link{diamond_best}}, \code{\link{diamond_rec}},
@@ -192,7 +201,8 @@ divergence_stratigraphy <- function(query_file,
                                     ds.values       = TRUE,
                                     subject.id      = FALSE,
                                     n_quantile      = 10,
-                                    sensitivity_mode = "fast"){
+                                    sensitivity_mode = "fast",
+                                    dS_zero         = getOption("orthologr.dS_zero", "keep")){
         
         if (!is.ortho_detection_method(ortho_detection))
                 stop("Please choose a orthology detection method that is supported by this function.")
@@ -213,33 +223,55 @@ divergence_stratigraphy <- function(query_file,
         # http://stackoverflow.com/questions/8096313/no-visible-binding-for-global-variable-note-in-r-cmd-check?lq=1
         query_id <- subject_id <- dNdS <- NULL
         
-        dNdS_tbl <- filter_dNdS( dNdS( query_file      = query_file,
-                                       subject_file    = subject_file,
-                                       aligner         = aligner,
-                                       sensitivity_mode = sensitivity_mode,
-                                       aligner_path    = aligner_path, 
-                                       ortho_detection = ortho_detection,
-                                       delete_corrupt_cds = delete_corrupt_cds,
-                                       aa_aln_type     = "pairwise", 
-                                       aa_aln_tool     = "NW",
-                                       codon_aln_tool  = "pal2nal", 
-                                       dnds_est.method = dnds_est.method,
-                                       eval            = eval,
-                                       comp_cores      = comp_cores,
-                                       store_locally   = store_locally,
-                                       quiet           = quiet ), 
-                                       dnds.threshold  = dnds.threshold)
+        # checked before the long run, not after it
+        if (!is.numeric(n_quantile) || length(n_quantile) != 1 || is.na(n_quantile) || n_quantile < 1 ||
+            n_quantile != round(n_quantile))
+                stop("n_quantile must be one whole number >= 1 (the number of divergence strata).", call. = FALSE)
+        if (!is.character(dS_zero) || length(dS_zero) != 1 || !is.element(dS_zero, c("keep", "drop")))
+                stop("dS_zero must be \"keep\" or \"drop\".", call. = FALSE)
+        
+        dNdS_full <- dNdS( query_file      = query_file,
+                           subject_file    = subject_file,
+                           aligner         = aligner,
+                           sensitivity_mode = sensitivity_mode,
+                           aligner_path    = aligner_path, 
+                           ortho_detection = ortho_detection,
+                           delete_corrupt_cds = delete_corrupt_cds,
+                           aa_aln_type     = "pairwise", 
+                           aa_aln_tool     = "NW",
+                           codon_aln_tool  = "pal2nal", 
+                           dnds_est.method = dnds_est.method,
+                           eval            = eval,
+                           comp_cores      = comp_cores,
+                           store_locally   = store_locally,
+                           quiet           = quiet )
+        
+        dNdS_tbl <- filter_dNdS(dNdS_full, dnds.threshold = dnds.threshold, dS_zero = dS_zero)
         
         if (ds.values) {
                 # divergence map: standard = col1: divergence stratum, col2: query_id
-                dm_tbl <- divergence_map( dNdS_tbl = dNdS_tbl , subject.id = subject.id , n_quantile = n_quantile)
+                # The dN/dS run is finished at this point and must not be lost: should the binning fail, the
+                # dN/dS table is returned (with a warning) instead of an error.
+                dm_tbl <- tryCatch(
+                        divergence_map( dNdS_tbl = dNdS_tbl , subject.id = subject.id , n_quantile = n_quantile),
+                        error = function(e) e
+                )
+                if (inherits(dm_tbl, "error")) {
+                        warning("The dN/dS values could not be sorted into divergence strata (", conditionMessage(dm_tbl),
+                                "). The dN/dS table is returned instead of the divergence map; use divergence_map() on it.",
+                                call. = FALSE)
+                        res <- as.data.frame(dNdS_full)
+                        attr(res, "dNdS_tbl") <- dNdS_full
+                        return(res)
+                }
         }
         
         if (!ds.values) {
+                # (rows with dNdS = NA are gene pairs with dS = 0 that dS_zero = "keep" retains)
                 if (!subject.id)
-                        dm_tbl <- stats::na.omit(dplyr::select(dNdS_tbl, dNdS,query_id))
+                        dm_tbl <- dplyr::select(dNdS_tbl, dNdS,query_id)
                 if (subject.id)
-                        dm_tbl <- stats::na.omit(dplyr::select(dNdS_tbl, dNdS,query_id,subject_id))
+                        dm_tbl <- dplyr::select(dNdS_tbl, dNdS,query_id,subject_id)
         }
         
         if (clean_folders)
@@ -251,6 +283,9 @@ divergence_stratigraphy <- function(query_file,
                 colnames(DivergenceMap.DF)[1] <- "DS"
         if (!ds.values)
                 colnames(DivergenceMap.DF)[1] <- "dNdS"
+        
+        # the complete dN/dS table of the run (before filtering and binning) comes with the result
+        attr(DivergenceMap.DF, "dNdS_tbl") <- dNdS_full
         
         message("Divergence Stratigraphy completed successfully.")
         return( DivergenceMap.DF )
