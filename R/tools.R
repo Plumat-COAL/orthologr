@@ -160,7 +160,7 @@ tool_available <- function(program, version_args, pattern, path = NULL, not_foun
 
 # Forget which programs were found (for tests, or after installing a program in a running session).
 tool_cache_reset <- function() {
-        rm(list = ls(.orthologr_state, all.names = TRUE), envir = .orthologr_state)
+        rm(list = setdiff(ls(.orthologr_state, all.names = TRUE), "seq_cache"), envir = .orthologr_state)
         invisible(TRUE)
 }
 

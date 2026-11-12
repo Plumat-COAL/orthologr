@@ -305,6 +305,10 @@ dNdS <- function(query_file,
         end_tmpdir <- orthologr_tmpdir_start("orthologr_dNdS_")
         on.exit(end_tmpdir(), add = TRUE)
         
+        # the two input files are read and translated once for all steps of this call
+        end_seq_cache <- seq_cache_start()
+        on.exit(end_seq_cache(), add = TRUE)
+        
         if (store_locally) {
                 if (file.exists("orthologr_alignment_files")) {
                         message("The folder 'orthologr_alignment_files' seems to exist already.",
@@ -369,13 +373,10 @@ dNdS <- function(query_file,
                 data.table::setDT(hit.table)
                 data.table::setkeyv(hit.table, c("query_id","subject_id"))
                 
-                q_cds <- read.cds(file   = query_file,
-                                  format = format,
-                                  delete_corrupt_cds = delete_corrupt_cds)
+                # (both files were read and translated for the search: they are not read again)
+                q_cds <- read_cds_once(query_file, delete_corrupt_cds = delete_corrupt_cds)
                 
-                s_cds <- read.cds(file   = subject_file,
-                                  format = format,
-                                  delete_corrupt_cds = delete_corrupt_cds)
+                s_cds <- read_cds_once(subject_file, delete_corrupt_cds = delete_corrupt_cds)
                 
                 # The proteins of both organisms, translated from the coding sequences read above (the same
                 # translation set_diamond() / set_blast() perform for the search).
@@ -383,8 +384,8 @@ dNdS <- function(query_file,
                 # in '_blast_db': when query_file and subject_file have the same file name in different folders
                 # (e.g. 'a/cds.fa' and 'b/cds.fa') both names are the same file, and the query proteins were
                 # silently replaced by the subject's.
-                q_aa <- cds_protein_table(q_cds, delete_corrupt_cds = delete_corrupt_cds)
-                s_aa <- cds_protein_table(s_cds, delete_corrupt_cds = delete_corrupt_cds)
+                q_aa <- cds_protein_table_file(query_file, delete_corrupt_cds = delete_corrupt_cds)
+                s_aa <- cds_protein_table_file(subject_file, delete_corrupt_cds = delete_corrupt_cds)
         }
 
         data.table::setnames(q_cds, old = c("geneids", "seqs"), new = c("query_id","query_cds"))
