@@ -263,7 +263,7 @@ deepclust_annotate <- function(
                         "Duplicate sequence IDs found across input files. ",
                         "The left_join on member_id may produce ambiguous results.\n",
                         "Affected IDs include: ",
-                        paste(head(unique(dup_ids)), collapse = ", "),
+                        paste(utils::head(unique(dup_ids)), collapse = ", "),
                         call. = FALSE
                 )
         }
