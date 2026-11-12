@@ -10,8 +10,14 @@ check_annotation(annotation_file, remove_annotation_outliers = FALSE)
 \item{annotation_file}{a file path tp the annotation file.}
 
 \item{remove_annotation_outliers}{shall outlier lines be removed from the input \code{annotation_file}? 
-If yes, then the initial \code{annotation_file} will be overwritten and the removed outlier lines will be stored at \code{\link{tempdir}}
-for further exploration.}
+If yes, a copy of the annotation file without these lines is written to
+\code{file.path(tempdir(), "orthologr_annotation_without_outliers")} under the same file name (without \code{.gz}) and
+its path is returned. The \code{annotation_file} itself is not changed (until version 0.4.3 it was overwritten).
+The removed outlier lines are stored in \code{\link{tempdir}} for further exploration.}
+}
+\value{
+The path of the annotation file that can be imported: \code{annotation_file} itself when it holds no
+outlier lines (or when \code{remove_annotation_outliers = FALSE}), otherwise the path of the cleaned copy.
 }
 \description{
 Some annotation files include lines with character lengths greater than 65000. This causes problems when trying to import such annotation files into R using \href{https://rdrr.io/bioc/rtracklayer/man/export.html}{\code{import}}.
@@ -27,8 +33,8 @@ Ath_path <- biomartr::getGFF(organism = "Arabidopsis thaliana")
 orthologr::check_annotation(Ath_path)
 # several outlier lines were detected, thus we re-run the
 # function using 'remove_annotation_outliers = TRUE'
-# to remove the outliers and overwrite the file
-check_annotation(Ath_path, remove_annotation_outliers = TRUE)
+# to get a copy of the file without the outlier lines
+Ath_clean <- check_annotation(Ath_path, remove_annotation_outliers = TRUE)
 }
 }
 \author{
