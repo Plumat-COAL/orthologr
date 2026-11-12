@@ -1,5 +1,44 @@
 ## `orthologr` development version
 
+### External programs are run through one checked helper
+
+- **No more stale results.** `blast()`, `blast_best()`, `blast_rec()`, `diamond()`, `deepclust()`,
+  `deepclust_realign()`, `multi_aln()`, `codon_aln()` and `substitutionrate()` start their programs through one
+  internal helper (`run_tool()`), which quotes all arguments, checks the exit status, checks that the expected
+  output was written and puts the program's own message into the error. Before, a failed BLAST, MSA or
+  KaKs_Calculator run could go unnoticed and the result of the *previous* call was returned: e.g.
+  `blast(..., blast_params = "-max_target_seqs 1")` (an example of the man page, which BLAST rejects) returned the
+  hit table of the call before it, and `substitutionrate(est.method = "kaks_calc")` returned the rows of an earlier
+  run. These calls now stop with the program's message.
+- **Every call works in files of its own.** `blast()`, `diamond()`, `deepclust()` and `deepclust_realign()` work
+  in a folder that is created for the call and removed when it ends (kept with `options(orthologr.keep_tmp = TRUE)`);
+  `multi_aln()`, `codon_aln()` and `substitutionrate()` let the program write to a uniquely named file. Results
+  that were documented to stay in `tempdir()` still do, under the same names: the hit table
+  (`_blast_db/blastresult_<query file>.csv`), alignments (`_alignment/multi_aln`, `_alignment/codon_aln`) and
+  databases built with `set_blast()` / `set_diamond()`. A file of an earlier call is removed before the program
+  starts and replaced only when the program has succeeded. `substitutionrate()` no longer leaves `*_gestimout`,
+  `.axt` and `.axt.kaks` files in `_calculation`.
+- **File and folder names with spaces work** in all of the functions above and in `dNdS()` (`makeblastdb`,
+  `diamond makedb` and the searches failed before). `set_blast()` / `set_diamond()` replace characters other than
+  letters, digits, `.`, `_`, `+`, `-` in the *database* name they return (names without such characters are unchanged).
+- **The R session is left alone.** No function changes the working directory any more (`setwd()` is gone from
+  `blast()`, `diamond()`, `set_blast()`, `set_diamond()`, `deepclust()`, `deepclust_realign()`), and a `path`
+  argument no longer adds that folder to the `PATH` of the session for good: it is used to start the program and
+  is on the `PATH` only while the program runs. As a consequence `blast(path = )` now also finds `makeblastdb`
+  there, and `multi_aln(path = )` / `substitutionrate(kaks_calc_path = )` work when the program is *only* in that
+  folder (the availability check ignored the argument).
+- **Programs are looked up once per session.** The "is it installed" checks started the program on every call
+  (2-150 ms each, once per gene pair in `dNdS()` with a multiple-alignment tool or a KaKs_Calculator model); the
+  answer is now remembered per program and path.
+- `select_orthologs()` no longer stores its joined table in `tempdir()` under a name made of the two annotation
+  file names. A second call with the same annotation files but another `dnds_tbl` returned the table of the first
+  call.
+- `save.output` of `blast()`, `diamond()`, `deepclust()` and `deepclust_realign()` overwrites a file of the same
+  name (it was silently left as it was).
+- `multi_aln()` and `codon_aln()` return the path of the alignment file invisibly when `get_aln = FALSE` (was
+  `NULL`). `multi_aln()` stops with a clear message when `file` does not exist.
+- `promotor_divergence_estimation()` writes its intermediate FASTA files to a folder of its own and removes it.
+
 ### Robustness of `dNdS()`
 
 - **One gene pair can no longer end a run.** Each gene pair is processed inside `tryCatch()`. A pair for which a
