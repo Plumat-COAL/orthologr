@@ -137,93 +137,15 @@ orthologs <- function(query_file,
 
         i <- NULL
 
-        if (seq_type == "cds") {
-                f_sep <- .Platform$file.sep
-
-                filename_qry <-
-                        unlist(strsplit(
-                                query_file,
-                                f_sep,
-                                fixed = FALSE,
-                                perl = TRUE,
-                                useBytes = FALSE
-                        ))
-                filename_qry <- filename_qry[length(filename_qry)]
-
-                write.proteome(
-                        proteome  = cds2aa(
-                                read.cds(query_file, format = format, delete_corrupt_cds = delete_corrupt_cds)
-                        ),
-                        file.name = file.path(orthologr_tmpdir(), paste0(filename_qry, "_translated.fasta"))
-                )
-
-                if (length(subject_files) > 1) {
-                        subj_short.names <- vector("character", length(subject_files))
-
-                        for (organism in seq_along(subject_files)) {
-                                short.name <-
-                                        unlist(
-                                                strsplit(
-                                                        subject_files[organism],
-                                                        f_sep,
-                                                        fixed = FALSE,
-                                                        perl = TRUE,
-                                                        useBytes = FALSE
-                                                )
-                                        )
-                                short.name <- short.name[length(short.name)]
-                                subj_short.names[organism] <- short.name
-
-                                write.proteome(
-                                        proteome  = cds2aa(
-                                                read.cds(subject_files[organism], format = format,
-                                                         delete_corrupt_cds = delete_corrupt_cds),
-                                                delete_corrupt_cds = delete_corrupt_cds
-                                        ),
-                                        file.name = file.path(
-                                                orthologr_tmpdir(),
-                                                paste0(short.name, "_translated.fasta")
-                                        )
-                                )
-                        }
-
-                        subject_files <-
-                                file.path(orthologr_tmpdir(),
-                                          paste0(subj_short.names, "_translated.fasta"))
-
-                } else {
-                        filename_subj <-
-                                unlist(
-                                        strsplit(
-                                                subject_files,
-                                                f_sep,
-                                                fixed = FALSE,
-                                                perl = TRUE,
-                                                useBytes = FALSE
-                                        )
-                                )
-                        filename_subj <- filename_subj[length(filename_subj)]
-
-                        write.proteome(
-                                proteome  = cds2aa(
-                                        read.cds(
-                                                subject_files,
-                                                format = format,
-                                                delete_corrupt_cds = delete_corrupt_cds
-                                        ),
-                                        delete_corrupt_cds = delete_corrupt_cds
-                                ),
-                                file.name = file.path(orthologr_tmpdir(),
-                                                      paste0(filename_subj, "_translated.fasta"))
-                        )
-
-                        subject_files <-
-                                file.path(orthologr_tmpdir(),
-                                          paste0(filename_subj, "_translated.fasta"))
-                }
-
-                query_file <-
-                        file.path(orthologr_tmpdir(), paste0(filename_qry, "_translated.fasta"))
+        # (For seq_type = "cds" the coding sequences used to be written to '<file>_translated.fasta' first - as
+        # DNA, not translated - and these copies were searched. The searches read and translate the input files
+        # themselves; the copies are gone.)
+        
+        # several transcripts per gene in an input file? (a warning; see ?dNdS, section 'Splice variants')
+        if (is.element(seq_type, c("cds", "protein"))) {
+                isoform_warning(query_file, "query_file")
+                for (f in subject_files)
+                        isoform_warning(f, "subject_files")
         }
 
         # ---- DIAMOND2 reciprocal best hit (default) ----
