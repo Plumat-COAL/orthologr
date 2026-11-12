@@ -39,9 +39,26 @@ calls that do not ask for it.
 
 `dNdS()`, `divergence_stratigraphy()` and `pairwise_aln()` align each pair of orthologous proteins with
 `pwalign::pairwiseAlignment(type = "global")`. Three things about this step have changed. Each of them changes
-some alignments and therefore, slightly, the dN, dS and dN/dS values of the affected gene pairs; results computed
+some alignments and therefore the dN, dS and dN/dS values of the affected gene pairs; results computed
 with this version are not numerically identical to results from `orthologr` <= 0.4.3. Please report the
 `orthologr` version (and, if you changed it, `aa_sub_matrix`) in the methods of analyses based on these values.
+
+**How large the change is.** Measured on the 1,000-gene example of the package (`ortho_thal_cds_1000.fasta` vs
+`ortho_lyra_cds_1000.fasta`, 984 reciprocal best hit pairs), 0.4.3 against this version:
+
+| | Comeron (default) | YN (KaKs_Calculator) |
+|---|---|---|
+| pairs with unchanged dN and dS | 66% (651 of 984) | 71% (699 of 984) |
+| Pearson r of dN, old vs new | 0.971 | 0.967 |
+| Pearson r of dS, old vs new | 0.940 | 0.997 |
+| Pearson r of dN/dS, old vs new | 0.988 | 0.984 |
+| largest change of dN / dS / dN/dS | 0.19 / 0.41 / 0.31 | 0.19 / 0.48 / 0.44 |
+| pairs whose dN/dS changes by more than 0.01 | 22% | 20% |
+
+So about a third of the gene pairs get other values. For most of them the change is small (median change of dN
+0.002, of dS 0.004-0.005 among the changed pairs), but for single pairs it is large, and rankings or thresholds
+on dN/dS (e.g. `filter_dNdS()`, divergence strata) can move. `options(orthologr.legacy_pairwise_aln = TRUE)`
+reproduces the values of 0.4.3.
 
 - **Amino acid alignments are scored with BLOSUM62.** Up to 0.4.3 no substitution matrix was passed to
   `pairwiseAlignment()`, so every mismatch cost the same, whichever amino acids were exchanged, and the aligner took
