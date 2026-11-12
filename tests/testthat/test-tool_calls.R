@@ -232,5 +232,7 @@ test_that("search wrappers leave no per-call folder behind and do not change the
         suppressMessages(deepclust(thal_aa()))
         expect_identical(getwd(), wd)
         expect_setequal(setdiff(list.files(tempdir()), c(before, "_blast_db")), character(0))
-        expect_length(list.files(tempdir(), pattern = "^(diamond|blast|deepclust)_"), 0L)
+        # (other tests save result files named 'deepclust_*.tsv' in tempdir(): look at folders only)
+        dirs <- basename(list.dirs(tempdir(), recursive = FALSE))
+        expect_length(grep("^(diamond|blast|deepclust|deepclust_realign)_[0-9a-f]+$", dirs), 0L)
 })
