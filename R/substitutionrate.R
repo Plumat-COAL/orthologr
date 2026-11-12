@@ -180,13 +180,10 @@ substitutionrate <- function(file,
                         
                         #system(paste0("gestimator -i ",file," -o ",file.out))
                         
-                        hit.table <- data.table::fread(file.out)
-                        
-                        data.table::setnames(
-                                x   = hit.table,
-                                old = c("V1", "V2", "V3", "V4", "V5"),
-                                new = c("query_id", "subject_id", "dN", "dS", "dNdS")
-                        )
+                        # The columns are read as what they are: without colClasses fread() guesses the types,
+                        # and IDs that look like numbers ("1001", "007", "1e5", "1.10") or like logical values
+                        # ("TRUE", "NA") came back as another ID or as NA.
+                        hit.table <- read_gestimator_table(file.out)
                         
                         data.table::setkey(hit.table, query_id)
                         
@@ -278,8 +275,8 @@ substitutionrate <- function(file,
                 
                 run_tool(
                         "KaKs_Calculator",
-                        args = list("-i", axt_file, "-o", kaks_file,
-                                    if (is.null(kaks_calc.params)) I(paste0("-m ", est.method)) else I(kaks_calc.params)),
+                        args = c(list("-i", axt_file, "-o", kaks_file),
+                                 kaks_calc_args(est.method, kaks_calc.params)),
                         path    = kaks_calc_path,
                         tool    = "KaKs_Calculator",
                         context = context,
@@ -295,6 +292,36 @@ substitutionrate <- function(file,
                 
                 return(kaks_result_table(kaks_tbl, pair_ids, context))
         }
+}
+
+# The table gestimator writes (tab-separated, no header: query id, subject id, dN, dS, dN/dS), with the IDs read
+# as character whatever they look like.
+read_gestimator_table <- function(file) {
+        res <- data.table::fread(
+                file       = file,
+                sep        = "\t",
+                header     = FALSE,
+                quote      = "",
+                colClasses = c("character", "character", "numeric", "numeric", "numeric"),
+                col.names  = c("query_id", "subject_id", "dN", "dS", "dNdS"),
+                na.strings = ""
+        )
+        res
+}
+
+# The method arguments of a KaKs_Calculator call. The method asked for with 'est.method' is always handed over
+# ('-m <est.method>'); 'kaks_calc.params' is added to it. (It used to replace it: est.method = "YN" with
+# kaks_calc.params = "-c 1" ran KaKs_Calculator's default model MA.) est.method = "kaks_calc" stands for "the
+# methods are given in kaks_calc.params" and adds nothing.
+kaks_calc_args <- function(est.method, kaks_calc.params = NULL) {
+        has_params <- !is.null(kaks_calc.params) && any(nzchar(trimws(kaks_calc.params)))
+        if (identical(est.method, "kaks_calc")) {
+                if (!has_params)
+                        stop("est.method = \"kaks_calc\" needs the methods in 'kaks_calc.params', e.g. kaks_calc.params = \"-m NG -m YN\".",
+                             call. = FALSE)
+                return(list(I(kaks_calc.params)))
+        }
+        c(list("-m", est.method), if (has_params) list(I(kaks_calc.params)))
 }
 
 # The result table of substitutionrate() from KaKs_Calculator's output table 'kaks_tbl' (columns Sequence, Method,
