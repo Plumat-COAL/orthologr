@@ -144,6 +144,11 @@ naming the pair, the program and its message.
 
 Each call keeps its intermediate files (search database, alignments, KaKs_Calculator files) in a folder of its own
 inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it.
+
+\code{attr(result, "dropped_sequences")} is a \code{data.frame} (\code{file}, \code{id}, \code{reason}) with the
+input sequences that were left out before the search: coding sequences with characters other than A, C, G, T (they
+cannot be translated; e.g. 5'-incomplete Ensembl CDS that are padded with N), empty sequences and, with
+\code{delete_corrupt_cds = TRUE}, sequences whose length is not a multiple of 3. A message gives their number.
 }
 \description{
 This function takes the CDS files of two organisms of interest (query_file and subject_file)
@@ -222,6 +227,29 @@ The \code{dNdS()} function can be used choosing the folllowing options:
 
 }
 }
+\section{Sequence IDs}{
+
+The ID of a sequence is its FASTA header up to the first white space. IDs must be unique within a file (a
+duplicated ID is an error that names it) and are returned exactly as they are in the input files, whatever they
+look like (numbers, \code{|}, \code{-}, more than 15 characters): the IDs of a gene pair are carried through the
+alignment and estimation steps and are not read back from the output of the external programs.
+}
+
+\section{Splice variants}{
+
+Every sequence of an input file is treated as a gene. A file that holds several transcripts per gene (for example
+the \code{cds/all} files of Ensembl or files retrieved with \code{biomartr::getCDS()}) gives several rows per gene
+with different partners and different dN/dS values, and the splice variants of a gene compete as best hits.
+Please keep one transcript per gene first, e.g. with \code{\link{retrieve_longest_isoforms}}.
+\code{dNdS()} warns when a file seems to hold several transcripts per gene. The check is a conservative heuristic
+that never changes a result: (1) when at least 90\% of the FASTA headers name their gene (Ensembl
+\code{gene:<ID>}, NCBI \code{[locus_tag=<ID>]} or \code{[gene=<symbol>]}) the genes are counted from these fields;
+(2) otherwise a transcript suffix is removed from the IDs (\code{.<number>}, \code{.t<number>}, \code{-T<number>},
+\code{-R<letter>}, \code{-P<letter>}, \code{-mRNA-<number>}, \code{_i<number>}, \code{.p<number>}) and a warning
+is given only when at least 5 of the remaining stems, and at least 1\% of them, occur more than once.
+\code{options(orthologr.isoform_warning = FALSE)} switches the check off.
+}
+
 \examples{
 \dontrun{
 
