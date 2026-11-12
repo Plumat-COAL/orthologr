@@ -1,0 +1,53 @@
+# conda environment for orthologr: R, the R packages orthologr imports and suggests, and the external programs.
+#
+#   conda env create -f environment.yml        (or: mamba / micromamba env create -f environment.yml)
+#   conda activate orthologr
+#   Rscript -e 'remotes::install_github("drostlab/orthologr")'
+#
+# Only DIAMOND and Perl are needed for the default dNdS() path; the other programs are optional
+# (BLAST+: aligner = "blast"; KaKs_Calculator: dN/dS methods other than Comeron and Li; the multiple
+# alignment programs: aa_aln_type = "multiple"). OrthoFinder is not included: install it into an environment
+# of its own if you need it.
+# Solved with micromamba for linux-64 on 2026-11-12. clustalw, kakscalculator2 and t-coffee have no Windows
+# builds on bioconda; on Windows see vignette("setup_windows").
+name: orthologr
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base>=4.4
+  # R packages: Imports
+  - bioconductor-biostrings>=2.72
+  - bioconductor-pwalign
+  - r-data.table
+  - r-dplyr
+  - r-rcpp
+  - r-readr
+  - r-rlang
+  - r-seqinr
+  - r-stringr
+  - r-tibble
+  # R packages: Suggests
+  - bioconductor-rtracklayer
+  - r-ape
+  - r-benchmarkme
+  - r-ggplot2
+  - r-scales
+  - r-tidyr
+  - r-knitr
+  - r-rmarkdown
+  - r-testthat
+  - r-remotes
+  # to build the package from source
+  - compilers
+  - make
+  # external programs
+  - diamond>=2.1
+  - perl
+  - blast
+  - kakscalculator2
+  - clustalw
+  - clustalo
+  - mafft
+  - muscle
+  - t-coffee
