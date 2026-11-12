@@ -48,10 +48,7 @@
 #' the attribute \code{"failed_pairs"} of the result (a \code{data.frame} with \code{query_id}, \code{subject_id} and
 #' \code{reason}), and a warning reports how many pairs failed.
 #' 
-#' @references \url{https://www.r-bloggers.com/2013/08/the-wonders-of-foreach/}
 #' @seealso \code{\link{multi_aln}}, \code{\link{substitutionrate}}, \code{\link{dNdS}}
-#' @import foreach 
-#' @import data.table
 compute_dnds <- function(complete_tbl,
                          aa_aln_type     = "multiple", 
                          aa_aln_tool     = "clustalw", 
@@ -67,8 +64,7 @@ compute_dnds <- function(complete_tbl,
                          aa_sub_matrix   = "BLOSUM62",
                          kaks_tool       = "kaks_calculator"){
         
-        if (comp_cores > parallel::detectCores())
-                stop("You assigned more cores to the comp_cores argument than are availible on your machine.")
+        comp_cores <- check_comp_cores(comp_cores)
         
         
         # due to the discussion of no visible binding for global variable for
@@ -142,6 +138,7 @@ compute_dnds <- function(complete_tbl,
                                 get_aln        = FALSE,
                                 multi_aln_name = aa_aln_name,
                                 path           = aa_aln_path,
+                                params         = aa_aln_params,
                                 quiet          = quiet
                         )
                         
@@ -233,20 +230,13 @@ compute_dnds <- function(complete_tbl,
         }
         
         if (multicore) {
-                ### Parallellizing the sampling process using the 'doParallel' and 'parallel' package
-                ### register all given cores for parallelization
-                par_cores <- parallel::makeForkCluster(comp_cores)
+                # The gene pairs are spread over 'comp_cores' R processes of the 'parallel' package: forked
+                # processes where the operating system can fork, otherwise (Windows) processes that are started
+                # anew and get the package, the options and the working folder of this call.
+                par_cores <- dnds_cluster(comp_cores)
                 on.exit(parallel::stopCluster(par_cores), add = TRUE)
-                doParallel::registerDoParallel(par_cores)
                 
-                dNdS_values <-
-                        foreach::foreach(
-                                i              = seq_len(nrow(complete_tbl)),
-                                .packages      = c("seqinr", "data.table"),
-                                .errorhandling = "stop"
-                        ) %dopar% {
-                                safe_pair(i)
-                        }
+                dNdS_values <- parallel::parLapply(par_cores, seq_len(nrow(complete_tbl)), safe_pair)
         }
         
         dNdS_tbl <- data.table::rbindlist(dNdS_values, use.names = TRUE, fill = TRUE)
@@ -296,4 +286,37 @@ dnds_na_row <- function(query_id, subject_id, est.method, reason) {
                 row[["method"]] <- est.method
         row[[".reason"]] <- as.character(reason)
         return(row)
+}
+
+# A cluster of `n` R processes for compute_dnds().
+#   "FORK"  : forked processes (not on Windows); they share the data and the state of this R session
+#   "PSOCK" : new R processes; orthologr is loaded in each of them and the orthologr options of this session
+#             (working folder of the call, legacy switches, ...) are set there
+# options(orthologr.cluster_type = "PSOCK") chooses the second kind where both are possible.
+dnds_cluster <- function(n) {
+        type <- getOption("orthologr.cluster_type", if (.Platform$OS.type == "windows") "PSOCK" else "FORK")
+        if (!is.element(type, c("FORK", "PSOCK")))
+                stop("options(orthologr.cluster_type = ) must be \"FORK\" or \"PSOCK\".", call. = FALSE)
+        if (type == "FORK" && .Platform$OS.type == "windows")
+                type <- "PSOCK"
+        if (type == "FORK")
+                return(parallel::makeForkCluster(n))
+        
+        cl <- parallel::makePSOCKcluster(n)
+        ok <- tryCatch({
+                opts <- options()
+                opts <- opts[startsWith(names(opts), "orthologr.")]
+                parallel::clusterCall(cl, function(lib_paths, opts, path) {
+                        .libPaths(lib_paths)
+                        Sys.setenv(PATH = path)
+                        loadNamespace("orthologr")
+                        options(opts)
+                        TRUE
+                }, .libPaths(), opts, Sys.getenv("PATH"))
+                TRUE
+        }, error = function(e) {
+                parallel::stopCluster(cl)
+                stop("The R processes for comp_cores = ", n, " could not be started: ", conditionMessage(e), call. = FALSE)
+        })
+        cl
 }

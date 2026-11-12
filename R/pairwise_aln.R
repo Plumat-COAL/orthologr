@@ -29,7 +29,7 @@
 #' 
 #' The default pairwise alignment method is based on the \emph{Needleman-Wunsch Algorithm}.
 #' 
-#' Since \pkg{orthologr} 0.4.4 (see \code{NEWS.md}):
+#' Since \pkg{orthologr} 0.5.0 (see \code{NEWS.md}):
 #' \itemize{
 #' \item amino acid sequences are scored with \code{BLOSUM62} by default (argument \code{aa_sub_matrix});
 #' \item the alignment that is written is full length: every residue of both sequences is in it, and the overhanging
@@ -56,7 +56,6 @@
 #'                                                                                                                                                          
 #' }
 #' @return In case the argument \code{get_aln} is set \code{TRUE}, an object of class alignment of the seqinr package is returned.
-#' @import Biostrings
 #' @export
 pairwise_aln <- function(file, 
                          tool              = "NW", 

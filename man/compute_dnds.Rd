@@ -87,9 +87,6 @@ does not end the run: the pair is returned with \code{NA} values for dN, dS and 
 the attribute \code{"failed_pairs"} of the result (a \code{data.frame} with \code{query_id}, \code{subject_id} and
 \code{reason}), and a warning reports how many pairs failed.
 }
-\references{
-\url{https://www.r-bloggers.com/2013/08/the-wonders-of-foreach/}
-}
 \seealso{
 \code{\link{multi_aln}}, \code{\link{substitutionrate}}, \code{\link{dNdS}}
 }

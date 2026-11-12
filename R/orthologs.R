@@ -4,7 +4,7 @@
 #' based on selected orthology inference programs.
 #' @param query_file a character string specifying the path to the sequence file of interest (query organism).
 #' @param subject_files a character string specifying the paths to the sequence files of interest (subject organisms).
-#' @param outgroup_file currently unused; reserved for future use.
+#' @param outgroup_file deprecated and not used (a warning is given when it is set).
 #' @param eval a numeric value specifying the E-Value cutoff for hit detection.
 #' @param seq_type a character string specifying the sequence type stored in the input file.
 #' Options are: "cds", "protein", or "dna". In case of "cds", sequences are translated to protein sequences,
@@ -19,7 +19,7 @@
 #'   \item \code{"DIAMOND_BH"}: DIAMOND2 best hit
 #'   \item \code{"RBH"}: BLAST reciprocal best hit
 #'   \item \code{"BH"}: BLAST best hit
-#'   \item \code{"Orthofinder2"}: OrthoFinder2 (currently under development)
+#'   \item \code{"Orthofinder2"}: not implemented (an error; run OrthoFinder yourself and import its tables)
 #' }
 #' @param sensitivity_mode a character string specifying the DIAMOND2 sensitivity level.
 #' Only used when \code{ortho_detection} is \code{"DIAMOND_RBH"} or \code{"DIAMOND_BH"}.
@@ -29,7 +29,7 @@
 #' Default is \code{10000}.
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should
 #' be removed from the input \code{file}. Default is \code{FALSE}.
-#' @param cdd.path currently unused; reserved for future use.
+#' @param cdd.path deprecated and not used (a warning is given when it is set).
 #' @param path a character string specifying the path to the orthology inference tool executable.
 #' @param add_params a character string specifying additional parameters passed to the orthology inference tool.
 #' For DIAMOND2 methods, use \code{diamond_params} instead. Default is \code{NULL}.
@@ -123,6 +123,17 @@ orthologs <- function(query_file,
                         ),
                         call. = FALSE
                 )
+
+        for (unused in c("outgroup_file", "cdd.path")) {
+                if (!is.null(get(unused)))
+                        warning("The argument '", unused, "' is deprecated and not used.", call. = FALSE)
+        }
+
+        # 'Orthofinder2' was announced but never implemented (the call returned NULL with a message)
+        if (ortho_detection == "Orthofinder2")
+                stop("ortho_detection = 'Orthofinder2' is not implemented in orthologs(). ",
+                     "Please choose one of: 'DIAMOND_RBH', 'DIAMOND_BH', 'RBH', 'BH', or run OrthoFinder yourself ",
+                     "(see ?orthofinder2_retrieve_core_orthologs to import its single-copy orthogroups).", call. = FALSE)
 
         i <- NULL
 
@@ -316,10 +327,5 @@ orthologs <- function(query_file,
         }
 
         # ---- OrthoFinder2 (under development) ----
-        if (ortho_detection == "Orthofinder2") {
-                message("The 'Orthofinder2' option is currently under development and will be available soon.")
-                return(invisible(NULL))
-        }
-
         return(ortho_tbl)
 }

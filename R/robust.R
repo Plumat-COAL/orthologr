@@ -119,3 +119,13 @@ check_aa_sub_matrix <- function(aa_sub_matrix) {
                 stop("'aa_sub_matrix' must be the name of a substitution matrix (e.g. \"BLOSUM62\"), a numeric substitution matrix, or NULL.", call. = FALSE)
         invisible(TRUE)
 }
+
+# The same table for a CDS file: cds_protein_table(read.cds(file)), taken from what was already read and
+# translated in this call (see seq_cache_start()).
+cds_protein_table_file <- function(file, delete_corrupt_cds = TRUE) {
+        geneids <- aa <- NULL
+        tmp <- protein_table(file = file, seq_type = "cds", delete_corrupt_cds = delete_corrupt_cds)
+        res <- data.table::data.table(geneids = tmp[ , geneids], seqs = toupper(tmp[ , aa]))
+        data.table::setkey(res, geneids)
+        return(res)
+}

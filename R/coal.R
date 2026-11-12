@@ -64,21 +64,18 @@ is_installed_coal <- function() {
         }, error = function(e) FALSE))
 }
 
-# Run coal-cpp with 'args' (already quoted), stdout to 'stdout' (a file) when given. Stops when it fails.
+# Run coal-cpp with 'args' (a list; quoted by run_tool()), stdout to 'stdout' (a file) when given. Stops when it
+# fails or when 'output' was not written. Started through run_tool() like every other external program.
 coal_run_binary <- function(exe, args, context, output, stdout = NULL) {
-        err_file <- paste0(output, ".stderr")
-        run <- paste0(
-                shQuote(exe), " ", paste(args, collapse = " "),
-                if (!is.null(stdout)) paste0(" > ", shQuote(stdout)) else "",
-                " 2> ", shQuote(err_file)
+        run_tool(
+                basename(exe),
+                args    = args,
+                path    = dirname(exe),
+                stdout  = stdout,
+                tool    = "COAL (coal-cpp)",
+                context = context,
+                output  = output
         )
-        status <- tryCatch({
-                if (Sys.info()[1] == "Windows") shell(run) else system(run)
-        }, error = function(e) {
-                stop("COAL (coal-cpp) could not be started for ", context, ": ", conditionMessage(e), call. = FALSE)
-        })
-        check_external(status, tool = "COAL (coal-cpp)", context = context, log = err_file, output = output)
-        unlink(err_file)
         invisible(TRUE)
 }
 
@@ -115,14 +112,19 @@ coal_codon_aln_file <- function(file_aln, file_nuc, file.out, format = "fasta", 
         backend <- coal_backend()
         if (is.null(context))
                 context <- pair_context(file_nuc)
+        # as for PAL2NAL: an alignment left by an earlier call is removed, the new one is written under a name of
+        # its own and becomes 'file.out' only when it is complete
         if (file.exists(file.out))
                 unlink(file.out)
+        tmp.out <- tempfile("aln_", tmpdir = dirname(file.out), fileext = ".tmp")
+        on.exit(unlink(tmp.out), add = TRUE)
 
         if (backend$type == "binary") {
                 # coal-cpp takes PAL2NAL's command line
                 coal_run_binary(backend$path,
-                                c(shQuote(file_aln), shQuote(file_nuc), "-output", format, "-o", shQuote(file.out)),
-                                context = context, output = file.out)
+                                list(file_aln, file_nuc, "-output", format, "-o", tmp.out),
+                                context = context, output = tmp.out)
+                publish_file(tmp.out, file.out)
                 return(invisible(file.out))
         }
 
@@ -144,7 +146,8 @@ coal_codon_aln_file <- function(file_aln, file_nuc, file.out, format = "fasta", 
                                          conditionMessage(e), call. = FALSE)
         )
         names(codon) <- names(cds)
-        write_alignment(codon, file.out, format = format)
+        write_alignment(codon, tmp.out, format = format)
+        publish_file(tmp.out, file.out)
         invisible(file.out)
 }
 
@@ -172,14 +175,14 @@ coal_kaks_file <- function(file, est.method, subst_name = NULL) {
                 calc_dir <- file.path(orthologr_tmpdir(), "_calculation")
                 if (!file.exists(calc_dir))
                         dir.create(calc_dir, recursive = TRUE)
-                axt_file <- file.path(calc_dir, paste0(basename(file), ".axt"))
-                out_file <- file.path(calc_dir, paste0(basename(file), ".coal.tsv"))
+                # input and output of this call have names of their own and are removed afterwards
+                axt_file <- tempfile(paste0(safe_file_name(basename(file)), "_"), tmpdir = calc_dir, fileext = ".axt")
+                out_file <- paste0(axt_file, ".coal.tsv")
+                on.exit(unlink(c(axt_file, out_file)), add = TRUE)
                 writeLines(c(if (is.null(subst_name)) "pair" else subst_name, seqs[[1]], seqs[[2]], ""), axt_file)
-                if (file.exists(out_file))
-                        unlink(out_file)
                 coal_run_binary(backend$path,
-                                c("dnds", shQuote(axt_file), "-o", shQuote(out_file), "-m", est.method, "-j", "1", "-q",
-                                  "--digits", "17"),
+                                list("dnds", axt_file, "-o", out_file, "-m", est.method, "-j", "1", "-q",
+                                     "--digits", "17"),
                                 context = context, output = out_file)
                 k <- utils::read.delim(out_file, sep = "\t", quote = "", na.strings = "NA", stringsAsFactors = FALSE)
                 if (nrow(k) < 1)
@@ -292,6 +295,10 @@ dNdS_coal <- function(query_file,
                 stop("engine = \"coal\" supports ortho_detection = \"RBH\" or \"BH\".", call. = FALSE)
         if (!identical(seq_type, "cds"))
                 stop("dN/dS estimation needs coding sequences: seq_type = \"cds\".", call. = FALSE)
+        check_choice(format, "fasta", "format", hint = "dNdS_coal() reads coding sequences from FASTA files.")
+        if (aligner == "diamond")
+                check_sensitivity_mode(sensitivity_mode)
+        comp_cores <- check_comp_cores(comp_cores)
         if (!is.character(dnds_est.method) || length(dnds_est.method) < 1 || !all(is.element(dnds_est.method, coal_methods())))
                 stop(
                         "engine = \"coal\" computes dnds_est.method = ", paste0("\"", coal_methods(), "\"", collapse = ", "),
@@ -323,6 +330,10 @@ dNdS_coal <- function(query_file,
         end_tmpdir <- orthologr_tmpdir_start("orthologr_dNdS_")
         on.exit(end_tmpdir(), add = TRUE)
 
+        # the two input files are read and translated once for all steps of this call
+        end_seq_cache <- seq_cache_start()
+        on.exit(end_seq_cache(), add = TRUE)
+
         message("Starting Orthology Inference ...")
 
         if (aligner == "diamond" & ortho_detection == "BH")
@@ -353,13 +364,14 @@ dNdS_coal <- function(query_file,
         data.table::setDT(hit.table)
         data.table::setkeyv(hit.table, c("query_id", "subject_id"))
 
-        q_cds <- read.cds(file = query_file, format = format, delete_corrupt_cds = delete_corrupt_cds)
-        s_cds <- read.cds(file = subject_file, format = format, delete_corrupt_cds = delete_corrupt_cds)
+        # (both files were read and translated for the search: they are not read again)
+        q_cds <- read_cds_once(query_file, delete_corrupt_cds = delete_corrupt_cds)
+        s_cds <- read_cds_once(subject_file, delete_corrupt_cds = delete_corrupt_cds)
 
         # the gene pairs dNdS() would process: hits whose two genes have a coding sequence that passes the
         # filters of the search step (cds2aa())
-        q_ok <- cds_protein_table(q_cds, delete_corrupt_cds = delete_corrupt_cds)$geneids
-        s_ok <- cds_protein_table(s_cds, delete_corrupt_cds = delete_corrupt_cds)$geneids
+        q_ok <- cds_protein_table_file(query_file, delete_corrupt_cds = delete_corrupt_cds)$geneids
+        s_ok <- cds_protein_table_file(subject_file, delete_corrupt_cds = delete_corrupt_cds)$geneids
         pairs <- unique(as.data.frame(hit.table)[ , c("query_id", "subject_id")])
         pairs <- pairs[is.element(pairs$query_id, q_ok) & is.element(pairs$subject_id, s_ok), , drop = FALSE]
 

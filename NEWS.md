@@ -1,4 +1,214 @@
-## `orthologr` development version
+## `orthologr` 0.5.0
+
+Version 0.5.0 instead of 0.4.4 because results and behaviour change in ways a patch release should not bring:
+some default results change (see "Changes to pairwise alignments that change dN/dS values" below, the T-Coffee
+default mode, `aa_aln_params` being passed on), functions that returned `NULL` or stale results now stop with an
+error, and packages moved from Imports to Suggests.
+
+### Dependencies, documentation, continuous integration
+
+Dependencies
+- **Lighter installation.** Imports went from 21 to 11 packages. `ggplot2`, `scales` (the `plot_*()` functions),
+  `ape` (`promotor_divergence_estimation()`), `rtracklayer` (`select_orthologs()`, `retrieve_longest_isoforms()`,
+  `generate_ortholog_tables()`) and `benchmarkme` (memory check of `check_annotation()`) are now in Suggests: the
+  functions say which package to install when it is missing. `fs` (replaced by `file.exists()` / `dir.exists()`),
+  `Rdpack` (one reference, now plain text), `R.utils`, `foreach` and `doParallel` are no longer used. Unused
+  Suggests (`DBI`, `IRanges`, `RSQLite`, `devtools`, `pkgload`) were dropped; `tidyr` and `biomartr`, which the
+  examples use, were added.
+- **R >= 4.4 instead of (in effect) R >= 4.5.** `pwalign (>= 1.6.0)` (Bioconductor 3.22) forced R 4.5 although
+  the DESCRIPTION said R >= 4.0. The functions used (`pairwiseAlignment()`, `alignedPattern()`,
+  `alignedSubject()`, `pattern()`, `subject()`, `writePairwiseAlignments()`) are exported by `pwalign` 1.0.0
+  (Bioconductor 3.19, R 4.4), so the version requirement was dropped and `Depends: R (>= 4.4.0)`,
+  `Biostrings (>= 2.72.0)` state what is needed. (Checked against the NAMESPACE of pwalign 1.0.0; the package
+  itself was run on R 4.5 only - the `oldrel-1` job of the check workflow covers R 4.4.)
+- `SystemRequirements` lists Perl and DIAMOND and the optional programs; the `C++11` entry is gone (R CMD check
+  NOTE).
+- `NAMESPACE` imports three functions of `data.table` instead of the whole of `data.table` and `Biostrings`.
+
+Documentation
+- README: installation rewritten (the listed Bioconductor packages `GenomicRanges`, `GenomicFeatures`,
+  `Rsamtools` and the GitHub package `rdiamond` are not needed; DIAMOND and Perl, which are, were not mentioned),
+  the lists of orthology and dN/dS methods include the defaults (DIAMOND reciprocal best hit, Comeron), the
+  example output was regenerated, the Windows section no longer refers to `?build_github_devtools` and
+  `install.packages("rtools")`, the function overview covers the DIAMOND, DeepClust and stratigraphy functions.
+  The quoted libsequence licence header now reads "version 3" as the files in `src/` do.
+- Vignettes: `Install` (R version, BLAST+ 2.2.31 example with a wrong file name and `usr/local/bin`, ClustalW2
+  executable name, MUSCLE 3.8/5, Li's method is from `seqinr` not `ape`, KaKs_Calculator 2.0 from bioconda),
+  `dNdS_estimation` (the pairwise aligner is Needleman-Wunsch, the default method is Comeron, all methods listed,
+  `aligner_params` instead of the non-existing `blast_params`), `sequence_alignments` (`clustalw2`, MUSCLE,
+  `mafft --version`, a `pairwise_aln()` example that is run), `orthology_inference` (OrthoFinder), `orthologr`
+  (installation). `deepclust.Rmd` used `comp_cores = 4` in a chunk that is run, which stopped `R CMD build` on
+  machines with fewer cores.
+- Man pages: `blast()` example with `blast_params = "-max_target_seqs 1"` (BLAST stops: the option is set by
+  `max.target.seqs`), `format = "gbk"` (never supported), `orthologs()` arguments `outgroup_file` and `cdd.path`
+  (deprecated; a warning when set), `diamond_install()` (no checksum, no Linux aarch64 build).
+- `environment.yml` replaces `orthologr.yml` (R 3.5.1, python 2.7, macOS build hashes) and
+  `orthologr-conda-env.sh` (defunct `biobuilds` channel): R >= 4.4, the R packages and all external programs from
+  conda-forge and bioconda; it solves on linux-64 (micromamba, 289 packages, R 4.5.3, DIAMOND 2.2.8, BLAST+ 2.17.0).
+- Removed `.travis.yml` and `Read-and-delete-me`.
+
+Continuous integration and tests
+- The R-CMD-check workflow installs DIAMOND, BLAST+, Clustal Omega, MAFFT and KaKs_Calculator (bioconda; on
+  Windows DIAMOND from its release), so the tests that were skipped without them run.
+- A pkgdown workflow and `_pkgdown.yml` (grouped reference index) were added.
+- 16 of the 20 empty test files now hold tests (`multi_aln`, `orthologs`, `select_orthologs`,
+  `retrieve_longest_isoforms`, `read.genome`, `read.proteome`, `read.dnds.tbl`, `set_blast`, `substitutionrate`,
+  `codon_aln`, `cds2aa`, `filter_best_hits`, `extract_features`, `generate_ortholog_table`, `orthofinder2`,
+  `orthofinder2_retrieve_core_orthologs`). Still empty: `map_generator`, `map_generator_lnc`, `orthologs_lnc`
+  (they need long runs or the GitHub package `metablastr`) and `pairwise_aln` (its tests come with
+  `fix/pairwise-aln-speed`).
+
+### Faster R code around the external programs (no change of results)
+
+The following changes do not change any result: the old per-gene code is kept as the reference and the test suite
+compares both on the example data, including the 1,000-gene example (`tests/testthat/test-vectorise.R`).
+R time (CPU of the R process, 1,000 x 1,000 genes; elapsed times depend on DIAMOND):
+
+| | before | after |
+|---|---|---|
+| `set_diamond()` on CDS | 0.47 s | 0.15 s |
+| `diamond_best()` on CDS | 3.3 s | 0.6 s |
+| `diamond_rec()` on CDS | 5.0 s | 0.5 s |
+| `diamond_rec()` on proteins | 3.7 s | 0.1 s |
+| `select_orthologs()` (gtf / gff, 986 pairs) | 14.1 s / 12.3 s | 0.11 s / 0.15 s |
+| `retrieve_longest_isoforms()` (gff, without loading rtracklayer) | 1.3 s | 0.2 s |
+
+- **Translation**: coding sequences are translated in one call to `Biostrings::translate()` instead of one
+  `seqinr::translate()` call per gene. Only sequences of A, C, G, T with complete codons take the new path, with
+  `no.init.codon = TRUE` (Biostrings would otherwise translate an alternative start codon such as TTG or CTG at the
+  first position to M, which seqinr does not); every other sequence is translated as before.
+- **Each input file is read and translated once** in `dNdS()` (was six times), `diamond_rec()` and `blast_rec()`
+  (was four times). As a side effect the messages of `read.cds()` about incomplete codons appear once per file.
+- **Best hits** (`diamond_best()`, `blast_best()`, and the splice-variant selection of `select_orthologs()`): one
+  sort instead of a `dplyr::do()` call per query. Ties are broken as before: smallest e-value, then longest
+  alignment, then the first row of the hit table; the order of the result is that of `dplyr::group_by()`.
+- **`select_orthologs()`**: the gene locus / transcript table of an annotation is built in one pass instead of one
+  `extract_features()` call per locus (98% of the run time). Annotations in which a locus has more than one `gene`
+  row take the old path. One difference: an annotation with a locus that has transcripts but no `gene` row (or
+  the other way round) stopped with an obscure `vctrs` type error; such loci are now left out, as intended.
+- **`retrieve_longest_isoforms()`**: one sort instead of a `dplyr::do()` call per gene (the first of equally long
+  isoforms, as before).
+- **`deepclust()` / `deepclust_realign()`** with several protein files read each file once with Biostrings instead
+  of reading every sequence with seqinr, writing one merged file and reading it again. The database is the same
+  (sequences sorted by ID).
+- The protein FASTA files for the searches are written with one `writeLines()` call (same bytes as before).
+- **Parallel runs (`comp_cores > 1`) use the `parallel` package only**: forked processes as before where the
+  operating system can fork, and otherwise - on Windows, where `comp_cores > 1` failed - `PSOCK` processes that
+  load the package and get the options and the working folder of the call
+  (`options(orthologr.cluster_type = "PSOCK")` chooses them elsewhere). `foreach` and `doParallel` are no longer
+  imported.
+
+New, off by default
+- `deepclust(direct_input = TRUE)` hands the protein files to `diamond makedb` without parsing them in R (no
+  sequence is held in memory; for very large sets). The IDs are the same, but `diamond deepclust` depends on the
+  order of the sequences: with file order instead of ID order the clusters of the 1,988 example proteins differ
+  from the default. This is why it is not the default.
+
+Bug fix
+- `deepclust()` failed for IDs with `|` and `:` (e.g. the four `example_*_aa.faa` files together): the cluster
+  table was read with a guessed separator (`Can't assign 2 names to a 3-column data.table`). It is read as
+  tab-separated now.
+
+### Options and inputs: documented options work, unsupported ones are rejected with a clear message
+
+`dNdS()`
+- Arguments are checked before any program is started, and the error names the argument, the value and the valid
+  values. `ortho_detection` accepts `"RBH"` and `"BH"` only: `"PO"` and `"DELTA"` passed the check and then failed
+  with `object 'q_cds' not found`; `"Orthofinder2"` was documented but rejected. A mistyped `aligner` gave the same
+  `q_cds` error. `seq_type` other than `"cds"` and `format` other than `"fasta"` are rejected (`seq_type = "protein"`
+  could hang in `diamond makedb`; `format = "gbk"` was documented but never read).
+- `sensitivity_mode` is checked against the DIAMOND modes; the documented default is the real one (`"fast"`).
+  `sensitivity_mode = "default"` now runs DIAMOND in its own default mode (it was passed on as `--default`, which
+  DIAMOND rejects). Also in `diamond()`, `diamond_best()`, `diamond_rec()`, `divergence_stratigraphy()`.
+- **`aa_aln_params` is now passed on** to the multiple alignment program (`multi_aln(params = )`). It was accepted
+  and ignored, so results change for calls that set it together with `aa_aln_type = "multiple"`. With
+  `aa_aln_type = "pairwise"` it is not used and a warning says so.
+- `comp_cores` larger than the number of available cores: the available number is used and a warning is given (was
+  an error). The same in `blast()`, `diamond()`, `deepclust()`, `deepclust_realign()`, `compute_dnds()`.
+- `cdd.path` and `ortho_path` are deprecated (they were never used); setting them gives a warning.
+- `clean_folders = TRUE` leaves nothing in `tempdir()` (all intermediate files are in the folder of the call, which
+  is always removed).
+
+Coding sequences that are left out
+- Coding sequences with characters other than A, C, G, T (N, IUPAC ambiguity codes) cannot be translated and were
+  left out without a word. They are still left out, but a message now names them. The check itself used the pattern
+  `[^(A|C|G|T|a|c|g|t)]`, which also let `(`, `)` and `|` pass; it is `[^ACGTacgt]` now.
+- `read.cds()` wrote `<file>_corrupted_cds_seqs.fasta` into the **working directory**. The file now goes to
+  `tempdir()`, or to the folder set with `options(orthologr.corrupted_cds_dir = "<folder>")`.
+
+Multiple alignment programs
+- **MUSCLE 5 is supported** (`multi_aln(tool = "muscle")`, `dNdS(aa_aln_tool = "muscle")`). The version is detected;
+  MUSCLE 5 is run as `muscle -align <in> -output <out>`, its aligned FASTA output is put back into the order of the
+  input. MUSCLE 3.8 is run as before.
+- **T-Coffee: the default mode changed.** `multi_aln(tool = "t_coffee")` ran `t_coffee -mode accurate`, which needs
+  a BLAST server and failed (unnoticed) without network. The default is now T-Coffee's own default mode
+  (`-output clustalw_aln`, guide tree not written to the working directory). Alignments, and dN/dS values computed
+  from them, differ from those of `-mode accurate`; `params = "-mode accurate"` gives the old command.
+- `multi_aln(get_aln = TRUE)` reads the CLUSTAL files written by T-Coffee (Biostrings rejected them).
+- The MAFFT check runs `mafft --version` (was `mafft -v`, not an option). The MUSCLE, MAFFT and KaKs_Calculator
+  checks return `TRUE` (they returned `NULL`).
+
+Other fixes
+- `pairwise_aln()` works when called on its own (it needed a folder that only `dNdS()` created; fixed on
+  `fix/robustness`, now tested).
+- `read.genome(format = "fastq")` works (`object 'genome.dt' not found`).
+- `set_blast()` / `set_diamond()` with `seq_type = "dna"`: the sequences are returned as read; `set_blast(makedb =
+  TRUE, makedb_type = "nucleotide")` builds a nucleotide database from them (`blastdb_<file>_nucleotide.fasta`).
+  Asking for a protein database from DNA is an error that says why (was `column 'aa' not found`).
+- `codon_aln(get_aln = TRUE)` returned an empty alignment for `format = "clustal"` and failed for
+  `format = "fasta"`; both are read now.
+- `promotor_divergence_estimation()` works when all aligned pairs have the same length.
+- `check_annotation(remove_annotation_outliers = TRUE)` **no longer overwrites the annotation file**. The file
+  without the outlier lines is written to `tempdir()` under the same name (the extension was lost for names with
+  more than one dot) and its path is returned. `retrieve_longest_isoforms()` uses that copy.
+- `lnc_map_counts()` accepts the species column of the package's ortholog tables (`subject_species`) as well as
+  `species`.
+- **`orthofinder2()` is soft-deprecated** (a warning on every call). It did not work: the executable path was
+  hard-coded to `/opt/miniconda3/bin/orthofinder`, it always returned `NULL` and the imports passed folders as
+  files. It now looks for `orthofinder` on the `PATH` (or in `of_path`), checks the exit status, returns the
+  results folder invisibly, and `import_type = "orthogroups_core"` reads the tables of OrthoFinder 2.5 and 3 when a
+  full run has written them. `import_type = "orthogroups_pairwise"` (never implemented) is an error.
+- `orthologs(ortho_detection = "Orthofinder2")` is an error with an explanation (it printed "under development"
+  and returned `NULL`).
+
+### External programs are run through one checked helper
+
+- **No more stale results.** `blast()`, `blast_best()`, `blast_rec()`, `diamond()`, `deepclust()`,
+  `deepclust_realign()`, `multi_aln()`, `codon_aln()` and `substitutionrate()` start their programs through one
+  internal helper (`run_tool()`), which quotes all arguments, checks the exit status, checks that the expected
+  output was written and puts the program's own message into the error. Before, a failed BLAST, MSA or
+  KaKs_Calculator run could go unnoticed and the result of the *previous* call was returned: e.g.
+  `blast(..., blast_params = "-max_target_seqs 1")` (an example of the man page, which BLAST rejects) returned the
+  hit table of the call before it, and `substitutionrate(est.method = "kaks_calc")` returned the rows of an earlier
+  run. These calls now stop with the program's message.
+- **Every call works in files of its own.** `blast()`, `diamond()`, `deepclust()` and `deepclust_realign()` work
+  in a folder that is created for the call and removed when it ends (kept with `options(orthologr.keep_tmp = TRUE)`);
+  `multi_aln()`, `codon_aln()` and `substitutionrate()` let the program write to a uniquely named file. Results
+  that were documented to stay in `tempdir()` still do, under the same names: the hit table
+  (`_blast_db/blastresult_<query file>.csv`), alignments (`_alignment/multi_aln`, `_alignment/codon_aln`) and
+  databases built with `set_blast()` / `set_diamond()`. A file of an earlier call is removed before the program
+  starts and replaced only when the program has succeeded. `substitutionrate()` no longer leaves `*_gestimout`,
+  `.axt` and `.axt.kaks` files in `_calculation`.
+- **File and folder names with spaces work** in all of the functions above and in `dNdS()` (`makeblastdb`,
+  `diamond makedb` and the searches failed before). `set_blast()` / `set_diamond()` replace characters other than
+  letters, digits, `.`, `_`, `+`, `-` in the *database* name they return (names without such characters are unchanged).
+- **The R session is left alone.** No function changes the working directory any more (`setwd()` is gone from
+  `blast()`, `diamond()`, `set_blast()`, `set_diamond()`, `deepclust()`, `deepclust_realign()`), and a `path`
+  argument no longer adds that folder to the `PATH` of the session for good: it is used to start the program and
+  is on the `PATH` only while the program runs. As a consequence `blast(path = )` now also finds `makeblastdb`
+  there, and `multi_aln(path = )` / `substitutionrate(kaks_calc_path = )` work when the program is *only* in that
+  folder (the availability check ignored the argument).
+- **Programs are looked up once per session.** The "is it installed" checks started the program on every call
+  (2-150 ms each, once per gene pair in `dNdS()` with a multiple-alignment tool or a KaKs_Calculator model); the
+  answer is now remembered per program and path.
+- `select_orthologs()` no longer stores its joined table in `tempdir()` under a name made of the two annotation
+  file names. A second call with the same annotation files but another `dnds_tbl` returned the table of the first
+  call.
+- `save.output` of `blast()`, `diamond()`, `deepclust()` and `deepclust_realign()` overwrites a file of the same
+  name (it was silently left as it was).
+- `multi_aln()` and `codon_aln()` return the path of the alignment file invisibly when `get_aln = FALSE` (was
+  `NULL`). `multi_aln()` stops with a clear message when `file` does not exist.
+- `promotor_divergence_estimation()` writes its intermediate FASTA files to a folder of its own and removes it.
 
 ### New: COAL as codon-alignment tool, Ka/Ks engine and batched dN/dS path
 

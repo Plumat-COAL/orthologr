@@ -37,9 +37,9 @@
 #' Given a query organism and a set of subject organsisms that are stored in the same folder,
 #' this function crawls through all subject organsism and infers the lncRNA homologs in
 #' pairwise species comparisons.
-#' @references{
-#' \insertRef{Sarropoulos2019}{orthologr}
-#' }
+#' @references
+#' Sarropoulos I, Marin R, Cardoso-Moreira M, Kaessmann H (2019). Developmental dynamics of lncRNAs across
+#' mammalian organs and species. Nature 571, 510-514.
 #' @author Hajk-Georg Drost
 #' @examples
 #' \dontrun{
@@ -73,7 +73,6 @@
 #'    logical_connective    = "OR",
 #'    min_alig_length       = 50)
 #'}
-#' @importFrom Rdpack reprompt
 #' @export
 map_generator_lnc <- function(query_file, 
                           subjects_folder,
@@ -92,7 +91,7 @@ map_generator_lnc <- function(query_file,
                           path             = NULL,
                           ... ){
         
-        if (!fs::file_exists(query_file))
+        if (!file.exists(query_file))
                 stop("Please provide a valid path to the 'query_file'.", call. = FALSE)
         
         if(!is.element(logical_connective, c("AND", "OR"))){

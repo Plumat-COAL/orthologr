@@ -7,7 +7,7 @@
 #' Options are are: "cds", "protein", or "dna". In case of "cds", sequence are translated to protein sequences,
 #' in case of "dna", cds prediction is performed on the corresponding sequences which subsequently are
 #' translated to protein sequences. Default is \code{seq_type} = "cds".
-#' @param format a character string specifying the file format of the sequence file, e.g. "fasta", "gbk". Default is "fasta".
+#' @param format a character string specifying the file format of the sequence file, only "fasta" (Default) is supported.
 #' @param blast_algorithm a character string specifying the BLAST algorithm that shall be used, e.g. "blastp","blastn","tblastn",... .
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet. 
 #' @param eval a numeric value specifying the E-Value cutoff for BLAST hit detection.
@@ -105,6 +105,10 @@ blast_rec <- function(query_file,
                       blast_params    = NULL, 
                       clean_folders   = FALSE,
                       save.output     = NULL){
+        
+        # both files are needed for both search directions: read and translate each of them once
+        end_seq_cache <- seq_cache_start()
+        on.exit(end_seq_cache(), add = TRUE)
         
         orthoA <- blast_best( query_file      = query_file,
                               subject_file    = subject_file, 

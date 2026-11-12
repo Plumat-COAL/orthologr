@@ -53,10 +53,11 @@ export(transl)
 export(translate_cds_to_protein)
 export(translate_cds_to_protein_all)
 export(write.proteome)
-import(Biostrings)
-import(data.table)
-import(foreach)
 importFrom(Rcpp,sourceCpp)
-importFrom(Rdpack,reprompt)
+importFrom(data.table,
+  ":=",
+  is.data.table,
+  setkeyv
+)
 importFrom(rlang,.data)
 useDynLib(orthologr, .registration = TRUE)

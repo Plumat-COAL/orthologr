@@ -17,6 +17,7 @@ select_orthologs <-
                  annotation_file_subject,
                  collapse_by = "gene_locus",
                  format = c("gtf", "gtf")) {
+                need_package("rtracklayer", "select_orthologs()", bioc = TRUE)
                 if (!is.element(collapse_by, c("gene_locus", "splice_variant")))
                         stop(
                                 "Please specify a collapse method provided by this function: collapse_by = 'gene_locus' or collapse_by = 'splice_variant'.",
@@ -53,25 +54,10 @@ select_orthologs <-
                 
                 '.' <- NULL
                 
-                temp_store <-
-                        file.path(tempdir(),
-                                  paste0(
-                                          "final_join_dnds_annotation_tbl_",
-                                          basename(annotation_file_query),
-                                          "_vs_",
-                                          basename(annotation_file_subject)
-                                  ))
-                
-                if (file.exists(temp_store)) {
-                        message("Start ortholog selection process by ",
-                                collapse_by,
-                                " ...")
-                        
-                        message("Import pre-computed file final_join_dnds_annotation_tbl ...")
-                        final_join_dnds_annotation_tbl <-
-                                readRDS(temp_store)
-                        
-                } else {
+                # (Earlier versions stored the joined table in tempdir() under a name made of the two annotation
+                # file names only and reused it in later calls - also for a different dnds_tbl. The table is
+                # now computed in every call.)
+                {
                         message("Start ortholog selection process by ",
                                 collapse_by,
                                 " ...")
@@ -99,10 +85,7 @@ select_orthologs <-
                         if (format[1] == "gff") {
                                 Name <- NULL
                                 extracted_features_qry <-
-                                        dplyr::do(
-                                                dplyr::group_by(imported_annotation_qry, Name),
-                                                extract_features(. , format = format[1])
-                                        )
+                                        extract_features_all(imported_annotation_qry, format = format[1], group_col = "Name")
 
                                 colnames(extracted_features_qry)[2] <-
                                         "query_gene_locus_id"
@@ -128,11 +111,7 @@ select_orthologs <-
                                 select_qry_ids <- unique(imported_annotation_qry[imported_annotation_qry$transcript_id %in% dnds_tbl$query_id,]$gene_id)
                                 
                                 extracted_features_qry <-
-                                        dplyr::do(
-                                                dplyr::group_by(imported_annotation_qry[imported_annotation_qry$gene_id %in% select_qry_ids,], 
-                                                                                                    gene_id),
-                                                extract_features(. , format = format[1])
-                                        )
+                                        extract_features_all(imported_annotation_qry[imported_annotation_qry$gene_id %in% select_qry_ids,], format = format[1], group_col = "gene_id")
                                 
                                 colnames(extracted_features_qry)[2] <-
                                         "query_gene_locus_id"
@@ -169,10 +148,7 @@ select_orthologs <-
                         if (format[2] == "gff") {
                                 Name <- NULL
                                 extracted_features_sbj <-
-                                        dplyr::do(
-                                                dplyr::group_by(imported_annotation_sbj, Name),
-                                                extract_features(. , format = format[2])
-                                        )
+                                        extract_features_all(imported_annotation_sbj, format = format[2], group_col = "Name")
                                 colnames(extracted_features_sbj)[2] <-
                                         "subject_gene_locus_id"
                                 colnames(extracted_features_sbj)[3] <-
@@ -198,10 +174,7 @@ select_orthologs <-
                                 select_sbj_ids <- unique(imported_annotation_sbj[imported_annotation_sbj$transcript_id %in% dnds_tbl$subject_id,]$gene_id)
                                 
                                 extracted_features_sbj <-
-                                        dplyr::do(
-                                                dplyr::group_by(imported_annotation_sbj[imported_annotation_sbj$gene_id %in% select_sbj_ids,], gene_id),
-                                                extract_features(. , format = format[2])
-                                        )
+                                        extract_features_all(imported_annotation_sbj[imported_annotation_sbj$gene_id %in% select_sbj_ids,], format = format[2], group_col = "gene_id")
                                 
                                 colnames(extracted_features_sbj)[2] <-
                                         "subject_gene_locus_id"
@@ -258,10 +231,6 @@ select_orthologs <-
                         if (nrow(final_join_dnds_annotation_tbl) == 0)
                                 stop("When joining the 'joined_dnds_annotation_tbl_qry' and the 'joined_dnds_annotation_tbl_sbj' tables by 'query_id' and 'subject_id', no entries were retained. Thus, this join created an empty table. Please check what might have gone wrong during the joining process.", call. = FALSE)
                         
-                        if (!file.exists(temp_store)) {
-                                saveRDS(final_join_dnds_annotation_tbl,
-                                        temp_store)
-                        }
                 }
                 
                 if (collapse_by == "gene_locus") {
@@ -271,13 +240,7 @@ select_orthologs <-
                         query_gene_locus_id <-
                                 subject_gene_locus_id <- NULL
                         res_qry <-
-                                dplyr::do(
-                                        dplyr::group_by(
-                                                final_join_dnds_annotation_tbl,
-                                                query_gene_locus_id
-                                        ),
-                                        filter_best_hits(.)
-                                )
+                                best_hits(final_join_dnds_annotation_tbl, "query_gene_locus_id")
                         
                         if (nrow(res_qry) == 0)
                                 stop("After best splice variant filtering no results were retained. The output was empty ...", call. = FALSE)
@@ -286,13 +249,7 @@ select_orthologs <-
                                 "Select splice variant with smallest e-value for each gene locus of subject species ..."
                         )
                         res_sbj <-
-                                dplyr::ungroup(dplyr::do(
-                                        dplyr::group_by(
-                                                final_join_dnds_annotation_tbl,
-                                                subject_gene_locus_id
-                                        ),
-                                        filter_best_hits(.)
-                                ))
+                                dplyr::ungroup(best_hits(final_join_dnds_annotation_tbl, "subject_gene_locus_id"))
                         
                         if (nrow(res_sbj) == 0)
                                 stop("After best splice variant filtering no results were retained. The output was empty ...", call. = FALSE)

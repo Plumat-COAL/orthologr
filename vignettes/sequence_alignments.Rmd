@@ -44,7 +44,7 @@ You can test whether the corresponding multiple sequence alignment tool can be e
 
 * MacOS: `system("clustalw2 -help")`
 
-* Linux: `system("clustalw -help")`
+* Linux: `system("clustalw2 -help")` (`multi_aln()` starts the program as `clustalw2` on every operating system)
 
 * Windows: `system("clustalw2.exe -help")`
 
@@ -157,13 +157,21 @@ orthologr::multi_aln(file    = system.file('seqs/aa_seqs.fasta', package = 'orth
           get_aln = TRUE)
 ```
 
+T-Coffee is run in its default mode. `params = "-mode accurate"` selects the mode that was the default of
+`orthologr` <= 0.4.3; it needs access to a BLAST server.
+
 ### MUSCLE
 
+`multi_aln(tool = "muscle")` works with MUSCLE 3.8 and with MUSCLE 5. The two versions have different command
+lines; `multi_aln()` asks `muscle -version` and uses the matching one: `muscle -in <file> -out <aln> -clwstrict`
+for 3.8 (CLUSTAL output) and `muscle -align <file> -output <aln>` for 5 (aligned FASTA output; the sequences are put
+back into the order of the input file). Options passed in `params` must belong to the installed version.
+
 ```r
-system("muscle -help")
+system("muscle -version")
 ```
 
-In case everything is installed appropriately, you should see:
+With MUSCLE 3.8, `system("muscle -help")` shows:
 
 ```
 MUSCLE v3.8.31 by Robert C. Edgar
@@ -225,7 +233,7 @@ multi_aln(file    = system.file('seqs/aa_seqs.fasta', package = 'orthologr'),
 
 
 ```r
-system("mafft -help")
+system("mafft --version")
 ```
 
 In case everything is installed appropriately, you should see:
@@ -454,7 +462,17 @@ attr(,"class")
 
 ```
 
+## Pairwise alignments with `pairwise_aln()`
 
+`pairwise_aln()` computes a global (Needleman-Wunsch) alignment of the two sequences of a FASTA file in R, without
+an external program. With `get_aln = TRUE` the alignment is returned; in any case it is written in FASTA format
+to `file.path(tempdir(), "_alignment", "pairwise_aln")`.
 
-
-
+```{r}
+library(orthologr)
+aln <- pairwise_aln(file    = system.file('seqs/aa_seqs.fasta', package = 'orthologr'),
+                    tool    = "NW",
+                    get_aln = TRUE,
+                    quiet   = TRUE)
+aln
+```

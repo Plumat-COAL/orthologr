@@ -143,31 +143,16 @@ deepclust_realign <- function(
         if (!is.null(path))
                 path <- normalizePath(path, mustWork = FALSE)
         
-        is_installed_diamond(diamond_exec_path = path)
-
-        if (is.null(path)) {
-                message("Running ",
-                        system("diamond --version", intern = TRUE)[1],
-                        " ...")
-        } else {
-                message("Running ",
-                        system(paste0(
-                                path_prefix(path),
-                                'diamond --version'), intern = TRUE)[1],
-                        " ...")
-        }
-
-        # determine the number of cores on a multicore machine
-        cores <- parallel::detectCores()
-        if (comp_cores > cores)
-                stop("You chose more cores than are available on your machine.",
-                     call. = FALSE)
-
-        # ensure the shared temp directory exists early
-        if (!file.exists(file.path(tempdir(), "_blast_db")))
-                dir.create(file.path(tempdir(), "_blast_db"))
-
-        # resolve the clusters argument to a file path
+        message("Running ", diamond_version(path = path), " ...")
+        
+        # in case one tries to use more cores than are available
+        comp_cores <- check_comp_cores(comp_cores)
+        
+        # every call works in a folder of its own, which is removed when the call ends
+        work <- call_dir_start("deepclust_realign_")
+        on.exit(call_dir_end(work), add = TRUE)
+        
+        # resolve clusters: accept either a file path or a data frame
         if (is.character(clusters) && length(clusters) == 1 && file.exists(clusters)) {
                 clusters_file <- clusters
         } else if (is.data.frame(clusters)) {
@@ -178,8 +163,7 @@ deepclust_realign <- function(
                                 paste(required_cols, collapse = ", "),
                                 call. = FALSE
                         )
-                clusters_file <- file.path(tempdir(), "_blast_db",
-                                           "deepclust_realign_input.tsv")
+                clusters_file <- file.path(work, "deepclust_realign_input.tsv")
                 readr::write_tsv(
                         clusters[, required_cols],
                         file      = clusters_file,
@@ -192,160 +176,84 @@ deepclust_realign <- function(
                         call. = FALSE
                 )
         }
-
-        # merge multiple input files into a single temporary FASTA before
-        # building the database (mirrors deepclust behaviour)
-        if (length(input_file) > 1) {
-
-                n_files       <- length(input_file)
-                seqtype_fasta <- if (seq_type == "protein") "AA" else "DNA"
-
-                message("Merging ", n_files, " input files ...")
-
-                all_seqs  <- list()
-                all_names <- character(0)
-
-                for (f in input_file) {
-                        seqs <- seqinr::read.fasta(
-                                file            = f,
-                                seqtype         = seqtype_fasta,
-                                as.string       = TRUE,
-                                forceDNAtolower = FALSE
-                        )
-                        all_seqs  <- c(all_seqs,  seqs)
-                        all_names <- c(all_names, names(seqs))
-                }
-
-                merged_filename <- paste0("deepclust_merged_", n_files, "_files.fasta")
-                merged_file     <- file.path(tempdir(), "_blast_db", merged_filename)
-
-                seqinr::write.fasta(
-                        sequences = all_seqs,
-                        names     = all_names,
-                        file.out  = merged_file,
-                        nbchar    = 80
-                )
-
-                message("Merged ", length(all_names), " sequences into: ", merged_filename)
-
-                input_file <- merged_file
-        }
-
-        # derive output filename from the (possibly merged) input file
-        filename <- basename(input_file)
-        output   <- paste0("deepclust_realign_", filename, ".tsv")
-
+        
+        filename <- if (length(input_file) > 1)
+                paste0("deepclust_merged_", length(input_file), "_files.fasta")
+        else
+                basename(input_file)
+        output   <- file.path(work, paste0("deepclust_realign_", safe_file_name(filename), ".tsv"))
+        
         message("Building DIAMOND2 database for realign ...")
-
-        db_result <- set_diamond(
-                file               = input_file,
+        
+        db_dt <- deepclust_protein_table(
+                input_file         = input_file,
                 seq_type           = seq_type,
-                format             = format,
-                makedb             = TRUE,
                 delete_corrupt_cds = delete_corrupt_cds,
-                path               = path,
-                comp_cores         = comp_cores,
-                quiet              = quiet
+                dir                = work
         )
-
-        database <- db_result[[2]]
-
-        currwd <- getwd()
-        setwd(file.path(tempdir(), "_blast_db"))
-        on.exit(setwd(currwd), add = TRUE)
-
-        realign_run <- paste0(
-                'diamond realign',
-                ' --db ',       database,
-                ' --clusters ', clusters_file,
-                ' --out ',      output,
-                ' --threads ',  comp_cores,
-                ' --outfmt 6 qseqid sseqid approx_pident evalue bitscore qcovhsp scovhsp'
-        )
-
-        if (!is.null(realign_params))
-                realign_run <- paste0(realign_run, ' ', realign_params)
-
-        if (!is.null(path))
-                realign_run <- paste0(path_prefix(path), realign_run)
-
-        if (quiet)
-                realign_run <- paste0(realign_run, ' --quiet')
-
+        database <- make_diamond_db(db_dt, db_file = file.path(work, "deepclust_db.fasta"), path = path,
+                                    comp_cores = comp_cores, quiet = quiet)
+        
         message("Running diamond realign ...")
         t_realign_start   <- proc.time()["elapsed"]
-        status            <- run_system_quiet(realign_run, quiet = quiet)
-        t_realign_elapsed <- proc.time()["elapsed"] - t_realign_start
-        message(
-                "diamond realign completed in ",
-                if (t_realign_elapsed >= 60)
-                        paste0(round(t_realign_elapsed / 60, 2), " min.")
-                else
-                        paste0(round(t_realign_elapsed, 2), " sec.")
+        res <- run_tool(
+                "diamond",
+                args = list(
+                        "realign", "--db", database, "--clusters", clusters_file, "--out", output,
+                        "--threads", comp_cores,
+                        "--outfmt", "6", "qseqid", "sseqid", "approx_pident", "evalue", "bitscore", "qcovhsp", "scovhsp",
+                        if (!is.null(realign_params)) I(realign_params),
+                        if (quiet) "--quiet"
+                ),
+                path = path, tool = "diamond realign", error = FALSE, echo = !quiet
         )
-        if (!identical(status, 0L)) {
+        t_realign_elapsed <- proc.time()["elapsed"] - t_realign_start
+        message("diamond realign completed in ", format_elapsed(t_realign_elapsed))
+        if (!identical(as.integer(res$status), 0L)) {
+                said <- utils::tail(res$stderr[nzchar(trimws(res$stderr))], 5)
                 stop(
-                        "diamond realign exited with non-zero status: ", status,
+                        "diamond realign exited with non-zero status: ", res$status,
                         "\nPlease check the path to the DIAMOND2 executable, the input_file, and clusters.",
+                        if (length(said) > 0) paste0("\ndiamond said: ", paste(said, collapse = "\n")) else "",
                         call. = FALSE
                 )
         }
-        # define the colClasses for faster file streaming
+        if (!file.exists(output))
+                stop("diamond realign wrote no table for '", filename, "'.", call. = FALSE)
+        
         col_Classes <- c(rep("character", 2),
                          rep("double", 5))
-
+        
         tryCatch({
-                # recluster_table <- data.table::as.data.table(
-                #         readr::read_tsv(
-                #                 file      = output,
-                #                 col_names = FALSE,
-                #                 col_types = readr::cols(
-                #                         X1 = readr::col_character(),
-                #                         X2 = readr::col_character(),
-                #                         X3 = readr::col_double(),
-                #                         X4 = readr::col_double(),
-                #                         X5 = readr::col_double(),
-                #                         X6 = readr::col_double(),
-                #                         X7 = readr::col_double()
-                #                 ),
-                #                 show_col_types = FALSE
-                #         )
-                # )
-                
                 recluster_table <- data.table::fread(
                         input      = output,
                         sep        = "\t",
                         header     = FALSE,
                         colClasses = col_Classes
                 )
-
+                
                 data.table::setnames(
                         recluster_table,
-                        old = paste0("V", 1:7), # "X" if readr is used
+                        old = paste0("V", 1:7),
                         new = c("representative_id", "member_id",
                                 "approx_pident", "evalue", "bitscore",
                                 "qcovhsp", "scovhsp")
                 )
-
-                setwd(file.path(currwd))
-
+                
                 if (!is.null(save.output)) {
-                        file.copy(
-                                from = file.path(tempdir(), "_blast_db", output),
-                                to   = save.output
-                        )
+                        save_output_copy(output, save.output, paste0("deepclust_realign_", filename, ".tsv"))
                         message("Recluster TSV saved to: ", save.output)
                 }
-
+                
                 return(tibble::as_tibble(recluster_table))
-
+                
         }, error = function(e) {
                 stop(
                         "The deepclust_realign output file '", output,
                         "' could not be read correctly.",
                         " Please verify that diamond realign produced output.",
                         "\n",
-                        "Error: ", e,
+                        "Error: ", conditionMessage(e),
                         call. = FALSE
                 )
         })

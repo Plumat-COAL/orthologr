@@ -29,7 +29,10 @@ Default is \code{multi_aln_name} = \code{NULL} denoting a default name: 'toolnam
 
 \item{params}{a character string listing the input paramters that shall be passed to corresponding alignment tool specified in the \code{tool} argument. 
 Default is \code{NULL}, implicating that a set of default parameters is used when running the correponding tool, e.g. clustalw. 
-Example: \code{params} = "-PWMATRIX=BLOSUM -TYPE=PROTEIN" for \code{tool} = "clustalw.}
+Example: \code{params} = "-PWMATRIX=BLOSUM -TYPE=PROTEIN" for \code{tool} = "clustalw.
+For \code{tool} = "t_coffee" the default is T-Coffee's own default mode with CLUSTAL output. Until version 0.4.3
+the default was \code{-mode accurate}, which needs access to a BLAST server and fails without network; use
+\code{params = "-mode accurate"} to get it back.}
 
 \item{quiet}{a logical value specifying whether the output of the corresponding multiple alignment tool shall be printed out to the console.
 Default is \code{quiet} = \code{FALSE}.}
@@ -57,7 +60,7 @@ Different operating systems perform different execution calls to the clustalw pr
 
 \itemize{
 \item MacOS: 'clustalw2' 
-\item Linux: 'clustalw'
+\item Linux: 'clustalw2'
 \item  Windows: 'clustalw2.exe'
 }
 
@@ -66,7 +69,7 @@ the following calls to clustalw should work properly on your system:
 
 \itemize{
 \item MacOS: \code{system("clustalw2 -help")}
-\item Linux: \code{system("clustalw -help")}
+\item Linux: \code{system("clustalw2 -help")}
 \item Windows: \code{system("clustalw2.exe -help")}
 
 }
@@ -76,7 +79,7 @@ to specify the 'clustalw' execution path on your system:
 
 \itemize{
 \item MacOS: \code{system("path/to/clustalw/clustalw2 -help")}
-\item Linux: \code{system("path/to/clustalw/clustalw -help")}
+\item Linux: \code{system("path/to/clustalw/clustalw2 -help")}
 \item Windows: \code{system("path/to/clustalw/clustalw2.exe -help")}
 
 }
@@ -100,12 +103,19 @@ to specify the 't_coffee' execution path on your system:
 In case you use the default path to the muscle program,
 the following calls to muscle should work properly on your system:
 
-\code{system("muscle -help")}
+\code{system("muscle -version")}
 
 In case this procedures doesn't work properly, please use the \code{path} argument
 to specify the 'muscle' execution path on your system:
 
-\code{system("path/to/muscle/muscle -help")}
+\code{system("path/to/muscle/muscle -version")}
+
+Both MUSCLE 3.8 and MUSCLE 5 are supported; the version is detected from \code{muscle -version}.
+MUSCLE 3.8 is run as \code{muscle -in <file> -out <aln> -clwstrict -quiet} (CLUSTAL output). MUSCLE 5 has
+another command line and no CLUSTAL output: it is run as \code{muscle -align <file> -output <aln>}, the
+alignment is written in aligned FASTA format and the sequences are put back into the order of the input
+file. With MUSCLE 5, \code{params} must hold MUSCLE 5 options (the MUSCLE 3.8 options \code{-diags},
+\code{-clwstrict}, ... are not accepted by it).
 
 
 \item CLUSTALO : 
@@ -126,12 +136,12 @@ to specify the 'clustalo' execution path on your system:
 In case you use the default path to the mafft program,
 the following calls to mafft should work properly on your system:
 
-\code{system("mafft -help")}
+\code{system("mafft --version")}
 
 In case this procedures doesn't work properly, please use the \code{path} argument
 to specify the 'mafft' execution path on your system:
 
-\code{system("path/to/mafft/mafft -help")}
+\code{system("path/to/mafft/mafft --version")}
 
 }
 }
@@ -203,7 +213,7 @@ multi_aln(file    = system.file('seqs/aa_seqs.fasta', package = 'orthologr'),
 multi_aln(file    = system.file('seqs/aa_seqs.fasta', package = 'orthologr'),
           tool    = "muscle", 
           get_aln = TRUE,
-          params  = "-diags -clwstrict") 
+          params  = "-diags -clwstrict")   # MUSCLE 3.8 options
           
 
 # CLUSTALO Example:  

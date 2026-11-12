@@ -34,7 +34,7 @@ Options are: "cds", "protein", or "dna". In case of "cds", sequences are transla
 in case of "dna", CDS prediction is performed on the corresponding sequences which are subsequently
 translated to protein sequences. Default is \code{seq_type} = "protein".}
 
-\item{outgroup_file}{currently unused; reserved for future use.}
+\item{outgroup_file}{deprecated and not used (a warning is given when it is set).}
 
 \item{eval}{a numeric value specifying the E-Value cutoff for hit detection.}
 
@@ -48,7 +48,7 @@ Available methods:
   \item \code{"DIAMOND_BH"}: DIAMOND2 best hit
   \item \code{"RBH"}: BLAST reciprocal best hit
   \item \code{"BH"}: BLAST best hit
-  \item \code{"Orthofinder2"}: OrthoFinder2 (currently under development)
+  \item \code{"Orthofinder2"}: not implemented (an error; run OrthoFinder yourself and import its tables)
 }}
 
 \item{sensitivity_mode}{a character string specifying the DIAMOND2 sensitivity level.
@@ -62,7 +62,7 @@ Default is \code{10000}.}
 \item{delete_corrupt_cds}{a logical value indicating whether sequences with corrupt base triplets should
 be removed from the input \code{file}. Default is \code{FALSE}.}
 
-\item{cdd.path}{currently unused; reserved for future use.}
+\item{cdd.path}{deprecated and not used (a warning is given when it is set).}
 
 \item{path}{a character string specifying the path to the orthology inference tool executable.}
 

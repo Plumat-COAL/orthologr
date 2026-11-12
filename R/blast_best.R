@@ -93,7 +93,6 @@
 #' @return A data.table as returned by the \code{blast} function, storing the geneids
 #' of orthologous genes (best hit) in the first column and the amino acid sequences in the second column.
 #' @seealso \code{\link{blast}}, \code{\link{blast_rec}}, \code{\link{set_blast}}
-#' @import data.table
 #' @export
 blast_best <- function(query_file, 
                        subject_file, 
@@ -129,7 +128,7 @@ blast_best <- function(query_file,
                              save.output     = save.output)
         
         query_id <- '.' <- NULL
-        hit_tbl <- dplyr::do(dplyr::group_by(hit_tbl, query_id), filter_best_hits(.))
+        hit_tbl <- best_hits(hit_tbl, "query_id")
         return(hit_tbl)
 }
 

@@ -6,7 +6,9 @@ test <- function(x){ print(paste0("Test ",x," passed.","\n"))}
 
 is.dnaSequence <- function(seq){
         
-        return((length(grep("[^(A|C|G|T|a|c|g|t)]", seq)) == 0))
+        # only A, C, G, T (upper or lower case). The former pattern "[^(A|C|G|T|a|c|g|t)]" also let '(', ')' and
+        # '|' pass.
+        return(!grepl("[^ACGTacgt]", seq))
 }
 
 
@@ -14,7 +16,7 @@ is.dnaSequence <- function(seq){
 
 is.ortho_detection_method <- function(method = NULL){
         
-        provided <- c("BH","RBH","PO","DELTA")
+        provided <- c("BH","RBH")
         
         if(is.null(method)){
                 print("The followig methods are provided: ")
@@ -100,7 +102,6 @@ is.alignment_search_tool <- function(tool = NULL){
 #' sequence.
 #' @param dt a \code{data.table} object storing cds sequences in a column named \code{seqs}.
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet.
-#' @import data.table
 cds2aa <- function(dt, delete_corrupt_cds = TRUE){
         
         if (!is.data.table(dt))
@@ -109,120 +110,87 @@ cds2aa <- function(dt, delete_corrupt_cds = TRUE){
         # define visible bindings for global variables
         seqs <- aa <- geneids <- NULL
         
-        # When using data.tables within packaes, always make sure
-        # 'data.table' is included in the DESCRIPTION file as 'Imports' AND
-        # in the NAMESPACE file with 'imports(data.table)' -> @import when using roxygen2
-        # http://stackoverflow.com/questions/10527072/using-data-table-package-inside-my-own-package
-        # https://github.com/hadley/dplyr/issues/548
-        
         # omit empty sequences
-        dt <- dt[ , .SD[sapply(seqs, function(x) {
-                return(!(is.na(x) || x == ""))
-        })]]
+        dt <- dt[!(is.na(seqs) | seqs == "")]
         
         if (delete_corrupt_cds) {
                 # omit sequences that are not multiples of 3
-                dt <- dt[ , .SD[sapply(seqs, function(x) {
-                        return(nchar(x) %% 3 == 0)
-                })]]
+                dt <- dt[nchar(seqs) %% 3 == 0]
         }
         
-        # omit sequences consisting of others than ACGT
-        dt <- dt[ , .SD[sapply(seqs, is.dnaSequence)]]
+        # omit sequences consisting of others than ACGT - and say which
+        not_acgt <- !vapply(dt[ , seqs], is.dnaSequence, logical(1), USE.NAMES = FALSE)
+        if (any(not_acgt)) {
+                report_dropped_cds(dt[not_acgt, geneids])
+                dt <- dt[!not_acgt]
+        }
         
         # translate cds to protein sequences
         tryCatch({
-                dt[ , aa := transl(seqs), by = geneids]
+                if (anyDuplicated(dt[ , geneids]) > 0) {
+                        # the same ID more than once: keep what the per-gene translation did
+                        dt[ , aa := transl(seqs), by = geneids]
+                } else {
+                        dt[ , aa := translate_cds(seqs)]
+                }
                 
         }, error = function(e) {
                 stop(
                         "The input coding sequences could not be translated properly to amino acid sequences.",
                         "\n",
-                        " Please check whether ",
-                        file,
-                        " stores valid coding sequences."
+                        " Please check whether the input file stores valid coding sequences.",
+                        call. = FALSE
                 )
         })
         
         return(dt)
 }
-        
 
-
-
-# internal: make sure `path` is on PATH for the lifetime of the R session,
-# then return "" so this can be spliced into paste0() calls that build shell
-# commands without changing their structure.
-#
-# Earlier versions of this helper returned a shell-syntax prefix such as
-# 'export PATH=$PATH:<path>; ' to prepend to the command string. That is
-# POSIX shell syntax and breaks on Windows, where system() may dispatch to
-# cmd.exe (no 'export', and 'set VAR=val && cmd' doesn't see the new VAR
-# because cmd.exe expands %VAR% before 'set' runs) or to an sh.exe picked up
-# from Rtools/Git on PATH. Setting PATH in the R process itself works
-# identically everywhere, since child processes always inherit R's
-# environment.
-path_prefix <- function(path) {
-        if (is.null(path))
-                return("")
-        
-        path <- normalizePath(path, mustWork = FALSE)
-        current <- Sys.getenv("PATH")
-        current_entries <- strsplit(current, .Platform$path.sep, fixed = TRUE)[[1]]
-        
-        if (!(path %in% current_entries))
-                Sys.setenv(PATH = paste(path, current, sep = .Platform$path.sep))
-        
-        ""
+# Coding sequences with characters other than A, C, G, T (N, IUPAC ambiguity codes, ...) cannot be translated and
+# are left out. This used to happen silently; the genes are now named in a message (once per dNdS() call, in
+# which the same file is read several times).
+report_dropped_cds <- function(ids) {
+        if (length(ids) == 0)
+                return(invisible(NULL))
+        run_dir <- getOption("orthologr.tmpdir", NULL)
+        if (!is.null(run_dir)) {
+                # inside one dNdS() call: say it once
+                key <- paste0("dropped_cds\r", run_dir, "\r", paste(ids, collapse = "\r"))
+                if (!is.null(.orthologr_state[[key]]))
+                        return(invisible(NULL))
+                .orthologr_state[[key]] <- TRUE
+        }
+        shown <- utils::head(ids, 10)
+        message(
+                length(ids), " coding sequence", if (length(ids) > 1) "s hold" else " holds",
+                " characters other than A, C, G, T (e.g. N or IUPAC ambiguity codes) and ",
+                if (length(ids) > 1) "are" else "is", " left out: ",
+                paste(shown, collapse = ", "),
+                if (length(ids) > length(shown)) paste0(", ... (", length(ids) - length(shown), " more)") else "",
+                "."
+        )
+        invisible(ids)
 }
 
-# internal: run a shell command that relies on '>' or '2>' shell redirection
-# (e.g. to capture a tool's stdout into an alignment output file). Plain
-# system() does not reliably route through cmd.exe on every Windows setup
-# (e.g. when an sh.exe from Rtools/Git is picked up on PATH), which silently
-# breaks redirection: the literal '>file' text ends up passed to the program
-# as just another argument instead of being interpreted by a shell. shell()
-# explicitly always invokes the Windows command interpreter.
-system_with_redirect <- function(command) {
-        if (.Platform$OS.type == "windows") {
-                suppressWarnings(shell(command, mustWork = FALSE))
-        } else {
-                system(command)
-        }
-}
-
-# internal: run a shell command and return its exit status.
-# If quiet = TRUE, stderr is captured instead of printed (e.g. DIAMOND's harmless
-# "Failed to delete temporary file" warnings) and only shown if the command fails.
-run_system_quiet <- function(command, quiet = TRUE) {
-        if (!quiet)
-                return(system(command))
-        
-        err_file <- tempfile("stderr_", fileext = ".txt")
-        on.exit(unlink(err_file), add = TRUE)
-        
-        redirected <- if (.Platform$OS.type == "windows") {
-                paste0(command, " 2>", shQuote(err_file))
-        } else {
-                # group the command in case it is itself a compound shell command
-                paste0("{ ", command, "\n} 2>", shQuote(err_file))
-        }
-        
-        # plain system() does not reliably route through cmd.exe on every
-        # Windows setup (e.g. when an sh.exe from Rtools/Git is picked up),
-        # which silently breaks '2>' redirection: the literal text ends up
-        # passed to the program as just another argument. shell() explicitly
-        # always invokes the Windows command interpreter, so redirection works.
-        status <- if (.Platform$OS.type == "windows") {
-                suppressWarnings(shell(redirected, mustWork = FALSE))
-        } else {
-                system(redirected)
-        }
-        
-        if (!identical(status, 0L) && file.exists(err_file)) {
-                err <- readLines(err_file, warn = FALSE)
-                if (length(err) > 0)
-                        message(paste(err, collapse = "\n"))
-        }
-        status
+# Translate coding sequences (character vector) with the standard genetic code; the result is what transl()
+# (seqinr::translate()) returns for each of them. Sequences of A, C, G, T whose length is a multiple of 3 are
+# translated in one call to Biostrings::translate() (no.init.codon = TRUE: the first codon is translated like any
+# other, as seqinr does). All other sequences (ambiguity codes, incomplete last codon, empty) take the old path,
+# so that their result cannot differ.
+translate_cds <- function(seqs) {
+        seqs <- as.character(seqs)
+        res <- character(length(seqs))
+        if (length(seqs) == 0)
+                return(res)
+        n <- nchar(seqs)
+        fast <- !is.na(seqs) & n > 0 & n %% 3 == 0 & !grepl("[^ACGTacgt]", seqs)
+        if (any(fast))
+                res[fast] <- as.character(Biostrings::translate(
+                        Biostrings::DNAStringSet(seqs[fast]),
+                        genetic.code  = Biostrings::GENETIC_CODE,
+                        no.init.codon = TRUE
+                ))
+        if (any(!fast))
+                res[!fast] <- vapply(seqs[!fast], transl, character(1), USE.NAMES = FALSE)
+        res
 }

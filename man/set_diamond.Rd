@@ -21,11 +21,11 @@ set_diamond(
 \item{file}{a character string specifying the path to the file storing the sequences of interest.}
 
 \item{seq_type}{a character string specifying the sequence type stored in the input file.
-Options are are: "cds", "protein", or "dna". In case of "cds", sequence are translated to protein sequences,
-in case of "dna", cds prediction is performed on the corresponding sequences which subsequently are
-translated to protein sequences. Default is \code{seq_type} = "cds".}
+Options are: "cds" (Default; the sequences are translated to protein sequences), "protein", or "dna".
+"dna" sequences are read as they are (no gene prediction) and cannot be used to build a DIAMOND database
+(\code{makedb = TRUE} is an error).}
 
-\item{format}{a character string specifying the file format used to store the genome, e.g. "fasta", "gbk".}
+\item{format}{a character string specifying the file format used to store the genome, only "fasta" is supported.}
 
 \item{makedb}{TRUE or FALSE whether a database should be created or not (\code{diamond makedb}).}
 

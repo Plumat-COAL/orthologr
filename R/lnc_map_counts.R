@@ -9,8 +9,11 @@
 #' @export  
 lnc_map_counts <- function(lnc_map, species_order) {
         
-        species <- NULL 
-        all_lncRNAs_df <- dplyr::summarize(dplyr::group_by(lnc_map, species), n_orthologs = dplyr::n())
+        # lncRNA maps name the species column 'species', the ortholog tables of this package 'subject_species'
+        species_col <- intersect(c("species", "subject_species"), names(lnc_map))
+        if (length(species_col) == 0)
+                stop("'lnc_map' needs a column named 'species' or 'subject_species'.", call. = FALSE)
+        all_lncRNAs_df <- dplyr::summarize(dplyr::group_by(lnc_map, .data[[species_col[1]]]), n_orthologs = dplyr::n())
         names(all_lncRNAs_df)[1] <- "subject_species"
         
         all_lncRNAs_df$subject_species <- factor(
