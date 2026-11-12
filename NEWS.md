@@ -1,5 +1,67 @@
 ## `orthologr` development version
 
+### Options and inputs: documented options work, unsupported ones are rejected with a clear message
+
+`dNdS()`
+- Arguments are checked before any program is started, and the error names the argument, the value and the valid
+  values. `ortho_detection` accepts `"RBH"` and `"BH"` only: `"PO"` and `"DELTA"` passed the check and then failed
+  with `object 'q_cds' not found`; `"Orthofinder2"` was documented but rejected. A mistyped `aligner` gave the same
+  `q_cds` error. `seq_type` other than `"cds"` and `format` other than `"fasta"` are rejected (`seq_type = "protein"`
+  could hang in `diamond makedb`; `format = "gbk"` was documented but never read).
+- `sensitivity_mode` is checked against the DIAMOND modes; the documented default is the real one (`"fast"`).
+  `sensitivity_mode = "default"` now runs DIAMOND in its own default mode (it was passed on as `--default`, which
+  DIAMOND rejects). Also in `diamond()`, `diamond_best()`, `diamond_rec()`, `divergence_stratigraphy()`.
+- **`aa_aln_params` is now passed on** to the multiple alignment program (`multi_aln(params = )`). It was accepted
+  and ignored, so results change for calls that set it together with `aa_aln_type = "multiple"`. With
+  `aa_aln_type = "pairwise"` it is not used and a warning says so.
+- `comp_cores` larger than the number of available cores: the available number is used and a warning is given (was
+  an error). The same in `blast()`, `diamond()`, `deepclust()`, `deepclust_realign()`, `compute_dnds()`.
+- `cdd.path` and `ortho_path` are deprecated (they were never used); setting them gives a warning.
+- `clean_folders = TRUE` leaves nothing in `tempdir()` (all intermediate files are in the folder of the call, which
+  is always removed).
+
+Coding sequences that are left out
+- Coding sequences with characters other than A, C, G, T (N, IUPAC ambiguity codes) cannot be translated and were
+  left out without a word. They are still left out, but a message now names them. The check itself used the pattern
+  `[^(A|C|G|T|a|c|g|t)]`, which also let `(`, `)` and `|` pass; it is `[^ACGTacgt]` now.
+- `read.cds()` wrote `<file>_corrupted_cds_seqs.fasta` into the **working directory**. The file now goes to
+  `tempdir()`, or to the folder set with `options(orthologr.corrupted_cds_dir = "<folder>")`.
+
+Multiple alignment programs
+- **MUSCLE 5 is supported** (`multi_aln(tool = "muscle")`, `dNdS(aa_aln_tool = "muscle")`). The version is detected;
+  MUSCLE 5 is run as `muscle -align <in> -output <out>`, its aligned FASTA output is put back into the order of the
+  input. MUSCLE 3.8 is run as before.
+- **T-Coffee: the default mode changed.** `multi_aln(tool = "t_coffee")` ran `t_coffee -mode accurate`, which needs
+  a BLAST server and failed (unnoticed) without network. The default is now T-Coffee's own default mode
+  (`-output clustalw_aln`, guide tree not written to the working directory). Alignments, and dN/dS values computed
+  from them, differ from those of `-mode accurate`; `params = "-mode accurate"` gives the old command.
+- `multi_aln(get_aln = TRUE)` reads the CLUSTAL files written by T-Coffee (Biostrings rejected them).
+- The MAFFT check runs `mafft --version` (was `mafft -v`, not an option). The MUSCLE, MAFFT and KaKs_Calculator
+  checks return `TRUE` (they returned `NULL`).
+
+Other fixes
+- `pairwise_aln()` works when called on its own (it needed a folder that only `dNdS()` created; fixed on
+  `fix/robustness`, now tested).
+- `read.genome(format = "fastq")` works (`object 'genome.dt' not found`).
+- `set_blast()` / `set_diamond()` with `seq_type = "dna"`: the sequences are returned as read; `set_blast(makedb =
+  TRUE, makedb_type = "nucleotide")` builds a nucleotide database from them (`blastdb_<file>_nucleotide.fasta`).
+  Asking for a protein database from DNA is an error that says why (was `column 'aa' not found`).
+- `codon_aln(get_aln = TRUE)` returned an empty alignment for `format = "clustal"` and failed for
+  `format = "fasta"`; both are read now.
+- `promotor_divergence_estimation()` works when all aligned pairs have the same length.
+- `check_annotation(remove_annotation_outliers = TRUE)` **no longer overwrites the annotation file**. The file
+  without the outlier lines is written to `tempdir()` under the same name (the extension was lost for names with
+  more than one dot) and its path is returned. `retrieve_longest_isoforms()` uses that copy.
+- `lnc_map_counts()` accepts the species column of the package's ortholog tables (`subject_species`) as well as
+  `species`.
+- **`orthofinder2()` is soft-deprecated** (a warning on every call). It did not work: the executable path was
+  hard-coded to `/opt/miniconda3/bin/orthofinder`, it always returned `NULL` and the imports passed folders as
+  files. It now looks for `orthofinder` on the `PATH` (or in `of_path`), checks the exit status, returns the
+  results folder invisibly, and `import_type = "orthogroups_core"` reads the tables of OrthoFinder 2.5 and 3 when a
+  full run has written them. `import_type = "orthogroups_pairwise"` (never implemented) is an error.
+- `orthologs(ortho_detection = "Orthofinder2")` is an error with an explanation (it printed "under development"
+  and returned `NULL`).
+
 ### External programs are run through one checked helper
 
 - **No more stale results.** `blast()`, `blast_best()`, `blast_rec()`, `diamond()`, `deepclust()`,
