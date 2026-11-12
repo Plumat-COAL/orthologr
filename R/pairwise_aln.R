@@ -34,7 +34,6 @@
 #'                                                                                                                                                          
 #' }
 #' @return In case the argument \code{get_aln} is set \code{TRUE}, an object of class alignment of the seqinr package is returned.
-#' @import Biostrings
 #' @export
 pairwise_aln <- function(file, 
                          tool              = "NW", 

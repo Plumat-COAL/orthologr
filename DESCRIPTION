@@ -1,8 +1,8 @@
 Package: orthologr
 Type: Package
 Title: Comparative Genomics with R
-Version: 0.4.3
-Date: 2026-06-26
+Version: 0.5.0
+Date: 2026-11-12
 Authors@R: c(
             person("Hajk-Georg", "Drost", , "hajk-georg.drost@tuebingen.mpg.de", c("aut", "cre")),
             person("Sarah", "Scharfenberg", , "Sarah.Scharfenberg@ipb-halle.de", role = "ctb"),
@@ -10,43 +10,37 @@ Authors@R: c(
             )
 Description: Genome-wide orthology inference and dN/dS estimation between multiple genomes.
 License: GPL-2
-SystemRequirements: C++11, Perl
+SystemRequirements: Perl, DIAMOND (>= 2.1.0) for the default sequence search (see diamond_install()); optional: BLAST+, KaKs_Calculator (>= 2.0), ClustalW2, Clustal Omega, MAFFT, MUSCLE (3.8 or 5), T-Coffee, OrthoFinder
 VignetteBuilder: knitr
 NeedsCompilation: yes
 Depends:
-    R (>= 4.0.0)
+    R (>= 4.4.0)
 Imports:
     data.table (>= 1.9.4),
     seqinr,
-    fs,
-    parallel (>= 3.0.2),
-    dplyr (>= 0.3.0.2),
+    parallel,
+    dplyr (>= 1.0.0),
     Rcpp (>= 0.11.3),
-    Biostrings (>= 2.52.0),
-    pwalign (>= 1.6.0),
+    Biostrings (>= 2.72.0),
+    pwalign,
     stringr (>= 0.6.2),
-    rtracklayer,
     tibble,
     readr,
-    ape,
-    ggplot2,
-    scales,
-    Rdpack,
-    benchmarkme,
     rlang
 Suggests:
     knitr (>= 1.6),
-    DBI (>= 0.3.1),
-    IRanges,
-    RSQLite (>= 0.11.4),
     rmarkdown (>= 0.3.3),
-    devtools (>= 1.6.1),
     testthat (>= 3.0.0),
-    pkgload,
+    rtracklayer,
+    ape,
+    ggplot2,
+    scales,
+    benchmarkme,
+    tidyr,
+    biomartr,
     metablastr
 Remotes:
     drostlab/metablastr
-RdMacros: Rdpack
 LinkingTo: Rcpp
 URL: https://drostlab.github.io/orthologr, https://github.com/drostlab/orthologr
 BugReports: https://github.com/drostlab/orthologr/issues

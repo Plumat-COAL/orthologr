@@ -12,6 +12,8 @@
 #' @author Hajk-Georg Drost
 #' @export
 plot_pairwise_orthologs <- function(ortho_tables, species_order, xlab = "Subject Species", ylab = "Number of reciprocal best hit orthologs", title = "", n_core_orthologs = NULL) {
+        need_package("ggplot2", "plot_pairwise_orthologs()")
+        need_package("scales", "plot_pairwise_orthologs()")
         
         subject_species <- NULL 
         ortholog_tbl_athaliana_pairwise <- dplyr::summarize(dplyr::group_by(ortho_tables, subject_species),

@@ -26,6 +26,7 @@
 #' }
 #' @export
 retrieve_longest_isoforms <- function(proteome_file, annotation_file, new_file, annotation_format = "gff") {
+        need_package("rtracklayer", "retrieve_longest_isoforms()", bioc = TRUE)
         
         if (!file.exists(proteome_file))
                 stop("File ", proteome_file, " seems not to exist.", call. = FALSE)

@@ -219,6 +219,19 @@ save_output_copy <- function(from, save.output, name) {
         invisible(to)
 }
 
+# Stop with an installation hint when a package that is only needed by some functions (DESCRIPTION: Suggests) is
+# not installed.
+need_package <- function(pkg, what, bioc = FALSE) {
+        if (requireNamespace(pkg, quietly = TRUE))
+                return(invisible(TRUE))
+        stop(
+                "The package '", pkg, "' is needed for ", what, " but is not installed. Please install it with ",
+                if (bioc) paste0("BiocManager::install(\"", pkg, "\")") else paste0("install.packages(\"", pkg, "\")"),
+                ".",
+                call. = FALSE
+        )
+}
+
 # Evaluate every argument of the calling function now. A function that hands a closure to worker processes
 # (parallel::parLapply() on a PSOCK cluster, the default on Windows) must call this before the cluster is used:
 # an argument that was not evaluated yet travels to the workers as a promise - the expression the user typed plus

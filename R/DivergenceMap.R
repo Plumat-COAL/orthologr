@@ -45,7 +45,6 @@
 #' }
 #' @seealso \code{\link{divergence_stratigraphy}}
 #' @return a data.table storing a standard divergence map.
-#' @import data.table
 #' @export
 
 divergence_map <- function(dNdS_tbl, subject.id = FALSE, n_quantile = 10){
