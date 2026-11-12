@@ -1,5 +1,56 @@
 ## `orthologr` development version
 
+### Faster R code around the external programs (no change of results)
+
+The following changes do not change any result: the old per-gene code is kept as the reference and the test suite
+compares both on the example data, including the 1,000-gene example (`tests/testthat/test-vectorise.R`).
+R time (CPU of the R process, 1,000 x 1,000 genes; elapsed times depend on DIAMOND):
+
+| | before | after |
+|---|---|---|
+| `set_diamond()` on CDS | 0.47 s | 0.15 s |
+| `diamond_best()` on CDS | 3.3 s | 0.6 s |
+| `diamond_rec()` on CDS | 5.0 s | 0.5 s |
+| `diamond_rec()` on proteins | 3.7 s | 0.1 s |
+| `select_orthologs()` (gtf / gff, 986 pairs) | 14.1 s / 12.3 s | 0.11 s / 0.15 s |
+| `retrieve_longest_isoforms()` (gff, without loading rtracklayer) | 1.3 s | 0.2 s |
+
+- **Translation**: coding sequences are translated in one call to `Biostrings::translate()` instead of one
+  `seqinr::translate()` call per gene. Only sequences of A, C, G, T with complete codons take the new path, with
+  `no.init.codon = TRUE` (Biostrings would otherwise translate an alternative start codon such as TTG or CTG at the
+  first position to M, which seqinr does not); every other sequence is translated as before.
+- **Each input file is read and translated once** in `dNdS()` (was six times), `diamond_rec()` and `blast_rec()`
+  (was four times). As a side effect the messages of `read.cds()` about incomplete codons appear once per file.
+- **Best hits** (`diamond_best()`, `blast_best()`, and the splice-variant selection of `select_orthologs()`): one
+  sort instead of a `dplyr::do()` call per query. Ties are broken as before: smallest e-value, then longest
+  alignment, then the first row of the hit table; the order of the result is that of `dplyr::group_by()`.
+- **`select_orthologs()`**: the gene locus / transcript table of an annotation is built in one pass instead of one
+  `extract_features()` call per locus (98% of the run time). Annotations in which a locus has more than one `gene`
+  row take the old path. One difference: an annotation with a locus that has transcripts but no `gene` row (or
+  the other way round) stopped with an obscure `vctrs` type error; such loci are now left out, as intended.
+- **`retrieve_longest_isoforms()`**: one sort instead of a `dplyr::do()` call per gene (the first of equally long
+  isoforms, as before).
+- **`deepclust()` / `deepclust_realign()`** with several protein files read each file once with Biostrings instead
+  of reading every sequence with seqinr, writing one merged file and reading it again. The database is the same
+  (sequences sorted by ID).
+- The protein FASTA files for the searches are written with one `writeLines()` call (same bytes as before).
+- **Parallel runs (`comp_cores > 1`) use the `parallel` package only**: forked processes as before where the
+  operating system can fork, and otherwise - on Windows, where `comp_cores > 1` failed - `PSOCK` processes that
+  load the package and get the options and the working folder of the call
+  (`options(orthologr.cluster_type = "PSOCK")` chooses them elsewhere). `foreach` and `doParallel` are no longer
+  imported.
+
+New, off by default
+- `deepclust(direct_input = TRUE)` hands the protein files to `diamond makedb` without parsing them in R (no
+  sequence is held in memory; for very large sets). The IDs are the same, but `diamond deepclust` depends on the
+  order of the sequences: with file order instead of ID order the clusters of the 1,988 example proteins differ
+  from the default. This is why it is not the default.
+
+Bug fix
+- `deepclust()` failed for IDs with `|` and `:` (e.g. the four `example_*_aa.faa` files together): the cluster
+  table was read with a guessed separator (`Can't assign 2 names to a 3-column data.table`). It is read as
+  tab-separated now.
+
 ### Options and inputs: documented options work, unsupported ones are rejected with a clear message
 
 `dNdS()`
