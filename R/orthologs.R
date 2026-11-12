@@ -19,7 +19,7 @@
 #'   \item \code{"DIAMOND_BH"}: DIAMOND2 best hit
 #'   \item \code{"RBH"}: BLAST reciprocal best hit
 #'   \item \code{"BH"}: BLAST best hit
-#'   \item \code{"Orthofinder2"}: OrthoFinder2 (currently under development)
+#'   \item \code{"Orthofinder2"}: not implemented (an error; run OrthoFinder yourself and import its tables)
 #' }
 #' @param sensitivity_mode a character string specifying the DIAMOND2 sensitivity level.
 #' Only used when \code{ortho_detection} is \code{"DIAMOND_RBH"} or \code{"DIAMOND_BH"}.
@@ -123,6 +123,12 @@ orthologs <- function(query_file,
                         ),
                         call. = FALSE
                 )
+
+        # 'Orthofinder2' was announced but never implemented (the call returned NULL with a message)
+        if (ortho_detection == "Orthofinder2")
+                stop("ortho_detection = 'Orthofinder2' is not implemented in orthologs(). ",
+                     "Please choose one of: 'DIAMOND_RBH', 'DIAMOND_BH', 'RBH', 'BH', or run OrthoFinder yourself ",
+                     "(see ?orthofinder2_retrieve_core_orthologs to import its single-copy orthogroups).", call. = FALSE)
 
         i <- NULL
 
@@ -316,10 +322,5 @@ orthologs <- function(query_file,
         }
 
         # ---- OrthoFinder2 (under development) ----
-        if (ortho_detection == "Orthofinder2") {
-                message("The 'Orthofinder2' option is currently under development and will be available soon.")
-                return(invisible(NULL))
-        }
-
         return(ortho_tbl)
 }
