@@ -286,11 +286,20 @@ read_hit_table <- function(file, col_names, tool) {
                          rep("integer", 3),
                          rep("double", 3))
         
+        # A search without any hit writes an empty file. That is a result ("no hits"), not a file that cannot be
+        # read: a table without rows and with the usual columns is returned.
+        if (isTRUE(file.size(file) == 0)) {
+                message(tool, " found no hits (the hit table is empty).")
+                return(empty_hit_table(col_names, col_Classes))
+        }
+        
         tryCatch({
                 hit_table <- data.table::fread(
                         input      = file,
                         sep        = "\t",
                         header     = FALSE,
+                        quote      = "",
+                        na.strings = "",
                         colClasses = col_Classes
                 )
                 
@@ -307,11 +316,17 @@ read_hit_table <- function(file, col_names, tool) {
         }, error = function(e) {
                 stop(
                         "The hit table written by ", tool, " could not be read",
-                        if (isTRUE(file.size(file) == 0)) " (it is empty: no hits were found)" else "",
                         ". Please check the input files and the parameters handed to ", tool, ".",
                         "\n",
                         "Error: ", conditionMessage(e),
                         call. = FALSE
                 )
         })
+}
+
+# A hit table without rows: the columns and column types of read_hit_table().
+empty_hit_table <- function(col_names, col_classes) {
+        cols <- lapply(col_classes, function(cl) switch(cl, character = character(0), integer = integer(0), numeric(0)))
+        names(cols) <- col_names
+        tibble::as_tibble(cols)
 }
