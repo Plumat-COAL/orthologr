@@ -158,3 +158,16 @@ save_output_copy <- function(from, save.output, name) {
         file.copy(from, to, overwrite = TRUE)
         invisible(to)
 }
+
+# Stop with an installation hint when a package that is only needed by some functions (DESCRIPTION: Suggests) is
+# not installed.
+need_package <- function(pkg, what, bioc = FALSE) {
+        if (requireNamespace(pkg, quietly = TRUE))
+                return(invisible(TRUE))
+        stop(
+                "The package '", pkg, "' is needed for ", what, " but is not installed. Please install it with ",
+                if (bioc) paste0("BiocManager::install(\"", pkg, "\")") else paste0("install.packages(\"", pkg, "\")"),
+                ".",
+                call. = FALSE
+        )
+}
