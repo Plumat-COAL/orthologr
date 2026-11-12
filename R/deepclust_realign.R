@@ -146,7 +146,7 @@ deepclust_realign <- function(
         message("Running ", diamond_version(path = path), " ...")
         
         # in case one tries to use more cores than are available
-        check_comp_cores(comp_cores)
+        comp_cores <- check_comp_cores(comp_cores)
         
         # every call works in a folder of its own, which is removed when the call ends
         work <- call_dir_start("deepclust_realign_")
