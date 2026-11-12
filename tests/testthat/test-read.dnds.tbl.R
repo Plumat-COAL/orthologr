@@ -1,0 +1,12 @@
+test_that("read.dnds.tbl() reads a table written by map_generator_dnds() (';' separated)", {
+        x <- make_test_ortholog_input()
+        f <- file.path(x$dir, "dnds.csv")
+        utils::write.table(x$dnds, f, sep = ";", quote = FALSE, row.names = FALSE)
+        res <- read.dnds.tbl(f)
+        expect_s3_class(res, "tbl_df")
+        expect_equal(nrow(res), nrow(x$dnds))
+        expect_type(res$query_id, "character")
+        expect_type(res$alig_length, "integer")
+        expect_equal(res$dN, x$dnds$dN)
+        expect_error(read.dnds.tbl(file.path(x$dir, "nope.csv")), "does not seem to exist")
+})
