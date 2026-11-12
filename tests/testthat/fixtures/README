@@ -1,0 +1,36 @@
+Test fixtures
+=============
+
+annotation/
+-----------
+Small pieces of real genome annotations and the matching sequence records, cut without any change of the
+lines that were kept. They are used by test-annotation.R to test retrieve_longest_isoforms(), select_orthologs()
+and generate_ortholog_tables() on the file layouts of NCBI RefSeq and Ensembl.
+
+ncbi_ecoli_sakai.gff, ncbi_ecoli_sakai_protein.faa
+    NCBI RefSeq GFF3 and protein FASTA of Escherichia coli O157:H7 str. Sakai, assembly GCF_000008865.2 (ASM886v2):
+    the header lines, the 'region' line of the chromosome and all features of the loci ECs_0001 - ECs_0040,
+    ECs_0083, ECs_0084, ECs_0621 and ECs_0684 (44 loci, 39 of them with a protein). The piece holds loci without a
+    gene symbol and three pairs of loci that share a symbol (dnaJ: ECs_0015 / ECs_0684, mokC: ECs_0016 / ECs_0621,
+    fruR: ECs_0083 / ECs_0084).
+ncbi_ecoli_k12.gtf, ncbi_ecoli_k12_protein.faa
+    NCBI RefSeq GTF and protein FASTA of Escherichia coli str. K-12 substr. MG1655, assembly GCF_000005845.2
+    (ASM584v2): the header lines and all features of the genes b0001 - b0035 (34 with a protein).
+    Source of both: https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/ (NCBI RefSeq).
+    Licence: NCBI places no restrictions on the use or distribution of its molecular data (public domain,
+    https://www.ncbi.nlm.nih.gov/home/about/policies/).
+
+ensembl_human_chr21.gtf, ensembl_human_chr21.gff3, ensembl_human_chr21_pep.fa, ensembl_human_chr21_cds.fa
+    Ensembl release 115, Homo sapiens GRCh38, chromosome 21: the header lines and all features of nine genes -
+    five protein-coding genes with three coding transcripts each (ENSG00000160233, ENSG00000160180,
+    ENSG00000166265, ENSG00000160202, ENSG00000157542), two protein-coding genes with one (ENSG00000286224,
+    ENSG00000186980), one immunoglobulin gene (ENSG00000277282, gene_biotype IG_V_gene) and one lncRNA gene
+    (ENSG00000184385) - with their records of the 'pep.all' (18 proteins) and 'cds.all' (17 coding sequences)
+    FASTA files. The IDs of the FASTA headers carry versions (ENSP00000284885.3, ENST00000284885.8); the GTF
+    gives versions in fields of their own, the GFF3 in the attribute 'version'.
+    Source: https://ftp.ensembl.org/pub/release-115/ (gtf/homo_sapiens, gff3/homo_sapiens, fasta/homo_sapiens).
+    Licence: Ensembl imposes no restrictions on access to, or use of, its data
+    (https://www.ensembl.org/info/about/legal/disclaimer.html).
+
+The pieces were cut from the copies of these files that the second audit of the package downloaded
+(/home/claude/audit2/work/r05 and /home/claude/audit2/work/iso on the machine of the audit).

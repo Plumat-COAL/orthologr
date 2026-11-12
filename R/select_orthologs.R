@@ -17,7 +17,6 @@ select_orthologs <-
                  annotation_file_subject,
                  collapse_by = "gene_locus",
                  format = c("gtf", "gtf")) {
-                need_package("rtracklayer", "select_orthologs()", bioc = TRUE)
                 if (!is.element(collapse_by, c("gene_locus", "splice_variant")))
                         stop(
                                 "Please specify a collapse method provided by this function: collapse_by = 'gene_locus' or collapse_by = 'splice_variant'.",
@@ -62,137 +61,20 @@ select_orthologs <-
                                 collapse_by,
                                 " ...")
                         
-                        message(
-                                "Import query annotation file '",
-                                annotation_file_query,
-                                "' using format ",
-                                format[1],
-                                " ..."
-                        )
-                        
-                        # import annotation for query
-                        imported_annotation_qry <- tibble::as_tibble(rtracklayer::import(annotation_file_query, format = format[1]))
-
-                        
-                        if (any(imported_annotation_qry$source == "ERCC"))
-                                imported_annotation_qry <- dplyr::filter(imported_annotation_qry, source != "ERCC")
-                        
-                        if (nrow(imported_annotation_qry) == 0)
-                                stop("The annotation file '", annotation_file_query, "' seems to be empty. Please provide a non-empty query annotation file.", call. = FALSE)
-                        
+                        # The gene locus of every query_id / subject_id, from one transcript -> gene table per
+                        # annotation (GFF3: Parent / ID relations; GTF: gene_id / transcript_id / protein_id; see
+                        # annotation_table()). IDs are matched as they are, then without version suffix.
+                        message("Read query annotation file '", annotation_file_query, "' using format ", format[1], " ...")
                         message("Select orthologs in query species ...")
+                        extracted_features_qry <- annotation_loci_of_ids(
+                                dnds_tbl$query_id, annotation_file_query, format[1], what = "query_id")
+                        names(extracted_features_qry) <- c("query_gene_locus_id", "query_id")
                         
-                        if (format[1] == "gff") {
-                                Name <- NULL
-                                extracted_features_qry <-
-                                        extract_features_all(imported_annotation_qry, format = format[1], group_col = "Name")
-
-                                colnames(extracted_features_qry)[2] <-
-                                        "query_gene_locus_id"
-                                
-                                extracted_features_qry <-
-                                        dplyr::select(
-                                                dplyr::ungroup(extracted_features_qry),
-                                                "query_gene_locus_id",
-                                                "query_id"
-                                        )
-                                
-                        }
-                        
-                        if (format[1] == "gtf") {
-                                gene_id <- NULL
-                                # extracted_features_qry <-
-                                #         dplyr::do(
-                                #                 dplyr::group_by(imported_annotation_qry, gene_id),
-                                #                 extract_features(. , format = format[1])
-                                #         )
-                                
-                                
-                                select_qry_ids <- unique(imported_annotation_qry[imported_annotation_qry$transcript_id %in% dnds_tbl$query_id,]$gene_id)
-                                
-                                extracted_features_qry <-
-                                        extract_features_all(imported_annotation_qry[imported_annotation_qry$gene_id %in% select_qry_ids,], format = format[1], group_col = "gene_id")
-                                
-                                colnames(extracted_features_qry)[2] <-
-                                        "query_gene_locus_id"
-                                
-                                extracted_features_qry <-
-                                        dplyr::select(
-                                                dplyr::ungroup(extracted_features_qry),
-                                                "query_gene_locus_id",
-                                                "query_id"
-                                        )
-                        }
-                        
-                        message(
-                                "Import subject annotation file '",
-                                annotation_file_subject,
-                                "' using format ",
-                                format[2],
-                                " ..."
-                        )
-                        # import annotation for subjecy
-                        imported_annotation_sbj <-
-                                tibble::as_tibble(
-                                        rtracklayer::import(annotation_file_subject, format = format[2])
-                                )
-                        
-                        if (any(imported_annotation_sbj$source == "ERCC"))
-                                imported_annotation_sbj <- dplyr::filter(imported_annotation_sbj, source != "ERCC")
-                        
-                        if (nrow(imported_annotation_sbj) == 0)
-                                stop("The annotation file '", annotation_file_subject, "' seems to be empty. Please provide a non-empty subject annotation file.", call. = FALSE)
-                        
+                        message("Read subject annotation file '", annotation_file_subject, "' using format ", format[2], " ...")
                         message("Select orthologs in subject species ...")
-                        
-                        if (format[2] == "gff") {
-                                Name <- NULL
-                                extracted_features_sbj <-
-                                        extract_features_all(imported_annotation_sbj, format = format[2], group_col = "Name")
-                                colnames(extracted_features_sbj)[2] <-
-                                        "subject_gene_locus_id"
-                                colnames(extracted_features_sbj)[3] <-
-                                        "subject_id"
-                                
-                                extracted_features_sbj <-
-                                        dplyr::select(
-                                                dplyr::ungroup(extracted_features_sbj),
-                                                "subject_gene_locus_id",
-                                                "subject_id"
-                                        )
-                                
-                        }
-                        
-                        if (format[2] == "gtf") {
-                                gene_id <- NULL
-                                # extracted_features_sbj <-
-                                #         dplyr::do(
-                                #                 dplyr::group_by(imported_annotation_sbj, gene_id),
-                                #                 extract_features(. , format = format[2])
-                                #         )
-                                
-                                select_sbj_ids <- unique(imported_annotation_sbj[imported_annotation_sbj$transcript_id %in% dnds_tbl$subject_id,]$gene_id)
-                                
-                                extracted_features_sbj <-
-                                        extract_features_all(imported_annotation_sbj[imported_annotation_sbj$gene_id %in% select_sbj_ids,], format = format[2], group_col = "gene_id")
-                                
-                                colnames(extracted_features_sbj)[2] <-
-                                        "subject_gene_locus_id"
-                                colnames(extracted_features_sbj)[3] <-
-                                        "subject_id"
-                                
-                                extracted_features_sbj <-
-                                        dplyr::select(
-                                                dplyr::ungroup(extracted_features_sbj),
-                                                "subject_gene_locus_id",
-                                                "subject_id"
-                                        )
-                        }
-                        
-                        if (nrow(extracted_features_qry) == 0)
-                                stop("Something went wrong during the feature extraction of 'query_gene_locus_id' ...", call. = FALSE)
-                        if (nrow(extracted_features_sbj) == 0)
-                                stop("Something went wrong during the feature extraction of 'subject_gene_locus_id' ...", call. = FALSE)
+                        extracted_features_sbj <- annotation_loci_of_ids(
+                                dnds_tbl$subject_id, annotation_file_subject, format[2], what = "subject_id")
+                        names(extracted_features_sbj) <- c("subject_gene_locus_id", "subject_id")
                         
                         message("Join dnds and annotation tables ...")
                         # join dnds tbl with query annotation
@@ -348,3 +230,48 @@ select_orthologs <-
                 message("... orthology inference finished successfully!")
                 return(res)
         }
+
+
+# The gene loci of the IDs of a dN/dS table: a tibble (gene_locus_id, id) with one row per ID that is in the
+# annotation. Stops with examples of both kinds of IDs when none is.
+annotation_loci_of_ids <- function(ids, annotation_file, format, what = "query_id") {
+        tbl <- annotation_table(annotation_file, format = format)
+        ids <- unique(as.character(ids))
+        loci <- match_ids_to_genes(ids, attr(tbl, "keys"))
+        if (nrow(loci) == 0)
+                annotation_mismatch_error(ids, tbl, paste0("the column '", what, "' of the dN/dS table"), annotation_file)
+        # an ID that belongs to several loci (identical proteins): the first locus
+        multi <- duplicated(loci$id)
+        if (any(multi)) {
+                message(length(unique(loci$id[multi])), " ", what, "s belong to more than one gene locus of '",
+                        basename(annotation_file), "' (e.g. ", loci$id[multi][1], "); the first locus is used.")
+                loci <- loci[!multi]
+        }
+        how <- table(loci$how)
+        if (any(names(how) != "exact"))
+                message(sum(how[names(how) != "exact"]), " of ", length(ids), " ", what, "s were matched to the annotation without their version suffix ",
+                        "or by the protein accession of an NCBI 'lcl|..._cds_...' ID.")
+        not_found <- setdiff(ids, loci$id)
+        if (length(not_found) > 0)
+                message(length(not_found), " of ", length(ids), " ", what, "s are not in the annotation file '", basename(annotation_file),
+                        "' and are left out, e.g.: ", paste(utils::head(not_found, 5), collapse = ", "), ".")
+        tibble::tibble(gene_locus_id = loci$gene_id, id = loci$id)
+}
+
+# The loci table of the implementation used until 0.4.3 (rtracklayer import, extract_features() per locus; GFF3
+# rows grouped by 'Name', GTF: literal transcript_id matches of loci with a 'gene' and CDS rows). Kept as the
+# reference in the tests.
+annotation_loci_of_ids_do <- function(ids, annotation_file, format) {
+        need_package("rtracklayer", "annotation_loci_of_ids_do()", bioc = TRUE)
+        imported <- tibble::as_tibble(rtracklayer::import(annotation_file, format = format))
+        if (any(imported$source == "ERCC"))
+                imported <- imported[imported$source != "ERCC", ]
+        if (format == "gff") {
+                res <- extract_features_all(imported, format = format, group_col = "Name")
+        } else {
+                sel <- unique(imported[imported$transcript_id %in% ids, ]$gene_id)
+                res <- extract_features_all(imported[imported$gene_id %in% sel, ], format = format, group_col = "gene_id")
+        }
+        res <- dplyr::ungroup(res)
+        tibble::tibble(gene_locus_id = res$gene_locus_id, id = res$query_id)
+}
