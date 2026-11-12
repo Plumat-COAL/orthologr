@@ -154,6 +154,8 @@ blast <- function(query_file,
         # in case one tries to use more cores than are available
         comp_cores <- check_comp_cores(comp_cores)
         
+        eval <- check_evalue(eval)
+        
         # every call works in a folder of its own, which is removed when the call ends: a table left by an
         # earlier or failed call cannot be returned as the result of this one
         work <- call_dir_start("blast_")
