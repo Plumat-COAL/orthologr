@@ -155,21 +155,17 @@ substitutionrate <- function(file,
         f_sep <- .Platform$file.sep
         
         if (!file.exists(file.path(orthologr_tmpdir(), "_calculation"))) {
-                dir.create(file.path(orthologr_tmpdir(), "_calculation"))
+                dir.create(file.path(orthologr_tmpdir(), "_calculation"), recursive = TRUE)
         }
         
         
         if (est.method == "Comeron") {
-                if (is.null(subst_name)) {
-                        file.out <- file.path(orthologr_tmpdir(), "_calculation", "gestimout")
-                }
-                
-                if (!is.null(subst_name)) {
-                        file.out <-
-                                file.path(orthologr_tmpdir(),
-                                          "_calculation",
-                                          paste0(subst_name, "_gestimout"))
-                }
+                # gestimator writes its table to a file that only this call uses and that is removed afterwards
+                file.out <- tempfile(
+                        paste0(if (is.null(subst_name)) "" else paste0(subst_name, "_"), "gestimout_"),
+                        tmpdir = file.path(orthologr_tmpdir(), "_calculation")
+                )
+                on.exit(unlink(file.out), add = TRUE)
                 
                 # file in fasta required
                 if (format != "fasta")
@@ -254,78 +250,41 @@ substitutionrate <- function(file,
         
         if (is.element(est.method, kaks_calc_methods)) {
                 
-                is_installed_kaks_calculator()
+                # (with kaks_calc_path, a program that is not there is reported below, together with the gene pair)
+                if (is.null(kaks_calc_path))
+                        is_installed_kaks_calculator()
                 
-                operating_sys <- Sys.info()[1]
-                
-                if (operating_sys == "Darwin") {
-                        os <- "Mac"
-                        calc <- "KaKs_Calculator"
-                }
-                
-                if (operating_sys == "Linux") {
-                        os <- "Linux"
-                        calc <- "KaKs_Calculator"
-                }
-                
-                if (operating_sys == "Windows") {
-                        os <- "Windows"
-                        calc <- "KaKs_Calculator.exe"
-                }
-                
-                
+                # the gene pair, for messages
                 context <- pair_context(file, subst_name)
                 
-                # the two gene ids are taken from the alignment itself. (They used to be recovered by splitting
-                # the name KaKs_Calculator reports, "<query>-<subject>", at "-", which broke every gene id that
-                # contains a hyphen.)
+                # The AXT input of KaKs_Calculator: a name line, the two aligned sequences, an empty line. It is
+                # written here (not by the Perl script parseFastaIntoAXT.pl, which labelled the pair with
+                # '<query>-<subject>' and so made IDs with a hyphen impossible to recover).
                 aln_seqs <- seqinr::read.fasta(file, as.string = TRUE, set.attributes = FALSE, forceDNAtolower = FALSE)
                 if (length(aln_seqs) != 2)
                         stop("The codon alignment of ", context, " must hold two sequences, but '", file, "' holds ",
                              length(aln_seqs), ".", call. = FALSE)
                 pair_ids <- fasta_ids(file)[1:2]
                 
+                # input, output and log of this call have names of their own and are removed afterwards: a result
+                # of an earlier (or failed) call can never be read in place of the result of this one
                 calc_dir <- file.path(orthologr_tmpdir(), "_calculation")
-                file_name <- basename(file)
-                axt_file <- file.path(calc_dir, paste0(file_name, ".axt"))
-                kaks_file <- file.path(calc_dir, paste0(file_name, ".axt.kaks"))
-                log_file <- file.path(calc_dir, paste0(file_name, ".axt.log"))
+                axt_file <- tempfile(paste0(safe_file_name(basename(file)), "_"), tmpdir = calc_dir, fileext = ".axt")
+                kaks_file <- paste0(axt_file, ".kaks")
+                on.exit(unlink(c(axt_file, kaks_file)), add = TRUE)
                 
-                # AXT input of KaKs_Calculator: a name line, the two aligned sequences, an empty line.
-                # (Written here instead of by the Perl script inst/KaKs_Calc_parser/parseFastaIntoAXT.pl:
-                # one external call less per gene pair, and no exit status to lose.)
                 writeLines(c(if (is.null(subst_name)) "pair" else subst_name,
                              as.character(aln_seqs[[1]]), as.character(aln_seqs[[2]]), ""), axt_file)
                 
-                # a result of an earlier call must never be taken for the result of this one
-                if (file.exists(kaks_file))
-                        unlink(kaks_file)
-                
-                if (is.null(kaks_calc_path))
-                        KaKs_Calculator <- calc
-                
-                if (!is.null(kaks_calc_path))
-                        KaKs_Calculator <- shQuote(file.path(kaks_calc_path, calc))
-                
-                kaks_run <- paste0(
-                        KaKs_Calculator,
-                        " -i ",
-                        shQuote(axt_file),
-                        " -o ",
-                        shQuote(kaks_file),
-                        if (is.null(kaks_calc.params)) paste0(" -m ", est.method) else paste0(" ", kaks_calc.params),
-                        " > ",
-                        shQuote(log_file),
-                        " 2>&1"
+                run_tool(
+                        "KaKs_Calculator",
+                        args = list("-i", axt_file, "-o", kaks_file,
+                                    if (is.null(kaks_calc.params)) I(paste0("-m ", est.method)) else I(kaks_calc.params)),
+                        path    = kaks_calc_path,
+                        tool    = "KaKs_Calculator",
+                        context = context,
+                        output  = kaks_file
                 )
-                
-                status <- tryCatch({
-                        if (operating_sys == "Windows") shell(kaks_run) else system(kaks_run)
-                }, error = function(e) {
-                        stop("KaKs_Calculator could not be started for ", context, ": ", conditionMessage(e), call. = FALSE)
-                })
-                
-                check_external(status, tool = "KaKs_Calculator", context = context, log = log_file, output = kaks_file)
                 
                 kaks_tbl <- tryCatch({
                         utils::read.csv(kaks_file, sep = "\t", header = TRUE)
