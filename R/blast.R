@@ -144,7 +144,7 @@ blast <- function(query_file,
         message("Running ", blast_version(path = path), " ...")
         
         # in case one tries to use more cores than are available
-        check_comp_cores(comp_cores)
+        comp_cores <- check_comp_cores(comp_cores)
         
         # every call works in a folder of its own, which is removed when the call ends: a table left by an
         # earlier or failed call cannot be returned as the result of this one

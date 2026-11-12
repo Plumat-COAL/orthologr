@@ -11,14 +11,17 @@
 #' Default is \code{format} = \code{"fasta"}.
 #' @param diamond_algorithm a character string specifying the DIAMOND2 algorithm that shall be used, option is currently limited to: \code{diamond_algorithm} = \code{"blastp"}
 #' @param sensitivity_mode specify the level of alignment sensitivity. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
-#' - sensitivity_mode = "faster" : fastest alignment mode, but least sensitive (default). Designed for finding hits of >70
-#' - sensitivity_mode = "default" : Default mode. Designed for finding hits of >70
-#' - sensitivity_mode = "fast" : fast alignment mode, but least sensitive (default). Designed for finding hits of >70
-#' - sensitivity_mode = "mid-sensitive" : fast alignments between the fast mode and the sensitive mode in sensitivity.
-#' - sensitivity_mode = "sensitive" : fast alignments, but full sensitivity for hits >40
-#' - sensitivity_mode = "more-sensitive" : more sensitive than the sensitive mode.
-#' - sensitivity_mode = "very-sensitive" : sensitive alignment mode.
-#' - sensitivity_mode = "ultra-sensitive" : most sensitive alignment mode (sensitivity as high as BLASTP).
+#' \itemize{
+#' \item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+#' \item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
+#' \item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+#' \item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
+#' \item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
+#' \item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
+#' \item \code{sensitivity_mode = "very-sensitive"}: sensitive alignment mode.
+#' \item \code{sensitivity_mode = "ultra-sensitive"}: most sensitive alignment mode (sensitivity as high as BLASTP).
+#' }
+#' Any other value is an error.
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet. 
 #' @param eval a numeric value specifying the E-Value cutoff for DIAMOND2 hit detection.
 #' @param max.target.seqs a numeric value specifying the number of aligned sequences to keep.

@@ -196,12 +196,18 @@ safe_file_name <- function(x) {
         gsub("[^A-Za-z0-9._+-]", "_", x)
 }
 
-# Number of threads to hand to a program: stops when more cores are asked for than the machine has.
+# Number of threads / processes to use: when more cores are asked for than the machine has, the number of
+# available cores is used and a warning says so (this used to be an error).
 check_comp_cores <- function(comp_cores) {
+        if (!is.numeric(comp_cores) || length(comp_cores) != 1 || is.na(comp_cores) || comp_cores < 1)
+                stop("comp_cores must be a positive number.", call. = FALSE)
         cores <- parallel::detectCores()
-        if (!is.na(cores) && comp_cores > cores)
-                stop("You chose more cores than are available on your machine.", call. = FALSE)
-        invisible(comp_cores)
+        if (!is.na(cores) && comp_cores > cores) {
+                warning("comp_cores = ", comp_cores, " is more than the ", cores, " core", if (cores != 1) "s",
+                        " available on this machine: using comp_cores = ", cores, ".", call. = FALSE)
+                comp_cores <- cores
+        }
+        comp_cores
 }
 
 # Copy a result file into the folder (or to the file) given as save.output.

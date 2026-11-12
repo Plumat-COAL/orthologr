@@ -10,14 +10,17 @@
 #' Default is \code{format} = \code{"fasta"}.
 #' @param diamond_algorithm a character string specifying the DIAMOND2 algorithm that shall be used, option is currently limited to: \code{diamond_algorithm} = \code{"blastp"}
 #' @param sensitivity_mode specify the level of alignment sensitivity. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
-#' - sensitivity_mode = "faster" : fastest alignment mode, but least sensitive (default). Designed for finding hits of >70
-#' - sensitivity_mode = "default" : Default mode. Designed for finding hits of >70
-#' - sensitivity_mode = "fast" : fast alignment mode, but least sensitive (default). Designed for finding hits of >70
-#' - sensitivity_mode = "mid-sensitive" : fast alignments between the fast mode and the sensitive mode in sensitivity.
-#' - sensitivity_mode = "sensitive" : fast alignments, but full sensitivity for hits >40
-#' - sensitivity_mode = "more-sensitive" : more sensitive than the sensitive mode.
-#' - sensitivity_mode = "very-sensitive" : sensitive alignment mode.
-#' - sensitivity_mode = "ultra-sensitive" : most sensitive alignment mode (sensitivity as high as BLASTP).
+#' \itemize{
+#' \item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+#' \item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
+#' \item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+#' \item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
+#' \item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
+#' \item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
+#' \item \code{sensitivity_mode = "very-sensitive"}: sensitive alignment mode.
+#' \item \code{sensitivity_mode = "ultra-sensitive"}: most sensitive alignment mode (sensitivity as high as BLASTP).
+#' }
+#' Any other value is an error.
 #' @param eval a numeric value specifying the E-Value cutoff for DIAMOND2 hit detection.
 #' @param max.target.seqs a numeric value specifying the number of aligned sequences to keep.
 #' Please be aware that \code{max.target.seqs} selects best hits based on the database entry and not by the best e-value. See details here: https://academic.oup.com/bioinformatics/advance-article/doi/10.1093/bioinformatics/bty833/5106166 .
@@ -117,10 +120,12 @@ diamond <- function(
         
         message("Running ", diamond_version(path = path), " ...")
         
+        check_sensitivity_mode(sensitivity_mode)
+        
         message("sensitivity mode: ", sensitivity_mode)
         
         # in case one tries to use more cores than are available
-        check_comp_cores(comp_cores)
+        comp_cores <- check_comp_cores(comp_cores)
         
         # every call works in a folder of its own, which is removed when the call ends: a table left by an
         # earlier or failed call cannot be returned as the result of this one
@@ -193,7 +198,8 @@ diamond <- function(
                              "--db", database,
                              "--query", input,
                              "--evalue", as.numeric(eval),
-                             paste0("--", sensitivity_mode),
+                             # "default": DIAMOND's own default mode has no option
+                             if (sensitivity_mode != "default") paste0("--", sensitivity_mode),
                              "--max-target-seqs", format(max.target.seqs, scientific = FALSE),
                              "--out", output,
                              "--threads", comp_cores,

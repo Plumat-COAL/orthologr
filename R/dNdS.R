@@ -9,46 +9,51 @@
 #' \item \code{aligner = "blast"}: sequence alignment is performed using BLASTP.
 #' }
 #' The option diamond uses DIAMOND2 which is up to 10 000X folds faster than BLASTP while retaining the sensitivity of BLASTP.
-#' @param seq_type a character string specifying the sequence type stored in the input file. Options are: 
-#' \itemize{
-#' \item \code{seq_type = "cds"} (Default): sequence are translated to protein sequences
-#' \item \code{seq_type = "protein"}: orthology inference is performed using protein sequences directly.
-#' }
-#' @param format a character string specifying the file format of the sequence file, e.g. \code{format = "fasta"}, \code{format = "gbk"}. See \code{\link{read.cds}},
-#' \code{\link{read.genome}}, \code{\link{read.proteome}} for more details.
+#' @param seq_type the sequence type stored in the input files. Only \code{seq_type = "cds"} (Default) is possible:
+#' dN/dS is computed from codon alignments, so both files must hold coding sequences. Any other value is an error.
+#' @param format the file format of the sequence files. Only \code{format = "fasta"} (Default) is supported.
 #' @param ortho_detection a character string specifying the orthology inference method that shall be performed to detect orthologous genes. Options are:
 #' \itemize{
-#' \item \code{ortho_detection ="BH"}: DIAMOND or BLAST unidirectional best hit.
 #' \item \code{ortho_detection = "RBH"}: DIAMOND or BLAST reciprocal/bidirectional best hit (Default).
-#' \item \code{ortho_detection = "Orthofinder2"}: single copy core orthologs between multiple species proteome comparisons.
+#' \item \code{ortho_detection = "BH"}: DIAMOND or BLAST unidirectional best hit.
 #' }
+#' Any other value is an error (\code{"Orthofinder2"}, \code{"PO"} and \code{"DELTA"} are not available).
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet. 
 #' @param store_locally a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.
-#' @param cdd.path path to the cdd database folder (specify when using \code{ortho_detection} = \code{"DELTA"}).
+#' @param cdd.path deprecated and not used (a warning is given when it is set).
 #' @param aligner_params a character string specifying additional parameters that shall be passed to DIAMOND or BLAST. Default is \code{aligner_params} = \code{NULL}. 
 #' @param aligner_path a character string specifying the path to the DIAMOND or BLAST program (in case you don't use the default path).
 #' @param sensitivity_mode specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
-#' - sensitivity_mode = "faster" : fastest alignment mode, but least sensitive (default). Designed for finding hits of >70
-#' - sensitivity_mode = "default" : Default mode. Designed for finding hits of >70
-#' - sensitivity_mode = "fast" : fast alignment mode, but least sensitive (default). Designed for finding hits of >70
-#' - sensitivity_mode = "mid-sensitive" : fast alignments between the fast mode and the sensitive mode in sensitivity.
-#' - sensitivity_mode = "sensitive" : fast alignments, but full sensitivity for hits >40
-#' - sensitivity_mode = "more-sensitive" : more sensitive than the sensitive mode.
-#' - sensitivity_mode = "very-sensitive" : sensitive alignment mode.
-#' - sensitivity_mode = "ultra-sensitive" : most sensitive alignment mode (sensitivity as high as BLASTP).
+#' \itemize{
+#' \item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+#' \item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
+#' \item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+#' \item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
+#' \item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
+#' \item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
+#' \item \code{sensitivity_mode = "very-sensitive"}: sensitive alignment mode.
+#' \item \code{sensitivity_mode = "ultra-sensitive"}: most sensitive alignment mode (sensitivity as high as BLASTP).
+#' }
+#' Any other value is an error.
 #' @param eval a numeric value specifying the E-Value cutoff for DIAMOND or BLAST hit detection.
-#' @param ortho_path a character string specifying the path to the orthology inference program such as \code{Orthofinder2}, etc. (in case you don't use the default path).
+#' @param ortho_path deprecated and not used (a warning is given when it is set).
 #' @param aa_aln_type a character string specifying the amino acid alignment type:
 #' \itemize{ 
-#' \item \code{aa_aln_type} = "multiple" (Default)
-#' \item \code{aa_aln_type} = "pairwise"
+#' \item \code{aa_aln_type = "pairwise"} (Default)
+#' \item \code{aa_aln_type = "multiple"}
 #' }.
-#' @param aa_aln_tool a character string specifying the program that should be used e.g. "clustalw".
+#' @param aa_aln_tool a character string specifying the program that aligns the two proteins of a gene pair:
+#' \code{"NW"} (Default; Needleman-Wunsch in R, with \code{aa_aln_type = "pairwise"}), or with
+#' \code{aa_aln_type = "multiple"} one of \code{"clustalw"}, \code{"clustalo"}, \code{"mafft"}, \code{"muscle"},
+#' \code{"t_coffee"} (see \code{\link{multi_aln}}).
 #' @param aa_aln_path a character string specifying the path to the multiple alignment program (in case you don't use the default path).
-#' @param aa_aln_params a character string specifying additional command-line parameters to pass to the amino acid alignment tool
-#' selected via \code{aa_aln_tool} (e.g. \code{"clustalw"} for multiple alignment or \code{"NW"} for pairwise alignment).
+#' @param aa_aln_params a character string with command-line parameters for the multiple alignment program selected via
+#' \code{aa_aln_tool}. It is handed to \code{\link{multi_aln}} as \code{params} and \emph{replaces} the default parameters
+#' of that program (see there; the alignment must still be written in CLUSTAL or FASTA format, e.g.
+#' \code{aa_aln_tool = "mafft", aa_aln_params = "--maxiterate 1 --clustalout"}). It is not used (with a warning)
+#' with \code{aa_aln_type = "pairwise"}. Until version 0.4.3 the argument was accepted but never passed on.
 #' Note: this controls the amino acid alignment step only, not the initial DIAMOND or BLAST homology search
-#' (use \code{aligner_params} for that). Default is \code{aa_aln_params} = \code{NULL} (no additional parameters are forwarded).
+#' (use \code{aligner_params} for that). Default is \code{aa_aln_params} = \code{NULL} (the default parameters).
 #' @param codon_aln_tool a character string specifying the codon alignment tool that shall be used. Default is \code{codon_aln_tool} = \code{"pal2nal"}.
 #' Right now only "pal2nal" can be selected as codon alignment tool.
 #' @param kaks_calc_path a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
@@ -65,11 +70,12 @@
 #' \item \code{dnds_est.method = "YN"}: Yang, Z. and Nielsen, R. (2000)
 #' \item \code{dnds_est.method ="MYN"} (Modified YN): Zhang, Z., et al. (2006)
 #' }
-#' @param comp_cores a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine. 
+#' @param comp_cores a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.
+#' When it is larger than the number of available cores, the number of available cores is used and a warning is given.
 #' @param quiet a logical value specifying whether the output of the corresponding alignment tool shall be printed out to the console.
 #' Default is \code{quiet} = \code{FALSE}.
-#' @param clean_folders a boolean value spefiying whether all internall folders storing the output of used programs
-#' shall be removed. Default is \code{clean_folders} = \code{FALSE}.
+#' @param clean_folders kept for compatibility. All intermediate files of a call are written to a folder of its own inside
+#' \code{tempdir()}, which is always removed when the call ends (see Details), so there is nothing left to clean.
 #' @param print_citation a logical value indicating whether or not the citation message shall be printed.
 #' @author Hajk-Georg Drost and Jaruwatana Sodai Lotharukpong
 #' @details 
@@ -195,8 +201,8 @@
 #' dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'      subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'      ortho_detection = "RBH", 
-#'      aa_aln_type     = "pairwise",
-#'      aa_aln_tool     = "NW", 
+#'      aa_aln_type     = "multiple",
+#'      aa_aln_tool     = "clustalw", 
 #'      aa_aln_path     = "/path/to/clustalw/",
 #'      codon_aln_tool  = "pal2nal", 
 #'      dnds_est.method = "Comeron", 
@@ -208,10 +214,9 @@
 #'      ortho_detection = "RBH", 
 #'      aa_aln_type     = "pairwise",
 #'      aa_aln_tool     = "NW", 
-#'      aa_aln_path     = "/path/to/clustalw/",
 #'      codon_aln_tool  = "pal2nal", 
 #'      dnds_est.method = "Comeron", 
-#'      comp_cores      = 1 )
+#'      comp_cores      = 2 )
 #' 
 #' }
 #' @seealso \code{\link{divergence_stratigraphy}}, \code{\link{orthologs}}, 
@@ -247,6 +252,31 @@ dNdS <- function(query_file,
                  print_citation = TRUE
                  ){
         
+        # what is not supported is rejected now, before any program is started
+        dnds_check_args(
+                aligner          = aligner,
+                sensitivity_mode = sensitivity_mode,
+                seq_type         = seq_type,
+                format           = format,
+                ortho_detection  = ortho_detection,
+                aa_aln_type      = aa_aln_type,
+                aa_aln_tool      = aa_aln_tool,
+                aa_aln_params    = aa_aln_params
+        )
+        
+        if (!is.codon_aln_tool(codon_aln_tool))
+                stop("Please choose a codon alignment tool that is supported by this function.", call. = FALSE)
+        
+        if (!is.dnds_est_method(dnds_est.method))
+                stop("Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+        
+        for (unused in c("cdd.path", "ortho_path")) {
+                if (!is.null(get(unused)))
+                        warning("The argument '", unused, "' is deprecated and not used.", call. = FALSE)
+        }
+        
+        comp_cores <- check_comp_cores(comp_cores)
+        
         message("\n")
         message("Starting orthology inference (",ortho_detection, ") and dNdS estimation (",dnds_est.method,") using the follwing parameters:")
         message("query = '", basename(query_file), "'")
@@ -271,13 +301,6 @@ dNdS <- function(query_file,
         end_tmpdir <- orthologr_tmpdir_start("orthologr_dNdS_")
         on.exit(end_tmpdir(), add = TRUE)
         
-        if (!is.ortho_detection_method(ortho_detection))
-                stop("Please choose a orthology detection method that is supported by this function.", call. = FALSE)
-        
-        if (!is.element(aa_aln_type, c("multiple", "pairwise")))
-                stop("Please choose a supported alignement type: 'multiple' or 'pairwise'", call. = FALSE)
-        
-        
         if (store_locally) {
                 if (file.exists("orthologr_alignment_files")) {
                         message("The folder 'orthologr_alignment_files' seems to exist already.",
@@ -296,26 +319,6 @@ dNdS <- function(query_file,
                         dir.create(file.path(orthologr_tmpdir(), "_pairwise_alignment_with_score"))
         }
                 
-        if (aa_aln_type == "multiple") {
-                if (!is.multiple_aln_tool(aa_aln_tool))
-                        stop(
-                                "Please choose a multiple alignment tool that is supported by this function or try to choose aa_aln_type = 'pairwise'." , call. = FALSE
-                        )
-        }
-        
-        if (aa_aln_type == "pairwise") {
-                if (!is.pairwise_aln_tool(aa_aln_tool))
-                        stop(
-                                "Please choose a pairwise alignment tool that is supported by this function or try to choose aa_aln_type = 'multiple'." , call. = FALSE
-                        )
-        }
-        
-        if (!is.codon_aln_tool(codon_aln_tool))
-                stop("Please choose a codon alignment tool that is supported by this function.", call. = FALSE)
-        
-        if (!is.dnds_est_method(dnds_est.method))
-                stop("Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
-        
         aa <- geneids <- NULL
         
         # blast/diamond each translated aminoacid sequence against the related database to get a 
@@ -324,8 +327,8 @@ dNdS <- function(query_file,
         message("Starting Orthology Inference ...")
         
         # choosing the aligner between diamond and blast
-        if (is.element(aligner, c("diamond","blast")) & 
-            is.element(ortho_detection, c("BH", "RBH"))){
+        # (aligner and ortho_detection were checked above)
+        {
                 if (aligner == "diamond" & ortho_detection == "BH")
                         align <- function(...) 
                                 diamond_best(...,
@@ -380,87 +383,6 @@ dNdS <- function(query_file,
                 s_aa <- cds_protein_table(s_cds, delete_corrupt_cds = delete_corrupt_cds)
         }
 
-        # the code should be made more elegant...
-        
-        if (!is.element(aligner, c("diamond","blast")) & 
-            !is.element(ortho_detection, c("BH", "RBH"))){
-                # seq_type = "cds" -> dNdS() needs CDS files as input!
-                hit.table <- data.table::copy(
-                        orthologs(
-                                query_file      = query_file,
-                                subject_files   = subject_file,
-                                ortho_detection = ortho_detection,
-                                eval            = eval,
-                                path            = ortho_path,
-                                cdd.path        = cdd.path,
-                                comp_cores      = comp_cores,
-                                seq_type        = seq_type,
-                                format          = format,
-                                quiet           = quiet,
-                                clean_folders   = FALSE
-                        )
-                )
-                
-                
-                q_cds <- read.cds(file   = query_file,
-                                  format = format, 
-                                  delete_corrupt_cds = delete_corrupt_cds)
-                
-                s_cds <- read.cds(file   = subject_file,
-                                  format = format, 
-                                  delete_corrupt_cds = delete_corrupt_cds)
-                
-                
-                q_aa_tmp <- cds2aa(q_cds, delete_corrupt_cds = delete_corrupt_cds)
-                s_aa_tmp <- cds2aa(s_cds, delete_corrupt_cds = delete_corrupt_cds)
-                
-                filename_qry <-
-                        unlist(strsplit(
-                                query_file,
-                                f_sep,
-                                fixed = FALSE,
-                                perl = TRUE,
-                                useBytes = FALSE
-                        ))
-                filename_qry <- filename_qry[length(filename_qry)]
-                
-                filename_subj <-
-                        unlist(strsplit(
-                                subject_file,
-                                f_sep,
-                                fixed = FALSE,
-                                perl = TRUE,
-                                useBytes = FALSE
-                        ))
-                filename_subj <-
-                        filename_subj[length(filename_subj)]
-                
-                seqinr::write.fasta(
-                        sequences = as.list(q_aa_tmp[, aa]),
-                        names     = q_aa_tmp[ , geneids],
-                        nbchar    = 80,
-                        open      = "w",
-                        file.out  = file.path(orthologr_tmpdir(), paste0("query_", filename_qry))
-                )
-                
-                seqinr::write.fasta(
-                        sequences = as.list(s_aa_tmp[ , aa]),
-                        names     = s_aa_tmp[ , geneids],
-                        nbchar    = 80,
-                        open      = "w",
-                        file.out  = file.path(orthologr_tmpdir(), paste0("subject_", filename_subj))
-                )
-                
-                q_aa <-
-                        read.proteome(file = file.path(orthologr_tmpdir(), paste0("query_", filename_qry)),
-                                      format = "fasta")
-                s_aa <-
-                        read.proteome(file = file.path(orthologr_tmpdir(), paste0("subject_", filename_subj)),
-                                      format = "fasta")
-                
-        }
-        
-        
         data.table::setnames(q_cds, old = c("geneids", "seqs"), new = c("query_id","query_cds"))
         data.table::setnames(s_cds, old = c("geneids", "seqs"), new = c("subject_id","subject_cds"))
         data.table::setnames(q_aa, old = c("geneids", "seqs"), new = c("query_id","query_aa"))
