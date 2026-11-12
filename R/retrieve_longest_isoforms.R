@@ -26,8 +26,94 @@
 #' }
 #' @export
 retrieve_longest_isoforms <- function(proteome_file, annotation_file, new_file, annotation_format = "gff") {
-        need_package("rtracklayer", "retrieve_longest_isoforms()", bioc = TRUE)
         
+        if (!file.exists(proteome_file))
+                stop("File ", proteome_file, " seems not to exist.", call. = FALSE)
+        
+        if (!file.exists(annotation_file))
+                stop("File ", annotation_file, " seems not to exist.", call. = FALSE)
+        
+        if (!is.element(annotation_format, c("gtf", "gff")))
+                stop("Please specify a valid annotation format. Options are: annotation_file = 'gtf' or annotation_file = 'gff'.", call. = FALSE)
+        
+        gene_id <- id <- pos <- width <- NULL
+        
+        message("Extracting longest isoform from ", basename(proteome_file), " ...")
+        message("Importing proteome file ", basename(proteome_file), " ...")
+        pep_file <- Biostrings::readAAStringSet(proteome_file)
+        new_names <- fasta_header_id(names(pep_file))
+        check_duplicate_ids(new_names, what = "sequences", file = proteome_file)
+        names(pep_file) <- new_names
+        
+        # check if annotation file is corrupt and remove outliers
+        annotation_file <- check_annotation(annotation_file, remove_annotation_outliers = TRUE)
+        
+        message("Reading the transcript -> gene relations of the ", annotation_format, " file ", basename(annotation_file), " ...")
+        tbl <- annotation_table(annotation_file, format = annotation_format)
+        message("The annotation holds ", nrow(tbl), " transcripts / coding sequences of ", length(unique(tbl$gene_id)), " gene loci.")
+        
+        # the gene locus (or loci) of every sequence
+        loci <- match_ids_to_genes(new_names, attr(tbl, "keys"))
+        if (nrow(loci) == 0)
+                annotation_mismatch_error(new_names, tbl, paste0("the sequence file '", basename(proteome_file), "'"), annotation_file)
+        
+        how <- table(loci$how[!duplicated(loci$id)])
+        if (any(names(how) != "exact"))
+                message("Sequence IDs were matched to the annotation: ",
+                        paste0(how, " ", c(exact = "as they are", without_version = "without their version suffix",
+                                           ncbi_cds_id = "by the protein accession in their NCBI 'lcl|..._cds_...' ID")[names(how)],
+                               collapse = ", "), ".")
+        
+        not_found <- setdiff(new_names, loci$id)
+        if (length(not_found) > 0)
+                message(length(not_found), " of ", length(new_names), " sequences are not in the annotation and are left out, e.g.: ",
+                        paste(utils::head(not_found, 5), collapse = ", "), ".")
+        
+        if (annotation_format == "gtf" && any(!is.na(tbl$gene_biotype))) {
+                # as before for GTF files: the genes with gene_biotype 'protein_coding'
+                biotype <- tbl$gene_biotype[match(loci$gene_id, tbl$gene_id)]
+                other <- !is.na(biotype) & biotype != "protein_coding"
+                if (any(other)) {
+                        tab <- table(biotype[other & !duplicated(loci$gene_id)])
+                        message("Filter for gene_biotype == 'protein_coding': ", length(unique(loci$id[other])), " sequences of ",
+                                length(unique(loci$gene_id[other])), " gene loci with another biotype are left out (",
+                                paste0(names(tab), ": ", tab, collapse = ", "), ").")
+                        loci <- loci[!other]
+                }
+                if (nrow(loci) == 0)
+                        stop("No sequence of '", basename(proteome_file), "' belongs to a gene with gene_biotype 'protein_coding' in '",
+                             basename(annotation_file), "'.", call. = FALSE)
+        }
+        
+        # the longest sequence of every gene locus (of several equally long ones the first in the file)
+        loci[ , pos := match(id, new_names)]
+        loci <- loci[order(pos)]
+        loci[ , width := Biostrings::width(pep_file)[pos]]
+        message("Retrieving longest isoforms ...")
+        res <- longest_per_group(tibble::as_tibble(loci), "gene_id")
+        
+        # a protein that is the longest of several loci (identical proteins of NCBI prokaryote annotations) is
+        # written once
+        matched_ids <- unique(res$pos)
+        n_loci <- length(unique(res$gene_id))
+        
+        message("\n")
+        message("Writing ", length(matched_ids), " unique longest peptide sequences (from initially ", length(pep_file),
+                " isoforms) for ", n_loci, " gene loci to new fasta file ", new_file, " ...",
+                if (length(matched_ids) < n_loci)
+                        paste0(" (", n_loci - length(matched_ids), " loci share their protein with another locus: identical proteins have one FASTA record.)")
+                else "")
+        Biostrings::writeXStringSet(pep_file[matched_ids], new_file)
+        message("Retrieval finished successfully.")
+        
+        invisible(structure(new_file, n_loci = n_loci, n_sequences = length(matched_ids)))
+}
+
+# The implementation used until 0.4.3 (rtracklayer import; GFF3: CDS rows grouped by the 'gene' attribute, GTF:
+# transcript rows with gene_biotype 'protein_coding' matched literally by transcript_id). Kept as the reference
+# in the tests for the files it could handle.
+retrieve_longest_isoforms_do <- function(proteome_file, annotation_file, new_file, annotation_format = "gff") {
+        need_package("rtracklayer", "retrieve_longest_isoforms_do()", bioc = TRUE)
         if (!file.exists(proteome_file))
                 stop("File ", proteome_file, " seems not to exist.", call. = FALSE)
         

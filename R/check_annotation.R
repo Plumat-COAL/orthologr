@@ -46,8 +46,9 @@ check_annotation <- function(annotation_file, remove_annotation_outliers = FALSE
         
         message("Importing '", annotation_file, "' ...")
         
-        import_annotation <- readr::read_lines(annotation_file)
-        outlier_lines <- which(nchar(import_annotation) > 65000)
+        # The file is read in blocks: only the numbers of the over-long lines are kept. (It used to be held in
+        # memory as a whole - once here and once more by the import that followed.)
+        outlier_lines <- annotation_long_lines(annotation_file)
         
         if (length(outlier_lines) == 0)
                 return(annotation_file)
@@ -70,16 +71,59 @@ check_annotation <- function(annotation_file, remove_annotation_outliers = FALSE
                         dir.create(out_dir, recursive = TRUE)
                 new_file <- file.path(out_dir, sub("\\.gz$", "", basename(annotation_file)))
                 
-                readr::write_lines(import_annotation[-outlier_lines], new_file)
+                outlier_output_file <- file.path(tempdir(), paste0(basename(annotation_file),"_outlier_lines.txt"))
+                annotation_copy_lines(annotation_file, new_file, outlier_output_file, outlier_lines)
                 
                 message("The annotation file without the outlier lines has been stored at '", new_file,
                         "' ('", annotation_file, "' was not changed).")
                 
-                outlier_output_file <- file.path(tempdir(), paste0(basename(annotation_file),"_outlier_lines.txt"))
-                
-                readr::write_lines(import_annotation[outlier_lines], outlier_output_file)
                 message("The outlier lines were stored in a separate file to explore at '", outlier_output_file, "'.")
                 return(new_file)
         }
         
+}
+
+
+# Open a text file for reading, also when it is gzip-compressed.
+open_text_file <- function(file) {
+        if (grepl("\\.gz$", file, ignore.case = TRUE)) gzfile(file, open = "r") else file(file, open = "r")
+}
+
+# The numbers of the lines of `file` that are longer than `max_chars` characters (read in blocks of `n` lines).
+annotation_long_lines <- function(file, n = 200000L, max_chars = 65000L) {
+        con <- open_text_file(file)
+        on.exit(close(con), add = TRUE)
+        res <- integer(0)
+        done <- 0L
+        repeat {
+                x <- readLines(con, n = n, warn = FALSE)
+                if (length(x) == 0)
+                        break
+                long <- which(nchar(x, type = "bytes") > max_chars)
+                if (length(long) > 0)
+                        res <- c(res, done + long)
+                done <- done + length(x)
+        }
+        res
+}
+
+# Copy `file` to `kept_file` without the lines `drop` (line numbers), which go to `dropped_file`.
+annotation_copy_lines <- function(file, kept_file, dropped_file, drop, n = 200000L) {
+        con <- open_text_file(file)
+        on.exit(close(con), add = TRUE)
+        kept <- file(kept_file, open = "w")
+        on.exit(close(kept), add = TRUE)
+        dropped <- file(dropped_file, open = "w")
+        on.exit(close(dropped), add = TRUE)
+        done <- 0L
+        repeat {
+                x <- readLines(con, n = n, warn = FALSE)
+                if (length(x) == 0)
+                        break
+                is_drop <- is.element(done + seq_along(x), drop)
+                writeLines(x[!is_drop], kept)
+                writeLines(x[is_drop], dropped)
+                done <- done + length(x)
+        }
+        invisible(kept_file)
 }
