@@ -34,7 +34,6 @@ Imports:
     ggplot2,
     scales,
     Rdpack,
-    R.utils,
     benchmarkme,
     rlang
 Suggests:
