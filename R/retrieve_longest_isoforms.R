@@ -76,7 +76,7 @@ retrieve_longest_isoforms <- function(proteome_file, annotation_file, new_file, 
                         return(dplyr::slice(x, pos))
                 }
                 message("Retrieving longest isoforms ...")
-                res <- dplyr::do(dplyr::group_by(pep_file_tibble_joined, gene_id), extract_longest_transcript(.))
+                res <- longest_per_group(pep_file_tibble_joined, "gene_id")
                 matched_ids <- stats::na.omit(match(res$transcript_id, pep_file@ranges@NAMES))
                 
                 if (length(matched_ids) == 0)
@@ -111,7 +111,7 @@ retrieve_longest_isoforms <- function(proteome_file, annotation_file, new_file, 
                         return(dplyr::slice(x, pos))
                 }
                 message("Retrieving longest isoforms ...")
-                res <- dplyr::do(dplyr::group_by(pep_file_tibble_joined, gene), extract_longest_transcript(.))
+                res <- longest_per_group(pep_file_tibble_joined, "gene")
                 matched_ids <- stats::na.omit(match(res$protein_id, pep_file@ranges@NAMES))
                 
                 if (length(matched_ids) == 0)
@@ -128,4 +128,25 @@ retrieve_longest_isoforms <- function(proteome_file, annotation_file, new_file, 
         }
         
         
+}
+
+# For every value of `group_col` the first row with the largest 'width': the rows
+# dplyr::do(dplyr::group_by(x, <group_col>), dplyr::slice(., which.max(.$width)[1])) returns, in the same order,
+# without calling an R function for every gene.
+longest_per_group <- function(x, group_col) {
+        if (nrow(x) == 0 || anyNA(x$width))
+                return(longest_per_group_do(x, group_col))
+        rows <- first_row_per_group(x[[group_col]], list(-x$width))
+        res <- x[rows, ]
+        dplyr::group_by(res, .data[[group_col]])
+}
+
+# The implementation used until 0.4.3; kept as the reference in the tests.
+longest_per_group_do <- function(x, group_col) {
+        '.' <- NULL
+        extract_longest_transcript <- function(x) {
+                pos <- which.max(x$width)[1]
+                return(dplyr::slice(x, pos))
+        }
+        dplyr::do(dplyr::group_by(x, .data[[group_col]]), extract_longest_transcript(.))
 }
