@@ -9,6 +9,30 @@
 #' \item \code{type = "splice_variant"}: all splice variants of homologous gene loci will be returned.
 #' }
 #' @param format a vector of length 2 storing the annotation file formats of the query annotation file and subject annotation file: either \code{gtf} or \code{gff} format. E.g. \code{format = c("gtf","gtf")}.
+#' @details
+#' \strong{Which gene locus a sequence belongs to} is read from the annotation in the same way for all annotation
+#' sources:
+#' \itemize{
+#' \item \code{gff} (GFF3): the \code{Parent} / \code{ID} relations are followed from every CDS and transcript up
+#' to the top-level feature, the gene (CDS -> mRNA -> gene; in NCBI prokaryote annotations CDS -> gene). The gene
+#' locus is the \code{ID} of the gene without the prefix \code{gene-} (NCBI; this is the \code{locus_tag}) or
+#' \code{gene:} (Ensembl). It is never the gene symbol: genes without a symbol and genes that share one are
+#' separate loci.
+#' \item \code{gtf}: \code{gene_id} is the gene locus; \code{transcript_id} and \code{protein_id} name the
+#' transcript and the protein.
+#' }
+#' The IDs of the dN/dS table (\code{query_id}, \code{subject_id}) may be protein IDs or transcript IDs.
+#' They are compared with the IDs of the annotation as they are (including the spelling with the version that Ensembl
+#' gives in a field of its own, e.g. \code{ENST00000373020.9}, and the raw GFF3 IDs such as \code{rna-NM_001.1} or
+#' \code{transcript:ENST00000373020}); IDs that are not found are compared without their version suffix, and IDs of
+#' NCBI \code{cds_from_genomic} files (\code{lcl|NC_000913.3_cds_NP_414542.1_1}) by their protein accession.
+#' Tested with NCBI RefSeq GFF3 + \code{protein.faa}, NCBI GTF, Ensembl GFF3 and Ensembl GTF with \code{pep} and
+#' \code{cds} FASTA files. The annotation is read as text in blocks (\code{.gz} files too); it is not imported with
+#' \pkg{rtracklayer}.
+#' 
+#' The columns \code{query_gene_locus_id} and \code{subject_gene_locus_id} hold the gene loci. IDs of the dN/dS table
+#' that are not in an annotation are left out with a message; when none is found the error shows example IDs of the
+#' table and of the annotation.
 #' @author Hajk-Georg Drost
 #' @export
 select_orthologs <-
