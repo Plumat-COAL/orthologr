@@ -251,7 +251,7 @@ test_that("coding sequences with N or IUPAC codes are left out with a message th
         d <- new_test_dir()
         f <- file.path(d, "cds.fasta")
         writeLines(c(">g1", "ATGAAATTTTAA", ">g2", "ATGAANTTTTAA", ">g3", "ATGAARTTTTAA", ">g4", "ATGCCCGGGTAA"), f)
-        expect_message(res <- set_diamond(f)[[1]], "2 coding sequences hold characters other than A, C, G, T.*g2, g3")
+        expect_message(res <- set_diamond(f)[[1]], "2 of 4 coding sequences of 'cds.fasta' have characters other than A, C, G, T.*g2, g3")
         expect_identical(res$geneids, c("g1", "g4"))
         expect_identical(toupper(res$aa), c("MKF*", "MPG*"))
         # nothing to report for clean input

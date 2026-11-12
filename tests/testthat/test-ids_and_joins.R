@@ -305,3 +305,31 @@ test_that("orthologs(seq_type = 'cds') searches the input files and leaves no '_
         expect_equal(as.data.frame(a), as.data.frame(b), ignore_attr = TRUE)
         expect_equal(nrow(a), 20)
 })
+
+# ---------------------------------------------------------------- low-severity argument checks (N41, e-value)
+
+test_that("the e-value threshold must be a number ...", {
+        expect_identical(check_evalue("1E-5"), "1E-5")
+        expect_identical(check_evalue(1e-5), 1e-5)
+        expect_error(check_evalue("1e-5; echo hi"), "is not an e-value threshold")
+        expect_error(check_evalue(-1), "is not an e-value threshold")
+        expect_error(check_evalue(c("1", "2")), "is not an e-value threshold")
+        skip_if_not(diamond_available, "DIAMOND is not installed")
+        expect_error(suppressMessages(diamond_best(thal_cds(), lyra_cds(), eval = "1e-5; echo hi")), "is not an e-value threshold")
+})
+
+test_that("plot functions compute 'scope' when it is missing and reject species that are not in species_order (N41) ...", {
+        tbl <- tibble::tibble(subject_species = c("s1", "s1", "s2"), q_len = c(100, 100, 200), alig_length = c(100L, 50L, 150L),
+                              qcovhsp = 90, perc_identity = 80)
+        expect_equal(ensure_scope(tbl, "f()")$scope, c(1, 0.5, 0.75))
+        expect_identical(ensure_scope(dplyr::mutate(tbl, scope = 0.1), "f()")$scope, rep(0.1, 3))
+        expect_error(ensure_scope(tbl[ , "subject_species"], "f()"), "has no column 'scope'")
+        expect_true(check_species_order(tbl$subject_species, c("s2", "s1"), "f()"))
+        expect_error(check_species_order(tbl$subject_species, c("s1", "S2"), "f()"), "does not name 1 species of the table: 's2'")
+        expect_error(lnc_map_counts(tbl, species_order = "s1"), "does not name 1 species")
+        skip_if_not_installed("ggplot2")
+        skip_if_not_installed("scales")
+        expect_error(plot_pairwise_orthologs(tbl, species_order = c("s1")), "does not name 1 species")
+        p <- suppressWarnings(plot_diverse_homology_thresholds(tbl, species_order = c("s1", "s2")))
+        expect_s3_class(p, "ggplot")
+})
