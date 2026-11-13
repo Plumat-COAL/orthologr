@@ -124,7 +124,7 @@ blast_rec <- function(query_file,
                       save.output     = NULL,
                       best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")){
         
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         
         # both files are needed for both search directions: read and translate each of them once
         end_seq_cache <- seq_cache_start()

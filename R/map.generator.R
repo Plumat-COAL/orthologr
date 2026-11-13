@@ -134,8 +134,7 @@ map_generator_dnds <- function(query_file,
         message("\n")
         message("Please cite the following paper when using orthologr for your own research:")
         message("Drost et al. Evidence for Active Maintenance of Phylotranscriptomic Hourglass Patterns in Animal and Plant Embryogenesis. Mol. Biol. Evol. 32 (5): 1221-1231.")
-        cat("\n")
-        cat(paste0("All maps are stored in ", output_folder, "."))
+        message("All maps are stored in ", output_folder, ".")
         
 }
         

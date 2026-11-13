@@ -295,7 +295,7 @@ substitutionrate <- function(file,
                 data.table::setkey(res, query_id)
                 
                 if (!quiet) {
-                        print("Substitutionrate successfully calculated using Li's method.")
+                        message("Substitutionrate successfully calculated using Li's method.")
                 }
                 
                 return(res)
@@ -363,7 +363,7 @@ substitutionrate <- function(file,
 # options(orthologr.legacy_comeron_saturation = TRUE): Comeron's method as up to 0.4.3, where an undefined
 # logarithm of the correction (saturation) was replaced by 0 and a finite dS or dN was returned.
 comeron_legacy_saturation <- function() {
-        isTRUE(getOption("orthologr.legacy_comeron_saturation", FALSE))
+        isTRUE(orthologr_option("orthologr.legacy_comeron_saturation", FALSE))
 }
 
 # Stop unless `file` (FASTA) is a codon alignment: at least two sequences, all of the same length, the length a
@@ -448,7 +448,7 @@ kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair") {
 # options(orthologr.legacy_kaks_zero_dn = TRUE): the table of KaKs_Calculator as up to 0.4.3, where a gene pair
 # without nonsynonymous change has dN = NA and dNdS = 0.
 kaks_legacy_zero_dn <- function() {
-        isTRUE(getOption("orthologr.legacy_kaks_zero_dn", FALSE))
+        isTRUE(orthologr_option("orthologr.legacy_kaks_zero_dn", FALSE))
 }
 
 # dN of gene pairs for which KaKs_Calculator printed 'NA' although the value is known.

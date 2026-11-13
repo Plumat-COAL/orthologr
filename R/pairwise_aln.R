@@ -81,7 +81,7 @@ pairwise_aln <- function(file,
                 seqtype <- "AA"
         
         # options(orthologr.legacy_pairwise_aln = TRUE): the behaviour of orthologr <= 0.4.3
-        legacy <- isTRUE(getOption("orthologr.legacy_pairwise_aln", FALSE))
+        legacy <- isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))
         
         if (legacy)
                 aa_sub_matrix <- NULL
@@ -206,7 +206,7 @@ pairwise_aln <- function(file,
                 }
                 
                 if (!quiet) {
-                        print(paste0("File successfully written to ", file.out, "."))
+                        message("File successfully written to ", file.out, ".")
                 }
                 
                 if (get_aln)

@@ -411,13 +411,7 @@ multi_aln <- function(file,
         publish_file(tmp.out, file.out)
         
         if (!quiet) {
-                print(
-                        paste0(
-                                "Multiple Alignment successfully written in ",
-                                file.out,
-                                "."
-                        )
-                )
+                message("Multiple Alignment successfully written in ", file.out, ".")
         }
         
         if (get_aln) {

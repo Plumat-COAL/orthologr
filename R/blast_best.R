@@ -126,7 +126,7 @@ blast_best <- function(query_file,
                        save.output     = NULL,
                        best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")){
         
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
 
         # default parameters for best hit filtering
          default_pars <- "-best_hit_score_edge 0.05 -best_hit_overhang 0.25"

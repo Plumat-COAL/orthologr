@@ -234,7 +234,7 @@ divergence_stratigraphy <- function(query_file,
                                     dS_zero         = getOption("orthologr.dS_zero", "drop"),
                                     best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")){
         
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         
         if (!is.ortho_detection_method(ortho_detection))
                 stop("Please choose a orthology detection method that is supported by this function.")
@@ -254,6 +254,9 @@ divergence_stratigraphy <- function(query_file,
         # data.table objects see:
         # http://stackoverflow.com/questions/8096313/no-visible-binding-for-global-variable-note-in-r-cmd-check?lq=1
         query_id <- subject_id <- dNdS <- NULL
+        
+        # the arguments of this call, for the record of the run (attr(<result>, "orthologr_run"))
+        run_args <- run_arguments()
         
         # checked before the long run, not after it
         check_n_quantile(n_quantile)
@@ -329,6 +332,15 @@ divergence_stratigraphy <- function(query_file,
         # the complete dN/dS table of the run (before filtering and binning) comes with the result
         attr(DivergenceMap.DF, "dNdS_tbl") <- dNdS_full
         attr(DivergenceMap.DF, "left_out") <- left_out
+        # the record of the run: that of the dNdS() call, with this function and its arguments
+        run <- attr(dNdS_full, "orthologr_run")
+        if (!is.null(run)) {
+                run[["function"]] <- "divergence_stratigraphy"
+                run$arguments <- run_args
+                run$gene_pairs_in_map <- nrow(DivergenceMap.DF)
+                run$gene_pairs_left_out <- nrow(left_out)
+        }
+        attr(DivergenceMap.DF, "orthologr_run") <- run
         
         message("Divergence Stratigraphy completed successfully.")
         return( DivergenceMap.DF )

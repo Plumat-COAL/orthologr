@@ -140,6 +140,14 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
         
         geneids <- seqs <- NULL
         
+        # a protein file given as coding sequences: Biostrings would drop the letters that are no nucleotides
+        # with a warning, and the search would fail later with a message that does not name the cause
+        if (format == "fasta" && fasta_looks_like_protein(file))
+                stop("'", file, "' does not look like coding DNA: more than 10 % of the first residues are not ",
+                     "nucleotide letters. Is this a protein file? dN/dS and the functions that read coding ",
+                     "sequences (seq_type = \"cds\") need the coding sequences; for proteins use seq_type = \"protein\" ",
+                     "where a function has it.", call. = FALSE)
+        
         tryCatch({
                 cds_file <-
                         Biostrings::readDNAStringSet(filepath = file, format = format, ...)
@@ -301,4 +309,17 @@ fasta_header_id <- function(headers) {
         if (is.null(headers))
                 return(character(0))
         sub("[[:space:]].*$", "", as.character(headers))
+}
+
+# Does a FASTA file hold proteins rather than nucleotide sequences? Judged from its first 2,000 lines: TRUE when
+# more than 10 % of the residues are letters that are no IUPAC nucleotide code (E, F, I, L, P, Q, ...).
+fasta_looks_like_protein <- function(file) {
+        x <- tryCatch(readLines(file, n = 2000, warn = FALSE), error = function(e) character(0))
+        x <- x[!startsWith(x, ">")]
+        x <- toupper(paste(x, collapse = ""))
+        x <- gsub("[^A-Z*]", "", x)
+        if (nchar(x) < 30)
+                return(FALSE)
+        other <- nchar(gsub("[ACGTUNRYKMSWBDHV]", "", x))
+        other / nchar(x) > 0.1
 }

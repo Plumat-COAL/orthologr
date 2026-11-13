@@ -135,7 +135,7 @@ orthologs <- function(query_file,
                       clean_folders      = FALSE,
                       best_hit_rule      = getOption("orthologr.best_hit_rule", "bitscore")) {
         
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
 
         if (!is.element(ortho_detection,
                         c("DIAMOND_RBH", "DIAMOND_BH", "BH", "RBH", "Orthofinder2")))

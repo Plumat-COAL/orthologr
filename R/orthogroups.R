@@ -47,8 +47,10 @@
 #' reaches this number, as its best hit in some species may then be missing.
 #' @param pairs_max_group_size groups with more genes than this are left out of the table \code{pairs} (the number of
 #' pairs grows with the square of the group size). Default is \code{500}.
-#' @param delete_corrupt_cds a logical value: leave out coding sequences whose length is not a multiple of 3
-#' (\code{seq_type = "cds"}). Default is \code{TRUE}, as in \code{\link{diamond_rec}}.
+#' @param delete_corrupt_cds a logical value (\code{seq_type = "cds"}): what happens to coding sequences whose
+#' length is not a multiple of 3. \code{FALSE} (default, as in \code{\link{dNdS}}): the incomplete codon at the end
+#' is cut off and the sequence is used. \code{TRUE}: the sequence is left out. Sequences with characters other
+#' than A, C, G, T (e.g. \code{N}) are always left out, as in \code{dNdS()}.
 #' @param diamond_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) further parameters for \code{diamond blastp} (one character string), e.g.
 #' \code{"--masking 0"}. Default is \code{NULL}.
 #' @param comp_cores the number of threads DIAMOND uses. The result does not depend on it.
@@ -101,7 +103,7 @@
 #' \item \code{unassigned}: the genes in no group (\code{species}, \code{gene});
 #' \item \code{genes}: all genes (\code{species}, \code{gene}, \code{id}: the ID in the file, \code{length}: protein
 #' length, \code{orthogroup});
-#' \item \code{params}: the parameters of the call, the DIAMOND version and the files.
+#' \item \code{params}: the parameters of the call, the versions of DIAMOND and of \pkg{orthologr}, and the files.
 #' }
 #' See \code{\link{write_orthogroups}} for files in OrthoFinder's layout and \code{\link{dNdS_orthogroups}} for dN/dS
 #' within the groups.
@@ -138,7 +140,7 @@ orthogroups <- function(files,
                         realign              = FALSE,
                         max.target.seqs      = 10000,
                         pairs_max_group_size = 500,
-                        delete_corrupt_cds   = TRUE,
+                        delete_corrupt_cds   = FALSE,
                         diamond_params       = NULL,
                         comp_cores           = 1,
                         path                 = NULL,
@@ -147,7 +149,7 @@ orthogroups <- function(files,
 
         method   <- check_choice(method[1], c("rbh", "deepclust"), "method")
         seq_type <- check_choice(seq_type[1], c("cds", "protein"), "seq_type")
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         check_sensitivity_mode(sensitivity_mode)
         eval <- check_evalue(eval)
         check_flag(inparalogs, "inparalogs")
@@ -171,6 +173,11 @@ orthogroups <- function(files,
                      call. = FALSE)
 
         input <- orthogroups_input(files)
+
+        # several transcripts per gene in an input file? (a warning, as in dNdS(); see there, section 'Splice
+        # variants'. With isoforms a group holds several transcripts of one gene and is never single-copy.)
+        for (i in seq_len(nrow(input)))
+                isoform_warning(input$file[i], paste0("the file of species '", input$species[i], "',"))
 
         path <- diamond_resolve_path(path)
         if (!is.null(path))
@@ -248,7 +255,8 @@ orthogroups <- function(files,
                 inparalogs = inparalogs, refine = refine, realign = realign, max.target.seqs = max.target.seqs,
                 pairs_max_group_size = pairs_max_group_size, delete_corrupt_cds = delete_corrupt_cds,
                 diamond_params = diamond_params, deepclust_args = if (method == "deepclust") list(...) else NULL,
-                diamond_version = version, files = stats::setNames(input$file, input$species),
+                diamond_version = version, orthologr_version = package_version_text("orthologr"),
+                files = stats::setNames(input$file, input$species),
                 ids_prefixed = prot$ids_prefixed
         )
         class(res) <- "orthogroups"
