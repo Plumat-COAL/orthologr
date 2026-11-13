@@ -117,12 +117,19 @@ li_values <- function(ka, ks) {
         list(dN = dN, dS = dS, dNdS = dNdS)
 }
 
-# 'aa_sub_matrix' must be the name of a substitution matrix, a numeric matrix, or NULL.
+# 'aa_sub_matrix' must be the name of a substitution matrix that pwalign has, a numeric matrix, or NULL. Checked
+# before the search, so that a misspelt name does not cost the whole search and then fail every gene pair.
+sub_matrix_names <- function() c("BLOSUM45", "BLOSUM50", "BLOSUM62", "BLOSUM80", "BLOSUM100",
+                                 "PAM30", "PAM40", "PAM70", "PAM120", "PAM250")
+
 check_aa_sub_matrix <- function(aa_sub_matrix) {
         if (!is.null(aa_sub_matrix) &&
             !((is.character(aa_sub_matrix) && length(aa_sub_matrix) == 1 && !is.na(aa_sub_matrix)) ||
               (is.matrix(aa_sub_matrix) && is.numeric(aa_sub_matrix))))
-                stop("'aa_sub_matrix' must be the name of a substitution matrix (e.g. \"BLOSUM62\"), a numeric substitution matrix, or NULL.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "'aa_sub_matrix' must be the name of a substitution matrix ",
+                                "(e.g. \"BLOSUM62\"), a numeric substitution matrix, or NULL.")
+        if (is.character(aa_sub_matrix))
+                check_choice(aa_sub_matrix, sub_matrix_names(), "aa_sub_matrix")
         invisible(TRUE)
 }
 
@@ -134,4 +141,17 @@ cds_protein_table_file <- function(file, delete_corrupt_cds = TRUE) {
         res <- data.table::data.table(geneids = tmp[ , geneids], seqs = toupper(tmp[ , aa]))
         data.table::setkey(res, geneids)
         return(res)
+}
+
+# The input files of a call must be there before any program is started: an orthologr_error_bad_input that names
+# them (not an error of the search program, or a missing program, first).
+check_input_files <- function(...) {
+        files <- unlist(list(...), use.names = FALSE)
+        if (!is.character(files) || anyNA(files))
+                orthologr_abort(class = "bad_argument", "The input files must be given as file paths.")
+        missing_files <- files[!file.exists(files)]
+        if (length(missing_files) > 0)
+                orthologr_abort(class = "bad_input", "The following input file(s) were not found:\n",
+                                paste(missing_files, collapse = "\n"))
+        invisible(files)
 }

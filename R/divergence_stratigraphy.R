@@ -42,7 +42,9 @@
 #' @param dnds.threshold a numeric value specifying the dnds threshold for genes that shall be retained.
 #' Hence all genes having a dNdS value <= \code{dnds.threshold} are retained. Default is \code{dnds.threshold} = 2.
 #' @param store_locally a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.
-#' @param quiet a logical value specifying whether a successful interface call shall be printed out to the console.
+#' @param quiet \code{TRUE} (default since 0.5.0, as in \code{\link{dNdS}}): the messages of the dN/dS run are one
+#' line at the start and one summary at the end. \code{FALSE} (the default of 0.4.3): the messages of
+#' \code{\link{dNdS}} in detail.
 #' @param clean_folders a logical value specifying whether the internal folder structure shall be deleted (cleaned) after
 #'  processing this function. Default is \code{clean_folders} = \code{FALSE}.
 #' @param ds.values a logical value specifying whether divergence stratum values (ds values) or dNdS values shall be returned
@@ -213,7 +215,7 @@ divergence_stratigraphy <- function(query_file,
                                     comp_cores      = 1,
                                     dnds.threshold  = 2,
                                     store_locally   = FALSE,
-                                    quiet           = FALSE, 
+                                    quiet           = TRUE, 
                                     clean_folders   = FALSE, 
                                     ds.values       = TRUE,
                                     subject.id      = FALSE,
@@ -225,12 +227,12 @@ divergence_stratigraphy <- function(query_file,
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         
         if (!is.ortho_detection_method(ortho_detection))
-                stop("Please choose a orthology detection method that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a orthology detection method that is supported by this function.")
         
         if (!is.element(aligner, c("blast", "diamond")))
-                stop("Please choose an aligner that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose an aligner that is supported by this function.")
         
-        message("Proceeding with the aligner: ", aligner)
+        detail_message(quiet, "Proceeding with the aligner: ", aligner)
         
         # recommend users to choose DIAMOND2
         if (aligner == "blast")
@@ -249,7 +251,7 @@ divergence_stratigraphy <- function(query_file,
         # checked before the long run, not after it
         check_n_quantile(n_quantile)
         if (!is.character(dS_zero) || length(dS_zero) != 1 || !is.element(dS_zero, c("keep", "drop")))
-                stop("dS_zero must be \"keep\" or \"drop\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "dS_zero must be \"keep\" or \"drop\".", call. = FALSE)
         
         dNdS_full <- dNdS( query_file      = query_file,
                            subject_file    = subject_file,

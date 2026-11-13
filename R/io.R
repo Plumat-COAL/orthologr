@@ -23,10 +23,10 @@
 read.genome <- function(file, format, ...){
         
         if(!is.element(format,c("fasta","fastq")))
-                stop("Please choose a file format that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a file format that is supported by this function.")
         
         if (!file.exists(file))
-                stop("The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
         
         geneids <- seqs <- NULL
         
@@ -78,10 +78,10 @@ read.genome <- function(file, format, ...){
 read.proteome <- function(file, format, ...){
         
         if(!is.element(format,c("fasta","fastq")))
-                stop("Please choose a file format that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a file format that is supported by this function.")
         
         if (!file.exists(file))
-                stop("The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
         
         geneids <- seqs <- NULL 
         
@@ -133,10 +133,10 @@ read.proteome <- function(file, format, ...){
 
 read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
         if (!is.element(format, c("fasta", "fastq")))
-                stop("Please choose a file format that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a file format that is supported by this function.")
         
         if (!file.exists(file))
-                stop("The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
         
         geneids <- seqs <- NULL
         
@@ -190,7 +190,10 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
         })
         
         if (!all(all_triplets)) {
-                message(
+                # inside dNdS() with quiet = TRUE these messages are left to the summary of the run
+                # (the sequences are listed in attr(<result>, "dropped_sequences") / "trimmed_sequences")
+                quiet_run <- sequence_messages_quiet()
+                if (!quiet_run) message(
                         "There seem to be ",
                         length(which(!all_triplets)),
                         " coding sequences in your input dataset which cannot be properly divided in base triplets, because their sequence length cannot be divided by 3."
@@ -206,12 +209,14 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                 corrupted_file <-
                         file.path(corrupted_dir, paste0(basename(file), "_corrupted_cds_seqs.fasta"))
                 
-                message(
-                        "A fasta file storing all corrupted coding sequences for inspection was generated and stored at '",
-                        corrupted_file,
-                        "'."
-                )
-                message("\n")
+                if (!quiet_run) {
+                        message(
+                                "A fasta file storing all corrupted coding sequences for inspection was generated and stored at '",
+                                corrupted_file,
+                                "'."
+                        )
+                        message("\n")
+                }
                 corrupted_seqs <- as.data.frame(cds.dt[which(!all_triplets)])
                 seq_vector <- corrupted_seqs$seqs
                 names(seq_vector) <- corrupted_seqs$geneids
@@ -219,36 +224,40 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                 Biostrings::writeXStringSet(corrupted_seqs_biostrings, filepath = corrupted_file)
                 
                 if (delete_corrupt_cds) {
-                        message(
-                                "You chose option 'delete_corrupt_cds = TRUE', thus corrupted coding sequences were removed.",
-                                "If after consulting the file '",
-                                corrupted_file,
-                                "' you still wish to retain all coding sequences please specify the argument 'delete_corrupt_cds = FALSE'."
-                        )
-                        message("\n")
+                        if (!quiet_run) {
+                                message(
+                                        "You chose option 'delete_corrupt_cds = TRUE', thus corrupted coding sequences were removed.",
+                                        "If after consulting the file '",
+                                        corrupted_file,
+                                        "' you still wish to retain all coding sequences please specify the argument 'delete_corrupt_cds = FALSE'."
+                                )
+                                message("\n")
+                        }
                         dropped_record(cds.dt[which(!all_triplets), geneids],
                                        "a length that is not a multiple of 3 (delete_corrupt_cds = TRUE)", file)
                         return(cds.dt[-which(!all_triplets) , list(geneids, seqs)])
                 }
                 
                 if (!delete_corrupt_cds) {
-                        message(
-                                "You chose option 'delete_corrupt_cds = FALSE', thus corrupted coding sequences were retained for subsequent analyses.")
-                        message(
-                                "The following modifications were made to the CDS sequences that were not divisible by 3:")
-                        message(
-                                "- If the sequence had 1 residue nucleotide then the last nucleotide of the sequence was removed.")
-                        message(
-                                "- If the sequence had 2 residue nucleotides then the last two nucleotides of the sequence were removed.")
-                        message(
-                                "Note: the sequences are trimmed at their 3' end. A coding sequence that is incomplete at its 5' end ",
-                                "(e.g. Ensembl 'cds_start_NF' transcripts that do not start in phase 0) is then translated in the wrong ",
-                                "reading frame; such sequences are best removed (delete_corrupt_cds = TRUE) or put into frame before.")
-                        message(
-                                "If after consulting the file '",
-                                corrupted_file,
-                                "' you wish to remove all corrupted coding sequences please specify the argument 'delete_corrupt_cds = TRUE'."
-                        )
+                        if (!quiet_run) {
+                                message(
+                                        "You chose option 'delete_corrupt_cds = FALSE', thus corrupted coding sequences were retained for subsequent analyses.")
+                                message(
+                                        "The following modifications were made to the CDS sequences that were not divisible by 3:")
+                                message(
+                                        "- If the sequence had 1 residue nucleotide then the last nucleotide of the sequence was removed.")
+                                message(
+                                        "- If the sequence had 2 residue nucleotides then the last two nucleotides of the sequence were removed.")
+                                message(
+                                        "Note: the sequences are trimmed at their 3' end. A coding sequence that is incomplete at its 5' end ",
+                                        "(e.g. Ensembl 'cds_start_NF' transcripts that do not start in phase 0) is then translated in the wrong ",
+                                        "reading frame; such sequences are best removed (delete_corrupt_cds = TRUE) or put into frame before.")
+                                message(
+                                        "If after consulting the file '",
+                                        corrupted_file,
+                                        "' you wish to remove all corrupted coding sequences please specify the argument 'delete_corrupt_cds = TRUE'."
+                                )
+                        }
                         
                         mod3_residue_1 <-
                                 function(x) {
@@ -262,6 +271,8 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                         
                         residue_1 <- cds.dt[ , mod3_residue_1(seqs)]
                         residue_2 <- cds.dt[ , mod3_residue_2(seqs)]
+                        trimmed_ids <- cds.dt[which(!all_triplets), geneids]
+                        trimmed_nt <- nchar(cds.dt[which(!all_triplets), seqs]) %% 3
                         
                         residue_1_seqs <- as.character(cds.dt[which(residue_1) , seqs])
                         residue_2_seqs <- as.character(cds.dt[which(residue_2) , seqs])
@@ -281,9 +292,10 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                         
                         if (any(!all_triplets_new)) {
                                 stop("Something went wring during the trimming process. Not all sequences were trimmed properly.", call. = FALSE)
-                        } else {
+                        } else if (!quiet_run) {
                                 message("All corrupted CDS were trimmed.")
                         }
+                        trimmed_record(trimmed_ids, trimmed_nt, file, corrupted_file)
                         
                         n_seqs_new <- nrow(cds.dt)
                         

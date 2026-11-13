@@ -23,11 +23,11 @@ change. Please report the version of orthologr in the methods of analyses based 
 - **One summary message at the end of a run**: gene pairs by status, median dS, sequences left out before the
   search, and a note when most pairs are saturated or the median dS is above 1.5 (species too distant for
   pairwise dN/dS). With `quiet = FALSE`, a progress message about every tenth of the gene pairs.
-- **Record of the run**: `attr(result, "orthologr_run")` on results of `dNdS()`, `dNdS_coal()`,
-  `dNdS_clusters()`, `dNdS_orthogroups()` and `divergence_stratigraphy()`: package version, arguments, every
-  `orthologr.*` option in force, engine, program versions, date, size and MD5 of the input files, counts by
-  status. **`write_dNdS()`** writes a table as TSV with this record in `<file>.run.json`; **`read_dNdS()`** reads
-  both back (needs `jsonlite`). `orthogroups()$params` holds the package version.
+- **Record of the run**: `attr(result, "orthologr_run")` on results of `dNdS()`, `dNdS_orthogroups()` and
+  `divergence_stratigraphy()`: package version, arguments, every `orthologr.*` option in force (with its default
+  when it is not set, `orthologr.ambiguous_cds` included), engine, program versions, date, size and MD5 of the
+  input files, counts by status. **`write_dNdS()`** writes a table as TSV with this record in
+  `<file>.run.json`; **`read_dNdS()`** reads both back (needs `jsonlite`). `orthogroups()$params` holds the package version.
 - **`orthologr_legacy_options()`** and `options(orthologr.legacy = TRUE)`: all settings of 0.4.3 at once. A test
   compares the result with tables stored from 0.4.3 (20-gene example, Comeron and YN).
 - **`?orthologr_options`**: every option and environment variable the package reads.
@@ -35,7 +35,10 @@ change. Please report the version of orthologr in the methods of analyses based 
   `orthologr_error_tool_missing`, `_package_missing`, `_tool_failed` (with `_alignment_failed` for an alignment
   program), `_no_hits`, `_bad_input`, `_bad_argument` - and the warnings about failed gene pairs and isoforms the
   classes `orthologr_warning_failed_pairs` / `_isoforms`, so that they can be handled with `tryCatch()` without
-  matching message text (`?orthologr_options`, section "Errors and warnings"). Messages are unchanged.
+  matching message text (`?orthologr_options`, section "Errors and warnings"). Messages are unchanged. The
+  argument and input-file checks of `dNdS()`, `orthogroups()`, `dNdS_orthogroups()`, `divergence_stratigraphy()`,
+  `filter_dNdS()`, the alignment functions, `substitutionrate()` and the readers are classed; `dNdS()` checks
+  that its input files exist before any program runs.
 - `divergence_left_out()`: the gene pairs that are not in a divergence map, with the reason.
 - `attr(result, "failed_pairs")` and `attr(result, "dropped_sequences")` on dN/dS tables: gene pairs that could
   not be processed and input sequences that were left out, each with the reason.
@@ -63,6 +66,7 @@ change. Please report the version of orthologr in the methods of analyses based 
 | dN/dS tables end with the column `status` | one more column | `options(orthologr.status_column = FALSE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
+| `divergence_stratigraphy(quiet = TRUE)`, as `dNdS()` (was `FALSE`) | 1,000-gene example: 10 messages instead of 45; same result | `quiet = FALSE` |
 | `orthogroups()` and `dNdS_orthogroups()` trim coding sequences whose length is not a multiple of 3 (`delete_corrupt_cds = FALSE`, as `dNdS()` does) | - (new functions) | `delete_corrupt_cds = TRUE` |
 
 All of the first five at once: `orthologr_legacy_options()`.
@@ -77,7 +81,11 @@ Further behaviour that differs from 0.4.3 and cannot be switched back:
   `kaks_calc.params`, ...) are lists of arguments, not shell text: `;`, pipes and redirections inside them no
   longer work.
 - `dNdS()` writes nothing to `stdout`. With `quiet = TRUE` (default) it gives a line at the start and the
-  summary at the end (31 messages before); the citation note is a message shown once per session.
+  summary at the end (31 messages before); the citation note is a message shown once per session. Input sequences
+  that are left out or trimmed to a multiple of 3 are counted in the summary (listed in
+  `attr(, "dropped_sequences")` / `attr(, "trimmed_sequences")`) instead of a block of messages about each kind:
+  1,000-gene example, 12 messages before (8 about the 12 trimmed sequences), 2 after; `quiet = FALSE` shows the
+  old messages.
 - Coding sequences with characters other than A, C, G, T are left out before the search, as before, but no
   longer without a word: they are counted in the summary and listed in `attr(, "dropped_sequences")`.
 - Intermediate files are kept in a folder of the call inside `tempdir()` and removed afterwards
@@ -123,10 +131,19 @@ Running programs:
   compares it with the R wrappers.
 - `multi_aln()`: T-Coffee and MUSCLE examples run with current versions; CLUSTAL files of T-Coffee are read;
   the MAFFT check uses `mafft --version`.
+- `multi_aln(tool = "t_coffee")` and `dNdS(aa_aln_tool = "t_coffee")` returned unaligned rows in development
+  versions of 0.5.0 (a bug, no option restores it): T-Coffee 12 was given the sequences with `-infile` and took a
+  file whose sequences end in `*` (as the translated coding sequences do) for a finished alignment. They are now
+  given with `-seq`. 20-gene example, `aa_aln_type = "multiple"`: before 10 of 20 pairs `"saturated"` (dN/dS
+  `NA`), 7 of 20 within 0.1 of ClustalW, r = 0.743 (max difference 0.553); after 0 saturated, 20 of 20 within 0.1
+  of ClustalW, r = 0.993 (max difference 0.094). 0.4.3 used `-mode accurate`, which fails without network.
 - `pairwise_aln()`, `read.genome(format = "fastq")`, `codon_aln(get_aln = TRUE)`,
   `promotor_divergence_estimation()`, `lnc_map_counts()`, `map_generator_dnds()` with one subject file: errors
   on valid input fixed. `check_annotation(remove_annotation_outliers = TRUE)` no longer overwrites the
   annotation file.
+- An unknown `aa_sub_matrix` name (`dNdS()`, `pairwise_aln()`) is an error (`orthologr_error_bad_argument`)
+  before the search; it ran the whole search and then failed every gene pair (1,000-gene example,
+  `aa_sub_matrix = "FOO"`: before 6.4 s and 995 of 995 pairs `NA` with one warning; after an error at once).
 - A protein file given where coding sequences are expected is an error that says so (was: a DIAMOND error about
   memory).
 - `orthogroups()` runs the check for several transcripts per gene; the check no longer warns for a bacterial

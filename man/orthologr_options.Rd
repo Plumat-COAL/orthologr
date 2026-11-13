@@ -112,13 +112,20 @@ KaKs_Calculator) was not found;}
 \code{orthologr_error_alignment_failed} when it was an alignment program (PAL2NAL, Clustal, MAFFT, MUSCLE,
 T-Coffee, COAL);}
 \item{\code{orthologr_error_no_hits}}{the search found no (reciprocal best) hits, so there are no gene pairs;}
-\item{\code{orthologr_error_bad_input}}{an input file cannot be used (a protein file given as coding sequences,
-duplicated sequence IDs);}
+\item{\code{orthologr_error_bad_input}}{an input file cannot be used (it does not exist, it is empty, a protein file
+given as coding sequences, duplicated sequence IDs);}
 \item{\code{orthologr_error_bad_argument}}{an argument value is not supported;}
 \item{\code{orthologr_warning_failed_pairs}}{some gene pairs could not be processed (their values are \code{NA},
 the reasons are in \code{attr(result, "failed_pairs")});}
 \item{\code{orthologr_warning_isoforms}}{an input file seems to hold several transcripts per gene.}
 }
+These classes are given by the checks of the arguments and input files of \code{\link{dNdS}},
+\code{\link{orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{divergence_stratigraphy}},
+\code{\link{filter_dNdS}}, the alignment functions (\code{\link{pairwise_aln}}, \code{\link{multi_aln}},
+\code{\link{codon_aln}}), \code{\link{substitutionrate}}, the \code{read.*()} functions and
+\code{\link{read_dNdS}}, and by every check for a program or an optional package. Other, older functions of the
+package may still signal plain errors (class \code{simpleError}).
+
 A failure of one gene pair inside \code{dNdS()} is not an error: it becomes an \code{NA} row with its reason.
 }
 

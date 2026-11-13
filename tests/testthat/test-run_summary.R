@@ -95,12 +95,34 @@ test_that("dNdS() ends with the column 'status', one summary message and the rec
         expect_identical(rec$options$orthologr.best_hit_rule, "bitscore")
         expect_identical(rec$options$orthologr.legacy_pairwise_aln, FALSE)
         expect_identical(rec$options$orthologr.status_column, TRUE)
+        expect_identical(rec$options$orthologr.ambiguous_cds, "drop")
         expect_match(rec$tools$diamond, "diamond")
         expect_true(nzchar(rec$tools$pwalign))
         expect_identical(rec$input_files$md5, unname(tools::md5sum(c(thal_cds(), lyra_cds()))))
         expect_identical(rec$input_files$size, as.numeric(file.size(c(thal_cds(), lyra_cds()))))
         expect_identical(sum(unlist(rec$status_counts)), nrow(res))
         expect_identical(rec$status_counts$ok, sum(res$status == "ok"))
+})
+
+test_that("sequences trimmed to a multiple of 3 are counted in the summary, not in a block of messages (quiet = TRUE)", {
+        skip_if_not(native_possible(), "DIAMOND or perl is not installed")
+        cds <- Biostrings::readDNAStringSet(thal_cds())
+        cds[1:2] <- Biostrings::DNAStringSet(paste0(as.character(cds[1:2]), c("A", "AC")))
+        f <- file.path(new_test_dir("trimmed_"), "thal_trim.fasta")
+        Biostrings::writeXStringSet(cds, f)
+        run <- collect_messages(dNdS(f, lyra_cds(), print_citation = FALSE))
+        res <- run$value
+        # one line at the start and the summary (was: 10 messages, the old block about corrupted CDS among them)
+        expect_length(run$messages, 2)
+        expect_match(run$messages[2], "2 coding sequences have a length that is not a multiple of 3 and were trimmed", fixed = TRUE)
+        tr <- attr(res, "trimmed_sequences")
+        expect_identical(sort(tr$id), sort(fasta_header_id(names(cds)[1:2])))
+        expect_identical(tr$removed_nt[match(fasta_header_id(names(cds)[1:2]), tr$id)], c(1L, 2L))
+        expect_true(all(file.exists(tr$corrupted_file)))
+        # quiet = FALSE: the long explanation as before, the same numbers
+        loud <- collect_messages(dNdS(f, lyra_cds(), print_citation = FALSE, quiet = FALSE))
+        expect_true(any(grepl("cannot be properly divided in base triplets", loud$messages)))
+        expect_equal(as.data.frame(loud$value)[, c("dN", "dS", "dNdS")], as.data.frame(res)[, c("dN", "dS", "dNdS")])
 })
 
 test_that("options(orthologr.status_column = FALSE) gives the table without the column and the same values", {

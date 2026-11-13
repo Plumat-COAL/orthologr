@@ -103,9 +103,9 @@
 #' @param comp_cores a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.
 #' When it is larger than the number of available cores, the number of available cores is used and a warning is given.
 #' @param quiet \code{TRUE} (default): one line at the start and one summary at the end of the run (as messages,
-#' i.e. on \code{stderr}; nothing is written to \code{stdout}). \code{FALSE}: also the parameters, the messages of
-#' the search program and a progress message about every tenth of the gene pairs.
-#' Default is \code{quiet} = \code{FALSE}.
+#' i.e. on \code{stderr}; nothing is written to \code{stdout}); input sequences that were left out or trimmed are
+#' counted in the summary. \code{FALSE}: also the parameters, the messages of the search program, a message for each
+#' kind of input sequence that was left out or trimmed, and a progress message about every tenth of the gene pairs.
 #' @param clean_folders kept for compatibility. All intermediate files of a call are written to a folder of its own inside
 #' \code{tempdir()}, which is always removed when the call ends (see Details), so there is nothing left to clean.
 #' @param print_citation a logical value indicating whether the citation note is shown (as a message, once per R session).
@@ -223,7 +223,9 @@
 #' \emph{A. lyrata} example, but 51 of 2,048 (2.5 \%) of the Ensembl transcripts of human chromosome 21 and 365 of
 #' 7,728 (4.7 \%) of those of mouse chromosomes 10, 16 and 17 - there typically one leading \code{N} of a transcript
 #' whose start is not annotated (\code{cds_start_NF}). Sequences whose length is not a multiple of 3 (97 of 2,048
-#' and 934 of 7,728 in the same files) are trimmed by default (\code{delete_corrupt_cds = FALSE}).
+#' and 934 of 7,728 in the same files) are trimmed by default (\code{delete_corrupt_cds = FALSE}); they are listed in
+#' \code{attr(result, "trimmed_sequences")} (\code{file}, \code{id}, \code{removed_nt}, \code{corrupted_file}: the
+#' sequences as read) and counted in the summary message.
 #' 
 #' @section Status of a gene pair:
 #' The last column of the result, \code{status}, says how each gene pair came out. The same words are used by
@@ -384,13 +386,15 @@ dNdS <- function(query_file,
                 aa_aln_params    = if (engine == "coal") NULL else aa_aln_params
         )
         
+        check_input_files(query_file, subject_file)
+        
         # (engine = "coal" checks its methods itself - it takes several at once - and has no codon alignment tool)
         if (engine != "coal") {
                 if (!is.codon_aln_tool(codon_aln_tool))
-                        stop("Please choose a codon alignment tool that is supported by this function.", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "Please choose a codon alignment tool that is supported by this function.", call. = FALSE)
                 
                 if (length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method))
-                        stop("Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
         }
         
         for (unused in c("cdd.path", "ortho_path")) {
@@ -478,7 +482,7 @@ dNdS <- function(query_file,
         on.exit(end_seq_cache(), add = TRUE)
         
         # sequences that are left out are collected for attr(<result>, "dropped_sequences")
-        end_dropped <- dropped_start()
+        end_dropped <- dropped_start(quiet = quiet)
         on.exit(end_dropped(), add = TRUE)
         
         # several transcripts per gene in an input file? (a warning; see ?dNdS, section 'Splice variants')
@@ -585,8 +589,9 @@ dNdS <- function(query_file,
         # (attr "failed_pairs"), the record of the run (attr "orthologr_run") and one summary message.
         kaks_used <- is.element(dnds_est.method, kaks_calculator_methods()) &&
                 !(kaks_tool == "coal" && is.element(dnds_est.method, coal_methods()))
+        trimmed <- trimmed_table()
         res <- dnds_finish(
-                res, failed_pairs = attr(dNdS_tbl, "failed_pairs"), dropped = end_dropped(),
+                res, failed_pairs = attr(dNdS_tbl, "failed_pairs"), dropped = end_dropped(), trimmed = trimmed,
                 record = list(fun = "dNdS", args = run_args, engine = "orthologr",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path,
                                                           aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path,
