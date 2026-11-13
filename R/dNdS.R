@@ -371,7 +371,7 @@ dNdS <- function(query_file,
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         
         if (!is.element(engine, c("orthologr", "coal")))
-                stop("Please choose engine = \"orthologr\" or engine = \"coal\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "Please choose engine = \"orthologr\" or engine = \"coal\".", call. = FALSE)
         
         # what is not supported is rejected now, before any program is started
         dnds_check_args(
@@ -409,11 +409,16 @@ dNdS <- function(query_file,
                 check_aa_sub_matrix(aa_sub_matrix)
         
         if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
-                stop("Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
         
         if (kaks_tool == "coal" && !is.element(dnds_est.method, c("Comeron", "Li", coal_methods())))
-                stop("kaks_tool = \"coal\" computes the methods ", paste(coal_methods(), collapse = ", "),
+                orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" computes the methods ", paste(coal_methods(), collapse = ", "),
                      "; dnds_est.method = \"", dnds_est.method, "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
+        
+        check_aa_aln_scoring(aa_aln_scoring)
+        if (engine == "orthologr" && aa_aln_scoring != "pwalign")
+                orthologr_abort(class = "bad_argument", "aa_aln_scoring = \"", aa_aln_scoring, "\" needs engine = \"coal\" (engine = \"orthologr\" aligns with ",
+                     "pairwise_aln(), i.e. \"pwalign\").", call. = FALSE)
         
         # COAL must be there before the search starts, not when the first gene pair needs it
         if (engine == "orthologr" && (identical(codon_aln_tool, "coal") ||
@@ -425,11 +430,6 @@ dNdS <- function(query_file,
                 dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = codon_aln_tool,
                                       dnds_est.method = dnds_est.method, kaks_calc_path = kaks_calc_path,
                                       need_kaks = !(kaks_tool == "coal" && is.element(dnds_est.method, coal_methods())))
-        
-        check_aa_aln_scoring(aa_aln_scoring)
-        if (engine == "orthologr" && aa_aln_scoring != "pwalign")
-                stop("aa_aln_scoring = \"", aa_aln_scoring, "\" needs engine = \"coal\" (engine = \"orthologr\" aligns with ",
-                     "pairwise_aln(), i.e. \"pwalign\").", call. = FALSE)
         
         # the batched fast path: all gene pairs in one call to COAL
         if (engine == "coal") {

@@ -155,7 +155,7 @@ codon_aln <- function(file_aln,
         # installed, otherwise with the coal-cpp program
         if (tool == "coal") {
                 if (!is.null(params))
-                        stop("'params' are PAL2NAL command-line parameters; they cannot be used with tool = \"coal\".", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "'params' are PAL2NAL command-line parameters; they cannot be used with tool = \"coal\".", call. = FALSE)
                 coal_codon_aln_file(file_aln = file_aln, file_nuc = file_nuc, file.out = file.out, format = format,
                                     context = pair_context(file_nuc, codon_aln_name))
         }

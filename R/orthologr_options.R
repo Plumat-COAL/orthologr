@@ -72,7 +72,8 @@
 #' \describe{
 #' \item{\code{orthologr_error_tool_missing}}{an external program (DIAMOND, BLAST+, Perl, an alignment program,
 #' KaKs_Calculator) was not found;}
-#' \item{\code{orthologr_error_package_missing}}{an optional R package (Suggests) is needed but not installed;}
+#' \item{\code{orthologr_error_package_missing}}{an optional R package (Suggests) is needed but not installed (when
+#' COAL is needed and neither \pkg{coalr} nor the coal-cpp program is there, also \code{orthologr_error_tool_missing});}
 #' \item{\code{orthologr_error_tool_failed}}{an external program failed or wrote no output; with
 #' \code{orthologr_error_alignment_failed} when it was an alignment program (PAL2NAL, Clustal, MAFFT, MUSCLE,
 #' T-Coffee, COAL);}
@@ -88,7 +89,7 @@
 #' which cannot reproduce the numbers of 0.4.3.}
 #' }
 #' These classes are given by the checks of the arguments and input files of \code{\link{dNdS}},
-#' \code{\link{orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{divergence_stratigraphy}},
+#' \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}}, \code{\link{orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{divergence_stratigraphy}},
 #' \code{\link{filter_dNdS}}, the alignment functions (\code{\link{pairwise_aln}}, \code{\link{multi_aln}},
 #' \code{\link{codon_aln}}), \code{\link{substitutionrate}}, the \code{read.*()} functions and
 #' \code{\link{read_dNdS}}, and by every check for a program or an optional package. Other, older functions of the

@@ -111,6 +111,25 @@ test_that("argument and input-file errors of the main functions have the documen
                 list("orthogroups missing file",    quote(orthogroups(c(a = q, b = nope))),                   "bad_input"),
                 list("read_dNdS missing file",      quote(read_dNdS(nope)),                                   "bad_input")
         )
+        # the COAL engine (needs no program for these checks either)
+        probes <- c(probes, list(
+                list("dNdS engine",                 quote(dNdS(q, s, engine = "x")),                          "bad_argument"),
+                list("dNdS kaks_tool",              quote(dNdS(q, s, kaks_tool = "x")),                       "bad_argument"),
+                list("dNdS needle with native",     quote(dNdS(q, s, aa_aln_scoring = "needle")),             "bad_argument"),
+                list("dNdS_coal aligner",           quote(dNdS_coal(q, s, aligner = "x")),                    "bad_argument"),
+                list("dNdS_coal missing file",      quote(dNdS_coal(nope, s)),                                "bad_input"),
+                list("dNdS_clusters missing file",  quote(dNdS_clusters(nope)),                               "bad_input"),
+                list("dNdS_clusters aa_aln_tool",   quote(dNdS_clusters(q, aa_aln_tool = "x")),               "bad_argument"),
+                list("COAL backend option",         quote(local({ old <- options(orthologr.coal_backend = "x")
+                                                                  on.exit(options(old))
+                                                                  dNdS(q, s, codon_aln_tool = "coal") })),    "bad_argument"),
+                list("COAL not there",              quote(local({ old <- options(orthologr.coal_backend = "none")
+                                                                  on.exit(options(old))
+                                                                  dNdS(q, s, codon_aln_tool = "coal") })),    "package_missing")
+        ))
+        if (requireNamespace("coalr", quietly = TRUE))
+                probes <- c(probes, list(
+                        list("dNdS coal method GY", quote(dNdS(q, s, engine = "coal", dnds_est.method = "GY")), "bad_argument")))
         for (p in probes) {
                 e <- tryCatch(suppressMessages(eval(p[[2]])), error = function(e) e)
                 expect_s3_class(e, paste0("orthologr_error_", p[[3]]))
