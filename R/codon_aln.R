@@ -102,13 +102,8 @@ codon_aln <- function(file_aln,
         if (!is.element(format, c("clustal", "fasta")))
                 stop("Please choose a format that is supported by this function.", call. = FALSE)
         
-        if (!file.exists(file.path(orthologr_tmpdir(), "_alignment"))) {
-                dir.create(file.path(orthologr_tmpdir(), "_alignment"))
-        }
-        
-        
         if (!file.exists(file.path(orthologr_tmpdir(), "_alignment", "codon_aln"))) {
-                dir.create(file.path(orthologr_tmpdir(), "_alignment", "codon_aln"))
+                dir.create(file.path(orthologr_tmpdir(), "_alignment", "codon_aln"), recursive = TRUE)
         }
         
         if (is.null(codon_aln_name))
@@ -125,50 +120,28 @@ codon_aln <- function(file_aln,
         
         if (tool == "pal2nal") {
                 
-                # what the alignment is for, for error messages: the gene pair and the alignment's name
                 context <- pair_context(file_nuc, codon_aln_name)
-                err_file <- paste0(file.out, ".stderr")
                 
-                # a result of an earlier call must never be taken for the result of this one
+                # A file left by an earlier call must never be taken for the result of this one: it is removed,
+                # PAL2NAL writes to a file with a name of its own, and that file becomes `file.out` only when
+                # PAL2NAL has finished successfully.
                 if (file.exists(file.out))
                         unlink(file.out)
+                tmp.out <- tempfile("aln_", tmpdir = dirname(file.out), fileext = ".tmp")
+                on.exit(unlink(tmp.out), add = TRUE)
                 
-                pal2nal_run <- paste0(
-                        "perl ",
-                        shQuote(path),
-                        " ",
-                        shQuote(file_aln),
-                        " ",
-                        shQuote(file_nuc),
-                        " -output ",
-                        format,
-                        if (!is.null(params)) paste0(" ", params) else "",
-                        " > ",
-                        shQuote(file.out),
-                        " 2> ",
-                        shQuote(err_file)
+                # PAL2NAL reports a protein that does not fit its CDS on stderr, exits with status 0 and writes
+                # nothing: both the exit status and the output are checked.
+                run_tool(
+                        "perl",
+                        args = list(path, file_aln, file_nuc, "-output", format,
+                                    if (!is.null(params)) I(params)),
+                        stdout  = tmp.out,
+                        tool    = "PAL2NAL",
+                        context = context,
+                        output  = tmp.out
                 )
-                
-                operating_sys <- Sys.info()[1]
-                
-                status <- tryCatch({
-                        if (operating_sys == "Windows") {
-                                shell(pal2nal_run)
-                        } else {
-                                system(pal2nal_run)
-                        }
-                }, error = function(e) {
-                        stop(
-                                "PAL2NAL (perl) could not be started for ", context, ": ", conditionMessage(e),
-                                call. = FALSE
-                        )
-                })
-                
-                # PAL2NAL reports problems (e.g. a protein that does not fit its coding sequence) on stderr and
-                # through its exit status; without this check an empty or missing codon alignment would only
-                # surface later as an unrelated error
-                check_external(status, tool = "PAL2NAL", context = context, log = err_file, output = file.out)
-                unlink(err_file)
+                publish_file(tmp.out, file.out)
         }
         
         if (!quiet) {
@@ -192,15 +165,5 @@ codon_aln <- function(file_aln,
                 })
         }
         
+        invisible(file.out)
 }
-
-
-
-
-
-
-
-
-
-
-

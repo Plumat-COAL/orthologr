@@ -3,26 +3,7 @@ is_installed_diamond <- function(diamond_exec_path = NULL) {
         if (!is.null(diamond_exec_path))
                 diamond_exec_path <- normalizePath(diamond_exec_path, mustWork = FALSE)
         
-        # test if a valid DIAMOND version is installed
-        tryCatch({
-                if (!is.null(diamond_exec_path))
-                        # e.g. diamond_exec_path = '/opt/miniconda3/bin/'
-                        sys_out <-
-                                system(paste0(file.path(diamond_exec_path,"diamond version")), intern = TRUE)
-                
-                if (is.null(diamond_exec_path))
-                        # e.g. diamond_exec_path = '/opt/miniconda3/bin/'
-                        sys_out <-
-                                system("diamond version", intern = TRUE)
-                
-        }, error = function(e)
-                stop(
-                        "It seems like you don't have DIAMOND2 installed locally on your machine or the PATH variable to the DIAMOND2 program is not set correctly.",
-                        " Please use the 'diamond_exec_path' argument to specify a path to your diamond excecutable, e.g. diamond_exec_path = '/usr/local/bin' or diamond_exec_path = '/opt/miniconda3/bin'.",
-                        call. = FALSE
-                ))
-        
-        if (any(stringr::str_detect(sys_out, "diamond")))
-                return(TRUE)
-        
+        # test if a valid DIAMOND version is installed (the program is started once per session)
+        diamond_version(path = diamond_exec_path)
+        return(TRUE)
 }

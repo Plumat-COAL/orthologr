@@ -115,49 +115,40 @@ diamond <- function(
         if (!is.null(path))
                 path <- normalizePath(path, mustWork = FALSE)
         
-        is_installed_diamond(diamond_exec_path = path)
-        
-        if (is.null(path)) {
-                message("Running ",
-                        system("diamond --version", intern = TRUE)[1],
-                        " ...")
-        } else {
-                message("Running ",
-                        system(paste0(
-                                path_prefix(path),
-                                'diamond --version'), intern = TRUE)[1],
-                        " ...")
-        }
+        message("Running ", diamond_version(path = path), " ...")
         
         message("sensitivity mode: ", sensitivity_mode)
         
-        # due to the discussion of no visible binding for global variable for
-        # data.table objects see:
-        # http://stackoverflow.com/questions/8096313/no-visible-binding-for-global-variable-note-in-r-cmd-check?lq=1
-        aa <- geneids <- NULL
+        # in case one tries to use more cores than are available
+        check_comp_cores(comp_cores)
         
-        # initialize the DIAMOND search using the previous function for BLAST
-        # set_diamond() could be made in the near future. Here is a stopgap.
-        if(database_maker == "diamond"){
+        # every call works in a folder of its own, which is removed when the call ends: a table left by an
+        # earlier or failed call cannot be returned as the result of this one
+        work <- call_dir_start("diamond_")
+        on.exit(call_dir_end(work), add = TRUE)
+        
+        if (database_maker == "diamond") {
                 message("creating a diamond database")
                 query.dt <- set_diamond(
                         file     = query_file,
                         seq_type = seq_type,
                         format   = format,
                         delete_corrupt_cds = delete_corrupt_cds,
+                        path     = path,
                         comp_cores = comp_cores
                 )[[1]]
                 
-                # make a BLASTable/DIAMONDable databse of the subject
-                database <- set_diamond(
+                subject.dt <- set_diamond(
                         file     = subject_file,
                         seq_type = seq_type,
                         format   = format,
-                        makedb   = TRUE ,
                         delete_corrupt_cds = delete_corrupt_cds,
+                        path     = path,
                         comp_cores = comp_cores
-                )[[2]]
-        }else if(database_maker == "blast"){
+                )[[1]]
+                database <- make_diamond_db(subject.dt, db_file = file.path(work, "subject_db.fasta"),
+                                            path = path, comp_cores = comp_cores)
+        } else if (database_maker == "blast") {
                 message("creating a blast database")
                 query.dt <- set_blast(
                         file     = query_file,
@@ -166,132 +157,72 @@ diamond <- function(
                         delete_corrupt_cds = delete_corrupt_cds
                 )[[1]]
                 
-                # make a BLASTable/DIAMONDable databse of the subject
-                database <- set_blast(
+                subject.dt <- set_blast(
                         file     = subject_file,
                         seq_type = seq_type,
                         format   = format,
-                        makedb   = TRUE ,
                         delete_corrupt_cds = delete_corrupt_cds
-                )[[2]]
+                )[[1]]
+                database <- make_blast_db(subject.dt, db_file = file.path(work, "subject_db.fasta"))
         }
-
         
         filename <- basename(query_file)
+        input    <- file.path(work, "query.fasta")
+        output   <- file.path(work, "blastresult.tsv")
         
+        # where the hit table is kept after the call (as before); a table of an earlier call is removed now
+        db_dir <- file.path(orthologr_tmpdir(), "_blast_db")
+        kept   <- file.path(db_dir, paste0("blastresult_", filename, ".csv"))
+        if (file.exists(kept))
+                unlink(kept)
+        context  <- paste0("query '", filename, "'")
         
-        # create an internal folder structure for the DIAMOND process
-        # we create a BLAST database
-        input = paste0("query_", filename, ".fasta")
-        # input = "blastinput.fasta"
-        output = paste0("blastresult_", filename, ".csv")
-        
-        
-        if (!file.exists(file.path(orthologr_tmpdir(), "_blast_db"))) {
-                dir.create(file.path(orthologr_tmpdir(), "_blast_db"))
-        }
-        
-        currwd <- getwd()
-        setwd(file.path(orthologr_tmpdir(), "_blast_db"))
-        on.exit(setwd(currwd), add = TRUE)
-        
-        # determine the number of cores on a multicore machine
-        cores <- parallel::detectCores()
-        
-        # in case one tries to use more cores than are available
-        if (comp_cores > cores)
-                stop("You chose more cores than are available on your machine.",
-                     call. = FALSE)
-        
-        #         write_AA <- as.list(query.dt[ ,aa])
-        #         name <- query.dt[ ,geneids]
-        #
         tryCatch({
-                seqinr::write.fasta(
-                        sequences = as.list(query.dt[ , aa]),
-                        names     = query.dt[ , geneids],
-                        nbchar    = 80,
-                        open      = "w",
-                        file.out  = input
-                )
-                
+                write_protein_fasta(query.dt, input)
         }, error = function(e) {
-                stop(
-                        "File ",
-                        input,
-                        " could not be written properly to the internal folder environment.",
-                        " Please check the path to ",
-                        input,
-                        ".",
-                        "\n",
-                        "Error:",
-                        e
-                )
+                stop("The query sequences of '", query_file, "' could not be written to '", input, "': ",
+                     conditionMessage(e), call. = FALSE)
         })
         
-        # configuring the diamond run in the command line
-        # more diamond modes, i.e. blastn, could be added in the future
-        # the first step is to make a default run and tag on the
-        diamond_run <-  paste0(
-                        'diamond blastp --db ',
-                        database,
-                        ' --query ',
-                        input,
-                        ' --evalue ',
-                        as.numeric(eval),
-                        ' --',
-                        sensitivity_mode,
-                        ' --max-target-seqs ',
-                        max.target.seqs,
-                        ' --out ',
-                        output ,
-                        ' --threads ',
-                        comp_cores,
-                        ' --outfmt 6', ' qseqid sseqid pident nident length mismatch gapopen gaps positive ppos qstart qend qlen qcovhsp qcovhsp sstart send slen evalue bitscore score'
-                        )
-        
-        if(!is.null(path)){
-                diamond_run <- paste0(path_prefix(path), diamond_run)
-        }
-        
-        if(!is.null(diamond_params)){
-                diamond_run <- paste0(
-                        diamond_run,
-                        ' ',
-                        diamond_params
-                )
-        }
-
-        if(quiet){
-                diamond_run <- paste0(
-                        diamond_run,
-                        ' ',
-                        '--quiet'
-                )
-        }
-        
-        ## running diamond
         message("Starting DIAMOND2 search ...")
         t_diamond_start   <- proc.time()["elapsed"]
-        status            <- system(diamond_run)
-        t_diamond_elapsed <- proc.time()["elapsed"] - t_diamond_start
-        message(
-                "DIAMOND2 search completed in ",
-                if (t_diamond_elapsed >= 60)
-                        paste0(round(t_diamond_elapsed / 60, 2), " min.")
-                else
-                        paste0(round(t_diamond_elapsed, 2), " sec.")
+        res <- run_tool(
+                "diamond",
+                args = c(
+                        list("blastp",
+                             "--db", database,
+                             "--query", input,
+                             "--evalue", as.numeric(eval),
+                             paste0("--", sensitivity_mode),
+                             "--max-target-seqs", format(max.target.seqs, scientific = FALSE),
+                             "--out", output,
+                             "--threads", comp_cores,
+                             "--outfmt", "6"),
+                        as.list(c("qseqid", "sseqid", "pident", "nident", "length", "mismatch", "gapopen", "gaps",
+                                  "positive", "ppos", "qstart", "qend", "qlen", "qcovhsp", "qcovhsp", "sstart",
+                                  "send", "slen", "evalue", "bitscore", "score")),
+                        list(if (!is.null(diamond_params)) I(diamond_params),
+                             if (quiet) "--quiet")
+                ),
+                path = path, tool = paste("diamond", diamond_algorithm), context = context, error = FALSE,
+                echo = !quiet
         )
-        if (!identical(status, 0L)) {
+        t_diamond_elapsed <- proc.time()["elapsed"] - t_diamond_start
+        message("DIAMOND2 search completed in ", format_elapsed(t_diamond_elapsed))
+        
+        if (!identical(as.integer(res$status), 0L)) {
+                said <- utils::tail(res$stderr[nzchar(trimws(res$stderr))], 5)
                 stop(
                         "diamond ", diamond_algorithm,
-                        " exited with non-zero status: ", status,
+                        " exited with non-zero status: ", res$status,
                         "\nPlease check the path to the DIAMOND2 executable and the input file.",
+                        if (length(said) > 0) paste0("\ndiamond said: ", paste(said, collapse = "\n")) else "",
                         call. = FALSE
                 )
         }
-        # additional DIAMOND parameters can be found here:
-        # https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options
+        if (!file.exists(output))
+                stop("diamond ", diamond_algorithm, " wrote no hit table for ", context, ".", call. = FALSE)
+        
         diamond_table_names <-
                 c(
                         "query_id",
@@ -316,98 +247,29 @@ diamond <- function(
                         "bit_score",
                         "score_raw"
                 )
-        # define the colClasses for faster file streaming
-        col_Classes <- c(rep("character", 2),
-                         "double",
-                         rep("integer", 6),
-                         "double",
-                         rep("integer", 3),
-                         rep("double", 2),
-                         rep("integer", 3),
-                         rep("double", 3))
         
-        tryCatch({
-                hit_table <- data.table::fread(
-                        input      = output,
-                        sep        = "\t",
-                        header     = FALSE,
-                        colClasses = col_Classes
-                )
-                
-                # hit_table <-  
-                #         data.table::as.data.table(
-                #                 readr::read_delim(
-                #                         file = output, 
-                #                         delim = "\t", 
-                #                         col_names = FALSE,
-                #                         col_types = readr::cols(
-                #                                 "X1" = readr::col_character(),
-                #                                 "X2" = readr::col_character(),
-                #                                 "X3" = readr::col_double(),
-                #                                 "X4" = readr::col_integer(),
-                #                                 "X5" = readr::col_integer(),
-                #                                 "X6" = readr::col_integer(),
-                #                                 "X7" = readr::col_integer(),
-                #                                 "X8" = readr::col_integer(),
-                #                                 "X9" = readr::col_integer(),
-                #                                 "X10" = readr::col_double(),
-                #                                 "X11" = readr::col_integer(),
-                #                                 "X12" = readr::col_integer(),
-                #                                 "X13" = readr::col_integer(),
-                #                                 "X14" = readr::col_double(),
-                #                                 "X15" = readr::col_double(),
-                #                                 "X16" = readr::col_integer(),
-                #                                 "X17" = readr::col_integer(),
-                #                                 "X18" = readr::col_integer(),
-                #                                 "X19" = readr::col_double(),
-                #                                 "X20" = readr::col_number(),   
-                #                                 "X21" = readr::col_double() )))
-                
-                data.table::setnames(
-                        x   = hit_table,
-                        old = paste0("V", 1:length(diamond_table_names)), # "X" if readr is used
-                        new = diamond_table_names
-                )
-                
-                data.table::setkeyv(hit_table, c("query_id", "subject_id"))
-                
-                setwd(file.path(currwd))
-                
-                
-                if (clean_folders) {
-                        # save the DIAMOND output file to path save.output
-                        if (!is.null(save.output))
-                                file.copy(file.path(orthologr_tmpdir(), "_blast_db", output),
-                                          save.output)
-                        
-                        clean_all_folders(file.path(orthologr_tmpdir(), "_blast_db"))
-                }
-                
-                if (!clean_folders) {
-                        # save the DIAMOND output file to path save.output
-                        if (!is.null(save.output))
-                                file.copy(file.path(orthologr_tmpdir(), "_blast_db", output),
-                                          save.output)
-                        
-                }
-                
-                
-                hit_table <-
-                        tibble::as_tibble(hit_table)
-                
-                return(hit_table)
-                
-        }, error = function(e) {
-                stop(
-                        "File ",
-                        output,
-                        " could not be read correctly.",
-                        " Please check the correct path to ",
-                        output,
-                        " or whether DIAMOND did write the resulting hit table correctly.",
-                        "\n",
-                        "Error:",
-                        e
-                )
-        })
+        hit_table <- read_hit_table(output, diamond_table_names, tool = "DIAMOND")
+        
+        # save the DIAMOND output file to path save.output
+        save_output_copy(output, save.output, paste0("blastresult_", filename, ".csv"))
+        
+        if (clean_folders) {
+                clean_all_folders(db_dir)
+        } else {
+                if (!file.exists(db_dir))
+                        dir.create(db_dir, recursive = TRUE)
+                publish_file(output, kept)
+        }
+        
+        return(hit_table)
+}
+
+# "diamond version 2.x.y" - the DIAMOND version line; stops when diamond cannot be started. Asked once per session.
+diamond_version <- function(path = NULL) {
+        tool_available(
+                "diamond", version_args = "version", pattern = "diamond", path = path,
+                not_found = paste0(
+                        "It seems like you don't have DIAMOND2 installed locally on your machine or the PATH variable to the DIAMOND2 program is not set correctly.",
+                        " Please use the 'diamond_exec_path' argument to specify a path to your diamond excecutable, e.g. diamond_exec_path = '/usr/local/bin' or diamond_exec_path = '/opt/miniconda3/bin'.")
+        )
 }
