@@ -89,6 +89,16 @@ Maximum-Likelihood Methods:
 \item GY: Goldman, N. and Yang, Z. (1994)
 }
 }
+\section{Gene pairs without nonsynonymous change (KaKs_Calculator methods)}{
+
+KaKs_Calculator prints \code{NA} for every Ka below 1e-6, also when the estimate is exactly 0, and still prints
+\code{Ka/Ks = 0}. Up to orthologr 0.4.3 such a pair was returned with \code{dN = NA} and \code{dNdS = 0}, and
+\code{\link{filter_dNdS}} / \code{\link{divergence_stratigraphy}} then removed it - the most conserved genes of
+a comparison. Since 0.5.0 \code{dN = 0} is returned when Ka is \code{NA}, Ks is a positive number and Ka/Ks is
+0. When Ka/Ks is \code{NA} as well (identical sequences, a model that failed) \code{dN} stays \code{NA}.
+\code{options(orthologr.legacy_kaks_zero_dn = TRUE)} restores the old table.
+}
+
 \section{Saturation (Comeron's method)}{
 
 The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:

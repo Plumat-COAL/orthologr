@@ -110,6 +110,14 @@
 #' 
 #' https://code.google.com/archive/p/kaks-calculator
 #' 
+#' @section Gene pairs without nonsynonymous change (KaKs_Calculator methods):
+#' KaKs_Calculator prints \code{NA} for every Ka below 1e-6, also when the estimate is exactly 0, and still prints
+#' \code{Ka/Ks = 0}. Up to orthologr 0.4.3 such a pair was returned with \code{dN = NA} and \code{dNdS = 0}, and
+#' \code{\link{filter_dNdS}} / \code{\link{divergence_stratigraphy}} then removed it - the most conserved genes of
+#' a comparison. Since 0.5.0 \code{dN = 0} is returned when Ka is \code{NA}, Ks is a positive number and Ka/Ks is
+#' 0. When Ka/Ks is \code{NA} as well (identical sequences, a model that failed) \code{dN} stays \code{NA}.
+#' \code{options(orthologr.legacy_kaks_zero_dn = TRUE)} restores the old table.
+#'
 #' @section Saturation (Comeron's method):
 #' The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:
 #' proportions of transitional and transversional differences in a class of sites). When such an argument is not
@@ -388,7 +396,37 @@ kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair") {
                 method     = kaks_tbl[ , 2],
                 stringsAsFactors = FALSE
         )
+        if (!kaks_legacy_zero_dn()) {
+                fixed <- kaks_zero_dn(kaks_tbl_res$dN, kaks_tbl_res$dS, kaks_tbl_res$dNdS)
+                kaks_tbl_res$dN <- fixed$dN
+                kaks_tbl_res$dNdS <- fixed$dNdS
+        }
         kaks_tbl_res <- data.table::as.data.table(kaks_tbl_res)
         data.table::setkey(kaks_tbl_res, query_id)
         return(kaks_tbl_res)
+}
+
+# options(orthologr.legacy_kaks_zero_dn = TRUE): the table of KaKs_Calculator as up to 0.4.3, where a gene pair
+# without nonsynonymous change has dN = NA and dNdS = 0.
+kaks_legacy_zero_dn <- function() {
+        isTRUE(getOption("orthologr.legacy_kaks_zero_dn", FALSE))
+}
+
+# dN of gene pairs for which KaKs_Calculator printed 'NA' although the value is known.
+#
+# KaKs_Calculator (1.2 and 2.0) prints "NA" in place of every Ka or Ks below 1e-6, and prints Ka/Ks whenever Ks is
+# at least 1e-6 and Ka was computed. A pair without nonsynonymous change therefore comes back as
+# Ka = NA, Ks = <value>, Ka/Ks = 0 (or -0): the estimate is dN = 0, and only its printed form is 'NA'. (Found for
+# NG, LWL, LPB, MLWL, MLPB, YN; the maximum-likelihood methods print small positive numbers instead.)
+#   Ka NA, Ks a number > 0, Ka/Ks a number with |Ka/Ks * Ks| < 1e-6   ->  dN = Ka/Ks * Ks (0 when Ka/Ks is 0)
+# Everything else is left as it is: when Ka itself could not be computed KaKs_Calculator prints NA (or nan) for
+# Ka/Ks as well - identical sequences (NA NA NA), a failed model (nan nan nan), Ks below 1e-6 (Ka/Ks NA).
+kaks_zero_dn <- function(dN, dS, dNdS) {
+        known <- is.na(dN) & is.finite(dS) & dS > 0 & is.finite(dNdS)
+        known[known] <- abs(dNdS[known] * dS[known]) < 1e-6
+        if (any(known)) {
+                dN[known] <- pmax(0, dNdS[known] * dS[known])
+                dNdS[known] <- pmax(0, dNdS[known])          # '-0' is 0
+        }
+        list(dN = dN, dNdS = dNdS, changed = known)
 }

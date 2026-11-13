@@ -22,7 +22,7 @@ divergence_stratigraphy(
   subject.id = FALSE,
   n_quantile = 10,
   sensitivity_mode = "fast",
-  dS_zero = getOption("orthologr.dS_zero", "keep"),
+  dS_zero = getOption("orthologr.dS_zero", "drop"),
   best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
 )
 }
@@ -93,9 +93,11 @@ stop the function after the run: see the section on ties in \code{\link{divergen
 }
 Any other value is an error.}
 
-\item{dS_zero}{what to do with gene pairs whose dS is 0 (dN/dS not defined): \code{"keep"} (default) keeps them
-with the stratum (or dNdS value) \code{NA}; \code{"drop"} leaves them out, as orthologr <= 0.4.3 did without
-saying so. See \code{\link{filter_dNdS}}; \code{options(orthologr.dS_zero = "drop")} sets the default.}
+\item{dS_zero}{what to do with gene pairs whose dS is 0 (dN/dS not defined): \code{"drop"} (default) leaves
+them out of the divergence map, as every released version of orthologr did - now with a message, and listed in
+\code{attr(result, "left_out")}; \code{"keep"} keeps them as rows with the stratum (or dNdS value) \code{NA}
+(only choose this when the code that uses the map can deal with \code{NA} strata).
+See \code{\link{filter_dNdS}}; \code{options(orthologr.dS_zero = "keep")} sets the default.}
 
 \item{best_hit_rule}{how the best hit of a query is chosen among its hits:
 \itemize{
@@ -117,10 +119,20 @@ reciprocal best hits (970 in common).
 }
 \value{
 A \code{data.frame} with the divergence stratum (column \code{DS}; or \code{dNdS} with
-\code{ds.values = FALSE}) and the \code{query_id} (and \code{subject_id}) of every gene pair.
-\code{attr(result, "dNdS_tbl")} holds the complete dN/dS table of the run as returned by \code{\link{dNdS}},
+\code{ds.values = FALSE}) and the \code{query_id} (and \code{subject_id}) of every gene pair that has a dN/dS
+value of at most \code{dnds.threshold}. With the default \code{dS_zero = "drop"} no stratum is \code{NA}, as in
+earlier versions; the function always returns this type of table.
+
+Two attributes come with it:
+\itemize{
+\item \code{"dNdS_tbl"}: the complete dN/dS table of the run as returned by \code{\link{dNdS}},
 before filtering and binning, so that a finished run can be binned again (\code{\link{divergence_map}}) without
-computing it again.
+computing it again;
+\item \code{"left_out"}: the gene pairs of that table that are not in the map (\code{query_id},
+\code{subject_id}, \code{dN}, \code{dS}, \code{dNdS}, \code{reason}): pairs without dN or dS, pairs with
+dS = 0 (identical coding sequences, or nonsynonymous changes only), pairs above \code{dnds.threshold}. A message
+gives their numbers. \code{\link{divergence_left_out}} returns this table.
+}
 }
 \description{
 This function takes a query organism and performs
