@@ -46,6 +46,19 @@ second audit; the old rule gives the audit's (and 0.4.3's) best hits exactly, an
 published (16,458; 330; 93.0%). The audit's own bit-score ranking (bit score, e-value, row order) gave 16,828
 pairs; the documented tie-breaks of this version give 16,827, with the same 68 and 96.8%.
 
+`dNdS()` with its defaults on this branch (all changes of 0.5.0 together), compared with the previous state of
+the integration branch (fe29430), every difference attributed:
+- 20-gene example: identical (20 pairs, same values).
+- 1,000-gene example: 984 -> 995 gene pairs. Best-hit rule: 13 pairs new, 2 pairs gone (`AT1G04600.1` and
+  `AT1G06490.1` were paired with paralogs; both now have another partner), 982 pairs in common with identical
+  values. Saturation flag: 1 pair (`AT1G04625.1`: dN 0.4265 -> `NA`; its dS was `NA` before). ID / join fixes: no
+  change. No pair has dS = 0, so `filter_dNdS()` keeps the same 994 rows with `dS_zero = "keep"` and `"drop"`.
+- `options(orthologr.best_hit_rule = "evalue", orthologr.legacy_comeron_saturation = TRUE)` gives the table of
+  fe29430 exactly (984 pairs); with `orthologr.legacy_pairwise_aln = TRUE` in addition the 20-gene result equals
+  that of orthologr 0.4.3 (upstream 06c3098).
+- `dNdS(engine = "coal")` / `dNdS_coal()` take `best_hit_rule` as well: 995 pairs by default, the 984 pairs (and
+  values) of fe29430 with `"evalue"`.
+
 Also
 - The column `qcov` of DIAMOND hit tables always equals `qcovhsp`. This is not a parsing error: BLAST+ has a
   per-subject query coverage (`qcovs`), DIAMOND has not, and `diamond()` asks for `qcovhsp` twice to keep the 21
