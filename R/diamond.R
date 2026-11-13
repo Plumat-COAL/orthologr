@@ -86,6 +86,13 @@
 #'
 #' @return A data.table storing the DIAMOND2 hit table returned by DIAMOND2. The format is the same as with BLAST.
 #' @seealso \code{\link{diamond_best}}, \code{\link{diamond_rec}}, \code{\link{set_diamond}}, \code{\link{blast}}
+#' @section The columns \code{qcov} and \code{qcovhsp}:
+#' In the tables of the DIAMOND functions (\code{diamond()}, \code{diamond_best()}, \code{diamond_rec()}, and
+#' \code{dNdS()} with \code{aligner = "diamond"}) \code{qcov} always equals \code{qcovhsp}. This is not a parsing
+#' error: BLAST+ reports the query coverage per subject (\code{qcovs}, over all HSPs of a subject), which the BLAST
+#' functions return as \code{qcov}; DIAMOND has no such output field, so the DIAMOND functions ask for
+#' \code{qcovhsp} (query coverage of the reported HSP) twice to keep the 21 columns of both table kinds the same.
+#' With DIAMOND, read \code{qcov} as "query coverage of the best HSP".
 #' @export
 diamond <- function(
                 query_file,
@@ -126,6 +133,8 @@ diamond <- function(
         
         # in case one tries to use more cores than are available
         comp_cores <- check_comp_cores(comp_cores)
+        
+        eval <- check_evalue(eval)
         
         # every call works in a folder of its own, which is removed when the call ends: a table left by an
         # earlier or failed call cannot be returned as the result of this one
@@ -276,6 +285,6 @@ diamond_version <- function(path = NULL) {
                 "diamond", version_args = "version", pattern = "diamond", path = path,
                 not_found = paste0(
                         "It seems like you don't have DIAMOND2 installed locally on your machine or the PATH variable to the DIAMOND2 program is not set correctly.",
-                        " Please use the 'diamond_exec_path' argument to specify a path to your diamond excecutable, e.g. diamond_exec_path = '/usr/local/bin' or diamond_exec_path = '/opt/miniconda3/bin'.")
+                        " Please run orthologr::diamond_install() to download DIAMOND2 for orthologr, or name the folder that holds your diamond executable with the argument 'path' (diamond(), diamond_best(), diamond_rec(), set_diamond(), deepclust()) or 'aligner_path' (dNdS(), divergence_stratigraphy()), e.g. path = '/usr/local/bin' or aligner_path = '/opt/miniconda3/bin'.")
         )
 }

@@ -44,7 +44,10 @@ using namespace std;
 // @export
 // [[Rcpp::export]]
 void gestimator(std::string file, std::string file_out = "", int maxHits = 3, 
-                bool verbose = false, bool remove_all_gaps = false) {
+                bool verbose = false, bool remove_all_gaps = false, bool legacy_saturation = false) {
+
+   if (maxHits < 1 || maxHits > 3)
+            Rcpp::stop("maxHits must be 1, 2 or 3.");
 
    // read codon file -> GetData()
    ifstream in_stream (file.c_str());
@@ -58,12 +61,17 @@ void gestimator(std::string file, std::string file_out = "", int maxHits = 3,
    vector<pair<string,string> > data;
    string sequence = "";
    pair<string,string> seq;
+   bool any_header = false;
    while(getline(in_stream,line)){
            //in_stream >> line;
          
-           size_t found = line.find(">");
-           // new seq found
-           if (found!=std::string::npos){
+           // files with Windows line ends: the carriage return is not part of the sequence
+           while (!line.empty() && (line[line.size() - 1] == '\r' || line[line.size() - 1] == '\n'))
+                line.erase(line.size() - 1);
+         
+           // new seq found: a header line starts with '>' (a '>' further on belongs to the description)
+           if (!line.empty() && line[0] == '>'){
+                any_header = true;
                 // push pevious seq
                 if(sequence != "") {
                         seq.second = sequence;
@@ -71,7 +79,9 @@ void gestimator(std::string file, std::string file_out = "", int maxHits = 3,
                         sequence = "";
                 }
                 // get name for next sequence
-                seq.first = line.substr(1, line.find(" "));
+                // the name is the header up to the first white space (it used to include that space)
+                size_t name_end = line.find_first_of(" \t");
+                seq.first = (name_end == std::string::npos) ? line.substr(1) : line.substr(1, name_end - 1);
            }
            else {
                 // otherwise append to sequence
@@ -80,6 +90,22 @@ void gestimator(std::string file, std::string file_out = "", int maxHits = 3,
    }
    seq.second = sequence;
    data.push_back(seq);
+   in_stream.close();
+
+   // the input is checked before anything is computed or written: an alignment that is not a codon alignment
+   // is an R error (it used to crash R or to give numbers read from beyond the end of the shorter sequence)
+   if (!any_header || data.size() < 2)
+            Rcpp::stop("The alignment file must hold at least two sequences in FASTA format.");
+   for (size_t i = 0; i < data.size(); i++){
+           if (data[i].second.length() != data[0].second.length())
+                Rcpp::stop("The aligned sequences '%s' and '%s' have unequal lengths (%d and %d): this is not a codon alignment.",
+                           data[0].first, data[i].first, (int) data[0].second.length(), (int) data[i].second.length());
+   }
+   if (data[0].second.length() < 3)
+            Rcpp::stop("The aligned sequences are shorter than one codon (length %d).", (int) data[0].second.length());
+   if (data[0].second.length() % 3 != 0)
+            Rcpp::stop("The length of the aligned sequences (%d) is not a multiple of 3: this is not a codon alignment.",
+                       (int) data[0].second.length());
 
 
 //  // check correct infile reading 
@@ -89,9 +115,6 @@ void gestimator(std::string file, std::string file_out = "", int maxHits = 3,
 //           Rcpp::Rcout << data[i].second << endl;
 //           Rcpp::Rcout << data[i].second.length()<<endl;
 //   }
-
-   in_stream.close();
-   
 
    // prepare output
    
@@ -173,7 +196,10 @@ void gestimator(std::string file, std::string file_out = "", int maxHits = 3,
    for(size_t i=0;i<data.size();i++){
            for(size_t j=i+1;j<data.size();j++){
 
-                   Comeron95 *C = new Comeron95(&data[i], &data[j], maxHits,&code_degeneracy);
+                   // an object on the stack: it is freed at the end of every round (it was allocated with new
+                   // and never deleted: about 1.5 kB lost per gene pair)
+                   Comeron95 comeron(&data[i], &data[j], maxHits, &code_degeneracy, legacy_saturation);
+                   Comeron95 *C = &comeron;
                    if (file_out == "")
                         {
                           Rcpp::Rcout.precision(4); 

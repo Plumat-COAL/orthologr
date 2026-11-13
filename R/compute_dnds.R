@@ -186,7 +186,7 @@ compute_dnds <- function(complete_tbl,
                 )
                 
                 # compute kaks
-                substitutionrate(
+                rates <- substitutionrate(
                         file           = file.path(
                                 orthologr_tmpdir(),
                                 "_alignment",
@@ -199,6 +199,16 @@ compute_dnds <- function(complete_tbl,
                         quiet          = quiet,
                         kaks_tool      = kaks_tool
                 )
+                
+                # The IDs of the pair are those of the pair table - not what came back from the programs.
+                # Alignment programs and file readers change IDs (MAFFT cuts them to 15 characters in CLUSTAL
+                # output, fread() turned '007' into 7, KaKs_Calculator labels were split at '-'), and the result
+                # was then joined with the hit table by these changed IDs: rows were lost or held IDs that are in
+                # no input file.
+                rates <- data.table::as.data.table(rates)
+                data.table::set(rates, j = "query_id", value = as.character(orthologs_names[[1]]))
+                data.table::set(rates, j = "subject_id", value = as.character(orthologs_names[[2]]))
+                rates
         }
         
         # one gene pair must not end the run: a pair whose pipeline fails is returned as a row of NA values

@@ -65,7 +65,7 @@ test_that("divergence_map() preserves subject_ids with subject.id = TRUE ...", {
         expect_equal(sort(unique(result[["subject_id"]])), sort(unique(mock_dnds_tbl[["subject_id"]])))
 })
 
-test_that("divergence_map() errors on low variance dNdS values ...", {
+test_that("divergence_map() no longer stops when all dNdS values are equal: one stratum, with a warning ...", {
         low_var <- tibble::tibble(
                 query_id   = paste0("G", 1:5),
                 subject_id = paste0("S", 1:5),
@@ -73,7 +73,8 @@ test_that("divergence_map() errors on low variance dNdS values ...", {
                 dN         = rep(0.01, 5),
                 dS         = rep(0.02, 5)
         )
-        expect_error(divergence_map(low_var, n_quantile = 10))
+        expect_warning(res <- divergence_map(low_var, n_quantile = 10), "9 of the 10 strata are empty")
+        expect_identical(res$divergence_strata, rep(1L, 5))
 })
 
 test_that("divergence_map() works with data.table input ...", {

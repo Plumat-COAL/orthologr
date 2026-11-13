@@ -28,7 +28,10 @@ hence it is important to use format = "fasta" when choosing est.method = "Comero
 
 \item{quiet}{a logical value specifying whether the output of the coresponding interface shall be printed out.}
 
-\item{kaks_calc.params}{a character string storing additional parameters for KaKs_Claculator 1.2 . Default is \code{NULL}. Example:
+\item{kaks_calc.params}{a character string storing additional parameters for KaKs_Calculator. Default is \code{NULL}.
+The parameters are added to the method chosen with \code{est.method} (e.g. \code{est.method = "YN"},
+\code{kaks_calc.params = "-c 11"} runs \code{-m YN -c 11}; up to orthologr 0.4.3 they replaced the method).
+With \code{est.method = "kaks_calc"} the methods themselves are given here, e.g.
 \code{kaks_calc.params} = "-m NG -m YN".}
 
 \item{kaks_calc_path}{a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
@@ -95,6 +98,21 @@ Maximum-Likelihood Methods:
 \item GY: Goldman, N. and Yang, Z. (1994)
 }
 }
+\section{Saturation (Comeron's method)}{
+
+The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:
+proportions of transitional and transversional differences in a class of sites). When such an argument is not
+positive, the observed differences exceed what the model can correct for and the distance is not defined. In
+that case \code{dS} (synonymous classes) or \code{dN} (nonsynonymous classes) and \code{dNdS} are returned as
+\code{NA}. Up to orthologr 0.4.3 the logarithm was replaced by 0 and a finite, too small value was returned
+(e.g. \code{dS = 0} for \code{ATGGCTAAA} / \code{ATGGCCAAA}, which differ by one synonymous substitution);
+\code{options(orthologr.legacy_comeron_saturation = TRUE)} reproduces those values. Values of gene pairs
+without such a term are the same in both modes.
+
+The alignment must be a codon alignment: at least two sequences of the same length, which is a multiple of 3.
+Anything else is an error.
+}
+
 \examples{
 \dontrun{
 

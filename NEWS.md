@@ -5,6 +5,295 @@ some default results change (see "Changes to pairwise alignments that change dN/
 default mode, `aa_aln_params` being passed on), functions that returned `NULL` or stale results now stop with an
 error, and packages moved from Imports to Suggests.
 
+**Default change that alters which orthologs are returned: best hits are ranked by bit score.** See the next
+section; `options(orthologr.best_hit_rule = "evalue")` restores the rule of 0.4.3.
+
+### Best hits are ranked by bit score (default change)
+
+Decided by the maintainer of this fork for 0.5.0. `diamond_best()`, `blast_best()`, `diamond_rec()`, `blast_rec()`,
+`orthologs()`, `dNdS()`, `divergence_stratigraphy()` (and the choice of the splice variant per locus in
+`select_orthologs()`) share one piece of code that chooses the best hit of a query, and that code has a new
+argument, **`best_hit_rule`**, at the end of each signature:
+
+- `"bitscore"` (**new default**): the hit with the highest bit score; of several, the one with the smallest
+  e-value; then the longest alignment; then the highest percent identity; then the alphabetically first
+  `subject_id`. The choice is deterministic and does not depend on the order of the hit table.
+- `"evalue"`: the rule of orthologr <= 0.4.3 - smallest e-value, then longest alignment, then the first row of
+  the hit table (sorted by `query_id`, `subject_id`). The bit score was never used. This rule reproduces earlier
+  results exactly: the test suite compares it with the per-query reference implementation (`best_hits_do()`) on
+  the 1,000-gene example, for best hits and reciprocal best hits.
+- `options(orthologr.best_hit_rule = "evalue")` sets the old rule for all functions of a session.
+
+Why: DIAMOND and BLAST report an e-value of 0 for every strong hit of a long, conserved protein. Under the old
+rule such ties were decided by alignment length, so a paralog with a longer but worse alignment could be taken
+for the best hit, and a few by alphabetical order.
+
+Measured effect (the default of every function named above changes accordingly):
+
+| | old rule (`"evalue"`) | new default (`"bitscore"`) |
+|---|---|---|
+| human vs mouse (19,746 x 21,584 genes, DIAMOND): reciprocal best hits | 16,458 | 16,827 |
+| ... pairing a human gene with another mouse gene than any Ensembl Compara ortholog | 330 (2.0%) | 68 (0.4%) |
+| ... Compara one-to-one orthologs found (of 16,312 present in both inputs) | 93.0% | 96.8% |
+| ... pairs in common / only under this rule | 16,135 / 323 | 16,135 / 692 |
+| human -> mouse best hits that change | | 596 of 18,676 (3.2%) |
+| 1,000-gene example (`ortho_thal_cds_1000.fasta` vs `ortho_lyra_cds_1000.fasta`): best hits that change | | 12 of 986 (1.2%) |
+| ... reciprocal best hits (`diamond_rec()`) | 972 | 983 (970 in common, 2 only old, 13 only new) |
+| 20-gene example | 20 | 20 (the same pairs) |
+
+The human / mouse numbers were obtained with the best-hit code of this version on the DIAMOND hit tables of the
+second audit; the old rule gives the audit's (and 0.4.3's) best hits exactly, and its numbers are those the audit
+published (16,458; 330; 93.0%). The audit's own bit-score ranking (bit score, e-value, row order) gave 16,828
+pairs; the documented tie-breaks of this version give 16,827, with the same 68 and 96.8%.
+
+Also
+- The column `qcov` of DIAMOND hit tables always equals `qcovhsp`. This is not a parsing error: BLAST+ has a
+  per-subject query coverage (`qcovs`), DIAMOND has not, and `diamond()` asks for `qcovhsp` twice to keep the 21
+  columns of both kinds of table the same. Documented in `?diamond`; the table is unchanged.
+- `blast_best()` / `blast_rec()` add `-best_hit_score_edge 0.05 -best_hit_overhang 0.25` to every BLAST call, as
+  before (BLAST's own culling of hits; N38 of the audit): the BLAST and DIAMOND paths therefore start from
+  slightly different hit lists before the same rule is applied. Not changed here.
+
+### Sequence IDs, joins, reported drops (second audit)
+
+Fixes for defects found by a second audit of the package on real data (human, mouse, yeast, *E. coli*, plant
+genomes). None of the changes in this section alters dN, dS or dN/dS values or which orthologs are found for
+input that worked before; what changes is listed under "Changes of results and row counts".
+
+Sequence IDs
+- **The IDs of a gene pair are carried through the dN/dS pipeline** instead of being read back from the output
+  of the external programs, and `dNdS()` joins its result with the hit table by `query_id` *and* `subject_id`
+  (was `query_id`). This fixes, structurally, every case in which a program or a file reader changed an ID on
+  the way:
+  - `aa_aln_tool = "mafft"`: MAFFT cuts names to 15 characters in CLUSTAL output. Query IDs longer than that
+    gave a result with **0 rows without error or warning**; longer subject IDs (e.g. Ensembl mouse
+    `ENSMUST00000012345`) gave truncated IDs that are in no input file. `multi_aln(tool = "mafft")` also passes
+    `--namelength` now, so the alignment file itself keeps the IDs.
+  - IDs that look like numbers: the table written by gestimator (Comeron's method) was read with
+    `data.table::fread()` type guessing. Purely numeric IDs (Entrez GeneIDs, JGI protein IDs) stopped `dNdS()`
+    in its last join after all pairs had been computed ("incompatible types"), and IDs such as `007`, `1e5`,
+    `1.10`, `NA` were rewritten (`7`, `1e+05`, `1.1`, missing) and vanished from the result. All tables written
+    by programs are read with fixed column types (IDs as text, no `NA` strings, no quote characters).
+  - (IDs with a hyphen and the KaKs_Calculator methods were fixed on `fix/robustness`; that fix is now a
+    consequence of the same rule.)
+- **Duplicated sequence IDs are an error that names them** (`cds2aa()`, `set_diamond()`, `set_blast()`, `dNdS()`,
+  ...; for coding sequences and proteins). They used to end in `Wrong argument type in s2c()` / "could not be
+  translated properly".
+- The ID of a sequence is its FASTA header up to the first white space; it was cut at the first *space*, so
+  `>g1<TAB>description` gave the ID `g1\tdescription` (`read.cds()`, `read.proteome()`, `read.genome()`).
+
+Sequences that are left out are reported
+- `dNdS()` returns `attr(result, "dropped_sequences")`: a `data.frame` (`file`, `id`, `reason`) of the input
+  sequences that were left out before the search, and a message gives their number per reason. The message
+  about coding sequences with characters other than A, C, G, T names the file, the number of sequences read and
+  how many of them hold `N` only (5'-incomplete Ensembl CDS are padded with `N`: 9,035 of the 245,535 records of
+  the human `cds.all` file of Ensembl 115 are left out for this reason). Empty sequences, which were left out
+  silently, are reported too.
+- With `delete_corrupt_cds = FALSE` sequences whose length is not a multiple of 3 are trimmed at their 3' end, as
+  before; the message now says that a 5'-incomplete sequence (not starting in phase 0) is then translated in the
+  wrong reading frame.
+
+Splice variants
+- **New warning** when an input file of `dNdS()`, `divergence_stratigraphy()` or `orthologs()` seems to hold
+  several transcripts per gene (every sequence is treated as a gene: human chr21 with all isoforms gave 228 RBH
+  rows for 168 genes, with dN/dS differing by more than a factor of 2 within 6 genes). The heuristic is
+  conservative and documented in `?dNdS` (section "Splice variants"): gene names in Ensembl / NCBI FASTA headers,
+  otherwise transcript suffixes of the IDs when at least 5 and at least 1% of the ID stems repeat. `dNdS()` also
+  says how many rows per query gene the result holds. `options(orthologr.isoform_warning = FALSE)` switches the
+  check off. Results are not changed.
+
+Searches and arguments
+- A search without any hit returns a hit table with no rows and the usual columns (`diamond()`, `blast()`,
+  `diamond_best()`, `diamond_rec()`, ...) and says "found no hits"; it was reported as "the hit table could not
+  be read" with a `data.table` message attached. `dNdS()` then stops with "No orthologs could be found: the
+  DIAMOND search of ... returned no reciprocal best hits at e-value 1E-5".
+- `substitutionrate(kaks_calc.params = )` **is added to the method instead of replacing it**: `est.method = "YN"`
+  with `kaks_calc.params = "-c 1"` ran KaKs_Calculator's default model (MA) and returned its values under the
+  heading of the call. `est.method = "kaks_calc"` still takes the methods from `kaks_calc.params`.
+- `eval` must be a number (or a number as text); anything else is rejected before a program is started.
+- The message shown when DIAMOND is not found recommends `orthologr::diamond_install()` and the arguments `path` /
+  `aligner_path` (it named an argument `diamond_exec_path` that no exported function has).
+- `map_generator_dnds()` and `map_generator_lnc()` with **one** subject file and the default `progress_bar = TRUE`
+  stopped with `object 'pb' not found` after the run.
+- `orthologs(seq_type = "cds")` no longer writes `<file>_translated.fasta` copies (they held the untranslated
+  DNA) into `tempdir()`; the searches read the input files. Same result.
+- `plot_diverse_homology_thresholds()` and `plot_diverse_homology_thresholds_core_orthologs()` compute the
+  `scope` column when the table does not have it (tables of `import_ortholog_tables_all()`,
+  `select_orthologs()`); `plot_diverse_homology_thresholds()`, `plot_pairwise_orthologs()` and `lnc_map_counts()`
+  stop when `species_order` does not name a species of the table (it was plotted at `NA`).
+
+Changes of results and row counts in this section
+- `dNdS(aa_aln_tool = "mafft")` with IDs longer than 15 characters: rows that were lost (0 of 8 pairs returned
+  in the test of the audit) are returned (8 of 8), and `subject_id` holds the input IDs. No option restores the
+  old behaviour (it was a loss of data).
+- `dNdS()` with numeric-looking IDs: 6 of 6 instead of an error or 2 of 6 rows in the audit's test. No option.
+- `substitutionrate(est.method = <method>, kaks_calc.params = <text without -m>)`: values are now those of
+  `<method>`, not of model averaging (MA). The old call is `est.method = "kaks_calc"`,
+  `kaks_calc.params = "<text>"`.
+- Input files with duplicated IDs, and `eval` values that are not numbers, are now errors.
+
+### Annotations: longest isoforms and gene loci on real GFF3 / GTF files (second audit)
+
+`retrieve_longest_isoforms()`, `select_orthologs()` and `generate_ortholog_tables()` now read which gene locus a
+transcript or protein belongs to from **one transcript -> gene table** that is built the same way for every
+annotation source: GFF3 through the `Parent` / `ID` relations (CDS -> mRNA -> gene, or CDS -> gene in NCBI
+prokaryote files; the locus is the gene `ID` without `gene-` / `gene:`, i.e. the `locus_tag` for NCBI), GTF through
+`gene_id` / `transcript_id` / `protein_id`. IDs of the FASTA file or dN/dS table are matched as they are, then
+without version suffix, and NCBI `lcl|..._cds_<protein>_<n>` IDs by their protein accession. Tested on pieces of
+real annotations that ship with the tests (`tests/testthat/fixtures`): NCBI RefSeq GFF3 + `protein.faa`, NCBI GTF,
+Ensembl GFF3 and Ensembl GTF with `pep` and `cds` FASTA.
+
+- **`retrieve_longest_isoforms(annotation_format = "gff")` lost proteins without saying so.** CDS rows were
+  grouped by the `gene` attribute, the gene *symbol*: all loci without a symbol were merged into one, and loci
+  sharing a symbol into one. *E. coli* O157:H7 Sakai (NCBI RefSeq): 5,155 proteins of 5,155 loci in, **3,816 out**
+  (1,283 unnamed loci -> 1 protein, 57 more lost to shared symbols). Now 5,155 out, one per locus. Loci are never
+  grouped by symbol.
+- `retrieve_longest_isoforms()` only worked for NCBI GFF3 + `protein.faa` and for Ensembl GTF when the FASTA
+  headers were unversioned transcript IDs. Measured on the files of the audit (before -> after):
+
+  | annotation + sequences | before | after |
+  |---|---|---|
+  | NCBI *E. coli* K-12 GFF3 + protein.faa (4,300 proteins, 4,290 loci) | 4,290 | 4,290 |
+  | NCBI *E. coli* O157 Sakai GFF3 + protein.faa (5,155 loci) | 3,816 | 5,155 |
+  | NCBI *E. coli* K-12 GTF + protein.faa | error | 4,290 |
+  | NCBI GFF3 `.gz` + protein `.gz` | 4,290 | 4,290 |
+  | Ensembl yeast GTF + pep (6,600) | error | 6,600 |
+  | Ensembl yeast GTF + cds | 6,600 | 6,600 |
+  | Ensembl yeast GFF3 + pep | error | 6,600 |
+  | Ensembl human chr21 GTF + pep (2,212 proteins, 221 protein-coding genes) | error | 221 (all the longest of their gene) |
+  | Ensembl human chr21 GFF3 + pep (222 genes with a protein) | error | 222 |
+
+  With `annotation_format = "gtf"` only genes with `gene_biotype "protein_coding"` are kept, as before (a message
+  now says how many sequences of which other biotypes are left out); with `"gff"` every locus with a sequence, as
+  before.
+- **`select_orthologs(format = "gff")` could not work on real GFF3 files** (rows were grouped by `Name`, which a
+  gene and its mRNA never share; NCBI: "Something went wrong during the feature extraction", Ensembl: "missing
+  value where TRUE/FALSE needed"). **`select_orthologs(format = "gtf")`** matched IDs to `transcript_id` literally
+  and failed for the versioned IDs of Ensembl FASTA files (`ENST00000373020.9`). Both work now, also for protein
+  IDs and for raw GFF3 IDs (`rna-NM_...`, `transcript:ENST...`).
+- When no ID fits, the error shows example IDs of the sequence file / dN/dS table and of the annotation
+  (was: "Something went wrong during the feature extraction ..."). Sequences / IDs that are not in the annotation
+  are counted in a message.
+- **Memory and time.** The annotation is read as text in blocks and only feature type and the needed attributes
+  are kept; `check_annotation()` no longer holds the whole file in memory to look for over-long lines.
+  `select_orthologs()` on a human / mouse GTF pair cut down to 436k + 123k lines, 1,500 gene pairs:
+  peak RSS 1,004 MB -> 369 MB, 16 s -> 10 s (R with the packages loaded takes about 250 MB of that).
+  `rtracklayer` is no longer needed by these functions (it stays in Suggests for the reference implementations
+  that the tests compare with).
+- `retrieve_longest_isoforms()` returns the path of the new file invisibly (was `NULL`), with the number of loci
+  and sequences as attributes, and stops on duplicated sequence IDs.
+
+Changes of results in this section
+- `retrieve_longest_isoforms(annotation_format = "gff")`: more sequences for annotations with unnamed loci or
+  shared gene symbols (Sakai: 3,816 -> 5,155). No option restores the old grouping (it was a loss of data); the old
+  code is kept as the internal `retrieve_longest_isoforms_do()` for the tests.
+- `select_orthologs(format = "gff")`: `query_gene_locus_id` / `subject_gene_locus_id` hold the gene ID without
+  the prefix `gene-` / `gene:` (e.g. `AT1G01010`, was `gene-AT1G01010` in the synthetic files for which the old
+  code worked), so that GFF3 and GTF of one annotation give the same loci.
+- `select_orthologs(format = "gtf")`: transcripts of loci without a `gene` row, and IDs that only match without
+  version, are now found (rows that were left out before).
+
+### Divergence strata, dS = 0, saturation and input checks of Comeron's method (second audit)
+
+`divergence_map()` / `divergence_stratigraphy()`
+- **A finished run is no longer lost.** `divergence_map()` stopped when two quantile thresholds coincided, and
+  `divergence_stratigraphy()` called it only after the complete dN/dS run and then returned nothing: *E. coli* K-12
+  (1,500 genes) against O157 Sakai ran for 40 minutes and failed, because 28% of the gene pairs have dN/dS = 0.
+  Now (1) strata are assigned by a tie-safe rule (below), (2) `attr(result, "dNdS_tbl")` of
+  `divergence_stratigraphy()` holds the complete dN/dS table of the run, before filtering and binning, (3) should
+  the binning fail all the same, the dN/dS table is returned with a warning, and (4) `n_quantile` and `dS_zero`
+  are checked before the run starts.
+- **Tie-safe strata.** Stratum `k` holds the values in `(q[k-1], q[k]]` of the `n_quantile` quantiles, as before;
+  with coinciding thresholds the same rule is applied through ranks
+  (`max(1, ceiling((r - 1) * n / (N - 1)))` with `r` the smallest rank of a value). Without ties the strata are
+  exactly those of earlier versions (tested for `n_quantile` 2-30, 49, 50, 98, 100). Equal values always share a
+  stratum, the lowest one their ranks reach; the strata such a block spans beyond that stay empty, so fewer than
+  `n_quantile` strata are used and they differ in size - a warning names the empty strata. See `?divergence_map`.
+- `n_quantile = 49` and `98` gave `NA` for the largest value (`seq(0, 1, 1/n)` does not end at 1).
+  `n_quantile` must be a whole number >= 1.
+- `divergence_map()` no longer changes the table of the caller (a tibble came back as a re-sorted `data.table`).
+
+dS = 0
+- **`filter_dNdS()` (and so `divergence_stratigraphy()`) dropped every gene pair with dS = 0 without a word**,
+  because their `dNdS` is `NA` and `NA <= dnds.threshold` is `NA`: genes with identical coding sequences
+  (dN = dS = 0) and genes with nonsynonymous changes only (dN > 0, dS = 0). In the *E. coli* run 85 of 1,280 pairs
+  disappeared, 47 of them identical sequences. New argument `dS_zero`:
+  `"keep"` (**the new default**) keeps these pairs with `dNdS = NA` and marks them in a new logical column
+  `dS_zero`; in a divergence map they have the stratum `NA`. `"drop"` leaves them out as before. A message gives
+  the numbers (identical / dN > 0) in both cases. `options(orthologr.dS_zero = "drop")` restores the old default.
+
+Comeron's method (`dnds_est.method = "Comeron"`, the default)
+- **Saturation is `NA`, not a finite number.** When the argument of a logarithm of the correction is not positive
+  (more differences than the model can correct for) the term was set to 0 and a finite, too small dS or dN was
+  returned - `ATGGCTAAA` / `ATGGCCAAA` (one synonymous substitution) gave dS = 0. Such a dS / dN, and dN/dS, is now
+  `NA`, as the documentation always said ("NA when it cannot be computed"). Values of all other gene pairs are
+  unchanged. `options(orthologr.legacy_comeron_saturation = TRUE)` reproduces the old numbers. How many pairs
+  change (default pipeline of this branch, same codon alignments in both modes):
+
+  | gene pairs (reciprocal best hits) | dS: value -> `NA` | dN: value -> `NA` | dN/dS: value -> `NA` | other values |
+  |---|---|---|---|---|
+  | *A. thaliana* / *A. lyrata*, 1,000-gene example of the package: 984 | 0 | 5 | 2 (981 -> 979 with a value) | identical |
+  | human / mouse, the 1,500 pairs of the audit (gene families, long genes, random pairs): 1,500 | 2 (old dS 0.71 and 1.23) | 23 | 15 (1,490 -> 1,475 with a value) | identical |
+
+  (Most of the pairs concerned are flagged on the nonsynonymous side: the term for twofold-transversional sites,
+  of which a gene has few. The general underestimation of large dS by Comeron's method that the audit describes -
+  median 0.87 against 1.96 from PAML yn00 for pairs with yn00 dS > 1.5 - is a property of the method, not of this
+  flag, and is unchanged: use a maximum-likelihood method such as `"YN"` for distant pairs.)
+- **Input that is not a codon alignment is an R error**, in the C++ code and before it is called: a sequence
+  shorter than one codon aborted the R session ("irrecoverable exception"; an unsigned `length - 3`), sequences of
+  unequal length gave numbers read from beyond the end of the shorter one (dN 0.50, dS 0.26 in the audit's test),
+  a length that is not a multiple of 3 gave a console note. `gestimator()` also reads files with Windows line
+  ends (the carriage returns were counted as sequence) and frees its memory (about 1.5 kB were lost per gene
+  pair).
+
+`promotor_divergence_of_orthologous_genes()`
+- **Promoters are paired by ortholog pair.** Query and subject promoters were selected independently and paired
+  by position. When each species lacked the promoter of a different gene, both sets had the same length, the pairs
+  in between were shifted, distances were computed between promoters of non-orthologous genes and the final join
+  dropped them: 4 valid pairs in, 2 rows out, no message. Now 4 rows; a message says how many pairs lack a promoter
+  in which species. Promoter names are matched to gene IDs as `<gene>` or `<gene>_<anything>`; they were cut at
+  the first `_`, which broke IDs such as `NM_001234` or `LOC_Os01g01010`.
+
+Changes of results and row counts in this section
+- `filter_dNdS()`, `divergence_stratigraphy()`: gene pairs with dS = 0 are kept (more rows; `dNdS` / stratum `NA`;
+  `filter_dNdS()` returns the extra column `dS_zero`). *E. coli* K-12 vs Sakai in the audit: the 85 of 1,280 pairs
+  that were dropped are kept.
+  Restored by `dS_zero = "drop"` or `options(orthologr.dS_zero = "drop")`.
+- `divergence_map()`, `divergence_stratigraphy()`: tables that stopped with "duplicate threshold" now give
+  strata; tables that worked give the same strata (except `n_quantile` 49 / 98, where the `NA` is gone).
+- Comeron dN / dS / dN/dS: `NA` instead of a finite value for saturated pairs (numbers above). Restored by
+  `options(orthologr.legacy_comeron_saturation = TRUE)`.
+- `promotor_divergence_of_orthologous_genes()`: rows that were lost are returned; no option.
+- (N11, N12 of the audit - serial and parallel code of `compute_dnds()` differing for `store_locally = TRUE`, and
+  worker processes left behind after an error - were fixed by `fix/robustness` / `perf/vectorise`: one function for
+  both paths, `on.exit(parallel::stopCluster())`.)
+
+### Golden-value tests (second audit)
+
+No test asserted a single dN/dS value, a known ortholog pair, or an ID with `|`, digits only or more than 15
+characters. `tests/testthat/test-golden_values.R` and `tests/testthat/fixtures/` add:
+- **Pinned dN, dS and dN/dS** of four fixed codon alignments for Comeron's and Li's method, cross-checked against
+  an independent program (KaKs_Calculator 2.0, method MLPB): Comeron and Li agree with it within 12% on these
+  pairs, the test states a tolerance of 15% (or 0.005); hand-made alignments with no, one synonymous and one
+  nonsynonymous change.
+- The **20 known ortholog pairs** of the example data with their values, end to end through `dNdS()`, for both
+  best-hit rules; **reciprocal best hits are symmetric** (query and subject swapped; DIAMOND and BLAST).
+- A **tie-break fixture** (a hit table file in which every level of the two best-hit rules decides once).
+- **IDs end to end**: UniProt / NCBI `|` IDs, numeric IDs, `007`, IDs with a hyphen, 60-character IDs through
+  `dNdS()` with Comeron, Li, YN, MAFFT, Clustal Omega and through `divergence_stratigraphy()`.
+
+Tests that passed for the wrong reason, or could fail without a defect, were repaired:
+- `test-deepclust.R` "stricter approx_id yields at least as many rows": `deepclust()` returns one row per sequence,
+  so the test compared 20 with 20. It now clusters proteins with near-identical copies and compares the numbers
+  of clusters.
+- The `save.output` tests of `deepclust()` / `deepclust_realign()` wrote into the shared `tempdir()`, where the
+  file of an earlier test existed already; they passed although the file was never overwritten. They use a folder
+  of their own, start from a stale file and compare the content.
+- `test-filter_dNdS.R` asserted that a gene pair with dN = dS = 0 is dropped (see "dS = 0" above).
+- `test-diamond.R` "more-sensitive returns at least as many hits as fast" is a tendency of a heuristic, not a
+  guarantee; the test now requires the same top hit for each of the 20 example genes in both modes.
+- The `comp_cores = 2` test of `divergence_stratigraphy()` is skipped on machines with one core.
+
 ### Dependencies, documentation, continuous integration
 
 Dependencies

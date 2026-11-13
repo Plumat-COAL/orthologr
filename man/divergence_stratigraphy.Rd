@@ -21,7 +21,9 @@ divergence_stratigraphy(
   ds.values = TRUE,
   subject.id = FALSE,
   n_quantile = 10,
-  sensitivity_mode = "fast"
+  sensitivity_mode = "fast",
+  dS_zero = getOption("orthologr.dS_zero", "keep"),
+  best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
 )
 }
 \arguments{
@@ -74,7 +76,9 @@ by \code{divergence_stratigraphy}. Default is \code{ds.values} = \code{TRUE}.}
 
 \item{subject.id}{a logical value indicating whether \code{query_id} AND \code{subject_id} should be returned.}
 
-\item{n_quantile}{a numeric value specifying the number of quantiles that should be returned.}
+\item{n_quantile}{a numeric value specifying the number of quantiles that should be returned. Many equal dN/dS
+values (e.g. dN/dS = 0 for more than \code{1/n_quantile} of the genes of two closely related genomes) no longer
+stop the function after the run: see the section on ties in \code{\link{divergence_map}}.}
 
 \item{sensitivity_mode}{specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 \itemize{
@@ -88,9 +92,35 @@ by \code{divergence_stratigraphy}. Default is \code{ds.values} = \code{TRUE}.}
 \item \code{sensitivity_mode = "ultra-sensitive"}: most sensitive alignment mode (sensitivity as high as BLASTP).
 }
 Any other value is an error.}
+
+\item{dS_zero}{what to do with gene pairs whose dS is 0 (dN/dS not defined): \code{"keep"} (default) keeps them
+with the stratum (or dNdS value) \code{NA}; \code{"drop"} leaves them out, as orthologr <= 0.4.3 did without
+saying so. See \code{\link{filter_dNdS}}; \code{options(orthologr.dS_zero = "drop")} sets the default.}
+
+\item{best_hit_rule}{how the best hit of a query is chosen among its hits:
+\itemize{
+\item \code{"bitscore"} (default since orthologr 0.5.0): the hit with the highest bit score; of several, the one
+with the smallest e-value, then the longest alignment, then the highest percent identity, then the alphabetically
+first \code{subject_id}. The choice does not depend on the order of the hit table.
+\item \code{"evalue"}: the rule of orthologr <= 0.4.3 - the hit with the smallest e-value; of several, the one with
+the longest alignment; of several, the alphabetically first \code{subject_id}. The bit score is not used.
+}
+\strong{This default changed in 0.5.0 and changes which orthologs are returned.} DIAMOND and BLAST report an
+e-value of 0 for every strong hit of a long protein, so that under the old rule the alignment length decided
+among them and a paralog could win over the true ortholog. Measured (DIAMOND, reciprocal best
+hits): human against mouse, 19,746 x 21,584 genes, compared with the orthologs of Ensembl Compara - old rule
+16,458 pairs, 330 of them (2.0\%) pairing a human gene with another mouse gene than any Compara ortholog, 93.0\% of
+the Compara one-to-one orthologs found; bit-score rule 16,827 pairs, 68 (0.4\%), 96.8\%; 3.2\% of the best hits
+change. On the 1,000-gene example of the package 12 of 986 best hits change and there are 983 instead of 972
+reciprocal best hits (970 in common).
+\code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.}
 }
 \value{
-A data.table storing the divergence map of the query organism.
+A \code{data.frame} with the divergence stratum (column \code{DS}; or \code{dNdS} with
+\code{ds.values = FALSE}) and the \code{query_id} (and \code{subject_id}) of every gene pair.
+\code{attr(result, "dNdS_tbl")} holds the complete dN/dS table of the run as returned by \code{\link{dNdS}},
+before filtering and binning, so that a finished run can be binned again (\code{\link{divergence_map}}) without
+computing it again.
 }
 \description{
 This function takes a query organism and performs

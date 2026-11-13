@@ -10,7 +10,10 @@
 #' @param format a character string specifying the file format in which the alignment is stored:  
 #' "mase", "clustal", "phylip", "fasta" , "msf"
 #' @param quiet a logical value specifying whether the output of the coresponding interface shall be printed out.
-#' @param kaks_calc.params a character string storing additional parameters for KaKs_Claculator 1.2 . Default is \code{NULL}. Example:
+#' @param kaks_calc.params a character string storing additional parameters for KaKs_Calculator. Default is \code{NULL}.
+#' The parameters are added to the method chosen with \code{est.method} (e.g. \code{est.method = "YN"},
+#' \code{kaks_calc.params = "-c 11"} runs \code{-m YN -c 11}; up to orthologr 0.4.3 they replaced the method).
+#' With \code{est.method = "kaks_calc"} the methods themselves are given here, e.g.
 #' \code{kaks_calc.params} = "-m NG -m YN". 
 #' @param kaks_calc_path a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 #' (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).
@@ -114,6 +117,18 @@
 #' 
 #' https://code.google.com/archive/p/kaks-calculator
 #' 
+#' @section Saturation (Comeron's method):
+#' The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:
+#' proportions of transitional and transversional differences in a class of sites). When such an argument is not
+#' positive, the observed differences exceed what the model can correct for and the distance is not defined. In
+#' that case \code{dS} (synonymous classes) or \code{dN} (nonsynonymous classes) and \code{dNdS} are returned as
+#' \code{NA}. Up to orthologr 0.4.3 the logarithm was replaced by 0 and a finite, too small value was returned
+#' (e.g. \code{dS = 0} for \code{ATGGCTAAA} / \code{ATGGCCAAA}, which differ by one synonymous substitution);
+#' \code{options(orthologr.legacy_comeron_saturation = TRUE)} reproduces those values. Values of gene pairs
+#' without such a term are the same in both modes.
+#' 
+#' The alignment must be a codon alignment: at least two sequences of the same length, which is a multiple of 3.
+#' Anything else is an error.
 #' @return A data.table storing the query_id, subject_id, dN, dS, and dNdS values or 
 #' a data.table storing the query_id, method, dN, dS, and dNdS values when using KaKs_Calculator.
 #' If the dNdS value cannot be calculated NA is returned. This can happen because of constraints
@@ -190,18 +205,19 @@ substitutionrate <- function(file,
                         # To use gestimator a file in fasta format is required
                         
                         # include this line instead of the following, to use internal gestimator
+                        # the alignment is checked here as well as in the C++ code: at least two sequences of the
+                        # same length, which is a multiple of 3 and not 0
+                        check_codon_alignment_file(file)
                         gestimator(file     = file,
-                                   file_out = file.out)
+                                   file_out = file.out,
+                                   legacy_saturation = comeron_legacy_saturation())
                         
                         #system(paste0("gestimator -i ",file," -o ",file.out))
                         
-                        hit.table <- data.table::fread(file.out)
-                        
-                        data.table::setnames(
-                                x   = hit.table,
-                                old = c("V1", "V2", "V3", "V4", "V5"),
-                                new = c("query_id", "subject_id", "dN", "dS", "dNdS")
-                        )
+                        # The columns are read as what they are: without colClasses fread() guesses the types,
+                        # and IDs that look like numbers ("1001", "007", "1e5", "1.10") or like logical values
+                        # ("TRUE", "NA") came back as another ID or as NA.
+                        hit.table <- read_gestimator_table(file.out)
                         
                         data.table::setkey(hit.table, query_id)
                         
@@ -303,8 +319,8 @@ substitutionrate <- function(file,
                 
                 run_tool(
                         "KaKs_Calculator",
-                        args = list("-i", axt_file, "-o", kaks_file,
-                                    if (is.null(kaks_calc.params)) I(paste0("-m ", est.method)) else I(kaks_calc.params)),
+                        args = c(list("-i", axt_file, "-o", kaks_file),
+                                 kaks_calc_args(est.method, kaks_calc.params)),
                         path    = kaks_calc_path,
                         tool    = "KaKs_Calculator",
                         context = context,
@@ -320,6 +336,65 @@ substitutionrate <- function(file,
                 
                 return(kaks_result_table(kaks_tbl, pair_ids, context))
         }
+}
+
+# options(orthologr.legacy_comeron_saturation = TRUE): Comeron's method as up to 0.4.3, where an undefined
+# logarithm of the correction (saturation) was replaced by 0 and a finite dS or dN was returned.
+comeron_legacy_saturation <- function() {
+        isTRUE(getOption("orthologr.legacy_comeron_saturation", FALSE))
+}
+
+# Stop unless `file` (FASTA) is a codon alignment: at least two sequences, all of the same length, the length a
+# multiple of 3 and at least 3. Line ends may be LF or CRLF.
+check_codon_alignment_file <- function(file) {
+        if (!file.exists(file))
+                stop("The alignment file '", file, "' does not exist.", call. = FALSE)
+        x <- sub("\r$", "", readLines(file, warn = FALSE))
+        x <- x[nzchar(x)]
+        head_at <- startsWith(x, ">")
+        if (sum(head_at) < 2)
+                stop("the alignment file holds ", sum(head_at), " sequence", if (sum(head_at) != 1) "s",
+                     "; a codon alignment of at least two sequences is needed.", call. = FALSE)
+        len <- as.vector(tapply(nchar(x) * !head_at, cumsum(head_at), sum))
+        if (length(unique(len)) != 1)
+                stop("the aligned sequences have unequal lengths (", paste(utils::head(len, 5), collapse = ", "),
+                     "): this is not a codon alignment.", call. = FALSE)
+        if (len[1] < 3)
+                stop("the aligned sequences are shorter than one codon (length ", len[1], ").", call. = FALSE)
+        if (len[1] %% 3 != 0)
+                stop("the length of the aligned sequences (", len[1], ") is not a multiple of 3: this is not a codon alignment.",
+                     call. = FALSE)
+        invisible(TRUE)
+}
+
+# The table gestimator writes (tab-separated, no header: query id, subject id, dN, dS, dN/dS), with the IDs read
+# as character whatever they look like.
+read_gestimator_table <- function(file) {
+        res <- data.table::fread(
+                file       = file,
+                sep        = "\t",
+                header     = FALSE,
+                quote      = "",
+                colClasses = c("character", "character", "numeric", "numeric", "numeric"),
+                col.names  = c("query_id", "subject_id", "dN", "dS", "dNdS"),
+                na.strings = ""
+        )
+        res
+}
+
+# The method arguments of a KaKs_Calculator call. The method asked for with 'est.method' is always handed over
+# ('-m <est.method>'); 'kaks_calc.params' is added to it. (It used to replace it: est.method = "YN" with
+# kaks_calc.params = "-c 1" ran KaKs_Calculator's default model MA.) est.method = "kaks_calc" stands for "the
+# methods are given in kaks_calc.params" and adds nothing.
+kaks_calc_args <- function(est.method, kaks_calc.params = NULL) {
+        has_params <- !is.null(kaks_calc.params) && any(nzchar(trimws(kaks_calc.params)))
+        if (identical(est.method, "kaks_calc")) {
+                if (!has_params)
+                        stop("est.method = \"kaks_calc\" needs the methods in 'kaks_calc.params', e.g. kaks_calc.params = \"-m NG -m YN\".",
+                             call. = FALSE)
+                return(list(I(kaks_calc.params)))
+        }
+        c(list("-m", est.method), if (has_params) list(I(kaks_calc.params)))
 }
 
 # The result table of substitutionrate() from KaKs_Calculator's output table 'kaks_tbl' (columns Sequence, Method,

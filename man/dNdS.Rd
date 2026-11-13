@@ -30,9 +30,7 @@ dNdS(
   quiet = TRUE,
   clean_folders = FALSE,
   print_citation = TRUE,
-  aa_sub_matrix = "BLOSUM62",
-  kaks_tool = "kaks_calculator",
-  engine = "orthologr"
+  best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
 )
 }
 \arguments{
@@ -107,9 +105,8 @@ with \code{aa_aln_type = "pairwise"}. Until version 0.4.3 the argument was accep
 Note: this controls the amino acid alignment step only, not the initial DIAMOND or BLAST homology search
 (use \code{aligner_params} for that). Default is \code{aa_aln_params} = \code{NULL} (the default parameters).}
 
-\item{codon_aln_tool}{a character string specifying the codon alignment tool that shall be used: \code{"pal2nal"} (Default;
-the PAL2NAL Perl script shipped with this package) or \code{"coal"} (COAL: the same codon alignments without Perl, computed
-inside R when the package \pkg{coalr} is installed; see \code{\link{codon_aln}}).}
+\item{codon_aln_tool}{a character string specifying the codon alignment tool that shall be used. Default is \code{codon_aln_tool} = \code{"pal2nal"}.
+Right now only "pal2nal" can be selected as codon alignment tool.}
 
 \item{kaks_calc_path}{a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).}
@@ -138,22 +135,23 @@ Default is \code{quiet} = \code{FALSE}.}
 
 \item{print_citation}{a logical value indicating whether or not the citation message shall be printed.}
 
-\item{aa_sub_matrix}{the substitution matrix used to score pairwise amino acid alignments (\code{aa_aln_type = "pairwise"}):
-the name of a matrix shipped with \pkg{pwalign}, e.g. \code{"BLOSUM62"} (Default), a numeric substitution matrix, or \code{NULL}
-for the scoring of \pkg{orthologr} <= 0.4.3 (no substitution matrix). See \code{\link{pairwise_aln}} for details and for how to
-reproduce dN/dS values computed with earlier versions.}
-
-\item{kaks_tool}{the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
-\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
-program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).}
-
-\item{engine}{\code{"orthologr"} (Default): each gene pair is processed on its own (protein alignment, codon alignment and
-dN/dS estimation with the tools chosen above, with intermediate files per pair). \code{"coal"}: the batched fast path
-\code{\link{dNdS_coal}}: orthologs are detected as usual, then all gene pairs are aligned and estimated by COAL in one
-call, in memory and on \code{comp_cores} threads. \code{engine = "coal"} needs the package \pkg{coalr}, a
-\code{dnds_est.method} that COAL computes (e.g. \code{"YN"}; not \code{"Comeron"} or \code{"Li"}),
-\code{ortho_detection} \code{"RBH"} or \code{"BH"}, and ignores \code{aa_aln_type}, \code{aa_aln_tool},
-\code{codon_aln_tool}, \code{kaks_tool} and \code{store_locally}. It returns the same table.}
+\item{best_hit_rule}{how the best hit of a query is chosen among its hits:
+\itemize{
+\item \code{"bitscore"} (default since orthologr 0.5.0): the hit with the highest bit score; of several, the one
+with the smallest e-value, then the longest alignment, then the highest percent identity, then the alphabetically
+first \code{subject_id}. The choice does not depend on the order of the hit table.
+\item \code{"evalue"}: the rule of orthologr <= 0.4.3 - the hit with the smallest e-value; of several, the one with
+the longest alignment; of several, the alphabetically first \code{subject_id}. The bit score is not used.
+}
+\strong{This default changed in 0.5.0 and changes which orthologs are returned.} DIAMOND and BLAST report an
+e-value of 0 for every strong hit of a long protein, so that under the old rule the alignment length decided
+among them and a paralog could win over the true ortholog. Measured (DIAMOND, reciprocal best
+hits): human against mouse, 19,746 x 21,584 genes, compared with the orthologs of Ensembl Compara - old rule
+16,458 pairs, 330 of them (2.0\%) pairing a human gene with another mouse gene than any Compara ortholog, 93.0\% of
+the Compara one-to-one orthologs found; bit-score rule 16,827 pairs, 68 (0.4\%), 96.8\%; 3.2\% of the best hits
+change. On the 1,000-gene example of the package 12 of 986 best hits change and there are 983 instead of 972
+reciprocal best hits (970 in common).
+\code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.}
 }
 \value{
 A data.table storing the dNdS values of the correspnding genes.
@@ -165,6 +163,11 @@ naming the pair, the program and its message.
 
 Each call keeps its intermediate files (search database, alignments, KaKs_Calculator files) in a folder of its own
 inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it.
+
+\code{attr(result, "dropped_sequences")} is a \code{data.frame} (\code{file}, \code{id}, \code{reason}) with the
+input sequences that were left out before the search: coding sequences with characters other than A, C, G, T (they
+cannot be translated; e.g. 5'-incomplete Ensembl CDS that are padded with N), empty sequences and, with
+\code{delete_corrupt_cds = TRUE}, sequences whose length is not a multiple of 3. A message gives their number.
 }
 \description{
 This function takes the CDS files of two organisms of interest (query_file and subject_file)
@@ -227,7 +230,6 @@ The \code{dNdS()} function can be used choosing the folllowing options:
 \item \code{codon_aln_tool} :
 \itemize{
  \item \code{"pal2nal"}
- \item \code{"coal"}
  }
 \item \code{dnds_est.method} : 
 \itemize{
@@ -244,6 +246,29 @@ The \code{dNdS()} function can be used choosing the folllowing options:
 
 }
 }
+\section{Sequence IDs}{
+
+The ID of a sequence is its FASTA header up to the first white space. IDs must be unique within a file (a
+duplicated ID is an error that names it) and are returned exactly as they are in the input files, whatever they
+look like (numbers, \code{|}, \code{-}, more than 15 characters): the IDs of a gene pair are carried through the
+alignment and estimation steps and are not read back from the output of the external programs.
+}
+
+\section{Splice variants}{
+
+Every sequence of an input file is treated as a gene. A file that holds several transcripts per gene (for example
+the \code{cds/all} files of Ensembl or files retrieved with \code{biomartr::getCDS()}) gives several rows per gene
+with different partners and different dN/dS values, and the splice variants of a gene compete as best hits.
+Please keep one transcript per gene first, e.g. with \code{\link{retrieve_longest_isoforms}}.
+\code{dNdS()} warns when a file seems to hold several transcripts per gene. The check is a conservative heuristic
+that never changes a result: (1) when at least 90\% of the FASTA headers name their gene (Ensembl
+\code{gene:<ID>}, NCBI \code{[locus_tag=<ID>]} or \code{[gene=<symbol>]}) the genes are counted from these fields;
+(2) otherwise a transcript suffix is removed from the IDs (\code{.<number>}, \code{.t<number>}, \code{-T<number>},
+\code{-R<letter>}, \code{-P<letter>}, \code{-mRNA-<number>}, \code{_i<number>}, \code{.p<number>}) and a warning
+is given only when at least 5 of the remaining stems, and at least 1\% of them, occur more than once.
+\code{options(orthologr.isoform_warning = FALSE)} switches the check off.
+}
+
 \examples{
 \dontrun{
 

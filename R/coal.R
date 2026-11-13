@@ -240,6 +240,9 @@ cds_vector <- function(cds_dt) {
 #' @param comp_cores the number of threads COAL (and the DIAMOND or BLAST search) uses.
 #' @param quiet a logical value specifying whether the output of the search tool shall be printed to the console.
 #' @param print_citation a logical value indicating whether or not the citation message shall be printed.
+#' @param best_hit_rule how best hits are chosen: \code{"bitscore"} (default since orthologr 0.5.0) or \code{"evalue"}
+#' (the rule of orthologr <= 0.4.3); see \code{\link{dNdS}} and \code{\link{diamond_best}}.
+#' \code{options(orthologr.best_hit_rule = "evalue")} sets the old rule for a session.
 #' @details
 #' Differences from \code{dNdS()} with \code{engine = "orthologr"}:
 #' \itemize{
@@ -287,7 +290,10 @@ dNdS_coal <- function(query_file,
                       aa_sub_matrix      = "BLOSUM62",
                       comp_cores         = 1,
                       quiet              = TRUE,
-                      print_citation     = TRUE) {
+                      print_citation     = TRUE,
+                      best_hit_rule      = getOption("orthologr.best_hit_rule", "bitscore")) {
+
+        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
 
         if (!is.element(aligner, c("diamond", "blast")))
                 stop("engine = \"coal\" detects orthologs with aligner = \"diamond\" or \"blast\".", call. = FALSE)
@@ -358,7 +364,8 @@ dNdS_coal <- function(query_file,
                         comp_cores   = comp_cores,
                         seq_type     = seq_type,
                         eval         = eval,
-                        format       = format
+                        format       = format,
+                        best_hit_rule = best_hit_rule
                 )
 
         data.table::setDT(hit.table)

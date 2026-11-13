@@ -1,0 +1,86 @@
+##gff-version 3
+#!gff-spec-version 1.21
+#!processor NCBI annotwriter
+#!genome-build ASM886v2
+#!genome-build-accession NCBI_Assembly:GCF_000008865.2
+NC_002695.2	RefSeq	region	1	5498578	.	+	.	ID=NC_002695.2:1..5498578;Dbxref=taxon:386585;Is_circular=true;gbkey=Src;genome=genomic;mol_type=genomic DNA;serovar=O157:H7;strain=Sakai;substrain=RIMD 0509952
+NC_002695.2	RefSeq	gene	190	273	.	+	.	ID=gene-ECs_0001;Dbxref=GeneID:913387;Name=thrL;gbkey=Gene;gene=thrL;gene_biotype=protein_coding;locus_tag=ECs_0001
+NC_002695.2	RefSeq	CDS	190	273	.	+	0	ID=cds-NP_308028.1;Parent=gene-ECs_0001;Dbxref=Genbank:NP_308028.1,GeneID:913387;Name=NP_308028.1;gbkey=CDS;gene=thrL;locus_tag=ECs_0001;product=thr operon leader peptide;protein_id=NP_308028.1;transl_table=11
+NC_002695.2	RefSeq	gene	354	2816	.	+	.	ID=gene-ECs_0002;Dbxref=GeneID:913388;Name=thrA;gbkey=Gene;gene=thrA;gene_biotype=protein_coding;locus_tag=ECs_0002
+NC_002695.2	RefSeq	CDS	354	2816	.	+	0	ID=cds-NP_308029.1;Parent=gene-ECs_0002;Dbxref=Genbank:NP_308029.1,GeneID:913388;Name=NP_308029.1;gbkey=CDS;gene=thrA;locus_tag=ECs_0002;product=aspartokinase I;protein_id=NP_308029.1;transl_table=11
+NC_002695.2	RefSeq	gene	2818	3750	.	+	.	ID=gene-ECs_0003;Dbxref=GeneID:913390;Name=thrB;gbkey=Gene;gene=thrB;gene_biotype=protein_coding;locus_tag=ECs_0003
+NC_002695.2	RefSeq	CDS	2818	3750	.	+	0	ID=cds-NP_308030.1;Parent=gene-ECs_0003;Dbxref=Genbank:NP_308030.1,GeneID:913390;Name=NP_308030.1;gbkey=CDS;gene=thrB;locus_tag=ECs_0003;product=homoserine kinase;protein_id=NP_308030.1;transl_table=11
+NC_002695.2	RefSeq	gene	3751	5037	.	+	.	ID=gene-ECs_0004;Dbxref=GeneID:913393;Name=thrC;gbkey=Gene;gene=thrC;gene_biotype=protein_coding;locus_tag=ECs_0004
+NC_002695.2	RefSeq	CDS	3751	5037	.	+	0	ID=cds-NP_308031.1;Parent=gene-ECs_0004;Dbxref=Genbank:NP_308031.1,GeneID:913393;Name=NP_308031.1;gbkey=CDS;gene=thrC;locus_tag=ECs_0004;product=L-threonine synthase;protein_id=NP_308031.1;transl_table=11
+NC_002695.2	RefSeq	gene	5251	5547	.	+	.	ID=gene-ECs_0005;Dbxref=GeneID:913394;Name=yaaX;gbkey=Gene;gene=yaaX;gene_biotype=protein_coding;locus_tag=ECs_0005
+NC_002695.2	RefSeq	CDS	5251	5547	.	+	0	ID=cds-NP_308032.1;Parent=gene-ECs_0005;Dbxref=Genbank:NP_308032.1,GeneID:913394;Name=NP_308032.1;gbkey=CDS;gene=yaaX;locus_tag=ECs_0005;product=hypothetical protein;protein_id=NP_308032.1;transl_table=11
+NC_002695.2	RefSeq	gene	5700	6476	.	-	.	ID=gene-ECs_0006;Dbxref=GeneID:913395;Name=yaaA;gbkey=Gene;gene=yaaA;gene_biotype=protein_coding;locus_tag=ECs_0006
+NC_002695.2	RefSeq	CDS	5700	6476	.	-	0	ID=cds-NP_308033.1;Parent=gene-ECs_0006;Dbxref=Genbank:NP_308033.1,GeneID:913395;Name=NP_308033.1;gbkey=CDS;gene=yaaA;locus_tag=ECs_0006;product=peroxide resistance protein;protein_id=NP_308033.1;transl_table=11
+NC_002695.2	RefSeq	gene	6546	7976	.	-	.	ID=gene-ECs_0007;Dbxref=GeneID:913398;Name=yaaJ;gbkey=Gene;gene=yaaJ;gene_biotype=protein_coding;locus_tag=ECs_0007
+NC_002695.2	RefSeq	CDS	6546	7976	.	-	0	ID=cds-NP_308034.1;Parent=gene-ECs_0007;Dbxref=Genbank:NP_308034.1,GeneID:913398;Name=NP_308034.1;gbkey=CDS;gene=yaaJ;locus_tag=ECs_0007;product=amino acid carrier protein;protein_id=NP_308034.1;transl_table=11
+NC_002695.2	RefSeq	gene	8255	9208	.	+	.	ID=gene-ECs_0008;Dbxref=GeneID:913400;Name=talB;gbkey=Gene;gene=talB;gene_biotype=protein_coding;locus_tag=ECs_0008
+NC_002695.2	RefSeq	CDS	8255	9208	.	+	0	ID=cds-NP_308035.1;Parent=gene-ECs_0008;Dbxref=Genbank:NP_308035.1,GeneID:913400;Name=NP_308035.1;gbkey=CDS;gene=talB;locus_tag=ECs_0008;product=transaldolase B;protein_id=NP_308035.1;transl_table=11
+NC_002695.2	RefSeq	gene	9323	9910	.	+	.	ID=gene-ECs_0009;Dbxref=GeneID:913401;Name=mog;gbkey=Gene;gene=mog;gene_biotype=protein_coding;locus_tag=ECs_0009
+NC_002695.2	RefSeq	CDS	9323	9910	.	+	0	ID=cds-NP_308036.1;Parent=gene-ECs_0009;Dbxref=Genbank:NP_308036.1,GeneID:913401;Name=NP_308036.1;gbkey=CDS;gene=mog;locus_tag=ECs_0009;product=molybdochelatase incorporating molybdenum into molybdopterin;protein_id=NP_308036.1;transl_table=11
+NC_002695.2	RefSeq	gene	9945	10511	.	-	.	ID=gene-ECs_0010;Dbxref=GeneID:913402;Name=satP;gbkey=Gene;gene=satP;gene_biotype=protein_coding;locus_tag=ECs_0010
+NC_002695.2	RefSeq	CDS	9945	10511	.	-	0	ID=cds-NP_308037.1;Parent=gene-ECs_0010;Dbxref=Genbank:NP_308037.1,GeneID:913402;Name=NP_308037.1;gbkey=CDS;gene=satP;locus_tag=ECs_0010;product=succinate-acetate transporter;protein_id=NP_308037.1;transl_table=11
+NC_002695.2	RefSeq	gene	10660	11373	.	-	.	ID=gene-ECs_0012;Dbxref=GeneID:913403;Name=yaaW;gbkey=Gene;gene=yaaW;gene_biotype=protein_coding;locus_tag=ECs_0012
+NC_002695.2	RefSeq	CDS	10660	11373	.	-	0	ID=cds-NP_308038.1;Parent=gene-ECs_0012;Dbxref=Genbank:NP_308038.1,GeneID:913403;Name=NP_308038.1;gbkey=CDS;gene=yaaW;locus_tag=ECs_0012;product=hypothetical protein;protein_id=NP_308038.1;transl_table=11
+NC_002695.2	RefSeq	gene	11399	11803	.	-	.	ID=gene-ECs_0013;Dbxref=GeneID:913405;Name=yaaI;gbkey=Gene;gene=yaaI;gene_biotype=protein_coding;locus_tag=ECs_0013
+NC_002695.2	RefSeq	CDS	11399	11803	.	-	0	ID=cds-NP_308040.1;Parent=gene-ECs_0013;Dbxref=Genbank:NP_308040.1,GeneID:913405;Name=NP_308040.1;gbkey=CDS;gene=yaaI;locus_tag=ECs_0013;product=hypothetical protein;protein_id=NP_308040.1;transl_table=11
+NC_002695.2	RefSeq	gene	12180	14096	.	+	.	ID=gene-ECs_0014;Dbxref=GeneID:913406;Name=dnaK;gbkey=Gene;gene=dnaK;gene_biotype=protein_coding;locus_tag=ECs_0014
+NC_002695.2	RefSeq	CDS	12180	14096	.	+	0	ID=cds-NP_308041.1;Parent=gene-ECs_0014;Dbxref=Genbank:NP_308041.1,GeneID:913406;Name=NP_308041.1;gbkey=CDS;gene=dnaK;locus_tag=ECs_0014;product=chaperone Hsp70;protein_id=NP_308041.1;transl_table=11
+NC_002695.2	RefSeq	gene	14185	15315	.	+	.	ID=gene-ECs_0015;Dbxref=GeneID:913407;Name=dnaJ;gbkey=Gene;gene=dnaJ;gene_biotype=protein_coding;locus_tag=ECs_0015
+NC_002695.2	RefSeq	CDS	14185	15315	.	+	0	ID=cds-NP_308042.1;Parent=gene-ECs_0015;Dbxref=Genbank:NP_308042.1,GeneID:913407;Name=NP_308042.1;gbkey=CDS;gene=dnaJ;locus_tag=ECs_0015;product=chaperone Hsp40;protein_id=NP_308042.1;transl_table=11
+NC_002695.2	RefSeq	gene	15419	15628	.	-	.	ID=gene-ECs_0016;Dbxref=GeneID:913408;Name=mokC;gbkey=Gene;gene=mokC;gene_biotype=protein_coding;locus_tag=ECs_0016
+NC_002695.2	RefSeq	CDS	15419	15628	.	-	0	ID=cds-NP_308043.1;Parent=gene-ECs_0016;Dbxref=Genbank:NP_308043.1,GeneID:913408;Name=NP_308043.1;gbkey=CDS;gene=mokC;locus_tag=ECs_0016;product=regulatory protein MokC for HokC;protein_id=NP_308043.1;transl_table=11
+NC_002695.2	RefSeq	gene	16157	17323	.	+	.	ID=gene-ECs_0017;Dbxref=GeneID:913409;Name=nhaA;gbkey=Gene;gene=nhaA;gene_biotype=protein_coding;locus_tag=ECs_0017
+NC_002695.2	RefSeq	CDS	16157	17323	.	+	0	ID=cds-NP_308044.1;Parent=gene-ECs_0017;Dbxref=Genbank:NP_308044.1,GeneID:913409;Name=NP_308044.1;gbkey=CDS;gene=nhaA;locus_tag=ECs_0017;product=pH-dependent sodium/proton antiporter;protein_id=NP_308044.1;transl_table=11
+NC_002695.2	RefSeq	gene	17389	18288	.	+	.	ID=gene-ECs_0018;Dbxref=GeneID:913410;Name=nhaR;gbkey=Gene;gene=nhaR;gene_biotype=protein_coding;locus_tag=ECs_0018
+NC_002695.2	RefSeq	CDS	17389	18288	.	+	0	ID=cds-NP_308045.2;Parent=gene-ECs_0018;Dbxref=Genbank:NP_308045.2,GeneID:913410;Name=NP_308045.2;gbkey=CDS;gene=nhaR;locus_tag=ECs_0018;product=transcriptional activator;protein_id=NP_308045.2;transl_table=11
+NC_002695.2	RefSeq	pseudogene	18326	19286	.	-	.	ID=gene-ECs_0019;Dbxref=GeneID:62675950;Name=ECs_0019;gbkey=Gene;gene_biotype=pseudogene;locus_tag=ECs_0019;pseudo=true;pseudogene=unknown
+NC_002695.2	RefSeq	sequence_feature	18326	19286	.	-	.	ID=id-ECs_0019;Dbxref=GeneID:62675950;Note=hypothetical protein;gbkey=misc_feature;locus_tag=ECs_0019;pseudo=true;pseudogene=unknown
+NC_002695.2	RefSeq	gene	19299	21749	.	-	.	ID=gene-ECs_0022;Dbxref=GeneID:913416;Name=ECs_0022;gbkey=Gene;gene_biotype=protein_coding;locus_tag=ECs_0022
+NC_002695.2	RefSeq	CDS	19299	21749	.	-	0	ID=cds-NP_308049.1;Parent=gene-ECs_0022;Dbxref=Genbank:NP_308049.1,GeneID:913416;Name=NP_308049.1;gbkey=CDS;locus_tag=ECs_0022;product=fimbrial assembly protein;protein_id=NP_308049.1;transl_table=11
+NC_002695.2	RefSeq	gene	21762	22445	.	-	.	ID=gene-ECs_0023;Dbxref=GeneID:913417;Name=ECs_0023;gbkey=Gene;gene_biotype=protein_coding;locus_tag=ECs_0023
+NC_002695.2	RefSeq	CDS	21762	22445	.	-	0	ID=cds-NP_308050.1;Parent=gene-ECs_0023;Dbxref=Genbank:NP_308050.1,GeneID:913417;Name=NP_308050.1;gbkey=CDS;locus_tag=ECs_0023;product=fimbrial chaperone;protein_id=NP_308050.1;transl_table=11
+NC_002695.2	RefSeq	gene	22495	23028	.	-	.	ID=gene-ECs_0024;Dbxref=GeneID:913418;Name=ECs_0024;gbkey=Gene;gene_biotype=protein_coding;locus_tag=ECs_0024
+NC_002695.2	RefSeq	CDS	22495	23028	.	-	0	ID=cds-NP_308051.1;Parent=gene-ECs_0024;Dbxref=Genbank:NP_308051.1,GeneID:913418;Name=NP_308051.1;gbkey=CDS;locus_tag=ECs_0024;product=fimbrial protein;protein_id=NP_308051.1;transl_table=11
+NC_002695.2	RefSeq	gene	23330	24751	.	-	.	ID=gene-ECs_0025;Dbxref=GeneID:913419;Name=espX1;gbkey=Gene;gene=espX1;gene_biotype=protein_coding;locus_tag=ECs_0025
+NC_002695.2	RefSeq	CDS	23330	24751	.	-	0	ID=cds-NP_308052.1;Parent=gene-ECs_0025;Dbxref=Genbank:NP_308052.1,GeneID:913419;Name=NP_308052.1;gbkey=CDS;gene=espX1;locus_tag=ECs_0025;product=T3SS effector-like protein EspX;protein_id=NP_308052.1;transl_table=11
+NC_002695.2	RefSeq	gene	25221	25484	.	-	.	ID=gene-ECs_0026;Dbxref=GeneID:913420;Name=rpsT;gbkey=Gene;gene=rpsT;gene_biotype=protein_coding;locus_tag=ECs_0026
+NC_002695.2	RefSeq	CDS	25221	25484	.	-	0	ID=cds-NP_308053.1;Parent=gene-ECs_0026;Dbxref=Genbank:NP_308053.1,GeneID:913420;Name=NP_308053.1;gbkey=CDS;gene=rpsT;locus_tag=ECs_0026;product=30S ribosomal subunit protein S20;protein_id=NP_308053.1;transl_table=11
+NC_002695.2	RefSeq	gene	25819	26760	.	+	.	ID=gene-ECs_0028;Dbxref=GeneID:913423;Name=ribF;gbkey=Gene;gene=ribF;gene_biotype=protein_coding;locus_tag=ECs_0028
+NC_002695.2	RefSeq	CDS	25819	26760	.	+	0	ID=cds-NP_308055.1;Parent=gene-ECs_0028;Dbxref=Genbank:NP_308055.1,GeneID:913423;Name=NP_308055.1;gbkey=CDS;gene=ribF;locus_tag=ECs_0028;product=bifunctional riboflavin kinase/FAD synthetase;protein_id=NP_308055.1;transl_table=11
+NC_002695.2	RefSeq	gene	26803	29619	.	+	.	ID=gene-ECs_0029;Dbxref=GeneID:913425;Name=ileS;gbkey=Gene;gene=ileS;gene_biotype=protein_coding;locus_tag=ECs_0029
+NC_002695.2	RefSeq	CDS	26803	29619	.	+	0	ID=cds-NP_308056.1;Parent=gene-ECs_0029;Dbxref=Genbank:NP_308056.1,GeneID:913425;Name=NP_308056.1;gbkey=CDS;gene=ileS;locus_tag=ECs_0029;product=isoleucyl-tRNA synthetase;protein_id=NP_308056.1;transl_table=11
+NC_002695.2	RefSeq	gene	29619	30113	.	+	.	ID=gene-ECs_0030;Dbxref=GeneID:913426;Name=lspA;gbkey=Gene;gene=lspA;gene_biotype=protein_coding;locus_tag=ECs_0030
+NC_002695.2	RefSeq	CDS	29619	30113	.	+	0	ID=cds-NP_308057.1;Parent=gene-ECs_0030;Dbxref=Genbank:NP_308057.1,GeneID:913426;Name=NP_308057.1;gbkey=CDS;gene=lspA;locus_tag=ECs_0030;product=prolipoprotein signal peptidase;protein_id=NP_308057.1;transl_table=11
+NC_002695.2	RefSeq	gene	30201	30650	.	+	.	ID=gene-ECs_0031;Dbxref=GeneID:913427;Name=fkpB;gbkey=Gene;gene=fkpB;gene_biotype=protein_coding;locus_tag=ECs_0031
+NC_002695.2	RefSeq	CDS	30201	30650	.	+	0	ID=cds-NP_308058.1;Parent=gene-ECs_0031;Dbxref=Genbank:NP_308058.1,GeneID:913427;Name=NP_308058.1;gbkey=CDS;gene=fkpB;locus_tag=ECs_0031;product=FKBP-type peptidyl-prolyl cis-trans isomerase;protein_id=NP_308058.1;transl_table=11
+NC_002695.2	RefSeq	gene	30652	31602	.	+	.	ID=gene-ECs_0032;Dbxref=GeneID:913428;Name=ispH;gbkey=Gene;gene=ispH;gene_biotype=protein_coding;locus_tag=ECs_0032
+NC_002695.2	RefSeq	CDS	30652	31602	.	+	0	ID=cds-NP_308059.1;Parent=gene-ECs_0032;Dbxref=Genbank:NP_308059.1,GeneID:913428;Name=NP_308059.1;gbkey=CDS;gene=ispH;locus_tag=ECs_0032;product=4-hydroxy-3-methylbut-2-enyl diphosphate reductase;protein_id=NP_308059.1;transl_table=11
+NC_002695.2	RefSeq	gene	31668	32582	.	+	.	ID=gene-ECs_0033;Dbxref=GeneID:913429;Name=rihC;gbkey=Gene;gene=rihC;gene_biotype=protein_coding;locus_tag=ECs_0033
+NC_002695.2	RefSeq	CDS	31668	32582	.	+	0	ID=cds-NP_308060.1;Parent=gene-ECs_0033;Dbxref=Genbank:NP_308060.1,GeneID:913429;Name=NP_308060.1;gbkey=CDS;gene=rihC;locus_tag=ECs_0033;product=ribonucleoside hydrolase 3;protein_id=NP_308060.1;transl_table=11
+NC_002695.2	RefSeq	gene	32749	33570	.	+	.	ID=gene-ECs_0034;Dbxref=GeneID:913430;Name=dapB;gbkey=Gene;gene=dapB;gene_biotype=protein_coding;locus_tag=ECs_0034
+NC_002695.2	RefSeq	CDS	32749	33570	.	+	0	ID=cds-NP_308061.1;Parent=gene-ECs_0034;Dbxref=Genbank:NP_308061.1,GeneID:913430;Name=NP_308061.1;gbkey=CDS;gene=dapB;locus_tag=ECs_0034;product=dihydrodipicolinate reductase;protein_id=NP_308061.1;transl_table=11
+NC_002695.2	RefSeq	gene	34026	35174	.	+	.	ID=gene-ECs_0035;Dbxref=GeneID:913431;Name=carA;gbkey=Gene;gene=carA;gene_biotype=protein_coding;locus_tag=ECs_0035
+NC_002695.2	RefSeq	CDS	34026	35174	.	+	0	ID=cds-NP_308062.1;Parent=gene-ECs_0035;Dbxref=Genbank:NP_308062.1,GeneID:913431;Name=NP_308062.1;gbkey=CDS;gene=carA;locus_tag=ECs_0035;product=carbamoyl phosphate synthetase small subunit;protein_id=NP_308062.1;transl_table=11
+NC_002695.2	RefSeq	gene	35192	38413	.	+	.	ID=gene-ECs_0036;Dbxref=GeneID:913432;Name=carB;gbkey=Gene;gene=carB;gene_biotype=protein_coding;locus_tag=ECs_0036
+NC_002695.2	RefSeq	CDS	35192	38413	.	+	0	ID=cds-NP_308063.1;Parent=gene-ECs_0036;Dbxref=Genbank:NP_308063.1,GeneID:913432;Name=NP_308063.1;gbkey=CDS;gene=carB;locus_tag=ECs_0036;product=carbamoyl-phosphate synthase large subunit;protein_id=NP_308063.1;transl_table=11
+NC_002695.2	RefSeq	gene	38674	39069	.	+	.	ID=gene-ECs_0037;Dbxref=GeneID:913433;Name=caiF;gbkey=Gene;gene=caiF;gene_biotype=protein_coding;locus_tag=ECs_0037
+NC_002695.2	RefSeq	CDS	38674	39069	.	+	0	ID=cds-NP_308064.2;Parent=gene-ECs_0037;Dbxref=Genbank:NP_308064.2,GeneID:913433;Name=NP_308064.2;gbkey=CDS;gene=caiF;locus_tag=ECs_0037;product=cai operon transcriptional activator;protein_id=NP_308064.2;transl_table=11
+NC_002695.2	RefSeq	gene	39188	39778	.	-	.	ID=gene-ECs_0038;Dbxref=GeneID:913434;Name=caiE;gbkey=Gene;gene=caiE;gene_biotype=protein_coding;locus_tag=ECs_0038
+NC_002695.2	RefSeq	CDS	39188	39778	.	-	0	ID=cds-NP_308065.2;Parent=gene-ECs_0038;Dbxref=Genbank:NP_308065.2,GeneID:913434;Name=NP_308065.2;gbkey=CDS;gene=caiE;locus_tag=ECs_0038;product=carnitine operon protein CaiE;protein_id=NP_308065.2;transl_table=11
+NC_002695.2	RefSeq	gene	39784	40569	.	-	.	ID=gene-ECs_0039;Dbxref=GeneID:913435;Name=caiD;gbkey=Gene;gene=caiD;gene_biotype=protein_coding;locus_tag=ECs_0039
+NC_002695.2	RefSeq	CDS	39784	40569	.	-	0	ID=cds-NP_308066.2;Parent=gene-ECs_0039;Dbxref=Genbank:NP_308066.2,GeneID:913435;Name=NP_308066.2;gbkey=CDS;gene=caiD;locus_tag=ECs_0039;product=carnitinyl-CoA dehydratase;protein_id=NP_308066.2;transl_table=11
+NC_002695.2	RefSeq	gene	40678	42231	.	-	.	ID=gene-ECs_0040;Dbxref=GeneID:913437;Name=caiC;gbkey=Gene;gene=caiC;gene_biotype=protein_coding;locus_tag=ECs_0040
+NC_002695.2	RefSeq	CDS	40678	42231	.	-	0	ID=cds-NP_308067.2;Parent=gene-ECs_0040;Dbxref=Genbank:NP_308067.2,GeneID:913437;Name=NP_308067.2;gbkey=CDS;gene=caiC;locus_tag=ECs_0040;product=crotonobetaine/carnitine-CoA ligase;protein_id=NP_308067.2;transl_table=11
+NC_002695.2	RefSeq	gene	92466	92552	.	+	.	ID=gene-ECs_0083;Dbxref=GeneID:913524;Name=fruR;gbkey=Gene;gene=fruR;gene_biotype=protein_coding;locus_tag=ECs_0083
+NC_002695.2	RefSeq	CDS	92466	92552	.	+	0	ID=cds-NP_308110.1;Parent=gene-ECs_0083;Dbxref=Genbank:NP_308110.1,GeneID:913524;Name=NP_308110.1;gbkey=CDS;gene=fruR;locus_tag=ECs_0083;product=fruR leader peptide;protein_id=NP_308110.1;transl_table=11
+NC_002695.2	RefSeq	gene	92634	93638	.	+	.	ID=gene-ECs_0084;Dbxref=GeneID:913527;Name=fruR;gbkey=Gene;gene=fruR;gene_biotype=protein_coding;locus_tag=ECs_0084
+NC_002695.2	RefSeq	CDS	92634	93638	.	+	0	ID=cds-NP_308111.1;Parent=gene-ECs_0084;Dbxref=Genbank:NP_308111.1,GeneID:913527;Name=NP_308111.1;gbkey=CDS;gene=fruR;locus_tag=ECs_0084;product=DNA-binding transcriptional dual regulator FruR;protein_id=NP_308111.1;transl_table=11
+NC_002695.2	RefSeq	gene	690842	690994	.	+	.	ID=gene-ECs_0621;Dbxref=GeneID:916980;Name=mokC;gbkey=Gene;gene=mokC;gene_biotype=protein_coding;locus_tag=ECs_0621
+NC_002695.2	RefSeq	CDS	690842	690994	.	+	0	ID=cds-NP_308648.2;Parent=gene-ECs_0621;Dbxref=Genbank:NP_308648.2,GeneID:916980;Name=NP_308648.2;gbkey=CDS;gene=mokC;locus_tag=ECs_0621;product=regulatory peptide MokC whose translation enables hok (gef) expression;protein_id=NP_308648.2;transl_table=11
+NC_002695.2	RefSeq	gene	758776	760203	.	+	.	ID=gene-ECs_0684;Dbxref=GeneID:917045;Name=dnaJ;gbkey=Gene;gene=dnaJ;gene_biotype=protein_coding;locus_tag=ECs_0684
+NC_002695.2	RefSeq	CDS	758776	760203	.	+	0	ID=cds-NP_308711.1;Parent=gene-ECs_0684;Dbxref=Genbank:NP_308711.1,GeneID:917045;Name=NP_308711.1;gbkey=CDS;gene=dnaJ;locus_tag=ECs_0684;product=molecular chaperone DnaJ;protein_id=NP_308711.1;transl_table=11
