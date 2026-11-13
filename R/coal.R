@@ -94,6 +94,19 @@ coal_flavour_args <- function(fun) {
         args[intersect(names(args), names(formals(fun)))]
 }
 
+# options(orthologr.legacy_pairwise_aln = TRUE) - set on its own, by orthologr_legacy_options() or by
+# options(orthologr.legacy = TRUE) - asks for the pairwise protein alignments of 0.4.3 (no substitution matrix, cut
+# to the aligned range). COAL aligns itself and cannot make them, so the numbers are not those of 0.4.3: say so
+# instead of returning a table that looks like a legacy run.
+coal_legacy_warning <- function(what) {
+        if (isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE)))
+                orthologr_warn(class = "legacy_engine", what, ": the COAL engine cannot reproduce the pairwise ",
+                               "protein alignments of orthologr 0.4.3 (options(orthologr.legacy_pairwise_aln = TRUE), ",
+                               "set by orthologr_legacy_options()), so its dN and dS differ from those of 0.4.3. ",
+                               "Use engine = \"orthologr\" for the numbers of 0.4.3.")
+        invisible(NULL)
+}
+
 # The alignment scoring of the COAL entry points: one argument `aa_aln_scoring` everywhere.
 check_aa_aln_scoring <- function(aa_aln_scoring) {
         check_choice(aa_aln_scoring, c("pwalign", "needle"), "aa_aln_scoring")
@@ -469,6 +482,7 @@ dNdS_coal <- function(query_file,
                 stop("With engine = \"coal\", aa_sub_matrix must be the name of a matrix: \"BLOSUM62\", \"BLOSUM45\", \"BLOSUM80\" or \"PAM250\".", call. = FALSE)
         coal_backend(need = "coalr")
         coal_check_methods(dnds_est.method, "engine = \"coal\"")
+        coal_legacy_warning("dNdS(engine = \"coal\") / dNdS_coal()")
 
         # the arguments of this call, for the record of the run (attr(<result>, "orthologr_run"))
         run_args <- run_arguments()
@@ -688,6 +702,7 @@ dNdS_clusters <- function(cds_file,
         check_aa_aln_scoring(aa_aln_scoring)
         coal_backend(need = "coalr")
         coal_check_methods(dnds_est.method, "dNdS_clusters()", other = "dNdS() or dNdS_orthogroups(engine = \"orthologr\")")
+        coal_legacy_warning("dNdS_clusters()")
 
         # the arguments of this call, for the record of the run (attr(<result>, "orthologr_run"))
         run_args <- run_arguments()
