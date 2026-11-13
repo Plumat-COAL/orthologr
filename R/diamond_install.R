@@ -21,9 +21,11 @@
 #' not verified against a checksum (the DIAMOND2 releases do not publish one); it is fetched over HTTPS from the
 #' GitHub releases of \url{https://github.com/bbuchfink/diamond}.
 #' @examples
-#' \dontrun{
-#' diamond_install()
+#' # where a DIAMOND installed by diamond_install() lives (the folder may not exist yet)
 #' diamond_path()
+#' \dontrun{
+#' # download DIAMOND into that folder (needs an internet connection)
+#' diamond_install()
 #' }
 #' @seealso \code{\link{diamond_path}}, \code{\link{diamond}}
 #' @export

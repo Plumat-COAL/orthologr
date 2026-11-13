@@ -35,8 +35,9 @@
 #' in \code{failed}. Default is \code{50}.
 #' @param dS_saturation pairs with a dS above this value are counted as saturated in the summary. Default is \code{2}.
 #' @param kaks_calc_path the folder that holds KaKs_Calculator (for its methods, see \code{\link{substitutionrate}}).
-#' @param delete_corrupt_cds a logical value: leave out coding sequences whose length is not a multiple of 3.
-#' Default is \code{TRUE} (such sequences cannot be used in a codon alignment).
+#' @param delete_corrupt_cds a logical value: what happens to coding sequences whose length is not a multiple
+#' of 3. \code{FALSE} (default, as in \code{\link{dNdS}} and \code{\link{orthogroups}}): the incomplete codon at the
+#' end is cut off. \code{TRUE}: the sequence is left out (table \code{failed}).
 #' @param comp_cores the number of R processes (\code{engine = "orthologr"}) or threads.
 #' @param quiet a logical value: do not show the messages of the alignment and estimation steps.
 #' @param aa_aln_scoring with \code{engine = "coal"}: how the pairwise protein alignments COAL makes itself are
@@ -69,7 +70,7 @@
 #' \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 #' }
 #' @author Chloe Newton
-#' @examples \dontrun{
+#' @examplesIf all(nzchar(Sys.which(c("diamond", "perl"))))
 #' files <- c(
 #'   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'   Alyrata   = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
@@ -78,7 +79,8 @@
 #' res$pairs
 #' res$summary
 #'
-#' # in one step, all groups, one Clustal Omega alignment per group
+#' \dontrun{
+#' # in one step, all groups, one Clustal Omega alignment per group (needs Clustal Omega)
 #' res <- dNdS_orthogroups(files, groups = "all", aa_aln_tool = "clustalo", comp_cores = 2)
 #' }
 #' @seealso \code{\link{orthogroups}}, \code{\link{dNdS_clusters}}, \code{\link{dNdS}}, \code{\link{substitutionrate}}
@@ -94,7 +96,7 @@ dNdS_orthogroups <- function(x,
                              max_group_size     = 50,
                              dS_saturation      = 2,
                              kaks_calc_path     = NULL,
-                             delete_corrupt_cds = TRUE,
+                             delete_corrupt_cds = FALSE,
                              comp_cores         = 1,
                              quiet              = TRUE,
                              aa_aln_scoring     = "pwalign",
@@ -133,10 +135,14 @@ dNdS_orthogroups <- function(x,
                      "with pairwise_aln(), i.e. \"pwalign\".", call. = FALSE)
         comp_cores <- check_comp_cores(comp_cores)
         
+        # the arguments of this call, for the record of the run (attr(<result>, "orthologr_run"))
+        run_args <- run_arguments()
+        
         if (!inherits(x, "orthogroups")) {
                 if (!is.null(cds_files))
                         stop("When 'x' holds the files of the coding sequences, 'cds_files' must be NULL.", call. = FALSE)
-                x <- orthogroups(x, seq_type = "cds", comp_cores = comp_cores, quiet = quiet, ...)
+                x <- orthogroups(x, seq_type = "cds", comp_cores = comp_cores, quiet = quiet,
+                                 delete_corrupt_cds = delete_corrupt_cds, ...)
         } else if (...length() > 0) {
                 stop("Unused argument", if (...length() > 1) "s", ": ", paste(names(list(...)), collapse = ", "),
                      " ('...' is handed to orthogroups() when 'x' holds files).", call. = FALSE)
@@ -241,11 +247,38 @@ dNdS_orthogroups <- function(x,
         if (nrow(failed) > 0)
                 message(nrow(failed), " gene(s) or group(s) could not be used; see the 'failed' table of the result.")
         
-        list(
+        # the status of every gene pair (last column of 'pairs'; see ?dNdS, "Status of a gene pair"), one summary
+        # message and the record of the run
+        engine_status <- ifelse(is.na(res_pairs$note), NA_character_, sub(":.*$", "", res_pairs$note))
+        pair_failed <- if (engine == "orthologr") !is.na(res_pairs$note) else
+                !is.na(res_pairs$note) & (is.element(engine_status, c("error", "failed")) | startsWith(res_pairs$note, "COAL returned no result"))
+        status <- dnds_status(res_pairs$dN, res_pairs$dS, res_pairs$dNdS, failed = pair_failed, engine_status = engine_status)
+        summary_tbl <- dnds_groups_summary(res_pairs, m, dS_saturation = dS_saturation)
+        if (dnds_status_column())
+                res_pairs[["status"]] <- status
+        message(dnds_summary_text(status, dS = res_pairs$dS, fun = "dNdS_orthogroups()",
+                                  what = paste0("gene pairs in ", length(unique(res_pairs$orthogroup)), " groups"),
+                                  failed_where = "the column 'note' of the table 'pairs'"))
+        
+        out <- list(
                 pairs   = tibble::as_tibble(res_pairs),
-                summary = tibble::as_tibble(dnds_groups_summary(res_pairs, m, dS_saturation = dS_saturation)),
+                summary = tibble::as_tibble(summary_tbl),
                 failed  = tibble::as_tibble(failed)
         )
+        attr(out, "orthologr_run") <- run_record(
+                fun = "dNdS_orthogroups", args = run_args, engine = engine,
+                tools = dnds_groups_tool_versions(engine, aa_aln_tool, aa_aln_path, dnds_est.method, kaks_calc_path),
+                files = cds_files, status = status)
+        out
+}
+
+# The versions of the programs dNdS_orthogroups() used.
+dnds_groups_tool_versions <- function(engine, aa_aln_tool, aa_aln_path, dnds_est.method, kaks_calc_path) {
+        if (engine == "orthologr")
+                return(run_tool_versions(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = "pal2nal",
+                                         kaks = is.element(dnds_est.method[1], kaks_calculator_methods()),
+                                         kaks_calc_path = kaks_calc_path))
+        dnds_groups_coal_versions(aa_aln_tool, aa_aln_path)
 }
 
 # ---- input ----------------------------------------------------------------------------------------------------

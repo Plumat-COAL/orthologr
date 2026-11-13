@@ -19,8 +19,7 @@ is.ortho_detection_method <- function(method = NULL){
         provided <- c("BH","RBH")
         
         if(is.null(method)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -33,8 +32,7 @@ is.multiple_aln_tool <- function(tool = NULL){
         provided <- c("clustalw", "clustalo","muscle", "t_coffee", "mafft")
         
         if(is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -46,8 +44,7 @@ is.pairwise_aln_tool <- function(tool = NULL){
         provided <- c("NW")
         
         if(is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -59,8 +56,7 @@ is.codon_aln_tool <- function(tool = NULL){
         provided <-  c("pal2nal", "coal")
         
         if(is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -75,8 +71,7 @@ is.dnds_est_method <- function(method = NULL){
         provided <- c("Comeron","Li",kaks_calc_methods)
         
         if (is.null(method)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -88,8 +83,7 @@ is.alignment_search_tool <- function(tool = NULL){
         provided <-  c("ggsearch","ssearch")
         
         if (is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         

@@ -110,7 +110,7 @@ The function uses \code{\link{set_diamond}} internally to handle CDS translation
 and DIAMOND2 database creation.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.which("diamond"))) withAutoprint(\{ # examplesIf}
 # Cluster a single proteome (protein sequences, the default)
 deepclust(
   input_file = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr')
@@ -124,6 +124,7 @@ deepclust(
   )
 )
 
+\dontrun{
 # Apply identity and coverage thresholds across multiple proteomes
 deepclust(
   input_file = c(
@@ -136,13 +137,13 @@ deepclust(
   comp_cores   = 4
 )
 
-# Save the cluster TSV to the current working directory
+# Save the cluster TSV to the folder tempdir()
 deepclust(
   input_file = c(
     system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
     system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr')
   ),
-  save.output = getwd()
+  save.output = tempdir()
 )
 
 # Cluster CDS sequences (translated to protein internally)
@@ -151,6 +152,7 @@ deepclust(
   seq_type   = "cds"
 )
 }
+\dontshow{\}) # examplesIf}
 }
 \references{
 Buchfink, B., Reuter, K., & Drost, H. G. (2021) "Sensitive protein alignments

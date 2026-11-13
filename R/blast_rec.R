@@ -48,44 +48,34 @@
 #'
 #' Camacho C., Coulouris G., Avagyan V., Ma N., Papadopoulos J., Bealer K., & Madden T.L. (2008) "BLAST+: architecture and applications." BMC Bioinformatics 10:421.
 #'
-#' @examples \dontrun{
+#' @examplesIf all(nzchar(Sys.which(c("blastp", "makeblastdb"))))
 #' # performing gene orthology inference using the reciprocal best hit (RBH) method
 #' blast_rec(query_file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'           subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
-#'           
-#'           
-#'           
+#'
 #' # performing gene orthology inference using the reciprocal best hit (RBH) method
 #' # starting with protein sequences
 #' blast_rec(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'           subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'           seq_type     = "protein")
-#' 
-#' 
-#' 
-#' # save the BLAST output file to the current working directory
+#'
+#' # save the BLAST output file to the folder tempdir()
 #' blast_rec(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'           subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'           seq_type     = "protein",
-#'           save.output  = getwd())
-#' 
-#' 
-#' 
+#'           save.output  = tempdir())
+#'
 #' # use multicore processing
-#' blast_rec(query_file    = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'), 
+#' blast_rec(query_file    = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'            comp_cores   = 2)
-#'            
-#'            
-#'            
+#'
+#' \dontrun{
 #' # performing gene orthology inference using the reciprocal best hit (RBH) method
 #' # and external path to blastp
 #' blast_rec(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'           subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'           path         = "path/to/blastp")
-#'           
-#'           
-#'           
 #' }
 #'
 #' @return A data.table as returned by the \code{\link{blast}} function, storing the geneids
@@ -124,7 +114,7 @@ blast_rec <- function(query_file,
                       save.output     = NULL,
                       best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")){
         
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         
         # both files are needed for both search directions: read and translate each of them once
         end_seq_cache <- seq_cache_start()

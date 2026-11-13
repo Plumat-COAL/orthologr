@@ -87,3 +87,10 @@ dnds_groups_coal <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_aln_pa
                         note = "COAL returned no result for this pair"))
         got
 }
+
+# The versions of the programs engine = "coal" used.
+dnds_groups_coal_versions <- function(aa_aln_tool, aa_aln_path = NULL) {
+        c(if (aa_aln_tool != "pairwise") run_tool_versions(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path) else
+                list(Biostrings = package_version_text("Biostrings"), R = paste(R.version$major, R.version$minor, sep = ".")),
+          coal_versions())
+}

@@ -64,38 +64,30 @@
 #' @author Hajk-Georg Drost
 #' @return A data.table storing the query_ids of orthologous genes in the first column, the subject_ids of
 #' orthologous genes in the second column and the amino acid sequences in the third column.
-#' @examples \dontrun{
-#'
+#' @examplesIf nzchar(Sys.which("diamond"))
 #' ### DIAMOND2 Reciprocal Best Hit (default)
-#'
 #' orthologs(query_file      = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'           subject_files   = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'           seq_type        = "protein")
 #'
-#'
 #' ### DIAMOND2 Best Hit
-#'
 #' orthologs(query_file      = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'           subject_files   = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'           seq_type        = "protein",
 #'           ortho_detection = "DIAMOND_BH")
 #'
-#'
+#' @examplesIf all(nzchar(Sys.which(c("blastp", "makeblastdb"))))
 #' ### BLAST Reciprocal Best Hit
-#'
 #' orthologs(query_file      = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'           subject_files   = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'           seq_type        = "protein",
 #'           ortho_detection = "RBH")
 #'
-#'
 #' ### BLAST Best Hit
-#'
 #' orthologs(query_file      = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'           subject_files   = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'           seq_type        = "protein",
 #'           ortho_detection = "BH")
-#' }
 #' @seealso \code{\link{orthogroups}} (two or more species), \code{\link{diamond_rec}}, \code{\link{diamond_best}}, \code{\link{blast_rec}}, \code{\link{dNdS}}
 #' @param best_hit_rule how the best hit of a query is chosen among its hits:
 #' \itemize{
@@ -135,7 +127,7 @@ orthologs <- function(query_file,
                       clean_folders      = FALSE,
                       best_hit_rule      = getOption("orthologr.best_hit_rule", "bitscore")) {
         
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
 
         if (!is.element(ortho_detection,
                         c("DIAMOND_RBH", "DIAMOND_BH", "BH", "RBH", "Orthofinder2")))

@@ -56,11 +56,27 @@ coal_check_methods <- function(methods, what, other = "engine = \"orthologr\"") 
                      "\" needs a COAL that computes Comeron's and Li's method (coalr >= 0.5.0 whose ",
                      "coalr::coal_info()$methods lists \"Comeron\" and \"Li\"; ",
                      if (is.null(have)) "coalr is not installed" else paste0("the installed coalr ", have, " does not"),
-                     "). Update it with remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\"), ",
+                     "). Update it with remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\", ref = \"improve/pass2\"), ",
                      "choose one of ", paste0("\"", coal_kaks_calculator_methods(), "\"", collapse = ", "),
                      ", or use ", other, ".", call. = FALSE)
         }
         invisible(methods)
+}
+
+# The versions of COAL in use, for the record of a run.
+coal_versions <- function() {
+        v <- list()
+        if (requireNamespace("coalr", quietly = TRUE)) {
+                v$coalr <- package_version_text("coalr")
+                engine <- tryCatch(coalr::coal_info()$version, error = function(e) NULL)
+                if (!is.null(engine) && length(engine) == 1)
+                        v$coal <- as.character(engine)
+        } else {
+                exe <- tryCatch(coal_backend()$path, error = function(e) NULL)
+                if (!is.null(exe))
+                        v$`coal-cpp` <- tool_version_line(exe, "--version")
+        }
+        v
 }
 
 # The arguments that make COAL's Comeron and Li give orthologr's numbers, for a function `fun` of coalr (only the
@@ -73,7 +89,7 @@ coal_flavour_args <- function(fun) {
         args <- list(
                 comeron_flavour = "gestimator",
                 li_flavour      = "seqinr",
-                terminal_stops  = if (isTRUE(getOption("orthologr.legacy_pairwise_aln", FALSE))) "compare" else "drop"
+                terminal_stops  = if (isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))) "compare" else "drop"
         )
         args[intersect(names(args), names(formals(fun)))]
 }
@@ -132,7 +148,7 @@ coal_orthologr_values <- function(tbl) {
 coal_install_message <- function() {
         paste0(
                 "COAL is not available. Install its R package (recommended; runs inside R, no other program needed):\n",
-                "    remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\")\n",
+                "    remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\", ref = \"improve/pass2\")\n",
                 "or put COAL's 'coal-cpp' program on the PATH (pip install coal-align; ",
                 "or set options(orthologr.coal_path = \"/path/to/coal-cpp\"))."
         )
@@ -154,7 +170,7 @@ coal_backend <- function(need = NULL) {
         if (identical(forced, "coalr") || identical(need, "coalr"))
                 stop(
                         "This needs the R package 'coalr' (COAL's C++ engine inside R). Install it with:\n",
-                        "    remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\")",
+                        "    remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\", ref = \"improve/pass2\")",
                         call. = FALSE
                 )
 
@@ -370,8 +386,9 @@ cds_vector <- function(cds_dt) {
 #' of them.
 #' @param aa_sub_matrix the substitution matrix: \code{"BLOSUM62"} (Default), \code{"BLOSUM45"}, \code{"BLOSUM80"} or \code{"PAM250"}.
 #' @param comp_cores the number of threads COAL (and the DIAMOND or BLAST search) uses.
-#' @param quiet a logical value specifying whether the output of the search tool shall be printed to the console.
-#' @param print_citation a logical value indicating whether or not the citation message shall be printed.
+#' @param quiet \code{TRUE} (default): one line at the start and one summary at the end of the run (messages).
+#' \code{FALSE}: also the messages of the search program.
+#' @param print_citation a logical value indicating whether the citation note is shown (as a message, once per R session).
 #' @param best_hit_rule how best hits are chosen: \code{"bitscore"} (default since orthologr 0.5.0) or \code{"evalue"}
 #' (the rule of orthologr <= 0.4.3); see \code{\link{dNdS}} and \code{\link{diamond_best}}.
 #' \code{options(orthologr.best_hit_rule = "evalue")} sets the old rule for a session.
@@ -399,19 +416,20 @@ cds_vector <- function(cds_dt) {
 #' protein identity, status and note) is attached as \code{attr(result, "coal")}.
 #'
 #' This function needs the R package \pkg{coalr}:
-#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")}.
 #' @author Chloe Newton
 #' @return A tibble with the columns of \code{\link{dNdS}}: \code{query_id}, \code{subject_id}, \code{dN}, \code{dS},
 #' \code{dNdS}, \code{method} and the columns of the hit table.
-#' @examples \dontrun{
-#' dNdS_coal(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
-#'           subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'           dnds_est.method = "YN", comp_cores = 2)
+#' @examplesIf nzchar(system.file(package = "coalr"))
+#' if (nzchar(Sys.which("diamond"))) {
+#'   dNdS_coal(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
+#'             subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
+#'             dnds_est.method = "YN", comp_cores = 2)
 #'
-#' # the same through dNdS()
-#' dNdS(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
-#'      subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'      dnds_est.method = "YN", engine = "coal")
+#'   # the same through dNdS()
+#'   dNdS(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
+#'        subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
+#'        dnds_est.method = "YN", engine = "coal")
 #' }
 #' @seealso \code{\link{dNdS}}, \code{\link{dNdS_clusters}}, \code{\link{diamond_rec}}
 #' @export
@@ -434,7 +452,7 @@ dNdS_coal <- function(query_file,
                       print_citation     = TRUE,
                       best_hit_rule      = getOption("orthologr.best_hit_rule", "bitscore")) {
 
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
 
         if (!is.element(aligner, c("diamond", "blast")))
                 stop("engine = \"coal\" detects orthologs with aligner = \"diamond\" or \"blast\".", call. = FALSE)
@@ -452,18 +470,15 @@ dNdS_coal <- function(query_file,
         coal_backend(need = "coalr")
         coal_check_methods(dnds_est.method, "engine = \"coal\"")
 
-        message("\n")
-        message("Starting orthology inference (", ortho_detection, ") and dNdS estimation (",
-                paste(dnds_est.method, collapse = ", "), ") with the COAL engine using the follwing parameters:")
-        message("query = '", basename(query_file), "'")
-        message("subject = '", basename(subject_file), "'")
-        message("aligner = ", "'", basename(aligner), "'")
-        if (aligner == "diamond")
-                message("sensitivity_mode = ", "'", basename(sensitivity_mode), "'")
-        message("e-value: ", eval)
-        message("aa_aln_scoring = '", aa_aln_scoring, "' (", aa_sub_matrix, ")")
-        message("comp_cores = '", comp_cores, "'")
-        message("\n")
+        # the arguments of this call, for the record of the run (attr(<result>, "orthologr_run"))
+        run_args <- run_arguments()
+
+        message("dNdS_coal(): ", if (ortho_detection == "RBH") "reciprocal best hits" else "best hits", " of '",
+                basename(query_file), "' against '", basename(subject_file), "' (", aligner,
+                if (aligner == "diamond") paste0(", sensitivity_mode '", sensitivity_mode, "'"),
+                ", e-value ", eval, ", best_hit_rule '", best_hit_rule, "'), then dN/dS by method '",
+                paste(dnds_est.method, collapse = "', '"), "' with the COAL engine (aa_aln_scoring '", aa_aln_scoring,
+                "', ", aa_sub_matrix, ", comp_cores = ", comp_cores, ").")
 
         # the search step works in a folder of its own, removed when the call ends
         end_tmpdir <- orthologr_tmpdir_start("orthologr_dNdS_")
@@ -480,7 +495,7 @@ dNdS_coal <- function(query_file,
         isoforms_query <- isoform_warning(query_file, "query_file")
         isoform_warning(subject_file, "subject_file")
 
-        message("Starting Orthology Inference ...")
+        detail_message(quiet, "Starting Orthology Inference ...")
 
         if (aligner == "diamond" & ortho_detection == "BH")
                 align <- function(...)
@@ -495,7 +510,7 @@ dNdS_coal <- function(query_file,
                 align <- function(...)
                         blast_rec(..., blast_params = aligner_params)
 
-        hit.table <-
+        hit.table <- quiet_search(
                 align(
                         query_file   = query_file,
                         subject_file = subject_file,
@@ -506,7 +521,7 @@ dNdS_coal <- function(query_file,
                         eval         = eval,
                         format       = format,
                         best_hit_rule = best_hit_rule
-                )
+                ), quiet = quiet)
 
         data.table::setDT(hit.table)
         data.table::setkeyv(hit.table, c("query_id", "subject_id"))
@@ -525,8 +540,8 @@ dNdS_coal <- function(query_file,
         if (nrow(pairs) == 0)
                 stop("No orthologs could be found! Please check your input files!", call. = FALSE)
 
-        message("Orthology Inference Completed.")
-        message("Starting dN/dS Estimation (COAL, ", nrow(pairs), " gene pairs) ...")
+        detail_message(quiet, "Orthology Inference Completed: ", nrow(pairs), " gene pairs.")
+        detail_message(quiet, "Starting dN/dS Estimation (COAL, all gene pairs in one call) ...")
 
         coal_tbl <- do.call(coalr::coal_dnds_pairs, c(list(
                 query_cds   = cds_vector(q_cds),
@@ -541,13 +556,16 @@ dNdS_coal <- function(query_file,
         coal_raw <- coal_tbl
         coal_tbl <- coal_orthologr_values(coal_tbl)
 
+        # (.coal_status / .coal_note: what COAL said about the row; used for the column 'status' and removed)
         dNdS_tbl <- data.table::data.table(
                 query_id   = coal_tbl$seq1,
                 subject_id = coal_tbl$seq2,
                 dN         = coal_tbl$dN,
                 dS         = coal_tbl$dS,
                 dNdS       = coal_tbl$dNdS,
-                method     = coal_tbl$method
+                method     = coal_tbl$method,
+                .coal_status = as.character(coal_tbl$status),
+                .coal_note   = as.character(coal_tbl$note)
         )
         data.table::setkeyv(dNdS_tbl, c("query_id", "subject_id"))
         dNdS_tbl <- tibble::as_tibble(dNdS_tbl)
@@ -572,29 +590,21 @@ dNdS_coal <- function(query_file,
         # joined with the hit table by the pair (query_id and subject_id), as dNdS() does
         res <- dplyr::inner_join(dNdS_tbl, tibble::as_tibble(hit.table), by = c("query_id", "subject_id"))
 
-        # sequences that were left out before the search (file, id, reason), and a note on splice variants
-        dropped <- end_dropped()
-        if (!is.null(dropped)) {
-                attr(res, "dropped_sequences") <- dropped
-                if (nrow(dropped) > 0)
-                        message(nrow(dropped), " input sequence", if (nrow(dropped) > 1) "s were" else " was",
-                                " left out before the search (", paste0(table(dropped$reason), " x ", names(table(dropped$reason)), collapse = "; "),
-                                "). They are listed in attr(<result>, \"dropped_sequences\").")
-        }
+        # The end of the run, as in dNdS(): the status of every row (last column), the attributes
+        # "dropped_sequences", "failed_pairs", "coal" (COAL's own table) and "orthologr_run", one summary message.
+        engine_status <- res[[".coal_status"]]
+        note <- res[[".coal_note"]]
+        res[[".coal_status"]] <- NULL
+        res[[".coal_note"]] <- NULL
+        res <- dnds_finish(
+                res, failed_pairs = failed, dropped = end_dropped(), engine_status = engine_status,
+                not_converged = sum(grepl("not converge|did not converge|no convergence", note, ignore.case = TRUE)),
+                record = list(fun = "dNdS_coal", args = run_args, engine = "coal",
+                              tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path), coal_versions()),
+                              files = c(query_file, subject_file)),
+                print_citation = print_citation, extra_attr = list(coal = coal_raw)
+        )
         isoform_result_note(res, isoforms_query)
-
-        attr(res, "failed_pairs") <- failed
-        attr(res, "coal") <- coal_raw
-
-        message("dN/dS Estimation Completed.")
-
-        if (print_citation) {
-                message("\n")
-                message("Please cite the following paper when using orthologr for your own research:")
-                cat("Drost et al. Evidence for Active Maintenance of Phylotranscriptomic Hourglass Patterns in Animal and Plant Embryogenesis. 2015. Mol. Biol. Evol. 32 (5): 1221-1231.")
-                message("\n")
-                message("\n")
-        }
 
         return(res)
 }
@@ -639,7 +649,7 @@ dNdS_coal <- function(query_file,
 #' @param ... additional arguments passed to \code{\link{deepclust}} when \code{clusters = NULL}
 #' (e.g. \code{approx_id}, \code{mutual_cover}).
 #' @details This function needs the R package \pkg{coalr}:
-#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")}.
 #' A gene, pair or cluster that cannot be used never ends the run: see the \code{status} and \code{note} columns and
 #' the \code{failed} table.
 #' @author Chloe Newton
@@ -659,14 +669,17 @@ dNdS_coal <- function(query_file,
 #' (\pkg{coalr}'s own summary takes the statistics over the pairs with status \code{"ok"} only.)
 #' \item \code{failed}: genes and clusters that could not be used, and why.
 #' }
-#' @examples \dontrun{
+#' @examplesIf nzchar(system.file(package = "coalr"))
 #' cds <- system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr')
-#' # cluster with DIAMOND DeepClust, then dN/dS within each cluster
-#' res <- dNdS_clusters(cds, aa_aln_tool = "pairwise")
-#' res$pairs
-#' res$summary
+#' if (nzchar(Sys.which("diamond"))) {
+#'   # cluster with DIAMOND DeepClust, then dN/dS within each cluster
+#'   res <- dNdS_clusters(cds, aa_aln_tool = "pairwise")
+#'   res$pairs
+#'   res$summary
+#' }
 #'
-#' # with clusters computed before
+#' \dontrun{
+#' # with clusters computed before, one Clustal Omega alignment per cluster (needs Clustal Omega)
 #' cl <- deepclust(cds, seq_type = "cds")
 #' res <- dNdS_clusters(cds, clusters = cl, aa_aln_tool = "clustalo", comp_cores = 2)
 #' }
@@ -697,6 +710,9 @@ dNdS_clusters <- function(cds_file,
         check_aa_aln_scoring(aa_aln_scoring)
         coal_backend(need = "coalr")
         coal_check_methods(dnds_est.method, "dNdS_clusters()", other = "dNdS() or dNdS_orthogroups(engine = \"orthologr\")")
+
+        # the arguments of this call, for the record of the run (attr(<result>, "orthologr_run"))
+        run_args <- run_arguments()
 
         if (is.null(clusters)) {
                 message("Clustering the sequences with DIAMOND DeepClust ...")
@@ -754,11 +770,33 @@ dNdS_clusters <- function(cds_file,
         if (nrow(res$failed) > 0)
                 message(nrow(res$failed), " gene(s) or cluster(s) could not be used; see the 'failed' table of the result.")
 
-        list(
+        # the column 'status' in the words used by all dN/dS functions (see ?dNdS, "Status of a gene pair"; COAL's
+        # own words are "ok", "saturated", "no_data", "warning", "error"), one summary message, the record of the run
+        if (nrow(pairs) > 0 && all(is.element(c("dN", "dS", "dNdS", "status"), names(pairs)))) {
+                not_converged <- if (is.element("note", names(pairs)))
+                        sum(grepl("not converge|did not converge|no convergence", pairs$note, ignore.case = TRUE)) else 0
+                status <- dnds_status(pairs$dN, pairs$dS, pairs$dNdS, engine_status = pairs$status)
+                if (dnds_status_column())
+                        pairs$status <- status
+                message(dnds_summary_text(status, dS = pairs$dS, not_converged = not_converged, fun = "dNdS_clusters()",
+                                          what = paste0("gene pairs in ", length(unique(pairs$cluster_id)), " clusters"),
+                                          failed_where = "the column 'note' of the table 'pairs'"))
+        } else {
+                status <- NULL
+        }
+
+        out <- list(
                 pairs   = tibble::as_tibble(pairs),
                 summary = tibble::as_tibble(res$summary),
                 failed  = tibble::as_tibble(res$failed)
         )
+        attr(out, "orthologr_run") <- run_record(
+                fun = "dNdS_clusters", args = run_args, engine = "coal",
+                tools = c(if (is.null(run_args$clusters)) run_tool_versions(aligner = "diamond", aligner_path = path),
+                          if (aa_aln_tool != "pairwise") run_tool_versions(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path),
+                          coal_versions()),
+                files = cds_file, status = status)
+        out
 }
 
 # The rule by which dNdS_clusters() and dNdS_orthogroups() summarise a group, in one place:
@@ -811,3 +849,19 @@ dnds_cluster_summary_stats <- function(summary, pairs) {
         first_stat <- match(stat_cols[1], names(summary))
         cbind(summary[ , seq_len(first_stat - 1L), drop = FALSE], counts, summary[ , first_stat:ncol(summary), drop = FALSE])
 }
+
+#' @name orthologr_options
+#' @rdname orthologr_options
+#' @section Options and environment variable of the COAL integration:
+#' Read by \code{dNdS(engine = "coal")}, \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}},
+#' \code{dNdS_orthogroups(engine = "coal")}, \code{codon_aln(tool = "coal")} and
+#' \code{substitutionrate(kaks_tool = "coal")}.
+#' \describe{
+#' \item{\code{orthologr.coal_backend}}{\code{NULL} (default: the R package \pkg{coalr} when it is installed, else
+#' the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}.}
+#' \item{\code{orthologr.coal_path}}{the full path of the program \code{coal-cpp} (default \code{""}: the
+#' environment variable \code{COAL_CPP}, then the \code{PATH}).}
+#' \item{environment variable \code{COAL_CPP}}{the full path of the program \code{coal-cpp}, used when it is not on
+#' the \code{PATH} and \code{options(orthologr.coal_path = )} is not set.}
+#' }
+NULL

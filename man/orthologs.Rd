@@ -130,38 +130,31 @@ BLAST based methods:
 }
 }
 \examples{
-\dontrun{
-
+\dontshow{if (nzchar(Sys.which("diamond"))) withAutoprint(\{ # examplesIf}
 ### DIAMOND2 Reciprocal Best Hit (default)
-
 orthologs(query_file      = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
           subject_files   = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
           seq_type        = "protein")
 
-
 ### DIAMOND2 Best Hit
-
 orthologs(query_file      = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
           subject_files   = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
           seq_type        = "protein",
           ortho_detection = "DIAMOND_BH")
-
-
+\dontshow{\}) # examplesIf}
+\dontshow{if (all(nzchar(Sys.which(c("blastp", "makeblastdb"))))) withAutoprint(\{ # examplesIf}
 ### BLAST Reciprocal Best Hit
-
 orthologs(query_file      = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
           subject_files   = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
           seq_type        = "protein",
           ortho_detection = "RBH")
 
-
 ### BLAST Best Hit
-
 orthologs(query_file      = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
           subject_files   = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
           seq_type        = "protein",
           ortho_detection = "BH")
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{orthogroups}} (two or more species), \code{\link{diamond_rec}}, \code{\link{diamond_best}}, \code{\link{blast_rec}}, \code{\link{dNdS}}

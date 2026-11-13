@@ -91,46 +91,36 @@ that were found to be best hits in both directions are retained and returned.
 This function can be used to perform orthology inference using BLAST+ best reciprocal hit methodology.
 }
 \examples{
-\dontrun{
+\dontshow{if (all(nzchar(Sys.which(c("blastp", "makeblastdb"))))) withAutoprint(\{ # examplesIf}
 # performing gene orthology inference using the reciprocal best hit (RBH) method
 blast_rec(query_file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
           subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
-          
-          
-          
+
 # performing gene orthology inference using the reciprocal best hit (RBH) method
 # starting with protein sequences
 blast_rec(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
           subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
           seq_type     = "protein")
 
-
-
-# save the BLAST output file to the current working directory
+# save the BLAST output file to the folder tempdir()
 blast_rec(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
           subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
           seq_type     = "protein",
-          save.output  = getwd())
-
-
+          save.output  = tempdir())
 
 # use multicore processing
-blast_rec(query_file    = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'), 
+blast_rec(query_file    = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
            comp_cores   = 2)
-           
-           
-           
+
+\dontrun{
 # performing gene orthology inference using the reciprocal best hit (RBH) method
 # and external path to blastp
 blast_rec(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
           subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
           path         = "path/to/blastp")
-          
-          
-          
 }
-
+\dontshow{\}) # examplesIf}
 }
 \references{
 Altschul, S.F., Gish, W., Miller, W., Myers, E.W. & Lipman, D.J. (1990) "Basic local alignment search tool." J. Mol. Biol. 215:403-410.

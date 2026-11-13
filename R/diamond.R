@@ -47,23 +47,22 @@
 #' Buchfink, B., Reuter, K., & Drost, H. G. (2021) "Sensitive protein alignments at tree-of-life scale using DIAMOND." Nature methods, 18(4), 366-368.
 #'
 #' https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options
-#' @examples \dontrun{
+#' @examplesIf nzchar(Sys.which("diamond"))
 #' # performing a DIAMOND2 search using diamond blastp (default)
 #' diamond(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'         subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
 #'
-#' # performing a DIAMOND2 search using diamond blastp (default) 
+#' # performing a DIAMOND2 search using diamond blastp (default)
 #' # using amino acid sequences as input file
 #' diamond(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'         subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'         seq_type     = "protein")
 #'
-#'
-#' # save the DIAMOND2 output table in your current working directory
+#' # save the DIAMOND2 output table in the folder tempdir()
 #' diamond(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'         subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'         seq_type     = "protein",
-#'         save.output  = getwd())
+#'         save.output  = tempdir())
 #'
 #' # in case you are working with a multicore machine, you can also run parallel
 #' # DIAMOND2 computations using the comp_cores parameter: here with 2 cores
@@ -71,13 +70,12 @@
 #'         subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'         comp_cores   = 2)
 #'
-#'
 #'  # running diamond using additional parameters
 #'  diamond(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'          subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'          diamond_params = "--max-target-seqs 1")
 #'
-#'
+#' \dontrun{
 #' # running diamond using additional parameters and an external diamond path
 #'  diamond(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'          subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),

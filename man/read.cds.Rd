@@ -31,11 +31,10 @@ It is possible to read in different proteome file standards such as \emph{fasta}
 CDS stored in fasta files can be downloaded from https://www.ensembl.org/info/data/ftp/index.html, etc.
 }
 \examples{
-\dontrun{
 # reading a cds file stored in fasta format
 Ath.cds <- read.cds(system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
                     format = "fasta")
-}
+head(Ath.cds, 2)
 
 }
 \author{

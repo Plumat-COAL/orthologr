@@ -37,10 +37,11 @@
 #'
 #' Camacho C., Coulouris G., Avagyan V., Ma N., Papadopoulos J., Bealer K., & Madden T.L. (2008) "BLAST+: architecture and applications." BMC Bioinformatics 10:421.
 #'
-#' @examples \dontrun{
-#'  # running the set function to see an example output
-#'  head(set_blast(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))[[1]] , 2)
-#' }
+#' @examples
+#' # the coding sequences of a file and their translations, as used for a BLAST search
+#' # (no BLAST database is made: makedb = FALSE)
+#' res <- set_blast(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))
+#' head(res[[1]], 2)
 #' @seealso \code{\link{blast_best}}, \code{\link{blast_rec}}, \code{\link{blast}}
 #' @export
 

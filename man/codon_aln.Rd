@@ -56,7 +56,7 @@ The popular codon alignment tool PAL2NAL is included in this package and is bein
 \code{tool} = \code{"coal"} builds the codon alignment with COAL, a re-implementation of PAL2NAL's algorithm that does
 not need Perl and has no limit on the protein length (PAL2NAL fails for proteins of more than about 21,800 residues).
 COAL is optional: install its R package with
-\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}, or put the \code{coal-cpp} program on
+\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")}, or put the \code{coal-cpp} program on
 the \code{PATH} (\code{pip install coal-align}; \code{options(orthologr.coal_path = )} names another location).
 The PAL2NAL parameters in \code{params} are not available with \code{tool = "coal"}.
 }
@@ -73,27 +73,25 @@ have the same order
 }
 }
 \examples{
-
-\dontrun{
-
+\dontshow{if (nzchar(Sys.which("perl"))) withAutoprint(\{ # examplesIf}
 # performing a codon alignment using PAL2NAL
 codon_aln <- codon_aln(file_aln = system.file('seqs/aa_seqs.aln', package = 'orthologr'),
-                       file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'), 
-                       format   = "clustal", 
-                       tool     = "pal2nal", 
-                       get_aln  = TRUE)
-                       
-                       
+                       file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'),
+                       format   = "clustal",
+                       tool     = "pal2nal",
+                       get_aln  = TRUE,
+                       quiet    = TRUE)
+
 # running PAL2NAL with additional parameters (e.g. a different codon table)
 codon_aln <- codon_aln(file_aln = system.file('seqs/aa_seqs.aln', package = 'orthologr'),
-                       file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'), 
-                       format   = "clustal", 
-                       tool     = "pal2nal", 
+                       file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'),
+                       format   = "clustal",
+                       tool     = "pal2nal",
                        get_aln  = TRUE,
-                       params   = "-codontable 2")
-                        
-}
+                       params   = "-codontable 2",
+                       quiet    = TRUE)
                        
+\dontshow{\}) # examplesIf}
 }
 \references{
 Mikita Suyama, David Torrents, and Peer Bork (2006)

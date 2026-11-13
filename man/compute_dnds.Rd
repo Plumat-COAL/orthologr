@@ -43,7 +43,8 @@ Default is \code{aa_aln_type} = "multiple".}
 \item{kaks_calc_path}{a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).}
 
-\item{quiet}{a logical value specifying whether a successful interface call shall be printed out.}
+\item{quiet}{\code{FALSE}: a progress message about every tenth of the gene pairs (the programs called for a
+gene pair no longer report every file they write).}
 
 \item{comp_cores}{a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.}
 

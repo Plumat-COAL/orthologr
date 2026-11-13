@@ -55,3 +55,13 @@ hits/
 tie_break_hits.tsv, tie_break_expected.tsv
     A hand-written hit table in the 21-column format of diamond() / blast() in which every level of the best-hit
     rules decides once, and the best hit expected under best_hit_rule = "bitscore" and "evalue".
+
+dnds_0.4.3/
+-----------
+comeron_20.rds, yn_20.rds
+    The tables dNdS() of orthologr 0.4.3 (drostlab/orthologr, commit 06c3098) returns for the 20-gene example of
+    the package (inst/seqs/ortho_thal_cds.fasta against ortho_lyra_cds.fasta) with its defaults and
+    dnds_est.method = "Comeron" / "YN", as plain data.frames, with the versions that made them. Made on
+    2026-11-13 by make_fixture.R (same folder) with DIAMOND 2.2.8, KaKs_Calculator 2.0 and R 4.5.3.
+    test-legacy.R compares them with what this version returns under orthologr_legacy_options() and under
+    options(orthologr.legacy = TRUE).

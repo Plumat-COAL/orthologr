@@ -26,7 +26,8 @@
 #' @param store_locally a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.
 #' @param kaks_tool the program that computes the KaKs_Calculator methods: \code{"kaks_calculator"} (Default) or \code{"coal"}; see \code{\link{substitutionrate}}.
 #' @param aa_sub_matrix the substitution matrix for pairwise amino acid alignments (\code{aa_aln_type = "pairwise"}); see \code{\link{pairwise_aln}}.
-#' @param quiet a logical value specifying whether a successful interface call shall be printed out.
+#' @param quiet \code{FALSE}: a progress message about every tenth of the gene pairs (the programs called for a
+#' gene pair no longer report every file they write).
 #' @param comp_cores a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.
 #' @param clean_folders a boolean value spefiying whether all internall folders storing the output of used programs
 #' shall be removed. Default is \code{clean_folders} = \code{FALSE}.
@@ -100,20 +101,22 @@ compute_dnds <- function(complete_tbl,
                         file.path(idx_dir, "pair_ids.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
         }
         
+        # The six columns of the pair table as plain vectors: one_pair() reads one element of each per gene pair,
+        # and six look-ups in the data.table per pair took about 9 % of the run time.
+        q_ids <- complete_tbl[["query_id"]]
+        s_ids <- complete_tbl[["subject_id"]]
+        q_cds <- complete_tbl[["query_cds"]]
+        s_cds <- complete_tbl[["subject_cds"]]
+        q_aa  <- complete_tbl[["query_aa"]]
+        s_aa  <- complete_tbl[["subject_aa"]]
+        
         # the complete pipeline for gene pair i: write the two FASTA files, align the proteins,
         # build the codon alignment, estimate dN/dS
         one_pair <- function(i) {
-                # storing the query gene id and subject gene id of the orthologous gene pair
-                orthologs_names <-
-                        list(complete_tbl[i , query_id], complete_tbl[i, subject_id])
-                
-                # storing the query CDS sequence and subject CDS sequence of the orthologous gene pair
-                cds_seqs <-
-                        list(complete_tbl[i, query_cds], complete_tbl[i, subject_cds])
-                
-                # storing the query amino acid sequence and subject amino acid sequence of the orthologous gene pair
-                aa_seqs <-
-                        list(complete_tbl[i, query_aa], complete_tbl[i, subject_aa])
+                # the IDs, coding sequences and amino acid sequences of the gene pair
+                orthologs_names <- list(q_ids[i], s_ids[i])
+                cds_seqs <- list(q_cds[i], s_cds[i])
+                aa_seqs <- list(q_aa[i], s_aa[i])
                 
                 aa_aln_name <- paste0("q", i)
                 
@@ -158,7 +161,7 @@ compute_dnds <- function(complete_tbl,
                                 multi_aln_name = aa_aln_name,
                                 path           = aa_aln_path,
                                 params         = aa_aln_params,
-                                quiet          = quiet
+                                quiet          = TRUE
                         )
                         
                         aa_aln_file <-
@@ -179,7 +182,7 @@ compute_dnds <- function(complete_tbl,
                                 get_aln           = FALSE,
                                 pairwise_aln_name = aa_aln_name,
                                 path              = aa_aln_path,
-                                quiet             = quiet,
+                                quiet             = TRUE,
                                 store_locally     = store_locally,
                                 aa_sub_matrix     = aa_sub_matrix
                         )
@@ -201,7 +204,7 @@ compute_dnds <- function(complete_tbl,
                         format         = "fasta",
                         codon_aln_name = aa_aln_name,
                         get_aln        = FALSE,
-                        quiet          = quiet
+                        quiet          = TRUE
                 )
                 
                 # compute kaks
@@ -215,7 +218,7 @@ compute_dnds <- function(complete_tbl,
                         subst_name     = aa_aln_name,
                         kaks_calc_path = kaks_calc_path,
                         est.method     = dnds_est.method,
-                        quiet          = quiet,
+                        quiet          = TRUE,
                         kaks_tool      = kaks_tool
                 )
                 
@@ -237,12 +240,11 @@ compute_dnds <- function(complete_tbl,
                         one_pair(i),
                         error = function(e) {
                                 dnds_na_row(
-                                        query_id   = complete_tbl[i, query_id],
-                                        subject_id = complete_tbl[i, subject_id],
+                                        query_id   = q_ids[i],
+                                        subject_id = s_ids[i],
                                         est.method = dnds_est.method,
                                         # (the messages name the pair by the names in its files)
-                                        reason     = dnds_pair_reason(conditionMessage(e), complete_tbl[i, query_id],
-                                                                      complete_tbl[i, subject_id])
+                                        reason     = dnds_pair_reason(conditionMessage(e), q_ids[i], s_ids[i])
                                 )
                         }
                 )
@@ -254,10 +256,20 @@ compute_dnds <- function(complete_tbl,
         
         .reason <- NULL
         
+        # Progress (only when not quiet): a message about every tenth of the gene pairs. With several R processes
+        # the pairs are handed out in pieces of that size, so that there is something to report in between; the
+        # result does not depend on it.
+        n_pairs <- nrow(complete_tbl)
+        step <- progress_step(n_pairs)
+        t_start <- proc.time()[["elapsed"]]
+        
         if (!multicore) {
-                dNdS_values <- vector(mode = "list", length = nrow(complete_tbl))
-                for (i in seq_len(nrow(complete_tbl)))
+                dNdS_values <- vector(mode = "list", length = n_pairs)
+                for (i in seq_len(n_pairs)) {
                         dNdS_values[[i]] <- safe_pair(i)
+                        if (!quiet && i %% step == 0 && i < n_pairs)
+                                progress_message(i, n_pairs, t_start)
+                }
         }
         
         if (multicore) {
@@ -268,7 +280,17 @@ compute_dnds <- function(complete_tbl,
                 finished <- FALSE
                 on.exit(dnds_cluster_stop(par_cores, finished = finished), add = TRUE)
                 
-                dNdS_values <- parallel::parLapply(par_cores, seq_len(nrow(complete_tbl)), safe_pair)
+                if (quiet || n_pairs <= step) {
+                        dNdS_values <- parallel::parLapply(par_cores, seq_len(n_pairs), safe_pair)
+                } else {
+                        pieces <- split(seq_len(n_pairs), ceiling(seq_len(n_pairs) / step))
+                        dNdS_values <- list()
+                        for (piece in pieces) {
+                                dNdS_values <- c(dNdS_values, parallel::parLapply(par_cores, piece, safe_pair))
+                                if (length(dNdS_values) < n_pairs)
+                                        progress_message(length(dNdS_values), n_pairs, t_start)
+                        }
+                }
                 finished <- TRUE
         }
         

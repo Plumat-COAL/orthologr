@@ -96,22 +96,26 @@ the codons are threaded onto the alignment and Ka/Ks is estimated for the pairs 
 }
 \details{
 This function needs the R package \pkg{coalr}:
-\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")}.
 A gene, pair or cluster that cannot be used never ends the run: see the \code{status} and \code{note} columns and
 the \code{failed} table.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(system.file(package = "coalr"))) withAutoprint(\{ # examplesIf}
 cds <- system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr')
-# cluster with DIAMOND DeepClust, then dN/dS within each cluster
-res <- dNdS_clusters(cds, aa_aln_tool = "pairwise")
-res$pairs
-res$summary
+if (nzchar(Sys.which("diamond"))) {
+  # cluster with DIAMOND DeepClust, then dN/dS within each cluster
+  res <- dNdS_clusters(cds, aa_aln_tool = "pairwise")
+  res$pairs
+  res$summary
+}
 
-# with clusters computed before
+\dontrun{
+# with clusters computed before, one Clustal Omega alignment per cluster (needs Clustal Omega)
 cl <- deepclust(cds, seq_type = "cds")
 res <- dNdS_clusters(cds, clusters = cl, aa_aln_tool = "clustalo", comp_cores = 2)
 }
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{deepclust}}, \code{\link{deepclust_realign}}, \code{\link{dNdS_coal}}, \code{\link{dNdS}}

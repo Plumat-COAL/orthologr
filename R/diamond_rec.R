@@ -50,44 +50,34 @@
 #'
 #' https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options
 #'
-#' @examples \dontrun{
+#' @examplesIf nzchar(Sys.which("diamond"))
 #' # performing gene orthology inference using the reciprocal best hit (RBH) method
 #' diamond_rec(query_file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'             subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
-#'           
-#'           
-#'           
+#'
 #' # performing gene orthology inference using the reciprocal best hit (RBH) method
 #' # starting with protein sequences
 #' diamond_rec(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'             subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'             seq_type     = "protein")
-#' 
-#' 
-#' 
-#' # save the DIAMOND2 output file to the current working directory
+#'
+#' # save the DIAMOND2 output file to the folder tempdir()
 #' diamond_rec(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'             subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'             seq_type     = "protein",
-#'             save.output  = getwd())
-#' 
-#' 
-#' 
+#'             save.output  = tempdir())
+#'
 #' # use multicore processing
-#' diamond_rec(query_file    = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'), 
+#' diamond_rec(query_file    = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'             subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'             comp_cores   = 2)
-#'            
-#'            
-#'            
+#'
+#' \dontrun{
 #' # performing gene orthology inference using the reciprocal best hit (RBH) method
 #' # and external path to diamond
 #' diamond_rec(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'             subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'             path         = "path/to/diamond")
-#'           
-#'           
-#'           
 #' }
 #'
 #' @return A data.table as returned by the \code{\link{diamond}} function, storing the geneids
@@ -129,7 +119,7 @@ diamond_rec <- function(
                 save.output     = NULL,
                 best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")){
         
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         
         # both files are needed for both search directions: read and translate each of them once
         end_seq_cache <- seq_cache_start()

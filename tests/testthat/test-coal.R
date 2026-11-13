@@ -36,7 +36,7 @@ test_that("COAL is optional: a helpful message when it is not installed ...", {
         old <- options(orthologr.coal_backend = "none")
         on.exit(options(old), add = TRUE)
         expect_false(is_installed_coal())
-        expect_error(coal_backend(), "install_github\\(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\"\\)")
+        expect_error(coal_backend(), "install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\"", fixed = TRUE)
         aln <- write_fasta(c(aa_a, aa_b), c("gene-A", "gene-B"))
         nuc <- write_fasta(c(cds_a, cds_b), c("gene-A", "gene-B"))
         expect_error(codon_aln(file_aln = aln, file_nuc = nuc, format = "fasta", tool = "coal", quiet = TRUE),

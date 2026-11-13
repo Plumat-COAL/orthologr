@@ -55,10 +55,10 @@ This function reads a file storing a specific sequence type, such as "cds", "pro
  as data.table object for further DIAMOND2 searches.
 }
 \examples{
-\dontrun{
- # running the set function to see an example output
- head(set_diamond(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))[[1]] , 2)
-}
+# the coding sequences of a file and their translations, as used for a DIAMOND search
+# (no DIAMOND database is made: makedb = FALSE)
+res <- set_diamond(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))
+head(res[[1]], 2)
 }
 \references{
 Buchfink, B., Reuter, K., & Drost, H. G. (2021) "Sensitive protein alignments at tree-of-life scale using DIAMOND." Nature methods, 18(4), 366-368.

@@ -67,7 +67,7 @@
 #' https://www.ncbi.nlm.nih.gov/books/NBK1763/table/CmdLineAppsManual.T.options_common_to_al/?report=objectonly
 #'
 #' https://blast.ncbi.nlm.nih.gov/Blast.cgi
-#' @examples \dontrun{
+#' @examplesIf all(nzchar(Sys.which(c("blastp", "makeblastdb"))))
 #' # performing a BLAST search using blastp (default)
 #' blast(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'       subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
@@ -77,19 +77,17 @@
 #'       subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'       seq_type     = "protein")
 #'
-#'
-#' # save the BLAST output table in your current working directory
+#' # save the BLAST output table in the folder tempdir()
 #' blast(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'       subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'       seq_type     = "protein",
-#'       save.output  = getwd())
+#'       save.output  = tempdir())
 #'
 #' # in case you are working with a multicore machine, you can also run parallel
 #' # BLAST computations using the comp_cores parameter: here with 2 cores
 #' blast(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'       subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'       comp_cores   = 2)
-#'
 #'
 #'  # keeping one aligned sequence per query: use the max.target.seqs argument
 #'  # (blast() sets -max_target_seqs itself; passing it again in blast_params makes BLAST stop)
@@ -102,7 +100,7 @@
 #'        subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'        blast_params = "-seg yes -word_size 3")
 #'
-#'
+#' \dontrun{
 #' # running blastp using additional parameters and an external blastp path
 #'  blast(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'        subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),

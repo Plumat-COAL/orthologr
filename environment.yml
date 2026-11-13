@@ -2,7 +2,7 @@
 #
 #   conda env create -f environment.yml        (or: mamba / micromamba env create -f environment.yml)
 #   conda activate orthologr
-#   Rscript -e 'remotes::install_github("drostlab/orthologr")'
+#   Rscript -e 'remotes::install_github("Plumat-COAL/orthologr@integration/all")'
 #
 # Only DIAMOND and Perl are needed for the default dNdS() path; the other programs are optional
 # (BLAST+: aligner = "blast"; KaKs_Calculator: dN/dS methods other than Comeron and Li; the multiple
