@@ -29,7 +29,8 @@ dNdS(
   comp_cores = 1,
   quiet = TRUE,
   clean_folders = FALSE,
-  print_citation = TRUE
+  print_citation = TRUE,
+  aa_sub_matrix = "BLOSUM62"
 )
 }
 \arguments{
@@ -133,6 +134,11 @@ Default is \code{quiet} = \code{FALSE}.}
 \code{tempdir()}, which is always removed when the call ends (see Details), so there is nothing left to clean.}
 
 \item{print_citation}{a logical value indicating whether or not the citation message shall be printed.}
+
+\item{aa_sub_matrix}{the substitution matrix used to score pairwise amino acid alignments (\code{aa_aln_type = "pairwise"}):
+the name of a matrix shipped with \pkg{pwalign}, e.g. \code{"BLOSUM62"} (Default), a numeric substitution matrix, or \code{NULL}
+for the scoring of \pkg{orthologr} <= 0.4.3 (no substitution matrix). See \code{\link{pairwise_aln}} for details and for how to
+reproduce dN/dS values computed with earlier versions.}
 }
 \value{
 A data.table storing the dNdS values of the correspnding genes.

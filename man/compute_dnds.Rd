@@ -16,7 +16,8 @@ compute_dnds(
   kaks_calc_path = NULL,
   quiet = FALSE,
   comp_cores = 1,
-  clean_folders = FALSE
+  clean_folders = FALSE,
+  aa_sub_matrix = "BLOSUM62"
 )
 }
 \arguments{
@@ -47,6 +48,8 @@ Default is \code{aa_aln_type} = "multiple".}
 
 \item{clean_folders}{a boolean value spefiying whether all internall folders storing the output of used programs
 shall be removed. Default is \code{clean_folders} = \code{FALSE}.}
+
+\item{aa_sub_matrix}{the substitution matrix for pairwise amino acid alignments (\code{aa_aln_type = "pairwise"}); see \code{\link{pairwise_aln}}.}
 }
 \description{
 This function takes a vector containing the
