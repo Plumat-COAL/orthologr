@@ -128,7 +128,12 @@ cds2aa <- function(dt, delete_corrupt_cds = TRUE){
         
         # translate cds to protein sequences
         tryCatch({
-                dt[ , aa := transl(seqs), by = geneids]
+                if (anyDuplicated(dt[ , geneids]) > 0) {
+                        # the same ID more than once: keep what the per-gene translation did
+                        dt[ , aa := transl(seqs), by = geneids]
+                } else {
+                        dt[ , aa := translate_cds(seqs)]
+                }
                 
         }, error = function(e) {
                 stop(
@@ -166,4 +171,27 @@ report_dropped_cds <- function(ids) {
                 "."
         )
         invisible(ids)
+}
+
+# Translate coding sequences (character vector) with the standard genetic code; the result is what transl()
+# (seqinr::translate()) returns for each of them. Sequences of A, C, G, T whose length is a multiple of 3 are
+# translated in one call to Biostrings::translate() (no.init.codon = TRUE: the first codon is translated like any
+# other, as seqinr does). All other sequences (ambiguity codes, incomplete last codon, empty) take the old path,
+# so that their result cannot differ.
+translate_cds <- function(seqs) {
+        seqs <- as.character(seqs)
+        res <- character(length(seqs))
+        if (length(seqs) == 0)
+                return(res)
+        n <- nchar(seqs)
+        fast <- !is.na(seqs) & n > 0 & n %% 3 == 0 & !grepl("[^ACGTacgt]", seqs)
+        if (any(fast))
+                res[fast] <- as.character(Biostrings::translate(
+                        Biostrings::DNAStringSet(seqs[fast]),
+                        genetic.code  = Biostrings::GENETIC_CODE,
+                        no.init.codon = TRUE
+                ))
+        if (any(!fast))
+                res[!fast] <- vapply(seqs[!fast], transl, character(1), USE.NAMES = FALSE)
+        res
 }

@@ -21,8 +21,6 @@ Imports:
     fs,
     parallel (>= 3.0.2),
     dplyr (>= 0.3.0.2),
-    doParallel (>= 1.0.8),
-    foreach,
     Rcpp (>= 0.11.3),
     Biostrings (>= 2.52.0),
     pwalign (>= 1.6.0),
