@@ -54,10 +54,16 @@ test_that("arguments of the COAL options are checked ...", {
         expect_error(run_dNdS(kaks_tool = "INVALID"), "kaks_tool")
         expect_error(run_dNdS(dnds_est.method = "GY", kaks_tool = "coal"), "needs kaks_tool = \"kaks_calculator\"")
         skip_if_not(coalr_available, "the R package coalr is not installed")
-        expect_error(run_dNdS(engine = "coal"), "\"Comeron\" is only available with engine = \"orthologr\"")
+        # Comeron (the default method) and Li need a COAL that has them; other methods are not COAL's at all
+        if (!coal_has_native_methods())
+                expect_error(run_dNdS(engine = "coal"), "needs a COAL that computes Comeron's and Li's method")
+        expect_error(run_dNdS(engine = "coal", dnds_est.method = "MA"), "\"MA\" is only available with engine = \"orthologr\"")
+        expect_error(run_dNdS(engine = "coal", dnds_est.method = "YN", aa_aln_scoring = "blast"), "aa_aln_scoring")
+        expect_error(run_dNdS(aa_aln_scoring = "needle"), "needs engine = \"coal\"")
         expect_error(run_dNdS(engine = "coal", dnds_est.method = "YN", ortho_detection = "Orthofinder2"),
                      "RBH")
-        expect_error(dNdS_clusters(query_cds, dnds_est.method = "Comeron"), "dnds_est.method")
+        expect_error(dNdS_clusters(query_cds, dnds_est.method = "GY"), "dnds_est.method")
+        expect_error(dNdS_clusters(query_cds, aa_aln_scoring = "x"), "aa_aln_scoring")
         expect_error(dNdS_clusters(query_cds, aa_aln_tool = "clustalw"), "aa_aln_tool")
         expect_error(dNdS_clusters("no_such_file.fasta"), "not found")
 })
@@ -270,8 +276,9 @@ test_that("dNdS_clusters() computes dN/dS for the pairs of deepclust() clusters 
         expect_equal(unname(member_of[res$pairs$subject_id]), res$pairs$cluster_id)
         # the summary is the summary of the pairs
         one <- res$summary[res$summary$n_pairs > 0, ][1, ]
-        p <- res$pairs[res$pairs$cluster_id == one$cluster_id & res$pairs$status %in% c("ok", "warning"), ]
-        expect_equal(one$dN_median, stats::median(p$dN))
+        p <- res$pairs[res$pairs$cluster_id == one$cluster_id, ]
+        expect_equal(one$dN_median, stats::median(p$dN, na.rm = TRUE))
+        expect_equal(one$n_dN, sum(!is.na(p$dN)))
         expect_equal(one$dNdS_mean, mean(p$dNdS[!is.na(p$dNdS)]))
         # clusters = NULL runs deepclust() itself; the realign table (seven columns) is accepted too
         auto <- suppressMessages(dNdS_clusters(c(query_cds, subject_cds), aa_aln_tool = "pairwise"))

@@ -7,7 +7,10 @@ test_that("dNdS_orthogroups(engine = 'coal') checks its arguments", {
         expect_error(dNdS_orthogroups(og, engine = "coal"), "COAL is not available")
         options(old)
         skip_if_not_installed("coalr")
-        expect_error(dNdS_orthogroups(og, engine = "coal", dnds_est.method = "Comeron"), "only available with engine = \"orthologr\"")
+        expect_error(dNdS_orthogroups(og, engine = "coal", dnds_est.method = "GY"), "only available with engine = \"orthologr\"")
+        if (!coal_has_native_methods())
+                expect_error(dNdS_orthogroups(og, engine = "coal", dnds_est.method = "Comeron"), "needs a COAL that computes")
+        expect_error(dNdS_orthogroups(og, aa_aln_tool = "pairwise", aa_aln_scoring = "needle"), "needs engine = \"coal\"")
         expect_error(dNdS_orthogroups(og, engine = "coal", aa_aln_tool = "muscle"), "aa_aln_tool = 'muscle' is not supported")
 })
 
