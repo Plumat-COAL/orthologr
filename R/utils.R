@@ -53,7 +53,7 @@ is.pairwise_aln_tool <- function(tool = NULL){
 
 is.codon_aln_tool <- function(tool = NULL){
         
-        provided <-  c("pal2nal")
+        provided <-  c("pal2nal", "coal")
         
         if(is.null(tool)){
                 message("The following methods are provided: ", paste(provided, collapse = ", "))

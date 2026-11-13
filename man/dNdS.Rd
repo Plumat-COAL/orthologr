@@ -31,6 +31,9 @@ dNdS(
   clean_folders = FALSE,
   print_citation = TRUE,
   aa_sub_matrix = "BLOSUM62",
+  kaks_tool = "kaks_calculator",
+  engine = "orthologr",
+  aa_aln_scoring = "pwalign",
   best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
 )
 }
@@ -86,7 +89,7 @@ Any other value is an error (\code{"Orthofinder2"}, \code{"PO"} and \code{"DELTA
 
 \item{cdd.path}{deprecated and not used (a warning is given when it is set).}
 
-\item{aligner_params}{a character string specifying additional parameters that shall be passed to DIAMOND or BLAST. Default is \code{aligner_params} = \code{NULL}.}
+\item{aligner_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters that shall be passed to DIAMOND or BLAST. Default is \code{aligner_params} = \code{NULL}.}
 
 \item{eval}{a numeric value specifying the E-Value cutoff for DIAMOND or BLAST hit detection.}
 
@@ -105,7 +108,7 @@ Any other value is an error (\code{"Orthofinder2"}, \code{"PO"} and \code{"DELTA
 
 \item{aa_aln_path}{a character string specifying the path to the multiple alignment program (in case you don't use the default path).}
 
-\item{aa_aln_params}{a character string with command-line parameters for the multiple alignment program selected via
+\item{aa_aln_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string with command-line parameters for the multiple alignment program selected via
 \code{aa_aln_tool}. It is handed to \code{\link{multi_aln}} as \code{params} and \emph{replaces} the default parameters
 of that program (see there; the alignment must still be written in CLUSTAL or FASTA format, e.g.
 \code{aa_aln_tool = "mafft", aa_aln_params = "--maxiterate 1 --clustalout"}). It is not used (with a warning)
@@ -113,8 +116,9 @@ with \code{aa_aln_type = "pairwise"}. Until version 0.4.3 the argument was accep
 Note: this controls the amino acid alignment step only, not the initial DIAMOND or BLAST homology search
 (use \code{aligner_params} for that). Default is \code{aa_aln_params} = \code{NULL} (the default parameters).}
 
-\item{codon_aln_tool}{a character string specifying the codon alignment tool that shall be used. Default is \code{codon_aln_tool} = \code{"pal2nal"}.
-Right now only "pal2nal" can be selected as codon alignment tool.}
+\item{codon_aln_tool}{a character string specifying the codon alignment tool that shall be used: \code{"pal2nal"} (Default;
+the PAL2NAL Perl script shipped with this package) or \code{"coal"} (COAL: the same codon alignments without Perl, computed
+inside R when the package \pkg{coalr} is installed; see \code{\link{codon_aln}}).}
 
 \item{kaks_calc_path}{a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).}
@@ -149,6 +153,27 @@ Default is \code{quiet} = \code{FALSE}.}
 the name of a matrix shipped with \pkg{pwalign}, e.g. \code{"BLOSUM62"} (Default), a numeric substitution matrix, or \code{NULL}
 for the scoring of \pkg{orthologr} <= 0.4.3 (no substitution matrix). See \code{\link{pairwise_aln}} for details and for how to
 reproduce dN/dS values computed with earlier versions.}
+
+\item{kaks_tool}{the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
+\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
+program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).
+With a COAL that computes them, \code{kaks_tool = "coal"} also computes \code{"Comeron"} and \code{"Li"} (same
+values as the built-in code for the same codon alignment).}
+
+\item{engine}{\code{"orthologr"} (Default): each gene pair is processed on its own (protein alignment, codon alignment and
+dN/dS estimation with the tools chosen above, with intermediate files per pair). \code{"coal"}: the batched fast path
+\code{\link{dNdS_coal}}: orthologs are detected as usual, then all gene pairs are aligned and estimated by COAL in one
+call, in memory and on \code{comp_cores} threads. \code{engine = "coal"} needs the package \pkg{coalr}, a
+\code{dnds_est.method} that COAL computes (\code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"},
+\code{"YN"}, \code{"MYN"}; and \code{"Comeron"} - the default method - and \code{"Li"} with a \pkg{coalr} that has
+them, see \code{\link{dNdS_coal}}), \code{ortho_detection} \code{"RBH"} or \code{"BH"}, and ignores
+\code{aa_aln_type}, \code{aa_aln_tool}, \code{codon_aln_tool}, \code{kaks_tool} and \code{store_locally}. It
+returns the same table, with the same attributes.}
+
+\item{aa_aln_scoring}{with \code{engine = "coal"}: how COAL scores the pairwise protein alignments -
+\code{"pwalign"} (Default; the scoring of \code{\link{pairwise_aln}}, so that the alignments are those of
+\code{engine = "orthologr"} up to co-optimal alignments) or \code{"needle"} (COAL's own defaults). The same
+argument as in \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}.}
 
 \item{best_hit_rule}{how the best hit of a query is chosen among its hits:
 \itemize{
@@ -253,6 +278,7 @@ The \code{dNdS()} function can be used choosing the folllowing options:
 \item \code{codon_aln_tool} :
 \itemize{
  \item \code{"pal2nal"}
+ \item \code{"coal"}
  }
 \item \code{dnds_est.method} : 
 \itemize{
@@ -272,7 +298,8 @@ The \code{dNdS()} function can be used choosing the folllowing options:
 \section{Status of a gene pair}{
 
 The last column of the result, \code{status}, says how each gene pair came out. The same words are used by
-\code{dNdS()} and in the \code{pairs} tables of \code{\link{dNdS_orthogroups}}:
+\code{dNdS()} with either engine, \code{\link{dNdS_coal}}, and in the \code{pairs} tables of
+\code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}:
 \describe{
 \item{\code{"ok"}}{dN, dS and dN/dS were estimated;}
 \item{\code{"dS_zero"}}{dN and dS were estimated and dS is 0 (no synonymous change), so that the ratio is not
@@ -280,8 +307,8 @@ defined: \code{dNdS} is \code{NA}. \code{\link{filter_dNdS}} leaves such pairs o
 \item{\code{"saturated"}}{dN or dS is \code{NA} because the correction for multiple substitutions at a site is
 not defined: the two sequences differ at so many sites of a class that the number of substitutions cannot be
 estimated. A pair that is saturated at synonymous sites usually still has its dN;}
-\item{\code{"no_data"}}{the pair has no codons that can be compared (the programs of \code{dNdS()} do not tell
-this case from \code{"saturated"});}
+\item{\code{"no_data"}}{the pair has no codons that can be compared (reported by \code{engine = "coal"}; the
+programs of \code{engine = "orthologr"} do not tell this case from \code{"saturated"});}
 \item{\code{"failed"}}{a step of the pipeline failed for the pair; the reason is in
 \code{attr(result, "failed_pairs")}.}
 }

@@ -98,9 +98,9 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 # Install the Bioconductor packages orthologr imports
 BiocManager::install(c("Biostrings", "pwalign"))
 
-# install orthologr from GitHub (this also installs its CRAN dependencies)
+# install orthologr 0.5.0 from GitHub (this also installs its CRAN dependencies)
 install.packages("remotes")
-remotes::install_github("drostlab/orthologr")
+remotes::install_github("Plumat-COAL/orthologr@integration/all")
 ```
 
 **Coming from orthologr 0.4.3?** Version 0.5.0 changes some defaults and results; the article
@@ -201,6 +201,25 @@ dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'ortho
 #   s_start <int>, s_end <int>, s_len <int>, evalue <dbl>, bit_score <dbl>, score_raw <dbl>
 ```
 
+A faster way to the same kind of table uses [COAL](https://github.com/Plumat-COAL/COAL) for the alignment,
+codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")`):
+
+```r
+# orthologs by DIAMOND reciprocal best hits, then all gene pairs in one batch (no Perl, no KaKs_Calculator)
+dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
+     subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
+     dnds_est.method = "YN",      # Yang and Nielsen (2000); also NG, LWL, MLWL, LPB, MLPB, MYN
+     engine          = "coal",
+     comp_cores      = 4)
+
+# dN/dS for all gene pairs within DIAMOND DeepClust clusters, with a per-cluster summary
+dNdS_clusters(cds_file = c("species1_cds.fasta", "species2_cds.fasta"), aa_aln_tool = "clustalo")
+```
+
+See `NEWS.md` for what `codon_aln_tool = "coal"`, `kaks_tool = "coal"` and `engine = "coal"` do and how their
+results relate to the default tools.
+
+
 When running your own query file, please specify `query_file = "path/to/your/cds.fasta` instead of `system.file(..., package = "orthologr")`. The command `system.file(..., package = "orthologr")` merely references the path to the example file stored in the `orthologr` package itself.
 
 
@@ -245,7 +264,8 @@ Hs_vs_Mm_filtered <- filter_dNdS(Hs_vs_Mm, dnds.threshold = 2)
 ```
 
 Run time: the default engine takes about 50 ms per gene pair and core (about 17,000 gene pairs for human and
-mouse: a quarter of an hour on one core, a few minutes on eight).
+mouse: a quarter of an hour on one core, a few minutes on eight). With the optional package `coalr`,
+`engine = "coal"` computes all pairs in one call on `comp_cores` threads and is about ten times faster.
 For species that are less than about 70 % identical at the protein level use `sensitivity_mode = "default"` or
 `"sensitive"`; when the summary reports that most gene pairs are saturated, the species are too distant for
 pairwise dN/dS. See `vignette("dNdS_estimation")`, section "Good practice", and - if you used orthologr 0.4.3
@@ -260,7 +280,7 @@ On Windows the package is built from source, which needs [Rtools](https://cran.r
 
 ```r
 install.packages("remotes")
-remotes::install_github("drostlab/orthologr")
+remotes::install_github("Plumat-COAL/orthologr@integration/all")
 ```
 
 The article [Setup on Windows](https://drostlab.github.io/orthologr/articles/setup_windows.html) describes how to
@@ -274,12 +294,17 @@ The complete list of functions is in the [reference](https://drostlab.github.io/
 ### dN/dS estimation
 
 * `dNdS()`: Compute dN/dS values for the orthologous genes of two organisms
+* `dNdS_coal()` (= `dNdS(engine = "coal")`), `dNdS_clusters()`: the same, and dN/dS within DeepClust clusters, with the COAL engine (optional package `coalr`)
 * `divergence_stratigraphy()`, `divergence_map()`, `filter_dNdS()`: divergence strata from dN/dS values
 * `map_generator_dnds()`, `read.dnds.tbl()`: dN/dS tables of one query against many subject organisms
 * `divergence_left_out()`: the gene pairs a divergence map does not hold, and why
 * `substitutionrate()`: dN/dS of one codon alignment
 * `orthogroups()`, `write_orthogroups()`, `dNdS_orthogroups()`: orthogroups of 2 to N species with DIAMOND, files in
   OrthoFinder's layout, dN/dS of all gene pairs within the groups
+
+Options that change results or behaviour (best-hit rule, the switches that restore numbers of 0.4.3, working
+folders, kind of parallel processes) and the way parameter strings for external programs are handled are listed in
+one place: [`?orthologr_options`](https://drostlab.github.io/orthologr/reference/orthologr_options.html).
 
 ### Sequence searches and orthology inference
 

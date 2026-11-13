@@ -4,9 +4,11 @@
 #' @param file_aln a character string specifying the path to the file storing the protein alignment in CLUSTAL or FASTA format.
 #' @param file_nuc a character string specifying the path to the file storing the coding sequences in multiple FASTA format.
 #' @param format a character string specifying the file format used to store the codon alignment, e.g. "fasta", "clustal".
-#' @param tool a character string specifying the program that should be used e.g. "pal2nal". 
+#' @param tool a character string specifying the program that should be used: \code{"pal2nal"} (Default; needs Perl)
+#' or \code{"coal"} (COAL, \url{https://github.com/Plumat-COAL/COAL}: the same codon alignment without Perl, computed inside R
+#' when the package \pkg{coalr} is installed and otherwise by the \code{coal-cpp} program). 
 #' @param codon_aln_name a character string specifying the name of the stored alignment file. 
-#' @param params a character string specifying additional parameters that shall be passed to PAL2NAL. For example
+#' @param params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters that shall be passed to PAL2NAL. For example
 #' \code{params} = \code{"-codontable 2"} would specify a codon table: \emph{vertebrate mitochondrial code}
 #' instead if the \emph{universal code} (default). The default value is \code{params} = \code{NULL}.
 #' Default is \code{codon_aln_name} = \code{NULL} denoting a default name: 'tool_name.aln' .
@@ -20,6 +22,13 @@
 #' a codon-based DNA alignment. The output codon-based DNA alignment can then be used for \code{\link{dNdS}} estimation.
 #' 
 #' The popular codon alignment tool PAL2NAL is included in this package and is being called when choosing \code{tool} = \code{"pal2nal"}.
+#' 
+#' \code{tool} = \code{"coal"} builds the codon alignment with COAL, a re-implementation of PAL2NAL's algorithm that does
+#' not need Perl and has no limit on the protein length (PAL2NAL fails for proteins of more than about 21,800 residues).
+#' COAL is optional: install its R package with
+#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}, or put the \code{coal-cpp} program on
+#' the \code{PATH} (\code{pip install coal-align}; \code{options(orthologr.coal_path = )} names another location).
+#' The PAL2NAL parameters in \code{params} are not available with \code{tool = "coal"}.
 #' @note
 #' 
 #' The PAL2NAL program automatically checks
@@ -84,16 +93,18 @@ codon_aln <- function(file_aln,
         # this is not an elegant version, only motivated by this discussion:
         # http://stackoverflow.com/questions/13463103/inst-and-extdata-folders-in-r-packaging
         # is there a better choice?
-        path <-
-                system.file(
-                        file.path("pal2nal", "pal2nal.v14", "pal2nal.pl"),
-                        package = "orthologr",
-                        mustWork = TRUE
-                )
-        #path <- "/exec/pal2nal.v14/"
+        if (!is.element(tool, c("pal2nal", "coal")))
+                stop("Please choose a tool that is supported by this function: 'pal2nal' or 'coal'.", call. = FALSE)
         
-        if (!is.element(tool, c("pal2nal")))
-                stop("Please choose a tool that is supported by this function.", call. = FALSE)
+        # the Pal2Nal program is stored as executable within
+        # the R package environment
+        if (tool == "pal2nal")
+                path <-
+                        system.file(
+                                file.path("pal2nal", "pal2nal.v14", "pal2nal.pl"),
+                                package = "orthologr",
+                                mustWork = TRUE
+                        )
         
         if (!is.element(format, c("clustal", "fasta")))
                 stop("Please choose a format that is supported by this function.", call. = FALSE)
@@ -140,6 +151,15 @@ codon_aln <- function(file_aln,
                 publish_file(tmp.out, file.out)
         }
         
+        # COAL: the same codon alignment without Perl: in process through the R package 'coalr' when it is
+        # installed, otherwise with the coal-cpp program
+        if (tool == "coal") {
+                if (!is.null(params))
+                        stop("'params' are PAL2NAL command-line parameters; they cannot be used with tool = \"coal\".", call. = FALSE)
+                coal_codon_aln_file(file_aln = file_aln, file_nuc = file_nuc, file.out = file.out, format = format,
+                                    context = pair_context(file_nuc, codon_aln_name))
+        }
+        
         if (!quiet) {
                 message(paste0("Codon Alignment successfully written in ", file.out, "."))
         }
@@ -158,7 +178,7 @@ codon_aln <- function(file_aln,
                         aln
                 }, error = function(e) {
                         stop(
-                                "Something went wront with Pal2Nal.pl .",
+                                "Something went wront with ", tool, " .",
                                 "\n",
                                 file.out,
                                 " could not be read properly.", call. = FALSE

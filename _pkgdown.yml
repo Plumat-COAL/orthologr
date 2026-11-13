@@ -8,6 +8,8 @@ reference:
   desc: "Synonymous and non-synonymous substitution rates of orthologous genes."
   contents:
   - dNdS
+  - dNdS_coal
+  - dNdS_clusters
   - substitutionrate
   - filter_dNdS
   - map_generator_dnds

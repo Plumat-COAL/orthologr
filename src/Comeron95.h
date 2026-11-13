@@ -257,7 +257,8 @@ void omega(const pair<string,string> *seq1,
     // A class without sites (L = 0) has weight 0 in As / Aa: an undefined logarithm there says nothing about
     // the estimate and is not a saturation ('none' takes the flag). (Differences can be counted in a class
     // without sites because the sites of a column are the mean of the two codons, while a change on a pathway
-    // between codons that differ at several positions is classified by an intermediate codon.)
+    // between codons that differ at several positions is classified by an intermediate codon.) This is the
+    // rule of COAL's Comeron (cpp/src/kaks_comeron.cpp), so both give the same NA pattern.
     bool none = false;
     log1 = checked_log (1.0 - (2.0 * P2S_site) - Qa, sites->L2S() > 0 ? saturated_s : none);
     log2 = checked_log (1.0 - (2.0 * Qa), sites->L2S() > 0 ? saturated_s : none);

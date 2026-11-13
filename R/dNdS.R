@@ -21,7 +21,7 @@
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet. 
 #' @param store_locally a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.
 #' @param cdd.path deprecated and not used (a warning is given when it is set).
-#' @param aligner_params a character string specifying additional parameters that shall be passed to DIAMOND or BLAST. Default is \code{aligner_params} = \code{NULL}. 
+#' @param aligner_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters that shall be passed to DIAMOND or BLAST. Default is \code{aligner_params} = \code{NULL}. 
 #' @param aligner_path a character string specifying the path to the DIAMOND or BLAST program (in case you don't use the default path).
 #' @param sensitivity_mode specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 #' \itemize{
@@ -54,7 +54,7 @@
 #' \code{aa_aln_type = "multiple"} one of \code{"clustalw"}, \code{"clustalo"}, \code{"mafft"}, \code{"muscle"},
 #' \code{"t_coffee"} (see \code{\link{multi_aln}}).
 #' @param aa_aln_path a character string specifying the path to the multiple alignment program (in case you don't use the default path).
-#' @param aa_aln_params a character string with command-line parameters for the multiple alignment program selected via
+#' @param aa_aln_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string with command-line parameters for the multiple alignment program selected via
 #' \code{aa_aln_tool}. It is handed to \code{\link{multi_aln}} as \code{params} and \emph{replaces} the default parameters
 #' of that program (see there; the alignment must still be written in CLUSTAL or FASTA format, e.g.
 #' \code{aa_aln_tool = "mafft", aa_aln_params = "--maxiterate 1 --clustalout"}). It is not used (with a warning)
@@ -65,8 +65,27 @@
 #' the name of a matrix shipped with \pkg{pwalign}, e.g. \code{"BLOSUM62"} (Default), a numeric substitution matrix, or \code{NULL}
 #' for the scoring of \pkg{orthologr} <= 0.4.3 (no substitution matrix). See \code{\link{pairwise_aln}} for details and for how to
 #' reproduce dN/dS values computed with earlier versions.
-#' @param codon_aln_tool a character string specifying the codon alignment tool that shall be used. Default is \code{codon_aln_tool} = \code{"pal2nal"}.
-#' Right now only "pal2nal" can be selected as codon alignment tool.
+#' @param codon_aln_tool a character string specifying the codon alignment tool that shall be used: \code{"pal2nal"} (Default;
+#' the PAL2NAL Perl script shipped with this package) or \code{"coal"} (COAL: the same codon alignments without Perl, computed
+#' inside R when the package \pkg{coalr} is installed; see \code{\link{codon_aln}}).
+#' @param kaks_tool the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
+#' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
+#' program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).
+#' With a COAL that computes them, \code{kaks_tool = "coal"} also computes \code{"Comeron"} and \code{"Li"} (same
+#' values as the built-in code for the same codon alignment).
+#' @param engine \code{"orthologr"} (Default): each gene pair is processed on its own (protein alignment, codon alignment and
+#' dN/dS estimation with the tools chosen above, with intermediate files per pair). \code{"coal"}: the batched fast path
+#' \code{\link{dNdS_coal}}: orthologs are detected as usual, then all gene pairs are aligned and estimated by COAL in one
+#' call, in memory and on \code{comp_cores} threads. \code{engine = "coal"} needs the package \pkg{coalr}, a
+#' \code{dnds_est.method} that COAL computes (\code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"},
+#' \code{"YN"}, \code{"MYN"}; and \code{"Comeron"} - the default method - and \code{"Li"} with a \pkg{coalr} that has
+#' them, see \code{\link{dNdS_coal}}), \code{ortho_detection} \code{"RBH"} or \code{"BH"}, and ignores
+#' \code{aa_aln_type}, \code{aa_aln_tool}, \code{codon_aln_tool}, \code{kaks_tool} and \code{store_locally}. It
+#' returns the same table, with the same attributes.
+#' @param aa_aln_scoring with \code{engine = "coal"}: how COAL scores the pairwise protein alignments -
+#' \code{"pwalign"} (Default; the scoring of \code{\link{pairwise_aln}}, so that the alignments are those of
+#' \code{engine = "orthologr"} up to co-optimal alignments) or \code{"needle"} (COAL's own defaults). The same
+#' argument as in \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}.
 #' @param kaks_calc_path a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 #' (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).
 #' @param dnds_est.method the dNdS estimation method that shall be used.
@@ -149,6 +168,7 @@
 #' \item \code{codon_aln_tool} :
 #' \itemize{
 #'  \item \code{"pal2nal"}
+#'  \item \code{"coal"}
 #'  }
 #' \item \code{dnds_est.method} : 
 #' \itemize{
@@ -207,7 +227,8 @@
 #' 
 #' @section Status of a gene pair:
 #' The last column of the result, \code{status}, says how each gene pair came out. The same words are used by
-#' \code{dNdS()} and in the \code{pairs} tables of \code{\link{dNdS_orthogroups}}:
+#' \code{dNdS()} with either engine, \code{\link{dNdS_coal}}, and in the \code{pairs} tables of
+#' \code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}:
 #' \describe{
 #' \item{\code{"ok"}}{dN, dS and dN/dS were estimated;}
 #' \item{\code{"dS_zero"}}{dN and dS were estimated and dS is 0 (no synonymous change), so that the ratio is not
@@ -215,8 +236,8 @@
 #' \item{\code{"saturated"}}{dN or dS is \code{NA} because the correction for multiple substitutions at a site is
 #' not defined: the two sequences differ at so many sites of a class that the number of substitutions cannot be
 #' estimated. A pair that is saturated at synonymous sites usually still has its dN;}
-#' \item{\code{"no_data"}}{the pair has no codons that can be compared (the programs of \code{dNdS()} do not tell
-#' this case from \code{"saturated"});}
+#' \item{\code{"no_data"}}{the pair has no codons that can be compared (reported by \code{engine = "coal"}; the
+#' programs of \code{engine = "orthologr"} do not tell this case from \code{"saturated"});}
 #' \item{\code{"failed"}}{a step of the pipeline failed for the pair; the reason is in
 #' \code{attr(result, "failed_pairs")}.}
 #' }
@@ -339,10 +360,16 @@ dNdS <- function(query_file,
                  clean_folders   = FALSE,
                  print_citation = TRUE,
                  aa_sub_matrix   = "BLOSUM62",
+                 kaks_tool       = "kaks_calculator",
+                 engine          = "orthologr",
+                 aa_aln_scoring  = "pwalign",
                  best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")
                  ){
         
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
+        
+        if (!is.element(engine, c("orthologr", "coal")))
+                stop("Please choose engine = \"orthologr\" or engine = \"coal\".", call. = FALSE)
         
         # what is not supported is rejected now, before any program is started
         dnds_check_args(
@@ -351,16 +378,20 @@ dNdS <- function(query_file,
                 seq_type         = seq_type,
                 format           = format,
                 ortho_detection  = ortho_detection,
-                aa_aln_type      = aa_aln_type,
-                aa_aln_tool      = aa_aln_tool,
-                aa_aln_params    = aa_aln_params
+                # engine = "coal" does not use the alignment arguments
+                aa_aln_type      = if (engine == "coal") "pairwise" else aa_aln_type,
+                aa_aln_tool      = if (engine == "coal") "NW" else aa_aln_tool,
+                aa_aln_params    = if (engine == "coal") NULL else aa_aln_params
         )
         
-        if (!is.codon_aln_tool(codon_aln_tool))
-                stop("Please choose a codon alignment tool that is supported by this function.", call. = FALSE)
-        
-        if (!is.dnds_est_method(dnds_est.method))
-                stop("Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+        # (engine = "coal" checks its methods itself - it takes several at once - and has no codon alignment tool)
+        if (engine != "coal") {
+                if (!is.codon_aln_tool(codon_aln_tool))
+                        stop("Please choose a codon alignment tool that is supported by this function.", call. = FALSE)
+                
+                if (length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method))
+                        stop("Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+        }
         
         for (unused in c("cdd.path", "ortho_path")) {
                 if (!is.null(get(unused)))
@@ -371,9 +402,54 @@ dNdS <- function(query_file,
         
         check_aa_sub_matrix(aa_sub_matrix)
         
-        # the programs of the chosen pipeline must be there before the search starts
-        dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = codon_aln_tool,
-                              dnds_est.method = dnds_est.method, kaks_calc_path = kaks_calc_path)
+        if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
+                stop("Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
+        
+        if (kaks_tool == "coal" && !is.element(dnds_est.method, c("Comeron", "Li", coal_methods())))
+                stop("kaks_tool = \"coal\" computes the methods ", paste(coal_methods(), collapse = ", "),
+                     "; dnds_est.method = \"", dnds_est.method, "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
+        
+        # COAL must be there before the search starts, not when the first gene pair needs it
+        if (engine == "orthologr" && (identical(codon_aln_tool, "coal") ||
+                                      (kaks_tool == "coal" && is.element(dnds_est.method, coal_methods()))))
+                coal_backend()
+        
+        # the programs of the chosen pipeline must be there before the search starts (engine = "coal" needs none)
+        if (engine == "orthologr")
+                dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = codon_aln_tool,
+                                      dnds_est.method = dnds_est.method, kaks_calc_path = kaks_calc_path,
+                                      need_kaks = !(kaks_tool == "coal" && is.element(dnds_est.method, coal_methods())))
+        
+        check_aa_aln_scoring(aa_aln_scoring)
+        if (engine == "orthologr" && aa_aln_scoring != "pwalign")
+                stop("aa_aln_scoring = \"", aa_aln_scoring, "\" needs engine = \"coal\" (engine = \"orthologr\" aligns with ",
+                     "pairwise_aln(), i.e. \"pwalign\").", call. = FALSE)
+        
+        # the batched fast path: all gene pairs in one call to COAL
+        if (engine == "coal") {
+                if (is.null(aa_sub_matrix) || !is.character(aa_sub_matrix))
+                        stop("engine = \"coal\" needs the name of a substitution matrix in aa_sub_matrix (e.g. \"BLOSUM62\").", call. = FALSE)
+                return(dNdS_coal(
+                        query_file         = query_file,
+                        subject_file       = subject_file,
+                        aligner            = aligner,
+                        sensitivity_mode   = sensitivity_mode,
+                        aligner_path       = aligner_path,
+                        seq_type           = seq_type,
+                        format             = format,
+                        ortho_detection    = ortho_detection,
+                        delete_corrupt_cds = delete_corrupt_cds,
+                        aligner_params     = aligner_params,
+                        eval               = eval,
+                        dnds_est.method    = dnds_est.method,
+                        aa_aln_scoring     = aa_aln_scoring,
+                        aa_sub_matrix      = aa_sub_matrix,
+                        comp_cores         = comp_cores,
+                        quiet              = quiet,
+                        print_citation     = print_citation,
+                        best_hit_rule      = best_hit_rule
+                ))
+        }
         
         # the arguments of this call, for the record of the run (attr(<result>, "orthologr_run"))
         run_args <- run_arguments()
@@ -522,7 +598,8 @@ dNdS <- function(query_file,
                                   quiet           = quiet,
                                   comp_cores      = comp_cores, 
                                   clean_folders   = clean_folders,
-                                  aa_sub_matrix   = aa_sub_matrix )
+                                  aa_sub_matrix   = aa_sub_matrix,
+                                  kaks_tool       = kaks_tool )
         
         # the dN/dS rows are joined with the hit table by the pair (query_id and subject_id; it was query_id only)
         res <- dplyr::inner_join(dNdS_tbl, tibble::as_tibble(hit.table), by = c("query_id", "subject_id"))
@@ -535,14 +612,16 @@ dNdS <- function(query_file,
         # The end of the run: the status of every gene pair (last column), the sequences that were left out before
         # the search (attr "dropped_sequences": file, id, reason), the gene pairs that could not be processed
         # (attr "failed_pairs"), the record of the run (attr "orthologr_run") and one summary message.
-        kaks_used <- is.element(dnds_est.method, kaks_calculator_methods())
+        kaks_used <- is.element(dnds_est.method, kaks_calculator_methods()) &&
+                !(kaks_tool == "coal" && is.element(dnds_est.method, coal_methods()))
         res <- dnds_finish(
                 res, failed_pairs = attr(dNdS_tbl, "failed_pairs"), dropped = end_dropped(),
                 record = list(fun = "dNdS", args = run_args, engine = "orthologr",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path,
                                                           aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path,
                                                           codon_aln_tool = codon_aln_tool, kaks = kaks_used,
-                                                          kaks_calc_path = kaks_calc_path)),
+                                                          kaks_calc_path = kaks_calc_path),
+                                        if (identical(codon_aln_tool, "coal") || kaks_tool == "coal") coal_versions()),
                               files = c(query_file, subject_file)),
                 print_citation = print_citation
         )

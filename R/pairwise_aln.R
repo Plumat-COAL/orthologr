@@ -29,7 +29,7 @@
 #' 
 #' The default pairwise alignment method is based on the \emph{Needleman-Wunsch Algorithm}.
 #' 
-#' Since \pkg{orthologr} 0.4.4 (see \code{NEWS.md}):
+#' Since \pkg{orthologr} 0.5.0 (see \code{NEWS.md}):
 #' \itemize{
 #' \item amino acid sequences are scored with \code{BLOSUM62} by default (argument \code{aa_sub_matrix});
 #' \item the alignment that is written is full length: every residue of both sequences is in it, and the overhanging
@@ -82,7 +82,6 @@ pairwise_aln <- function(file,
                 aa_sub_matrix <- NULL
         
         check_aa_sub_matrix(aa_sub_matrix)
-        
         
         if (!file.exists(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment", "pairwise_aln"))) {
                 dir.create(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment", "pairwise_aln"),

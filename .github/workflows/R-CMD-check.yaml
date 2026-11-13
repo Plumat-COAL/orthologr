@@ -10,6 +10,8 @@
 # Triggers: pushes to the default branch and to the working branches of a fork (integration/**, upstream/**,
 # upstream-v2/**, fix/**), pull requests, and a manual start (Actions tab > R-CMD-check.yaml > "Run workflow").
 # Actions must be enabled in the repository settings of a fork for any of them to run.
+#
+# The optional R package coalr (Suggests) is installed from the place named in the Remotes field of DESCRIPTION.
 on:
   push:
     branches:

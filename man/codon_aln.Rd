@@ -22,9 +22,11 @@ codon_aln(
 
 \item{format}{a character string specifying the file format used to store the codon alignment, e.g. "fasta", "clustal".}
 
-\item{tool}{a character string specifying the program that should be used e.g. "pal2nal".}
+\item{tool}{a character string specifying the program that should be used: \code{"pal2nal"} (Default; needs Perl)
+or \code{"coal"} (COAL, \url{https://github.com/Plumat-COAL/COAL}: the same codon alignment without Perl, computed inside R
+when the package \pkg{coalr} is installed and otherwise by the \code{coal-cpp} program).}
 
-\item{params}{a character string specifying additional parameters that shall be passed to PAL2NAL. For example
+\item{params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters that shall be passed to PAL2NAL. For example
 \code{params} = \code{"-codontable 2"} would specify a codon table: \emph{vertebrate mitochondrial code}
 instead if the \emph{universal code} (default). The default value is \code{params} = \code{NULL}.
 Default is \code{codon_aln_name} = \code{NULL} denoting a default name: 'tool_name.aln' .}
@@ -50,6 +52,13 @@ The PAL2NAL program is used to convert a multiple sequence alignment or pairwise
 a codon-based DNA alignment. The output codon-based DNA alignment can then be used for \code{\link{dNdS}} estimation.
 
 The popular codon alignment tool PAL2NAL is included in this package and is being called when choosing \code{tool} = \code{"pal2nal"}.
+
+\code{tool} = \code{"coal"} builds the codon alignment with COAL, a re-implementation of PAL2NAL's algorithm that does
+not need Perl and has no limit on the protein length (PAL2NAL fails for proteins of more than about 21,800 residues).
+COAL is optional: install its R package with
+\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}, or put the \code{coal-cpp} program on
+the \code{PATH} (\code{pip install coal-align}; \code{options(orthologr.coal_path = )} names another location).
+The PAL2NAL parameters in \code{params} are not available with \code{tool = "coal"}.
 }
 \note{
 The PAL2NAL program automatically checks

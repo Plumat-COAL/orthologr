@@ -184,6 +184,19 @@ of the gene pairs. The citation note is shown once per session.
 
 New arguments: `best_hit_rule`, `aa_sub_matrix`, `dS_zero`.
 
+## The COAL engine (optional)
+
+With the R package `coalr` installed, `dNdS(engine = "coal")` (= `dNdS_coal()`) hands all gene pairs to
+[COAL](https://github.com/Plumat-COAL/COAL) in one call: protein alignment, codon alignment and estimation in
+memory, on `comp_cores` threads, without Perl or KaKs_Calculator. The table has the columns of `dNdS()`,
+including `status`; COAL's own table (standard errors, sites, notes) is `attr(result, "coal")`. On the
+1,000-gene example it takes about 6 s on one core (default engine: 50 s). `dNdS_clusters()` computes dN/dS
+within DIAMOND DeepClust clusters, and `dNdS_orthogroups(engine = "coal")` within orthogroups;
+`codon_aln(tool = "coal")` and `substitutionrate(kaks_tool = "coal")` replace single steps. The values agree
+with the default engine for the same codon alignment; where a protein alignment has several equally good
+solutions the two aligners can place a gap differently, which changes the values of about a third of the gene
+pairs of the 1,000-gene example slightly. Nothing changes for calls that do not ask for COAL.
+
 ## Soft-deprecated
 
 * `orthofinder2()` warns on every call (it never worked beyond starting the program): use `orthogroups()`.

@@ -11,7 +11,7 @@ dnds_status_levels <- function() {
 # The status of gene pairs from their values.
 #   dN, dS, dNdS  : the values of the result
 #   failed        : logical, TRUE for pairs that could not be processed (a program failed; attr "failed_pairs")
-#   engine_status : NULL, or what the engine said about the pair ("ok", "saturated", "no_data", "error", ...)
+#   engine_status : NULL, or what the engine said about the pair (COAL: "ok", "saturated", "no_data", "error", ...)
 # Both engines are read by the same rule, so that the same pair has the same status with either:
 #   failed    - the pair could not be processed
 #   ok        - there is a dN/dS value
@@ -94,7 +94,7 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
         txt
 }
 
-# The end of a dN/dS run of dNdS(): the column 'status' (last column; not with
+# The end of a dN/dS run of dNdS() / dNdS_coal(): the column 'status' (last column; not with
 # options(orthologr.status_column = FALSE)), the attributes, one summary message, the record of the run and the
 # citation note.
 #   res           : the result table (query_id, subject_id, dN, dS, dNdS, ...)
@@ -310,7 +310,7 @@ run_input_files <- function(files) {
 # result, and how the gene pairs came out.
 #   fun      : the name of the function
 #   args     : its arguments (run_arguments())
-#   engine   : "orthologr"
+#   engine   : "orthologr" or "coal"
 #   tools    : versions (run_tool_versions())
 #   files    : the input files
 #   status   : the status of every gene pair, or NULL
@@ -331,17 +331,17 @@ run_record <- function(fun, args, engine, tools, files, status = NULL) {
 # ---- writing and reading a result ------------------------------------------------------------------------------
 
 #' @title Write and read a dN/dS table together with the record of its run
-#' @description \code{write_dNdS()} writes the table returned by \code{\link{dNdS}} (or the
-#' \code{pairs} table of \code{\link{dNdS_orthogroups}}, or the table in
+#' @description \code{write_dNdS()} writes the table returned by \code{\link{dNdS}} (or \code{\link{dNdS_coal}}, the
+#' \code{pairs} table of \code{\link{dNdS_clusters}} / \code{\link{dNdS_orthogroups}}, or the table in
 #' \code{attr(, "dNdS_tbl")} of a \code{\link{divergence_stratigraphy}} result) as a tab-separated file and, next to
 #' it, the file \code{<file>.run.json} with what a plain table file loses: the record of the run
 #' (\code{attr(x, "orthologr_run")}), the tables \code{attr(x, "failed_pairs")} and
 #' \code{attr(x, "dropped_sequences")}, and the type of every column. \code{read_dNdS()} reads both files back.
-#' @param x a dN/dS table (a \code{data.frame}), or the list returned by \code{dNdS_orthogroups()} (its
-#' \code{pairs} table is written).
+#' @param x a dN/dS table (a \code{data.frame}), or the list returned by \code{dNdS_clusters()} /
+#' \code{dNdS_orthogroups()} (its \code{pairs} table is written).
 #' @param file the path of the tab-separated file. The record is written to \code{paste0(file, ".run.json")}.
 #' @details
-#' \strong{The record of a run.} Every result of \code{dNdS()},
+#' \strong{The record of a run.} Every result of \code{dNdS()}, \code{dNdS_coal()}, \code{dNdS_clusters()},
 #' \code{dNdS_orthogroups()} and \code{divergence_stratigraphy()} carries the attribute \code{"orthologr_run"}, a
 #' list with
 #' \describe{
@@ -349,7 +349,7 @@ run_record <- function(fun, args, engine, tools, files, status = NULL) {
 #' \item{\code{function}, \code{arguments}}{the function and the values of its arguments;}
 #' \item{\code{options}}{every \code{orthologr.*} option with the value in force (see \code{\link{orthologr_options}});
 #' this shows whether a result was computed with the settings of 0.4.3;}
-#' \item{\code{engine}}{\code{"orthologr"};}
+#' \item{\code{engine}}{\code{"orthologr"} or \code{"coal"};}
 #' \item{\code{tools}}{the versions of the programs and packages used (DIAMOND or BLAST+, the alignment program or
 #' \pkg{pwalign}, PAL2NAL and Perl, KaKs_Calculator, \pkg{Biostrings}, \pkg{seqinr}, R);}
 #' \item{\code{date}}{when the run ended;}
@@ -389,7 +389,7 @@ write_dNdS <- function(x, file) {
         } else if (is.data.frame(x)) {
                 tbl <- x
         } else {
-                stop("'x' must be a dN/dS table (a data.frame) or the list returned by dNdS_orthogroups().",
+                stop("'x' must be a dN/dS table (a data.frame) or the list returned by dNdS_clusters() / dNdS_orthogroups().",
                      call. = FALSE)
         }
         failed <- attr(x, "failed_pairs")

@@ -11,6 +11,12 @@ change. Please report the version of orthologr in the methods of analyses based 
   best hits, connected components) or from DIAMOND DeepClust clusters; `print()`, `summary()`,
   `write_orthogroups()`. **`dNdS_orthogroups()`**: dN/dS for the gene pairs within the groups, with a summary per
   group. OrthoFinder is no longer needed for more than two species; `orthofinder2()` is soft-deprecated.
+- **Engine COAL** (optional R package `coalr`): `dNdS(engine = "coal")` / **`dNdS_coal()`** hand all gene pairs to
+  [COAL](https://github.com/Plumat-COAL/COAL) in one call (protein alignment, codon alignment and estimation in
+  memory, on `comp_cores` threads; 1,000-gene example, 1 core: about 6 s against 50 s); **`dNdS_clusters()`** computes
+  dN/dS within DeepClust clusters. `codon_aln(tool = "coal")` and `substitutionrate(kaks_tool = "coal")` replace
+  PAL2NAL / KaKs_Calculator for single steps. Methods: NG, LWL, MLWL, LPB, MLPB, YN, MYN, and Comeron and Li with
+  a `coalr` that has them.
 - **Column `status`** (last column of every dN/dS table): `"ok"`, `"dS_zero"`, `"saturated"`, `"no_data"` or
   `"failed"` for each gene pair - the same words with both engines and in the `pairs` tables of
   `dNdS_clusters()` / `dNdS_orthogroups()` (see `?dNdS`). `options(orthologr.status_column = FALSE)` leaves it out.

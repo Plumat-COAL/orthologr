@@ -18,12 +18,13 @@
 #' @param aa_aln_path a character string specifying the path to the corresponding multiple alignment tool.
 #' @param aa_aln_type a character string specifying the amino acid alignement type: \code{aa_aln_type} = "multiple" or \code{aa_aln_type} = \code{"pairwise"}.
 #' Default is \code{aa_aln_type} = "multiple".
-#' @param aa_aln_params a character string specifying additional parameters that shall be passed to the multiple alignment system call.
+#' @param aa_aln_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters that shall be passed to the multiple alignment system call.
 #' @param codon_aln_tool a character string specifying the codon alignment tool that shall be used for codon alignments. Default is \code{codon_aln_tool} = \code{"pal2nal"}.
 #' @param dnds_est.method a character string specifying the dNdS estimation method, e.g. "Comeron","Li", "YN", etc. See Details for all options.
 #' @param kaks_calc_path a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 #' (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).
 #' @param store_locally a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.
+#' @param kaks_tool the program that computes the KaKs_Calculator methods: \code{"kaks_calculator"} (Default) or \code{"coal"}; see \code{\link{substitutionrate}}.
 #' @param aa_sub_matrix the substitution matrix for pairwise amino acid alignments (\code{aa_aln_type = "pairwise"}); see \code{\link{pairwise_aln}}.
 #' @param quiet \code{FALSE}: a progress message about every tenth of the gene pairs (the programs called for a
 #' gene pair no longer report every file they write).
@@ -61,7 +62,8 @@ compute_dnds <- function(complete_tbl,
                          quiet           = FALSE, 
                          comp_cores      = 1, 
                          clean_folders   = FALSE,
-                         aa_sub_matrix   = "BLOSUM62"){
+                         aa_sub_matrix   = "BLOSUM62",
+                         kaks_tool       = "kaks_calculator"){
         
         # every argument is evaluated here: the gene pairs may be computed in other R processes (see force_args())
         force_args()
@@ -216,7 +218,8 @@ compute_dnds <- function(complete_tbl,
                         subst_name     = aa_aln_name,
                         kaks_calc_path = kaks_calc_path,
                         est.method     = dnds_est.method,
-                        quiet          = TRUE
+                        quiet          = TRUE,
+                        kaks_tool      = kaks_tool
                 )
                 
                 # The IDs of the pair are those of the pair table - not what came back from the programs.

@@ -10,8 +10,8 @@ write_dNdS(x, file)
 read_dNdS(file)
 }
 \arguments{
-\item{x}{a dN/dS table (a \code{data.frame}), or the list returned by \code{dNdS_orthogroups()} (its
-\code{pairs} table is written).}
+\item{x}{a dN/dS table (a \code{data.frame}), or the list returned by \code{dNdS_clusters()} /
+\code{dNdS_orthogroups()} (its \code{pairs} table is written).}
 
 \item{file}{the path of the tab-separated file. The record is written to \code{paste0(file, ".run.json")}.}
 }
@@ -21,15 +21,15 @@ attributes \code{"orthologr_run"}, \code{"failed_pairs"} and \code{"dropped_sequ
 written. A table file without a sidecar file is read with a warning.
 }
 \description{
-\code{write_dNdS()} writes the table returned by \code{\link{dNdS}} (or the
-\code{pairs} table of \code{\link{dNdS_orthogroups}}, or the table in
+\code{write_dNdS()} writes the table returned by \code{\link{dNdS}} (or \code{\link{dNdS_coal}}, the
+\code{pairs} table of \code{\link{dNdS_clusters}} / \code{\link{dNdS_orthogroups}}, or the table in
 \code{attr(, "dNdS_tbl")} of a \code{\link{divergence_stratigraphy}} result) as a tab-separated file and, next to
 it, the file \code{<file>.run.json} with what a plain table file loses: the record of the run
 (\code{attr(x, "orthologr_run")}), the tables \code{attr(x, "failed_pairs")} and
 \code{attr(x, "dropped_sequences")}, and the type of every column. \code{read_dNdS()} reads both files back.
 }
 \details{
-\strong{The record of a run.} Every result of \code{dNdS()},
+\strong{The record of a run.} Every result of \code{dNdS()}, \code{dNdS_coal()}, \code{dNdS_clusters()},
 \code{dNdS_orthogroups()} and \code{divergence_stratigraphy()} carries the attribute \code{"orthologr_run"}, a
 list with
 \describe{
@@ -37,7 +37,7 @@ list with
 \item{\code{function}, \code{arguments}}{the function and the values of its arguments;}
 \item{\code{options}}{every \code{orthologr.*} option with the value in force (see \code{\link{orthologr_options}});
 this shows whether a result was computed with the settings of 0.4.3;}
-\item{\code{engine}}{\code{"orthologr"};}
+\item{\code{engine}}{\code{"orthologr"} or \code{"coal"};}
 \item{\code{tools}}{the versions of the programs and packages used (DIAMOND or BLAST+, the alignment program or
 \pkg{pwalign}, PAL2NAL and Perl, KaKs_Calculator, \pkg{Biostrings}, \pkg{seqinr}, R);}
 \item{\code{date}}{when the run ended;}

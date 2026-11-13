@@ -200,10 +200,14 @@ number is returned. Compare more closely related species, or use dN alone.
 with `dNdS = NA`) and pairs above `dnds.threshold` (default 2), and says how many rows it left out for each
 reason. Filter on `status == "ok"` and on dS explicitly when the analysis needs a stricter rule.
 
-**Choice of method.** `dNdS()` runs PAL2NAL (Perl) and the estimation for one gene pair at
+**Choice of engine and method.** The default engine runs PAL2NAL (Perl) and the estimation for one gene pair at
 a time: about 50 ms per pair and core, i.e. about 17 minutes per 20,000 pairs on one core; use `comp_cores`.
 Comeron's method (default) and Li's method need no further program; `"YN"`, `"NG"`, `"MYN"` etc. need
 KaKs_Calculator.
+
+**The COAL engine.** With the optional R package `coalr`, `engine = "coal"` computes all gene pairs in one
+call, in memory and on `comp_cores` threads (about 6 s instead of 50 s for the 1,000-gene example on one core),
+without Perl or KaKs_Calculator. It returns the same kind of table, including `status`.
 
 **Keep the record.** `attr(result, "orthologr_run")` holds the versions, arguments, options and checksums of
 the run; `write_dNdS(result, "file.tsv")` writes the table together with it. Report the version of orthologr and
