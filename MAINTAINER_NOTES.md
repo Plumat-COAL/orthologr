@@ -50,6 +50,7 @@ A GPL-2-only orthologr that calls a GPL-3 package at run time is a second reason
 | Comeron's method: `NA` instead of a finite value when a correction is undefined in a class that has sites | `options(orthologr.legacy_comeron_saturation = TRUE)` |
 | KaKs_Calculator methods: `dN = 0` instead of `dN = NA` for a pair without nonsynonymous change | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
 | Li's method returns numeric columns; a value below 9.9 that R compared as text is no longer `NA` | none (bug fix) |
+| dN/dS tables end with the column `status` (`"ok"`, `"dS_zero"`, `"saturated"`, `"no_data"`, `"failed"`) | `options(orthologr.status_column = FALSE)` |
 | T-Coffee default mode (was `-mode accurate`) | `aa_aln_params = "-mode accurate"` / `params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | do not set it |
 | Parameter strings are argument lists, not shell text (no `;`, pipes, redirections) | none (security fix) |
@@ -61,8 +62,11 @@ A GPL-2-only orthologr that calls a GPL-3 package at run time is a second reason
 (`dS_zero = "drop"`); new are a message with the numbers, `attr(, "left_out")` / `divergence_left_out()`, and
 `dS_zero = "keep"` / `options(orthologr.dS_zero = "keep")` to keep them.
 
-With all legacy options set, the 20-gene and 1,000-gene examples give the tables of 0.4.3 (master 06c3098)
-for Comeron and YN; see NEWS.
+**One switch:** `orthologr_legacy_options()` sets the five options of this table (and `orthologr.dS_zero =
+"drop"`); `options(orthologr.legacy = TRUE)` is the shorthand. With them the 20-gene and 1,000-gene examples give
+the tables of 0.4.3 (master 06c3098) for Comeron and YN. `tests/testthat/test-legacy.R` compares the 20-gene
+result with tables stored from 0.4.3 (`tests/testthat/fixtures/dnds_0.4.3/`, made by `make_fixture.R` there with
+the 0.4.3 package installed) on every run, for both ways of setting the switch.
 
 ## 3. Things that are set for the fork and must change when this is merged
 
@@ -78,3 +82,34 @@ legs of the workflow and the installation of the programs with micromamba are un
 coalr through the `Remotes` field; if the COAL repository cannot be read by the workflow's token, or the ref
 disappears, the dependency step fails on every leg - remove the `Remotes` line (coalr is in `Suggests` and every
 use is guarded) rather than leave it dangling.
+
+## 4. Proposals that were deliberately not made in 0.5.0
+
+- **`sensitivity_mode = "default"` as the default of `dNdS()`, `orthologs()`, `orthogroups()`** (now `"fast"`,
+  DIAMOND's mode "for hits of more than 90 % identity"). Measured with `diamond_rec()`, 2 cores:
+
+  | reciprocal best hits | `"fast"` | `"default"` | `"sensitive"` |
+  |---|---|---|---|
+  | *A. thaliana* / *A. lyrata*, 1,000-gene example | 983 | 985 | 985 |
+  | *S. cerevisiae* / *C. glabrata* | 4,164 (7.3 s) | 4,384, +5.3 % (8.2 s) | 4,502, +8.1 % (24.4 s) |
+
+  The pairs found only with `"default"` have a median identity of 37 % and a median length of 298 amino acids
+  (not only short proteins); the search is about 10 s of a 200 s `dNdS()` run. It would be the third change of
+  the ortholog set in one release, so 0.5.0 only documents it (`?dNdS`, the dN/dS vignette). Suggested for 0.6.0.
+- **Keeping coding sequences with `N`** (translate the codon to `X` and let the estimator skip it) instead of
+  leaving the sequence out. The loss is 0 to 1 sequence in RefSeq sets but 2.5 % (human chr21) to 4.7 % (mouse
+  chr10/16/17) of Ensembl transcripts, typically one leading `N`. 0.5.0 documents the behaviour and reports the
+  sequences; the default is unchanged.
+- **Classed conditions** (`orthologr_error_tool_missing`, ...) and merging the code shared by `dNdS()` and
+  `dNdS_coal()`.
+
+## 5. Changes of this pass that touch existing behaviour
+
+- `orthogroups()` and `dNdS_orthogroups()` have `delete_corrupt_cds = FALSE` (trim), the default of `dNdS()`;
+  they had `TRUE`. `dNdS()` itself is unchanged. (`diamond_rec()`, `diamond_best()`, `deepclust()` called on
+  their own keep `TRUE`.) For two species `orthogroups()` therefore returns the reciprocal best hits of
+  `dNdS()` / `diamond_rec(delete_corrupt_cds = FALSE)`: 995 instead of 983 pairs on the 1,000-gene example.
+- `dNdS()` output: a new last column `status`; one start line and one summary instead of 31 messages; nothing on
+  `stdout`. Scripts that parse the messages or take columns by position from the end are affected.
+- `dNdS(quiet = FALSE)` no longer prints one line per alignment and estimation call; it reports progress.
+- The detailed, review-by-review log that used to be the NEWS entry is `MAINTAINER_CHANGELOG.md`.

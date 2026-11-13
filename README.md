@@ -103,6 +103,11 @@ install.packages("remotes")
 remotes::install_github("Plumat-COAL/orthologr@integration/all")
 ```
 
+**Coming from orthologr 0.4.3?** Version 0.5.0 changes some defaults and results; the article
+[Upgrading from 0.4.3](https://drostlab.github.io/orthologr/articles/upgrading_from_0.4.3.html)
+(`vignette("upgrading_from_0.4.3")`) lists them with their measured effect, and `orthologr_legacy_options()`
+restores the old behaviour in one line.
+
 Optional packages, needed by some functions only (a message tells you when one is missing):
 
 ```r
