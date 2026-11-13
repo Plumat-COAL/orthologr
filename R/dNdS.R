@@ -277,6 +277,10 @@ dNdS <- function(query_file,
         
         comp_cores <- check_comp_cores(comp_cores)
         
+        # the programs of the chosen pipeline must be there before the search starts
+        dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = codon_aln_tool,
+                              dnds_est.method = dnds_est.method, kaks_calc_path = kaks_calc_path)
+        
         message("\n")
         message("Starting orthology inference (",ortho_detection, ") and dNdS estimation (",dnds_est.method,") using the follwing parameters:")
         message("query = '", basename(query_file), "'")

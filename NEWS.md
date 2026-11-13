@@ -1,14 +1,30 @@
 ## `orthologr` 0.5.0
 
+### New
+
+- MUSCLE 5 is supported; `"MLPB"` is an accepted `dnds_est.method`.
+
 ### Changed defaults (and how to get the old behaviour)
+
+| Change | Effect (measured) | Old behaviour |
+|---|---|---|
+| T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
+| `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
 
 Further behaviour that differs from 0.4.3 and cannot be switched back:
 
 - A gene pair whose alignment or estimation fails no longer ends the run: it is a row of `NA` and its reason
   is in `attr(, "failed_pairs")`.
+- A missing program (perl, the alignment program, KaKs_Calculator) and unsupported argument values are errors
+  before the search starts.
 - Parameter strings (`aa_aln_params`, `aligner_params`, `diamond_params`, `blast_params`, `params`,
   `kaks_calc.params`, ...) are lists of arguments, not shell text: `;`, pipes and redirections inside them no
   longer work.
+- Intermediate files are kept in a folder of the call inside `tempdir()` and removed afterwards
+  (`options(orthologr.keep_tmp = TRUE)` keeps them); no function changes the working directory or writes into it
+  unasked (`read.cds()` wrote `<file>_corrupted_cds_seqs.fasta` there).
+- `cdd.path` and `ortho_path` of `dNdS()` are deprecated (never used); `ortho_detection = "Orthofinder2"`, `"PO"`
+  and `"DELTA"` are errors with an explanation.
 
 ### Fixed
 
@@ -22,6 +38,12 @@ Running programs:
 - Stale results can no longer be returned: `blast()`, `diamond()`, `deepclust()` and the functions built on them
   check the exit status and the output of every program and work in files of their own.
 - File and folder names with spaces work. Programs are looked up once per session.
+- `multi_aln()`: T-Coffee and MUSCLE examples run with current versions; CLUSTAL files of T-Coffee are read;
+  the MAFFT check uses `mafft --version`.
+- `pairwise_aln()`, `read.genome(format = "fastq")`, `codon_aln(get_aln = TRUE)`,
+  `promotor_divergence_estimation()`, `lnc_map_counts()`, `map_generator_dnds()` with one subject file: errors
+  on valid input fixed. `check_annotation(remove_annotation_outliers = TRUE)` no longer overwrites the
+  annotation file.
 
 ### Internal
 

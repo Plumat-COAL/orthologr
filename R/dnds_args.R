@@ -63,3 +63,36 @@ dnds_check_args <- function(aligner, sensitivity_mode, seq_type, format, ortho_d
         
         invisible(TRUE)
 }
+
+# The dN/dS methods that are computed by KaKs_Calculator.
+kaks_calculator_methods <- function() {
+        c("MA", "MS", "NG", "LWL", "LPB", "MLWL", "YN", "MYN", "GY", "GMYN", "kaks_calc", "ALL")
+}
+
+# Stop now when a program the chosen pipeline needs is not there: perl (PAL2NAL), the alignment program, and
+# KaKs_Calculator. Called before the search starts. (A missing program used to show only after the complete
+# search, as a table in which every gene pair was NA and one warning.)
+#   aa_aln_tool : "NW" / "pairwise" (no program), or the multiple alignment program
+dnds_require_programs <- function(aa_aln_tool = "NW", aa_aln_path = NULL, codon_aln_tool = "pal2nal",
+                                  dnds_est.method = "Comeron", kaks_calc_path = NULL, need_kaks = TRUE) {
+        if (identical(codon_aln_tool, "pal2nal") && !nzchar(Sys.which("perl")))
+                stop("The program 'perl' was not found on the PATH. It is needed for the codon alignments (PAL2NAL). ",
+                     "Please install Perl (Windows: e.g. Strawberry Perl) and make sure 'perl' can be started from a terminal.",
+                     call. = FALSE)
+        switch(as.character(aa_aln_tool)[1],
+               clustalw = is_installed_clustalw(path = aa_aln_path),
+               clustalo = is_installed_clustalo(path = aa_aln_path),
+               mafft    = is_installed_mafft(path = aa_aln_path),
+               muscle   = is_installed_muscle(path = aa_aln_path),
+               t_coffee = is_installed_tcoffee(path = aa_aln_path),
+               TRUE)
+        if (need_kaks && length(dnds_est.method) == 1 && is.element(dnds_est.method, kaks_calculator_methods())) {
+                kp <- if (is.null(kaks_calc_path)) NULL else normalizePath(kaks_calc_path, mustWork = FALSE)
+                tryCatch(is_installed_kaks_calculator(path = kp), error = function(e) {
+                        stop(conditionMessage(e), if (!is.null(kp)) paste0(" (kaks_calc_path = '", kaks_calc_path, "')"),
+                             " It is needed for dnds_est.method = \"", dnds_est.method,
+                             "\"; the methods \"Comeron\" and \"Li\" need no external program.", call. = FALSE)
+                })
+        }
+        invisible(TRUE)
+}
