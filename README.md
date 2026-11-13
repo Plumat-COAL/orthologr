@@ -32,8 +32,36 @@ to infer orthologous relationships between genes of entire genomes are available
 - [__BLAST reciprocal best hit__](https://drostlab.github.io/orthologr/articles/blast.html#the-blast_rec-function)
 - [__BLAST best hit__](https://drostlab.github.io/orthologr/articles/blast.html#the-blast_best-function)
 - __DIAMOND DeepClust__ protein clustering: [`deepclust()`](https://drostlab.github.io/orthologr/articles/deepclust.html)
+- __Orthogroups of two or more species__ with DIAMOND alone: [`orthogroups()`](https://drostlab.github.io/orthologr/articles/orthogroups.html)
 
-(`orthofinder2()`, a thin wrapper that starts OrthoFinder, is soft-deprecated; see its help page.)
+(`orthofinder2()`, a thin wrapper that starts OrthoFinder, is soft-deprecated: use `orthogroups()`.)
+
+### Orthogroups of several species
+
+`orthogroups()` infers groups of orthologous genes for 2 to N species. It needs DIAMOND only (no OrthoFinder, MCL
+or tree building):
+
+```r
+library(orthologr)
+files <- c(Athaliana = "athal_cds.fa", Alyrata = "alyr_cds.fa", Crubella = "crub_cds.fa")
+
+og <- orthogroups(files)                       # one all-against-all DIAMOND search, reciprocal best hits
+og                                             # groups, genes per species, single-copy groups
+og$wide                                        # one row per group, one column per species
+og$pairs                                       # pairwise orthologs with bit score, e-value, identity, coverage
+write_orthogroups(og, "orthogroups_out")       # Orthogroups.tsv etc. in OrthoFinder's layout
+
+res <- dNdS_orthogroups(og)                    # dN/dS of all gene pairs in the single-copy groups
+res$summary                                    # median, mean, quartiles of dN, dS, dN/dS per group
+```
+
+- `method = "rbh"` (default, for about 2 to 15 species): reciprocal best hits of every pair of species from a single
+  search; with two species the result is that of `diamond_rec()`. `inparalogs = TRUE` attaches recent duplicates.
+- `method = "deepclust"` (many species, large data): DIAMOND DeepClust clusters, optionally split by reciprocal
+  best hits (`refine = TRUE`).
+
+Accuracy, run time and limits measured on human / mouse (against Ensembl Compara) and on four yeasts (against
+OrthoFinder) are in the [vignette](https://drostlab.github.io/orthologr/articles/orthogroups.html).
 
 The most useful implementation in `orthologr` is the ability to compute synonymous versus non-synonymous substitution rates (dN/dS)
 for all orthologous genes between two __entire genomes__.

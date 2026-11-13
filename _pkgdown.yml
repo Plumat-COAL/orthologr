@@ -24,6 +24,14 @@ reference:
   - diamond_best
   - blast_rec
   - blast_best
+- title: "Orthogroups of several species"
+  desc: "Groups of orthologs for 2 to N species with DIAMOND alone, files in OrthoFinder's layout, dN/dS per group."
+  contents:
+  - orthogroups
+  - write_orthogroups
+  - dNdS_orthogroups
+  - print.orthogroups
+  - as.data.frame.orthogroups
 - title: "Sequence searches with DIAMOND2 and BLAST+"
   contents:
   - diamond
@@ -80,7 +88,7 @@ reference:
   - translate_cds_to_protein
   - translate_cds_to_protein_all
 - title: "OrthoFinder"
-  desc: "orthofinder2() is soft-deprecated."
+  desc: "orthofinder2() is soft-deprecated; use orthogroups()."
   contents:
   - orthofinder2
   - orthofinder2_retrieve_core_orthologs
@@ -107,6 +115,7 @@ articles:
   - dNdS_estimation
   - divergence_stratigraphy
   - orthology_inference
+  - orthogroups
   - deepclust
   - blast
   - sequence_alignments
