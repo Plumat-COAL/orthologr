@@ -9,6 +9,8 @@ with_0.4.3_defaults <- function(env = parent.frame()) {
                              orthologr.best_hit_rule = "evalue", .frame = env)
 }
 
+# The tables are compared with a tolerance of 1e-12: e-values such as 2.27e-158 are read with a difference in the
+# last bit on some platforms (macOS arm64); every other difference shows.
 plain_table <- function(x) {
         x <- as.data.frame(x, stringsAsFactors = FALSE)
         for (n in names(x))
@@ -27,7 +29,7 @@ test_that("dNdS() reproduces the stored table of orthologr 0.4.3 (20 genes, Come
         res <- suppressMessages(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "Comeron", comp_cores = 1,
                                      quiet = TRUE, print_citation = FALSE))
         expect_identical(names(res), names(ref$table))
-        expect_identical(plain_table(res), ref$table)
+        expect_equal(plain_table(res), ref$table, tolerance = 1e-12)
 })
 
 test_that("dNdS() reproduces the stored table of orthologr 0.4.3 (20 genes, YN)", {
@@ -38,5 +40,5 @@ test_that("dNdS() reproduces the stored table of orthologr 0.4.3 (20 genes, YN)"
         res <- suppressMessages(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "YN", comp_cores = 1,
                                      quiet = TRUE, print_citation = FALSE))
         expect_identical(names(res), names(ref$table))
-        expect_identical(plain_table(res), ref$table)
+        expect_equal(plain_table(res), ref$table, tolerance = 1e-12)
 })
