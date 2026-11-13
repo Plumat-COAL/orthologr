@@ -76,13 +76,16 @@ the 0.4.3 package installed) on every run, for both ways of setting the switch.
 | install command of orthologr in `README.md` (two places), `environment.yml`, `vignettes/orthologr.Rmd` | `remotes::install_github("Plumat-COAL/orthologr@integration/all")`, so that the command installs the version the page describes | `remotes::install_github("drostlab/orthologr")` |
 | `.github/workflows/R-CMD-check.yaml`, `on: push: branches` | also `integration/**`, `upstream/**`, `upstream-v2/**`, `fix/**` (the fork's working branches) and `workflow_dispatch` | the fork branches can be removed; `workflow_dispatch` is worth keeping |
 
-GitHub Actions has not run on the fork (Actions are not enabled in the fork's settings): the macOS and Windows
-legs of the workflow and the installation of the programs with micromamba are untested there. The CI installs
-coalr through the `Remotes` field; if the COAL repository cannot be read by the workflow's token, or the ref
+GitHub Actions runs on the fork. All six legs (Linux release / devel / oldrel-1, Linux without the optional
+programs, Windows, macOS; the programs installed with micromamba) passed on `upstream-v2/15-coal` (run
+43507540285) and on `integration/all` (run 43505256122, macOS leg re-run after a cancellation), and on
+`upstream-v2/01-ci-and-tests` and `upstream-v2/08-annotation`; the runs of the other upstream-v2 branches were
+cancelled because the fork's runners start about one job at a time (see `STACK.md` on `upstream-v2/15-coal`). The
+CI installs coalr through the `Remotes` field; if the COAL repository cannot be read by the workflow's token, or the ref
 disappears, the dependency step fails on every leg - remove the `Remotes` line (coalr is in `Suggests` and every
 use is guarded) rather than leave it dangling.
 
-## 4. Proposals that were deliberately not made in 0.5.0
+## 4. Proposals that were deliberately not made in 0.5.0, and what 0.5.0 does about them
 
 - **`sensitivity_mode = "default"` as the default of `dNdS()`, `orthologs()`, `orthogroups()`** (now `"fast"`,
   DIAMOND's mode "for hits of more than 90 % identity"). Measured with `diamond_rec()`, 2 cores:
@@ -97,10 +100,21 @@ use is guarded) rather than leave it dangling.
   the ortholog set in one release, so 0.5.0 only documents it (`?dNdS`, the dN/dS vignette). Suggested for 0.6.0.
 - **Keeping coding sequences with `N`** (translate the codon to `X` and let the estimator skip it) instead of
   leaving the sequence out. The loss is 0 to 1 sequence in RefSeq sets but 2.5 % (human chr21) to 4.7 % (mouse
-  chr10/16/17) of Ensembl transcripts, typically one leading `N`. 0.5.0 documents the behaviour and reports the
-  sequences; the default is unchanged.
-- **Classed conditions** (`orthologr_error_tool_missing`, ...) and merging the code shared by `dNdS()` and
-  `dNdS_coal()`.
+  chr10/16/17) of Ensembl transcripts, typically one leading `N`. The default is unchanged ("drop"); 0.5.0
+  documents the behaviour, reports the sequences, and offers it as an opt-in: `options(orthologr.ambiguous_cds =
+  "keep")` (recorded in `attr(, "orthologr_run")$options`). Making "keep" the default is a decision for 0.6.0.
+
+**Done in 0.5.0** (were listed here as not made):
+
+- **Classed conditions**: `orthologr_error_*` / `orthologr_warning_*` (`?orthologr_options`, "Errors and
+  warnings"). The argument and input-file checks of the main functions (`dNdS()`, `dNdS_coal()`,
+  `dNdS_clusters()`, `orthogroups()`, `dNdS_orthogroups()`, `divergence_stratigraphy()`, `filter_dNdS()`, the
+  alignment functions, `substitutionrate()`, the readers) and every check for a program or package are classed;
+  105 calls are classed; about 190 `stop()` calls, mostly in other, older functions and inside single gene
+  pairs, are still plain errors (`?orthologr_options` says which functions are classed).
+- **Shared code of `dNdS()` and `dNdS_coal()`**, first part: the search step is one function, `dnds_search()`.
+  Still duplicated: the argument checks, the start message and the set-up of the call (working folder, sequence
+  cache, collection of left-out sequences) - a second step for 0.6.0.
 
 ## 5. Changes of this pass that touch existing behaviour
 
@@ -108,12 +122,15 @@ use is guarded) rather than leave it dangling.
   they had `TRUE`. `dNdS()` itself is unchanged. (`diamond_rec()`, `diamond_best()`, `deepclust()` called on
   their own keep `TRUE`.) For two species `orthogroups()` therefore returns the reciprocal best hits of
   `dNdS()` / `diamond_rec(delete_corrupt_cds = FALSE)`: 995 instead of 983 pairs on the 1,000-gene example.
-- `dNdS()` output: a new last column `status`; one start line and one summary instead of 31 messages; nothing on
-  `stdout`. Scripts that parse the messages or take columns by position from the end are affected.
+- `dNdS()` output: a new last column `status`; one start line and one summary instead of 31 messages (also on
+  real data: sequences that are left out or trimmed to a multiple of 3 are counted in the summary and listed in
+  `attr(, "dropped_sequences")` / `attr(, "trimmed_sequences")`; 1,000-gene example 2 messages, `quiet = FALSE`
+  36); nothing on `stdout`. `divergence_stratigraphy()` has `quiet = TRUE` too (was `FALSE`; 45 -> 10 messages).
+  Scripts that parse the messages or take columns by position from the end are affected.
 - `dNdS(quiet = FALSE)` no longer prints one line per alignment and estimation call; it reports progress.
 - The detailed, review-by-review log that used to be the NEWS entry is `MAINTAINER_CHANGELOG.md`.
 
 The first Actions run on the fork failed before any R code ran: micromamba received `"diamond>=2.1"` with its
 double quotes (inside a folded YAML block no shell removes them) and could not parse the version, and pak could
 not match the `Remotes` entry to coalr. Both are corrected (`diamond>=2.1` unquoted in the two workflows; the
-`coalr=` prefix). The following runs have to show whether the legs now pass.
+`coalr=` prefix). The later runs pass on all legs (section 3).
