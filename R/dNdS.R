@@ -247,6 +247,18 @@
 #' \code{\link{substitutionrate}}, \code{\link{multi_aln}}, \code{\link{codon_aln}}, 
 #' \code{\link{diamond_best}}, \code{\link{diamond_rec}},
 #' \code{\link{blast_best}}, \code{\link{blast_rec}}, \code{\link{read.cds}} 
+#' @param best_hit_rule how the best hit of a query is chosen among its hits:
+#' \itemize{
+#' \item \code{"bitscore"} (default since orthologr 0.5.0): the hit with the highest bit score; of several, the one
+#' with the smallest e-value, then the longest alignment, then the highest percent identity, then the alphabetically
+#' first \code{subject_id}. The choice does not depend on the order of the hit table.
+#' \item \code{"evalue"}: the rule of orthologr <= 0.4.3 - the hit with the smallest e-value; of several, the one with
+#' the longest alignment; of several, the alphabetically first \code{subject_id}. The bit score is not used.
+#' }
+#' \strong{This default changed in 0.5.0 and changes which orthologs are returned.} DIAMOND and BLAST report an
+#' e-value of 0 for every strong hit of a long protein, so that under the old rule the alignment length decided
+#' among them and a paralog could win over the true ortholog. @@BHNUM@@
+#' \code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.
 #' @export
 
 dNdS <- function(query_file, 
@@ -273,8 +285,11 @@ dNdS <- function(query_file,
                  comp_cores      = 1, 
                  quiet           = TRUE, 
                  clean_folders   = FALSE,
-                 print_citation = TRUE
+                 print_citation = TRUE,
+                 best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")
                  ){
+        
+        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
         
         # what is not supported is rejected now, before any program is started
         dnds_check_args(
@@ -310,6 +325,7 @@ dNdS <- function(query_file,
                 message("sensitivity_mode = ", "'", basename(sensitivity_mode), "'")
         message("seq_type = '", seq_type, "'")
         message("e-value: ", eval)
+        message("best_hit_rule = '", best_hit_rule, "'")
         message("aa_aln_type = '", aa_aln_type, "'")
         message("aa_aln_tool = '", aa_aln_tool, "'")
         message("comp_cores = '", comp_cores, "'")
@@ -394,7 +410,8 @@ dNdS <- function(query_file,
                                 comp_cores   = comp_cores,
                                 seq_type     = seq_type,
                                 eval         = eval,
-                                format       = format
+                                format       = format,
+                                best_hit_rule = best_hit_rule
                         )
                 
                 data.table::setDT(hit.table)
