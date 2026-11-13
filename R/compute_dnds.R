@@ -98,20 +98,22 @@ compute_dnds <- function(complete_tbl,
                         file.path(idx_dir, "pair_ids.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
         }
         
+        # The six columns of the pair table as plain vectors: one_pair() reads one element of each per gene pair,
+        # and six look-ups in the data.table per pair took about 9 % of the run time.
+        q_ids <- complete_tbl[["query_id"]]
+        s_ids <- complete_tbl[["subject_id"]]
+        q_cds <- complete_tbl[["query_cds"]]
+        s_cds <- complete_tbl[["subject_cds"]]
+        q_aa  <- complete_tbl[["query_aa"]]
+        s_aa  <- complete_tbl[["subject_aa"]]
+        
         # the complete pipeline for gene pair i: write the two FASTA files, align the proteins,
         # build the codon alignment, estimate dN/dS
         one_pair <- function(i) {
-                # storing the query gene id and subject gene id of the orthologous gene pair
-                orthologs_names <-
-                        list(complete_tbl[i , query_id], complete_tbl[i, subject_id])
-                
-                # storing the query CDS sequence and subject CDS sequence of the orthologous gene pair
-                cds_seqs <-
-                        list(complete_tbl[i, query_cds], complete_tbl[i, subject_cds])
-                
-                # storing the query amino acid sequence and subject amino acid sequence of the orthologous gene pair
-                aa_seqs <-
-                        list(complete_tbl[i, query_aa], complete_tbl[i, subject_aa])
+                # the IDs, coding sequences and amino acid sequences of the gene pair
+                orthologs_names <- list(q_ids[i], s_ids[i])
+                cds_seqs <- list(q_cds[i], s_cds[i])
+                aa_seqs <- list(q_aa[i], s_aa[i])
                 
                 aa_aln_name <- paste0("q", i)
                 
@@ -234,12 +236,11 @@ compute_dnds <- function(complete_tbl,
                         one_pair(i),
                         error = function(e) {
                                 dnds_na_row(
-                                        query_id   = complete_tbl[i, query_id],
-                                        subject_id = complete_tbl[i, subject_id],
+                                        query_id   = q_ids[i],
+                                        subject_id = s_ids[i],
                                         est.method = dnds_est.method,
                                         # (the messages name the pair by the names in its files)
-                                        reason     = dnds_pair_reason(conditionMessage(e), complete_tbl[i, query_id],
-                                                                      complete_tbl[i, subject_id])
+                                        reason     = dnds_pair_reason(conditionMessage(e), q_ids[i], s_ids[i])
                                 )
                         }
                 )
