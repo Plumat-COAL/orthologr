@@ -73,7 +73,7 @@ be removed from the input \code{file}. Default is \code{FALSE}.}
 \item{add_params}{a character string specifying additional parameters passed to the orthology inference tool.
 For DIAMOND2 methods, use \code{diamond_params} instead. Default is \code{NULL}.}
 
-\item{diamond_params}{a character string specifying additional parameters passed to DIAMOND2.
+\item{diamond_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters passed to DIAMOND2.
 Only used when \code{ortho_detection} is \code{"DIAMOND_RBH"} or \code{"DIAMOND_BH"}.
 Default is \code{NULL}.}
 

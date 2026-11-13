@@ -18,7 +18,7 @@
 #' @param aa_aln_path a character string specifying the path to the corresponding multiple alignment tool.
 #' @param aa_aln_type a character string specifying the amino acid alignement type: \code{aa_aln_type} = "multiple" or \code{aa_aln_type} = \code{"pairwise"}.
 #' Default is \code{aa_aln_type} = "multiple".
-#' @param aa_aln_params a character string specifying additional parameters that shall be passed to the multiple alignment system call.
+#' @param aa_aln_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters that shall be passed to the multiple alignment system call.
 #' @param codon_aln_tool a character string specifying the codon alignment tool that shall be used for codon alignments. Default is \code{codon_aln_tool} = \code{"pal2nal"}.
 #' @param dnds_est.method a character string specifying the dNdS estimation method, e.g. "Comeron","Li", "YN", etc. See Details for all options.
 #' @param kaks_calc_path a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
@@ -79,6 +79,23 @@ compute_dnds <- function(complete_tbl,
                         dir.create(d, recursive = TRUE)
         }
         
+        # In the files of a gene pair the two sequences are called 'query' and 'subject', whatever their IDs are:
+        # PAL2NAL matches protein and coding sequence by name, so a pair whose two genes have the same ID (two
+        # strains with the same locus tags, gene symbols or running numbers as IDs) could not be computed
+        # ("inconsistency between pep and nuc"), and alignment programs change IDs they do not like (Clustal Omega:
+        # '-1'). The IDs of the result come from the pair table. With store_locally = TRUE the table
+        # 'pair_ids.tsv' next to the stored alignments says which pair a file 'q<i>_...' holds.
+        pair_names <- dnds_pair_names()
+        if (store_locally) {
+                idx_dir <- file.path("orthologr_alignment_files", "_alignment")
+                dir.create(idx_dir, recursive = TRUE, showWarnings = FALSE)
+                utils::write.table(
+                        data.frame(file_prefix = paste0("q", seq_len(nrow(complete_tbl))),
+                                   query = as.character(complete_tbl[ , query_id]),
+                                   subject = as.character(complete_tbl[ , subject_id]), stringsAsFactors = FALSE),
+                        file.path(idx_dir, "pair_ids.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
+        }
+        
         # the complete pipeline for gene pair i: write the two FASTA files, align the proteins,
         # build the codon alignment, estimate dN/dS
         one_pair <- function(i) {
@@ -108,7 +125,7 @@ compute_dnds <- function(complete_tbl,
                 
                 seqinr::write.fasta(
                         sequences = cds_seqs,
-                        names     = orthologs_names,
+                        names     = as.list(pair_names),
                         file.out  = cds_session_fasta
                 )
                 
@@ -124,7 +141,7 @@ compute_dnds <- function(complete_tbl,
                 
                 seqinr::write.fasta(
                         sequences = aa_seqs,
-                        names     = orthologs_names,
+                        names     = as.list(pair_names),
                         file.out  = aa_session_fasta
                 )
                 
@@ -217,7 +234,9 @@ compute_dnds <- function(complete_tbl,
                                         query_id   = complete_tbl[i, query_id],
                                         subject_id = complete_tbl[i, subject_id],
                                         est.method = dnds_est.method,
-                                        reason     = conditionMessage(e)
+                                        # (the messages name the pair by the names in its files)
+                                        reason     = dnds_pair_reason(conditionMessage(e), complete_tbl[i, query_id],
+                                                                      complete_tbl[i, subject_id])
                                 )
                         }
                 )
@@ -278,6 +297,16 @@ compute_dnds <- function(complete_tbl,
         # returning the dNdS table as data.table object
         return(dNdS_tbl)
         
+}
+
+# The names of the two sequences in the files of a gene pair.
+dnds_pair_names <- function() c("query", "subject")
+
+# A message about "gene pair 'query' / 'subject'" with the IDs of the pair in place of the names in its files.
+dnds_pair_reason <- function(reason, query_id, subject_id) {
+        n <- dnds_pair_names()
+        gsub(paste0("gene pair '", n[1], "' / '", n[2], "'"),
+             paste0("gene pair '", query_id, "' / '", subject_id, "'"), reason, fixed = TRUE)
 }
 
 # A result row of NA values for a gene pair that could not be processed, with the columns substitutionrate()

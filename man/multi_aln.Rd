@@ -27,7 +27,7 @@ multi_aln(
 \item{multi_aln_name}{a character string specifying the name of the stored alignment file. 
 Default is \code{multi_aln_name} = \code{NULL} denoting a default name: 'toolname.aln' .}
 
-\item{params}{a character string listing the input paramters that shall be passed to corresponding alignment tool specified in the \code{tool} argument. 
+\item{params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string listing the input paramters that shall be passed to corresponding alignment tool specified in the \code{tool} argument. 
 Default is \code{NULL}, implicating that a set of default parameters is used when running the correponding tool, e.g. clustalw. 
 Example: \code{params} = "-PWMATRIX=BLOSUM -TYPE=PROTEIN" for \code{tool} = "clustalw.
 For \code{tool} = "t_coffee" the default is T-Coffee's own default mode with CLUSTAL output. Until version 0.4.3

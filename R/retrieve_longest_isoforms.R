@@ -262,8 +262,10 @@ longest_per_group <- function(x, group_col) {
 longest_per_group_do <- function(x, group_col) {
         '.' <- NULL
         extract_longest_transcript <- function(x) {
-                pos <- which.max(x$width)[1]
-                return(dplyr::slice(x, pos))
+                # (not 'pos': dplyr::slice() looks names up in the table first, and the table of
+                # retrieve_longest_isoforms() has a column 'pos')
+                longest_row <- which.max(x$width)[1]
+                return(x[longest_row, , drop = FALSE])
         }
         dplyr::do(dplyr::group_by(x, .data[[group_col]]), extract_longest_transcript(.))
 }

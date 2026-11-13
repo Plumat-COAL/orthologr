@@ -271,3 +271,300 @@ test_that("R23: the defaults of dS_zero are \"drop\" (0.4.3 behaviour) in filter
         expect_identical(res$query_id, "b")
         expect_identical(names(res), names(x))                        # no extra column
 })
+
+# ---------------------------------------------------------------- R07: parameter strings are argument lists, not shell text
+
+test_that("R07: split_params() splits like a shell and gives no character a meaning", {
+        expect_identical(split_params(NULL), character(0))
+        expect_identical(split_params(""), character(0))
+        expect_identical(split_params("  -seg no   -word_size 3 "), c("-seg", "no", "-word_size", "3"))
+        expect_identical(split_params("--force; touch INJ"), c("--force;", "touch", "INJ"))
+        expect_identical(split_params("-a 'b c' \"d e\" f\\ g"), c("-a", "b c", "d e", "f g"))
+        expect_identical(split_params("-a \"x\\\"y\" ''"), c("-a", "x\"y", ""))
+        expect_identical(split_params("$(touch X) `touch Y` | cat > f && ls *"),
+                         c("$(touch", "X)", "`touch", "Y`", "|", "cat", ">", "f", "&&", "ls", "*"))
+        expect_identical(split_params("-a\t-b\n-c"), c("-a", "-b", "-c"))
+        expect_identical(split_params(c("-a 1", "-b 2")), c("-a", "1", "-b", "2"))
+        expect_error(split_params("-a 'open"), "Unbalanced quote")
+        # every token is quoted for the shell
+        skip_on_os("windows")
+        expect_identical(quote_args(list("-i", I("--id 10; touch X"))), c("'-i'", "'--id'", "'10;'", "'touch'", "'X'"))
+        expect_identical(quote_args(list(I(""))), character(0))
+        res <- run_tool("echo", args = list(I("a; echo INJECTED $(echo sub) `echo bq` > /dev/null | cat")), error = FALSE)
+        expect_identical(res$stdout, "a; echo INJECTED $(echo sub) `echo bq` > /dev/null | cat")
+})
+
+test_that("R07: an injection attempt in any parameter string runs no command", {
+        skip_on_cran()
+        skip_on_os("windows")
+        d <- new_test_dir("r07_")
+        n <- 0
+        attempt <- function(expr_fun) {
+                n <<- n + 1
+                marker <- file.path(d, paste0("INJ", n))
+                # (the injected command makes a folder: a program that takes the path for the name of an output
+                # file of its own - T-Coffee writes its log there - is not mistaken for an executed command)
+                for (inj in c(paste0("; mkdir ", marker), paste0("$(mkdir ", marker, ")"), paste0("`mkdir ", marker, "`"),
+                              paste0("| mkdir ", marker), paste0("&& mkdir ", marker), paste0("\n mkdir ", marker))) {
+                        try(suppressWarnings(suppressMessages(utils::capture.output(expr_fun(inj)))), silent = TRUE)
+                        expect_false(dir.exists(marker), info = paste(n, inj))
+                        unlink(marker)
+                }
+        }
+        aln <- system.file("seqs/aa_seqs.fasta", package = "orthologr")
+        if (clustalo_available) attempt(function(p) multi_aln(aln, tool = "clustalo", params = paste("--force", p), quiet = TRUE))
+        if (mafft_available) attempt(function(p) multi_aln(aln, tool = "mafft", params = paste("--quiet", p), quiet = TRUE))
+        if (muscle_available) attempt(function(p) multi_aln(aln, tool = "muscle", params = p, quiet = TRUE))
+        if (clustalw_available) attempt(function(p) multi_aln(aln, tool = "clustalw", params = paste("-quiet", p), quiet = TRUE))
+        if (tcoffee_available) attempt(function(p) multi_aln(aln, tool = "t_coffee", params = paste("-quiet", p), quiet = TRUE))
+        if (perl_available) attempt(function(p) codon_aln(
+                file_aln = system.file("seqs/aa_seqs.aln", package = "orthologr"),
+                file_nuc = system.file("seqs/dna_seqs.fasta", package = "orthologr"),
+                format = "clustal", codon_aln_name = "r07", params = p, quiet = TRUE))
+        if (kaks_available) attempt(function(p) substitutionrate(
+                system.file("seqs/pal2nal.aln", package = "orthologr"), est.method = "YN", kaks_calc.params = paste("-c 1", p), quiet = TRUE))
+        if (diamond_available) {
+                attempt(function(p) diamond(thal_aa(), lyra_aa(), seq_type = "protein", diamond_params = paste("--id 10", p)))
+                attempt(function(p) diamond_best(thal_aa(), lyra_aa(), seq_type = "protein", diamond_params = p))
+                attempt(function(p) diamond_rec(thal_aa(), lyra_aa(), seq_type = "protein", diamond_params = p))
+                attempt(function(p) deepclust(thal_aa(), direct_input = TRUE, deepclust_params = p))
+                attempt(function(p) orthogroups(c(a = thal_cds(), b = lyra_cds()), diamond_params = p))
+                if (perl_available) {
+                        attempt(function(p) dNdS(thal_cds(), lyra_cds(), aligner_params = p, print_citation = FALSE))
+                        if (clustalo_available) attempt(function(p) dNdS(
+                                thal_cds(), lyra_cds(), aa_aln_type = "multiple", aa_aln_tool = "clustalo",
+                                aa_aln_params = paste("--force", p), print_citation = FALSE))
+                }
+        }
+        if (blast_available) {
+                attempt(function(p) blast(thal_aa(), lyra_aa(), seq_type = "protein", blast_params = paste("-seg no", p)))
+                attempt(function(p) blast_best(thal_aa(), lyra_aa(), seq_type = "protein", blast_params = p))
+                attempt(function(p) blast_rec(thal_aa(), lyra_aa(), seq_type = "protein", blast_params = p))
+        }
+        expect_length(list.dirs(d, recursive = FALSE), 0)
+        expect_true(n > 0 || !perl_available)
+})
+
+test_that("R07: ordinary parameter strings still reach the program", {
+        skip_if_not(diamond_available, "DIAMOND2 is not installed")
+        a <- suppressMessages(diamond(thal_aa(), lyra_aa(), seq_type = "protein"))
+        b <- suppressMessages(diamond(thal_aa(), lyra_aa(), seq_type = "protein", diamond_params = "--id 99.5  --max-hsps 1"))
+        expect_true(nrow(b) < nrow(a))
+        expect_true(all(b$perc_identity >= 99.5))
+})
+
+# ---------------------------------------------------------------- R22: every option is documented
+
+test_that("R22: ?orthologr_options lists every option and environment variable the package reads", {
+        rd <- system.file("help", "aliases.rds", package = "orthologr")
+        skip_if_not(nzchar(rd), "installed help is not available")
+        expect_true(is.element("orthologr_options", names(readRDS(rd))))
+        txt <- paste(utils::capture.output(tools::Rd2txt(utils:::.getHelpFile(utils::help("orthologr_options", package = "orthologr")),
+                                                        options = list(underline_titles = FALSE))), collapse = "\n")
+        txt <- gsub("[^A-Za-z0-9._]", " ", txt)
+        ns <- asNamespace("orthologr")
+        code <- unlist(lapply(ls(ns, all.names = TRUE), function(f) {
+                x <- get(f, envir = ns)
+                if (is.function(x)) deparse(x) else character(0)
+        }))
+        code <- paste(code, collapse = "\n")
+        opts <- unique(unlist(regmatches(code, gregexpr("orthologr\\.[A-Za-z_]+", code))))
+        opts <- setdiff(opts, c("orthologr.R"))
+        read <- unique(unlist(regmatches(code, gregexpr("getOption\\(\"[^\"]+\"", code))))
+        read <- sub("\"$", "", sub("getOption\\(\"", "", read))
+        env <- unique(unlist(regmatches(code, gregexpr("Sys\\.getenv\\(\"[^\"]+\"", code))))
+        env <- sub("\"$", "", sub("Sys\\.getenv\\(\"", "", env))
+        expect_true(length(read) >= 8)
+        for (o in unique(c(read, grep("^orthologr\\.(legacy|best|dS|keep|tmpdir|cluster|corrupted|isoform|coal)", opts, value = TRUE), env)))
+                expect_true(grepl(paste0(" ", o, " "), txt, fixed = TRUE), info = paste("not documented:", o))
+})
+
+# ---------------------------------------------------------------- R06: the same sequence ID in query and subject
+
+test_that("R06: dNdS() works when query and subject sequences have the same IDs, on every tool path", {
+        skip_on_cran()
+        skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
+        d <- new_test_dir("r06_")
+        q <- Biostrings::readDNAStringSet(thal_cds()); s <- Biostrings::readDNAStringSet(lyra_cds())
+        ref <- suppressMessages(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE))
+        ref_ids <- sub("\\s.*", "", names(q))
+        for (scheme in c("same", "numeric", "minus")) {
+                ids <- switch(scheme, same = sprintf("gene%02d", 1:20), numeric = as.character(1:20), minus = as.character(-(1:20)))
+                x <- q; names(x) <- ids; y <- s; names(y) <- ids
+                qf <- file.path(d, paste0(scheme, "_q.fa")); sf <- file.path(d, paste0(scheme, "_s.fa"))
+                Biostrings::writeXStringSet(x, qf); Biostrings::writeXStringSet(y, sf)
+                run <- function(...) suppressMessages(dNdS(qf, sf, print_citation = FALSE, ...))
+                res <- run()
+                expect_equal(nrow(attr(res, "failed_pairs")), 0, info = scheme)
+                expect_identical(res$query_id, res$subject_id, info = scheme)       # gene i pairs with gene i
+                # the values of the run with the original IDs
+                m <- match(ref$query_id, ref_ids[match(res$query_id, ids)])
+                expect_equal(res$dN[m], ref$dN, info = scheme)
+                expect_equal(res$dS[m], ref$dS, info = scheme)
+                expect_equal(run(dnds_est.method = "Li")$dN[m], suppressMessages(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "Li", print_citation = FALSE))$dN,
+                             info = scheme)
+                if (kaks_available) {
+                        r <- run(dnds_est.method = "YN")
+                        expect_equal(nrow(attr(r, "failed_pairs")), 0, info = scheme)
+                        expect_true(sum(!is.na(r$dS)) >= 18, info = scheme)
+                }
+                for (tool in c("clustalo", "mafft", "muscle", "clustalw")) {
+                        if (!get(paste0(tool, "_available"))) next
+                        r <- run(aa_aln_type = "multiple", aa_aln_tool = tool)
+                        expect_equal(nrow(attr(r, "failed_pairs")), 0, info = paste(scheme, tool))
+                        expect_true(all(is.element(r$query_id, ids)) && sum(!is.na(r$dN)) >= 18, info = paste(scheme, tool))
+                }
+        }
+})
+
+test_that("R06: the reason of a failed pair names the IDs of the pair, and stored alignments come with an index", {
+        skip_if_not(perl_available, "perl is not installed")
+        expect_identical(dnds_pair_reason("PAL2NAL failed for gene pair 'query' / 'subject' (q3): x", "A|1", "A|1"),
+                         "PAL2NAL failed for gene pair 'A|1' / 'A|1' (q3): x")
+        tbl <- data.table::data.table(
+                query_id = c("same", "bad"), subject_id = c("same", "bad"),
+                query_cds   = rep("ATGAAAACCGCGTATATTGCGAAACAGCGTCTGGAAGGTGATCTGAAAGCGTGGCTGACC", 2),
+                subject_cds = rep("ATGAAGACCGCCTATATTGCGAAACAACGTCTGGATGGTGATCTGAAGGCGTGGTTGACC", 2),
+                query_aa    = c("MKTAYIAKQRLEGDLKAWLT", "MKTAYIAKQRLEGDLKAWLT"),
+                # the protein of the subject of 'bad' is longer than its coding sequence
+                subject_aa  = c("MKTAYIAKQRLDGDLKAWLT", "MKTAYIAKQRLDGDLKAWLTWWWWWWWWWW"))
+        expect_warning(
+                res <- suppressMessages(compute_dnds(tbl, aa_aln_type = "pairwise", aa_aln_tool = "NW", dnds_est.method = "Comeron", quiet = TRUE)),
+                "1 of 2 gene pairs could not be processed")
+        expect_identical(res$query_id, c("bad", "same"))
+        expect_false(is.na(res$dN[2]))
+        fp <- attr(res, "failed_pairs")
+        expect_match(fp$reason, "gene pair 'bad' / 'bad'")
+        expect_false(grepl("'query' / 'subject'", fp$reason, fixed = TRUE))
+        
+        wd <- new_test_dir("r06_store_")
+        old <- setwd(wd); on.exit(setwd(old), add = TRUE)
+        dir.create("orthologr_alignment_files")
+        suppressMessages(compute_dnds(tbl[1], aa_aln_type = "pairwise", aa_aln_tool = "NW", dnds_est.method = "Comeron",
+                                      quiet = TRUE, store_locally = TRUE))
+        idx <- utils::read.delim(file.path("orthologr_alignment_files", "_alignment", "pair_ids.tsv"), colClasses = "character")
+        expect_identical(idx, data.frame(file_prefix = "q1", query = "same", subject = "same"))
+        expect_identical(fasta_ids(file.path("orthologr_alignment_files", "_alignment", "pairwise_aln", "q1_NW_AA.aln")), c("query", "subject"))
+})
+
+# ---------------------------------------------------------------- R09: a missing program is an error before the search
+
+test_that("R09: a missing program stops dNdS() and dNdS_orthogroups() before the search", {
+        skip_on_cran()
+        skip_on_os("windows")
+        skip_if_not(perl_available, "perl is not installed")
+        # a PATH with perl only
+        bin <- new_test_dir("r09_bin_")
+        file.symlink(Sys.which("perl"), file.path(bin, "perl"))
+        old <- Sys.getenv("PATH")
+        on.exit({ Sys.setenv(PATH = old); tool_cache_reset() }, add = TRUE)
+        Sys.setenv(PATH = bin)
+        tool_cache_reset()
+        searched <- FALSE
+        testthat::local_mocked_bindings(
+                diamond_rec = function(...) { searched <<- TRUE; stop("the search was started") },
+                orthogroups = function(...) { searched <<- TRUE; stop("the search was started") },
+                .package = "orthologr")
+        expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "YN", print_citation = FALSE)),
+                     "KaKs_Calculator.*needed for dnds_est.method = \"YN\"")
+        expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), aa_aln_type = "multiple", aa_aln_tool = "clustalo", print_citation = FALSE)),
+                     "Clustal.Omega")
+        expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), aa_aln_type = "multiple", aa_aln_tool = "mafft", print_citation = FALSE)),
+                     "MAFFT")
+        expect_error(suppressMessages(dNdS_orthogroups(c(a = thal_cds(), b = lyra_cds()))), "Clustal.Omega")
+        expect_error(suppressMessages(dNdS_orthogroups(c(a = thal_cds(), b = lyra_cds()), aa_aln_tool = "pairwise", dnds_est.method = "NG")),
+                     "KaKs_Calculator")
+        expect_error(suppressMessages(divergence_stratigraphy(thal_cds(), lyra_cds(), dnds_est.method = "YN")), "KaKs_Calculator")
+        expect_false(searched)
+        # no perl: PAL2NAL cannot run
+        Sys.setenv(PATH = new_test_dir("r09_empty_"))
+        tool_cache_reset()
+        expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE)), "'perl' was not found")
+        expect_false(searched)
+        # what is needed and there passes
+        Sys.setenv(PATH = old); tool_cache_reset()
+        expect_true(dnds_require_programs(aa_aln_tool = "NW", dnds_est.method = "Comeron"))
+        expect_true(dnds_require_programs(aa_aln_tool = "pairwise", dnds_est.method = "Li"))
+})
+
+# ---------------------------------------------------------------- R10: longest_per_group_do() and a column 'pos'
+
+test_that("R10: longest_per_group_do() is not misled by a column named 'pos'", {
+        set.seed(10)
+        for (k in 1:20) {
+                n <- sample(5:60, 1)
+                x <- tibble::tibble(gene_id = sample(paste0("g", 1:8), n, replace = TRUE), id = paste0("t", seq_len(n)),
+                                    width = sample(50:60, n, replace = TRUE), pos = sample(n))
+                a <- longest_per_group(x, "gene_id")
+                b <- longest_per_group_do(x, "gene_id")
+                expect_identical(as.data.frame(a), as.data.frame(b))
+                expect_equal(nrow(b), length(unique(x$gene_id)))
+        }
+        # the path on which the reference code is used: missing widths
+        x$width[1] <- NA
+        res <- longest_per_group(x, "gene_id")
+        expect_equal(nrow(res), length(unique(x$gene_id)))
+        best <- vapply(split(x, x$gene_id), function(g) g$id[which.max(g$width)[1]], character(1))
+        expect_setequal(res$id, best)
+})
+
+# ---------------------------------------------------------------- R20: the row kept for a best hit
+
+test_that("R20: the row kept for the best hit does not depend on the order of the hit table", {
+        hits <- tibble::tibble(
+                query_id = "q1", subject_id = c("s1", "s1", "s1", "s2"),
+                perc_identity = 90, alig_length = 100L, evalue = 0, bit_score = c(200, 200, 200, 150),
+                score_raw = c(507, 508, 508, 380), q_start = c(1L, 300L, 150L, 1L), s_start = c(5L, 310L, 160L, 1L))
+        ref <- as.data.frame(best_hits(hits))
+        expect_identical(ref$subject_id, "s1")
+        expect_identical(ref$score_raw, 508)            # the higher raw score behind the same printed bit score
+        expect_identical(ref$q_start, 150L)             # then the smallest values of the other columns
+        for (p in list(4:1, c(2, 1, 3, 4), c(3, 4, 1, 2), c(2, 3, 4, 1)))
+                expect_identical(as.data.frame(best_hits(hits[p, ])), ref)
+        # the raw score never changes the subject: s0 ties with s1 in the documented keys and wins alphabetically
+        more <- rbind(hits, tibble::tibble(query_id = "q1", subject_id = "s0", perc_identity = 90, alig_length = 100L, evalue = 0,
+                                           bit_score = 200, score_raw = 506, q_start = 1L, s_start = 1L))
+        expect_identical(as.data.frame(best_hits(more))$subject_id, "s0")
+        expect_identical(as.data.frame(best_hits(more[5:1, ]))$subject_id, "s0")
+        # tables without score_raw
+        expect_identical(as.data.frame(best_hits(hits[ , names(hits) != "score_raw"]))$q_start, 1L)
+        # the old rule is untouched
+        expect_identical(as.data.frame(best_hits(hits, rule = "evalue")), as.data.frame(best_hits_do(hits)))
+})
+
+# ---------------------------------------------------------------- R11: the pkgdown reference index is complete
+
+test_that("R11: every exported function and every help topic is in the reference index of _pkgdown.yml", {
+        yml <- test_path("..", "..", "_pkgdown.yml")
+        man <- test_path("..", "..", "man")
+        skip_if_not(file.exists(yml) && dir.exists(man), "the package sources (_pkgdown.yml, man/) are not available")
+        lines <- readLines(yml, warn = FALSE)
+        from <- grep("^reference:", lines)
+        to <- c(grep("^[a-z]+:", lines), length(lines) + 1L)
+        lines <- lines[from:(min(to[to > from]) - 1L)]
+        listed <- trimws(sub("^\\s*-\\s+", "", grep("^\\s+-\\s+[A-Za-z._0-9]+\\s*$", lines, value = TRUE)))
+        expect_false(any(duplicated(listed)))
+        topics <- list()
+        for (f in list.files(man, pattern = "\\.Rd$", full.names = TRUE)) {
+                rd <- readLines(f, warn = FALSE)
+                if (any(grepl("^\\\\keyword\\{internal\\}", rd)))
+                        next
+                name <- sub("^\\\\name\\{(.*)\\}\\s*$", "\\1", grep("^\\\\name\\{", rd, value = TRUE)[1])
+                topics[[name]] <- sub("^\\\\alias\\{(.*)\\}\\s*$", "\\1", grep("^\\\\alias\\{", rd, value = TRUE))
+        }
+        # pkgdown stops with "topics missing from index" unless every topic is listed (by name or alias)
+        is_listed <- vapply(names(topics), function(n) any(is.element(c(n, topics[[n]]), listed)), logical(1))
+        expect_identical(names(topics)[!is_listed], character(0))
+        # every exported function is documented in a listed topic
+        exported <- getNamespaceExports("orthologr")
+        aliases <- unlist(topics, use.names = FALSE)
+        internal_ok <- character(0)
+        for (f in list.files(man, pattern = "\\.Rd$", full.names = TRUE)) {
+                rd <- readLines(f, warn = FALSE)
+                if (any(grepl("^\\\\keyword\\{internal\\}", rd)))
+                        internal_ok <- c(internal_ok, sub("^\\\\alias\\{(.*)\\}\\s*$", "\\1", grep("^\\\\alias\\{", rd, value = TRUE)))
+        }
+        expect_identical(sort(setdiff(exported, c(aliases, internal_ok))), character(0))
+        # and nothing is listed that does not exist
+        expect_identical(setdiff(listed, c(names(topics), aliases)), character(0))
+})

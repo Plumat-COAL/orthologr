@@ -24,7 +24,7 @@
 #' from which the alignment of every pair is taken; or \code{"pairwise"} - every pair is aligned on its own
 #' (global alignment, as \code{dNdS()} does by default; no external alignment program is needed).
 #' @param aa_aln_path the folder that holds the alignment program (in case it is not on the PATH).
-#' @param aa_aln_params parameters for the alignment program (see \code{\link{multi_aln}}).
+#' @param aa_aln_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) parameters for the alignment program (see \code{\link{multi_aln}}).
 #' @param max_group_size groups with more genes than this are not computed (\code{groups = "all"}); they are listed
 #' in \code{failed}. Default is \code{50}.
 #' @param dS_saturation pairs with a dS above this value are counted as saturated in the summary. Default is \code{2}.
@@ -104,6 +104,9 @@ dNdS_orthogroups <- function(x,
                              "Please choose one of: 'Comeron', 'Li', 'NG', 'LWL', 'LPB', 'MLWL', 'YN', 'MYN', 'GY', 'MA', 'MS', 'GMYN', 'ALL'.",
                              call. = FALSE)
                 check_choice(aa_aln_tool, c("clustalo", "mafft", "muscle", "clustalw", "t_coffee", "pairwise"), "aa_aln_tool")
+                # the programs must be there before the search and the alignments start
+                dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = "pal2nal",
+                                      dnds_est.method = dnds_est.method, kaks_calc_path = kaks_calc_path)
         } else {
                 dnds_est.method <- dnds_groups_coal_check(dnds_est.method, aa_aln_tool)
         }

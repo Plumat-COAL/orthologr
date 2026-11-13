@@ -21,7 +21,7 @@
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet. 
 #' @param store_locally a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.
 #' @param cdd.path deprecated and not used (a warning is given when it is set).
-#' @param aligner_params a character string specifying additional parameters that shall be passed to DIAMOND or BLAST. Default is \code{aligner_params} = \code{NULL}. 
+#' @param aligner_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters that shall be passed to DIAMOND or BLAST. Default is \code{aligner_params} = \code{NULL}. 
 #' @param aligner_path a character string specifying the path to the DIAMOND or BLAST program (in case you don't use the default path).
 #' @param sensitivity_mode specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 #' \itemize{
@@ -47,7 +47,7 @@
 #' \code{aa_aln_type = "multiple"} one of \code{"clustalw"}, \code{"clustalo"}, \code{"mafft"}, \code{"muscle"},
 #' \code{"t_coffee"} (see \code{\link{multi_aln}}).
 #' @param aa_aln_path a character string specifying the path to the multiple alignment program (in case you don't use the default path).
-#' @param aa_aln_params a character string with command-line parameters for the multiple alignment program selected via
+#' @param aa_aln_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string with command-line parameters for the multiple alignment program selected via
 #' \code{aa_aln_tool}. It is handed to \code{\link{multi_aln}} as \code{params} and \emph{replaces} the default parameters
 #' of that program (see there; the alignment must still be written in CLUSTAL or FASTA format, e.g.
 #' \code{aa_aln_tool = "mafft", aa_aln_params = "--maxiterate 1 --clustalout"}). It is not used (with a warning)
@@ -320,6 +320,10 @@ dNdS <- function(query_file,
         }
         
         comp_cores <- check_comp_cores(comp_cores)
+        
+        # the programs of the chosen pipeline must be there before the search starts
+        dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = codon_aln_tool,
+                              dnds_est.method = dnds_est.method, kaks_calc_path = kaks_calc_path)
         
         message("\n")
         message("Starting orthology inference (",ortho_detection, ") and dNdS estimation (",dnds_est.method,") using the follwing parameters:")

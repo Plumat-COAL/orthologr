@@ -88,7 +88,9 @@ test_that("the IDs of a gene pair come from the pair table, not from the program
                 subject_aa  = "MKTAYIAKQRLDGDLKAWLT"
         )
         for (m in c("Comeron", "Li")) {
-                x <- suppressMessages(compute_dnds(data.table::copy(tbl), dnds_est.method = m, quiet = TRUE))
+                # (pairwise alignment in R: compute_dnds()'s own default, ClustalW, is an optional program)
+                x <- suppressMessages(compute_dnds(data.table::copy(tbl), aa_aln_type = "pairwise", aa_aln_tool = "NW",
+                                                   dnds_est.method = m, quiet = TRUE))
                 expect_identical(x$query_id, tbl$query_id, info = m)
                 expect_identical(x$subject_id, tbl$subject_id, info = m)
                 expect_true(is.numeric(x$dN) && !is.na(x$dN), info = m)

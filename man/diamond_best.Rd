@@ -61,7 +61,7 @@ Please be aware that \code{max.target.seqs} selects best hits based on the datab
 
 \item{comp_cores}{a numeric value specifying the number of cores to be used for multicore DIAMOND2 computations.}
 
-\item{diamond_params}{a character string listing the input paramters that shall be passed to the executing DIAMOND2 program. Default is \code{NULL}, implicating
+\item{diamond_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string listing the input paramters that shall be passed to the executing DIAMOND2 program. Default is \code{NULL}, implicating
 that a set of default parameters is used when running DIAMOND2.}
 
 \item{clean_folders}{a boolean value spefiying whether all internall folders storing the output of used programs

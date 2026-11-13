@@ -27,7 +27,7 @@ hence it is important to use format = "fasta" when choosing est.method = "Comero
 
 \item{quiet}{a logical value specifying whether the output of the coresponding interface shall be printed out.}
 
-\item{kaks_calc.params}{a character string storing additional parameters for KaKs_Calculator. Default is \code{NULL}.
+\item{kaks_calc.params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string storing additional parameters for KaKs_Calculator. Default is \code{NULL}.
 The parameters are added to the method chosen with \code{est.method} (e.g. \code{est.method = "YN"},
 \code{kaks_calc.params = "-c 11"} runs \code{-m YN -c 11}; up to orthologr 0.4.3 they replaced the method).
 With \code{est.method = "kaks_calc"} the methods themselves are given here, e.g.
