@@ -23,11 +23,12 @@ change. Please report the version of orthologr in the methods of analyses based 
 - **One summary message at the end of a run**: gene pairs by status, median dS, sequences left out before the
   search, and a note when most pairs are saturated or the median dS is above 1.5 (species too distant for
   pairwise dN/dS). With `quiet = FALSE`, a progress message about every tenth of the gene pairs.
-- **Record of the run**: `attr(result, "orthologr_run")` on results of `dNdS()`, `dNdS_coal()`,
-  `dNdS_clusters()`, `dNdS_orthogroups()` and `divergence_stratigraphy()`: package version, arguments, every
-  `orthologr.*` option in force (with its default when it is not set, `orthologr.ambiguous_cds` included), engine
-  (and the COAL backend used: `coalr` or the coal-cpp program), program versions, date, size and MD5 of the input files, counts by status. **`write_dNdS()`** writes a table as TSV with this record in `<file>.run.json`; **`read_dNdS()`** reads
-  both back (needs `jsonlite`). `orthogroups()$params` holds the package version.
+- **Record of the run**: `attr(result, "orthologr_run")` on results of `dNdS()`, `dNdS_coal()`, `dNdS_clusters()`,
+  `dNdS_orthogroups()` and `divergence_stratigraphy()`: package version, arguments, every `orthologr.*` option in
+  force (with its default when it is not set, `orthologr.ambiguous_cds` included), engine (and the COAL backend
+  used: `coalr` or the coal-cpp program), program versions, date, size and MD5 of the input files, counts by status.
+  **`write_dNdS()`** writes a table as TSV with this record in `<file>.run.json`; **`read_dNdS()`** reads both back
+  (needs `jsonlite`). `orthogroups()$params` holds the package version.
 - **`orthologr_legacy_options()`** and `options(orthologr.legacy = TRUE)`: all settings of 0.4.3 at once. A test
   compares the result with tables stored from 0.4.3 (20-gene example, Comeron and YN). Only the default engine
   gives the numbers of 0.4.3: the COAL engine cannot make the pairwise alignments of 0.4.3 and with these settings
@@ -37,13 +38,13 @@ change. Please report the version of orthologr in the methods of analyses based 
 - **Classed errors and warnings**: the common failures have the class `orthologr_error` plus one for their kind -
   `orthologr_error_tool_missing`, `_package_missing`, `_tool_failed` (with `_alignment_failed` for an alignment
   program), `_no_hits`, `_bad_input`, `_bad_argument` - and the warnings about failed gene pairs and isoforms the
-  classes `orthologr_warning_failed_pairs` / `_isoforms` (and `_legacy_engine`, above), so that they can be handled with `tryCatch()` without
-  matching message text (`?orthologr_options`, section "Errors and warnings"). Messages are unchanged. The
-  argument and input-file checks of `dNdS()`, `dNdS_coal()`, `dNdS_clusters()`, `orthogroups()`, `dNdS_orthogroups()`, `divergence_stratigraphy()`,
-  `filter_dNdS()`, the alignment functions, `substitutionrate()` and the readers are classed (17 probes of the
-  review: 0 classed before, 17 after); a missing COAL is `orthologr_error_package_missing` (with
-  `_tool_missing` when neither `coalr` nor coal-cpp is there); `dNdS()` and `dNdS_coal()` check that their input
-  files exist before any program runs.
+  classes `orthologr_warning_failed_pairs` / `_isoforms` (and `_legacy_engine`, above), so that they can be handled
+  with `tryCatch()` without matching message text (`?orthologr_options`, section "Errors and warnings"). Messages
+  are unchanged. The argument and input-file checks of `dNdS()`, `dNdS_coal()`, `dNdS_clusters()`, `orthogroups()`,
+  `dNdS_orthogroups()`, `divergence_stratigraphy()`, `filter_dNdS()`, the alignment functions, `substitutionrate()`
+  and the readers are classed (17 probes of the review: 0 classed before, 17 after); a missing COAL is
+  `orthologr_error_package_missing` (with `_tool_missing` when neither `coalr` nor coal-cpp is there); `dNdS()` and
+  `dNdS_coal()` check that their input files exist before any program runs.
 - `divergence_left_out()`: the gene pairs that are not in a divergence map, with the reason.
 - `attr(result, "failed_pairs")` and `attr(result, "dropped_sequences")` on dN/dS tables: gene pairs that could
   not be processed and input sequences that were left out, each with the reason.
