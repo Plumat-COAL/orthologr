@@ -362,3 +362,12 @@ test_that("dNdS(engine = \"coal\") counts sequences trimmed to a multiple of 3 i
         expect_match(msgs[2], "1 coding sequence has a length that is not a multiple of 3 and was trimmed", fixed = TRUE)
         expect_identical(nrow(attr(res, "trimmed_sequences")), 1L)
 })
+
+test_that("the record of a run names the COAL backend that was used", {
+        skip_if(length(backends) == 0, "COAL is not installed")
+        for (b in backends) with_backend(b, {
+                v <- coal_versions()
+                expect_identical(v$coal_backend, b)
+                expect_true(if (b == "coalr") nzchar(v$coalr) else nzchar(v$`coal-cpp`))
+        })
+})
