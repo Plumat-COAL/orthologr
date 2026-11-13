@@ -218,3 +218,16 @@ save_output_copy <- function(from, save.output, name) {
         file.copy(from, to, overwrite = TRUE)
         invisible(to)
 }
+
+# Evaluate every argument of the calling function now. A function that hands a closure to worker processes
+# (parallel::parLapply() on a PSOCK cluster, the default on Windows) must call this before the cluster is used:
+# an argument that was not evaluated yet travels to the workers as a promise - the expression the user typed plus
+# a reference to the environment it was typed in - and is evaluated there, where a variable of the user's
+# workspace does not exist ("object 'kp' not found") or means something else (`quiet = qt` found stats::qt).
+force_args <- function() {
+        env <- parent.frame()
+        fn <- sys.function(sys.parent())
+        for (arg in setdiff(names(formals(fn)), "..."))
+                get(arg, envir = env, inherits = FALSE)
+        invisible(TRUE)
+}
