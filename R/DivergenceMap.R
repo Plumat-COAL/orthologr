@@ -76,10 +76,7 @@ divergence_map <- function(dNdS_tbl, subject.id = FALSE, n_quantile = 10){
         if (!is.data.frame(dNdS_tbl) || !all(is.element(c("dNdS", "query_id", "subject_id"), names(dNdS_tbl))))
                 stop("dNdS_tbl must be a table with the columns 'query_id', 'subject_id' and 'dNdS' (as returned by dNdS()).",
                      call. = FALSE)
-        if (!is.numeric(n_quantile) || length(n_quantile) != 1 || is.na(n_quantile) || n_quantile < 1 ||
-            n_quantile != round(n_quantile))
-                stop("n_quantile must be one whole number >= 1 (the number of divergence strata), not '",
-                     paste(n_quantile, collapse = "', '"), "'.", call. = FALSE)
+        check_n_quantile(n_quantile)
         
         # a copy: the table of the caller is left as it is (setDT() / setkeyv() turned a tibble of the caller into
         # a re-sorted data.table)
@@ -148,4 +145,13 @@ divergence_strata_of <- function(x, n) {
                 )
         }
         res
+}
+
+# n_quantile: one finite whole number >= 1 (Inf passed the earlier check and failed later with an error about NA).
+check_n_quantile <- function(n_quantile) {
+        if (!is.numeric(n_quantile) || length(n_quantile) != 1 || is.na(n_quantile) || !is.finite(n_quantile) ||
+            n_quantile < 1 || n_quantile != round(n_quantile) || n_quantile > .Machine$integer.max)
+                stop("n_quantile must be one whole number >= 1 (the number of divergence strata), not '",
+                     paste(n_quantile, collapse = "', '"), "'.", call. = FALSE)
+        invisible(n_quantile)
 }

@@ -161,6 +161,87 @@ test_that("R03: NCBI TAIR10.1 - no protein is lost and AT5G38410 gets its longes
         }
 })
 
+# ---------------------------------------------------------------- R14: dN = 0 with the KaKs_Calculator methods
+
+test_that("R14: kaks_zero_dn() sets dN = 0 only where KaKs_Calculator printed NA for a known zero", {
+        #                 zero dN   identical  failed  dS < 1e-6  normal  -0     tiny Ka           dS NA
+        dN   <- c(NA,      NA,       NaN,    0.0147,    0.0143, NA,    NA,               NA)
+        dS   <- c(0.2046,  NA,       NaN,    NA,        0.2144, 0.189, 0.5,              NA)
+        dNdS <- c(0,       NA,       NaN,    NA,        0.0665, -0,    1e-7,             0)
+        r <- kaks_zero_dn(dN, dS, dNdS)
+        expect_equal(r$changed, c(TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE))
+        expect_equal(r$dN[c(1, 6)], c(0, 0))
+        expect_equal(r$dN[7], 5e-8)
+        expect_true(all(is.na(r$dN[c(2, 3, 8)])))
+        expect_equal(r$dN[4:5], dN[4:5])
+        expect_identical(sign(1 / r$dNdS[6]), 1)        # -0 became 0
+        # a table as KaKs_Calculator writes it
+        tbl <- data.frame(Sequence = c("a", "b", "c"), Method = "YN", Ka = c("NA", "NA", "0.0143"), Ks = c("0.204638", "NA", "0.214"),
+                          `Ka/Ks` = c("-0", "NA", "0.0665"), check.names = FALSE)
+        res <- kaks_result_table(tbl, c("q", "s"))
+        expect_equal(res$dN, c(0, NA, 0.0143))
+        expect_equal(res$dNdS, c(0, NA, 0.0665))
+        old <- options(orthologr.legacy_kaks_zero_dn = TRUE)
+        on.exit(options(old), add = TRUE)
+        res <- kaks_result_table(tbl, c("q", "s"))
+        expect_equal(res$dN, c(NA, NA, 0.0143))
+        expect_equal(res$dNdS, c(0, NA, 0.0665))
+})
+
+test_that("R14: a gene pair with synonymous changes only has dN = 0 with KaKs_Calculator and survives filter_dNdS()", {
+        skip_if_not(kaks_available, "KaKs_Calculator is not installed")
+        a   <- "ATGAAAACCGCGTATATTGCGAAACAGCGTCTGGAAGGTGATCTGAAAGCGTGGCTGACCGGTCTGGAAGCGAAACTGGGTATTCCGGAAGCG"
+        syn <- "ATGAAGACCGCCTATATTGCGAAACAGCGTCTGGAAGGTGATCTGAAAGCGTGGTTGACCGGTCTGGAAGCGAAGCTGGGTATTCCGGAAGCG"
+        d <- new_test_dir("r14_")
+        f <- file.path(d, "syn.fasta"); writeLines(c(">q", a, ">s", syn), f)
+        g <- file.path(d, "ident.fasta"); writeLines(c(">q", a, ">s", a), g)
+        for (m in c("NG", "YN", "LWL")) {
+                r <- substitutionrate(f, est.method = m, quiet = TRUE)
+                expect_equal(r$dN, 0, info = m)
+                expect_true(r$dS > 0.1, info = m)
+                expect_equal(r$dNdS, 0, info = m)
+                kept <- suppressMessages(filter_dNdS(as.data.frame(r), dnds.threshold = 2))
+                expect_equal(nrow(kept), 1, info = m)
+                # identical sequences: KaKs_Calculator gives no value at all; nothing is invented
+                i <- substitutionrate(g, est.method = m, quiet = TRUE)
+                expect_true(is.na(i$dN) && is.na(i$dS) && is.na(i$dNdS), info = m)
+        }
+        old <- options(orthologr.legacy_kaks_zero_dn = TRUE)
+        on.exit(options(old), add = TRUE)
+        r <- substitutionrate(f, est.method = "YN", quiet = TRUE)
+        expect_true(is.na(r$dN))
+        expect_equal(r$dNdS, 0)
+})
+
+# ---------------------------------------------------------------- R23: the output contract of divergence_stratigraphy()
+
+test_that("R23: divergence_stratigraphy() returns a divergence map also when the binning fails", {
+        skip_on_cran()
+        skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
+        testthat::local_mocked_bindings(divergence_map = function(...) stop("no strata today"), .package = "orthologr")
+        for (sid in c(FALSE, TRUE)) {
+                expect_warning(
+                        ds <- suppressMessages(divergence_stratigraphy(thal_cds(), lyra_cds(), quiet = TRUE, subject.id = sid)),
+                        "could not be sorted into divergence strata \\(no strata today\\).*without rows")
+                expect_s3_class(ds, "data.frame")
+                expect_identical(names(ds), c("DS", "query_id", if (sid) "subject_id"))
+                expect_equal(nrow(ds), 0)
+                expect_equal(nrow(attr(ds, "dNdS_tbl")), 20)          # the run is not lost
+                expect_true(is.data.frame(attr(ds, "left_out")))
+        }
+})
+
+test_that("R23: the defaults of dS_zero are \"drop\" (0.4.3 behaviour) in filter_dNdS() and divergence_stratigraphy()", {
+        old <- options(orthologr.dS_zero = NULL)
+        on.exit(options(old), add = TRUE)
+        expect_identical(eval(formals(filter_dNdS)$dS_zero), "drop")
+        expect_identical(eval(formals(divergence_stratigraphy)$dS_zero), "drop")
+        x <- data.frame(query_id = c("a", "b"), subject_id = c("x", "y"), dN = c(0, 0.1), dS = c(0, 0.5), dNdS = c(NA, 0.2))
+        res <- suppressMessages(filter_dNdS(x))
+        expect_identical(res$query_id, "b")
+        expect_identical(names(res), names(x))                        # no extra column
+})
+
 # ---------------------------------------------------------------- R07: parameter strings are argument lists, not shell text
 
 test_that("R07: split_params() splits like a shell and gives no character a meaning", {
@@ -402,4 +483,38 @@ test_that("R11: every exported function and every help topic is in the reference
         expect_identical(sort(setdiff(exported, c(aliases, internal_ok))), character(0))
         # and nothing is listed that does not exist
         expect_identical(setdiff(listed, c(names(topics), aliases)), character(0))
+})
+
+# ---------------------------------------------------------------- R17: Comeron saturation and classes without sites
+
+test_that("R17: an undefined logarithm in a class without sites does not make Comeron's estimate NA", {
+        gest <- function(a, b, legacy = FALSE) {
+                f <- tempfile(fileext = ".fa"); o <- tempfile()
+                on.exit(unlink(c(f, o)), add = TRUE)
+                writeLines(c(">a", a, ">b", b), f)
+                gestimator(f, o, 3L, FALSE, FALSE, legacy)
+                v <- as.numeric(scan(o, what = "", sep = "\t", quiet = TRUE)[3:5])
+                v[v == 999] <- NA
+                v
+        }
+        # three pairs of the review's simulation that were NA in dN although the class concerned has no sites:
+        # the values are those of the uncorrected (legacy) computation
+        cases <- list(
+                c("GGTGCCCTAAACGTCGAAAAAGAGTGCGGA", "AAAGCCCTAAATGGGGTCCTAGTGTGCTCA", 0.6615, 0.6216),
+                c("TACTTCCCGACTACCGCAGCTTACTATTTG", "CAGATGCCGTATTCCGAAGCTTTCCTAATG", 0.8430, 0.2085),
+                c("TTGTTGTTGGACGTTGTAGTGTTGCTTTCT", "TTGTTGCTGGACGATATGGTGTTACGTTCC", 0.1814, 0.4013))
+        for (x in cases) {
+                v <- gest(x[1], x[2])
+                expect_equal(v[1:2], as.numeric(x[3:4]), info = x[1])
+                expect_equal(v, gest(x[1], x[2], legacy = TRUE), info = x[1])
+        }
+        # a class WITH sites that is saturated still gives NA (30 codons, 8 differences), and the legacy value on request
+        a <- "ACGCCAAAACTCGTTCTGTGGAAAAGACTAACACATGTCAATTGGCAGACCAGCACCTCCTTTCAGTTACAGGCGGCTTTAGTTCAAAGG"
+        b <- "ACGCCAAAACTCGTTCTGCGGAAAACACAAACACATGTCAAGTGGCAGACCAGCACCTCCTTTCCGTTACAGGCGGCATATGTTCAAAGG"
+        v <- gest(a, b)
+        expect_true(is.na(v[1]) && is.na(v[3]))
+        expect_equal(v[2], 0.06677)
+        expect_equal(gest(a, b, legacy = TRUE), c(0.09579, 0.06677, 1.435))
+        # the documented example of saturation at synonymous sites is unchanged
+        expect_true(is.na(gest("ATGGCTAAA", "ATGGCCAAA")[2]))
 })

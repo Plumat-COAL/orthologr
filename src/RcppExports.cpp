@@ -166,7 +166,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_orthologr_nucToInt", (DL_FUNC) &_orthologr_nucToInt, 1},
     {"_orthologr_Universal", (DL_FUNC) &_orthologr_Universal, 1},
     {"_orthologr_TranslateCodon", (DL_FUNC) &_orthologr_TranslateCodon, 1},
-    {"_orthologr_gestimator", (DL_FUNC) &_orthologr_gestimator, 5},
+    {"_orthologr_gestimator", (DL_FUNC) &_orthologr_gestimator, 6},
     {NULL, NULL, 0}
 };
 

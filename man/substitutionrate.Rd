@@ -89,6 +89,31 @@ Maximum-Likelihood Methods:
 \item GY: Goldman, N. and Yang, Z. (1994)
 }
 }
+\section{Gene pairs without nonsynonymous change (KaKs_Calculator methods)}{
+
+KaKs_Calculator prints \code{NA} for every Ka below 1e-6, also when the estimate is exactly 0, and still prints
+\code{Ka/Ks = 0}. Up to orthologr 0.4.3 such a pair was returned with \code{dN = NA} and \code{dNdS = 0}, and
+\code{\link{filter_dNdS}} / \code{\link{divergence_stratigraphy}} then removed it - the most conserved genes of
+a comparison. Since 0.5.0 \code{dN = 0} is returned when Ka is \code{NA}, Ks is a positive number and Ka/Ks is
+0. When Ka/Ks is \code{NA} as well (identical sequences, a model that failed) \code{dN} stays \code{NA}.
+\code{options(orthologr.legacy_kaks_zero_dn = TRUE)} restores the old table.
+}
+
+\section{Saturation (Comeron's method)}{
+
+The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:
+proportions of transitional and transversional differences in a class of sites). When such an argument is not
+positive, the observed differences exceed what the model can correct for and the distance is not defined. In
+that case \code{dS} (synonymous classes) or \code{dN} (nonsynonymous classes) and \code{dNdS} are returned as
+\code{NA}. Up to orthologr 0.4.3 the logarithm was replaced by 0 and a finite, too small value was returned
+(e.g. \code{dS = 0} for \code{ATGGCTAAA} / \code{ATGGCCAAA}, which differ by one synonymous substitution);
+\code{options(orthologr.legacy_comeron_saturation = TRUE)} reproduces those values. Values of gene pairs
+without such a term are the same in both modes.
+
+The alignment must be a codon alignment: at least two sequences of the same length, which is a multiple of 3.
+Anything else is an error.
+}
+
 \examples{
 \dontrun{
 

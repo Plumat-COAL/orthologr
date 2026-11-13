@@ -51,14 +51,26 @@
 #' @param n_quantile a numeric value specifying the number of quantiles that should be returned. Many equal dN/dS
 #' values (e.g. dN/dS = 0 for more than \code{1/n_quantile} of the genes of two closely related genomes) no longer
 #' stop the function after the run: see the section on ties in \code{\link{divergence_map}}.
-#' @param dS_zero what to do with gene pairs whose dS is 0 (dN/dS not defined): \code{"keep"} (default) keeps them
-#' with the stratum (or dNdS value) \code{NA}; \code{"drop"} leaves them out, as orthologr <= 0.4.3 did without
-#' saying so. See \code{\link{filter_dNdS}}; \code{options(orthologr.dS_zero = "drop")} sets the default.
+#' @param dS_zero what to do with gene pairs whose dS is 0 (dN/dS not defined): \code{"drop"} (default) leaves
+#' them out of the divergence map, as every released version of orthologr did - now with a message, and listed in
+#' \code{attr(result, "left_out")}; \code{"keep"} keeps them as rows with the stratum (or dNdS value) \code{NA}
+#' (only choose this when the code that uses the map can deal with \code{NA} strata).
+#' See \code{\link{filter_dNdS}}; \code{options(orthologr.dS_zero = "keep")} sets the default.
 #' @return A \code{data.frame} with the divergence stratum (column \code{DS}; or \code{dNdS} with
-#' \code{ds.values = FALSE}) and the \code{query_id} (and \code{subject_id}) of every gene pair.
-#' \code{attr(result, "dNdS_tbl")} holds the complete dN/dS table of the run as returned by \code{\link{dNdS}},
+#' \code{ds.values = FALSE}) and the \code{query_id} (and \code{subject_id}) of every gene pair that has a dN/dS
+#' value of at most \code{dnds.threshold}. With the default \code{dS_zero = "drop"} no stratum is \code{NA}, as in
+#' earlier versions; the function always returns this type of table.
+#'
+#' Two attributes come with it:
+#' \itemize{
+#' \item \code{"dNdS_tbl"}: the complete dN/dS table of the run as returned by \code{\link{dNdS}},
 #' before filtering and binning, so that a finished run can be binned again (\code{\link{divergence_map}}) without
-#' computing it again.
+#' computing it again;
+#' \item \code{"left_out"}: the gene pairs of that table that are not in the map (\code{query_id},
+#' \code{subject_id}, \code{dN}, \code{dS}, \code{dNdS}, \code{reason}): pairs without dN or dS, pairs with
+#' dS = 0 (identical coding sequences, or nonsynonymous changes only), pairs above \code{dnds.threshold}. A message
+#' gives their numbers. \code{\link{divergence_left_out}} returns this table.
+#' }
 #' @details Introduced by Quint et al., 2012 and extended in Drost et al. 2015, divergence stratigraphy
 #'  is the process of quantifying the selection pressure (in terms of amino acid sequence divergence) acting on
 #'  orthologous genes between closely related species. The resulting sequence divergence map (short divergence map),
@@ -202,7 +214,7 @@ divergence_stratigraphy <- function(query_file,
                                     subject.id      = FALSE,
                                     n_quantile      = 10,
                                     sensitivity_mode = "fast",
-                                    dS_zero         = getOption("orthologr.dS_zero", "keep")){
+                                    dS_zero         = getOption("orthologr.dS_zero", "drop")){
         
         if (!is.ortho_detection_method(ortho_detection))
                 stop("Please choose a orthology detection method that is supported by this function.")
@@ -224,9 +236,7 @@ divergence_stratigraphy <- function(query_file,
         query_id <- subject_id <- dNdS <- NULL
         
         # checked before the long run, not after it
-        if (!is.numeric(n_quantile) || length(n_quantile) != 1 || is.na(n_quantile) || n_quantile < 1 ||
-            n_quantile != round(n_quantile))
-                stop("n_quantile must be one whole number >= 1 (the number of divergence strata).", call. = FALSE)
+        check_n_quantile(n_quantile)
         if (!is.character(dS_zero) || length(dS_zero) != 1 || !is.element(dS_zero, c("keep", "drop")))
                 stop("dS_zero must be \"keep\" or \"drop\".", call. = FALSE)
         
@@ -248,26 +258,37 @@ divergence_stratigraphy <- function(query_file,
         
         dNdS_tbl <- filter_dNdS(dNdS_full, dnds.threshold = dnds.threshold, dS_zero = dS_zero)
         
+        # the gene pairs that are not in the map, and why
+        left_out <- divergence_left_out_table(dNdS_full, dNdS_tbl, dnds.threshold)
+        if (nrow(left_out) > 0) {
+                tab <- table(left_out$reason)
+                message(nrow(left_out), " of ", nrow(dNdS_full), " gene pairs are not in the divergence map: ",
+                        paste0(tab, " with ", names(tab), collapse = "; "),
+                        ". They are listed in attr(<result>, \"left_out\") (see divergence_left_out()).")
+        }
+        
         if (ds.values) {
                 # divergence map: standard = col1: divergence stratum, col2: query_id
-                # The dN/dS run is finished at this point and must not be lost: should the binning fail, the
-                # dN/dS table is returned (with a warning) instead of an error.
+                # The dN/dS run is finished at this point and must not be lost: should the binning fail, a map
+                # without rows is returned with a warning (always the documented type of table), and the dN/dS
+                # table of the run is in its attribute "dNdS_tbl".
                 dm_tbl <- tryCatch(
                         divergence_map( dNdS_tbl = dNdS_tbl , subject.id = subject.id , n_quantile = n_quantile),
                         error = function(e) e
                 )
                 if (inherits(dm_tbl, "error")) {
                         warning("The dN/dS values could not be sorted into divergence strata (", conditionMessage(dm_tbl),
-                                "). The dN/dS table is returned instead of the divergence map; use divergence_map() on it.",
+                                "). A divergence map without rows is returned; the dN/dS table of the run is in ",
+                                "attr(<result>, \"dNdS_tbl\"): use filter_dNdS() and divergence_map() on it.",
                                 call. = FALSE)
-                        res <- as.data.frame(dNdS_full)
-                        attr(res, "dNdS_tbl") <- dNdS_full
-                        return(res)
+                        dm_tbl <- data.frame(divergence_strata = integer(0), query_id = character(0), stringsAsFactors = FALSE)
+                        if (subject.id)
+                                dm_tbl$subject_id <- character(0)
                 }
         }
         
         if (!ds.values) {
-                # (rows with dNdS = NA are gene pairs with dS = 0 that dS_zero = "keep" retains)
+                # (with dS_zero = "keep" the rows with dNdS = NA are the gene pairs with dS = 0)
                 if (!subject.id)
                         dm_tbl <- dplyr::select(dNdS_tbl, dNdS,query_id)
                 if (subject.id)
@@ -286,15 +307,50 @@ divergence_stratigraphy <- function(query_file,
         
         # the complete dN/dS table of the run (before filtering and binning) comes with the result
         attr(DivergenceMap.DF, "dNdS_tbl") <- dNdS_full
+        attr(DivergenceMap.DF, "left_out") <- left_out
         
         message("Divergence Stratigraphy completed successfully.")
         return( DivergenceMap.DF )
 }
 
+# The gene pairs of the dN/dS table `full` that are not in the filtered table `kept`, with the reason.
+divergence_left_out_table <- function(full, kept, dnds.threshold) {
+        full <- as.data.frame(full)
+        why <- dnds_filter_reason(full, dnds.threshold)
+        key <- function(x) paste(x$query_id, x$subject_id, sep = "\r")
+        out <- !is.element(key(full), key(as.data.frame(kept)))
+        why[out & is.na(why)] <- "another reason"
+        res <- full[out, intersect(c("query_id", "subject_id", "dN", "dS", "dNdS"), names(full)), drop = FALSE]
+        res$reason <- why[out]
+        rownames(res) <- NULL
+        res
+}
 
-
-
-
-
-
-
+#' @title Gene pairs that are not in a divergence map
+#' @description \code{\link{divergence_stratigraphy}} leaves gene pairs without a usable dN/dS value out of the
+#' divergence map: pairs for which dN or dS could not be estimated, pairs with dS = 0 (dN/dS is not defined: the
+#' coding sequences are identical, or differ by nonsynonymous changes only) and pairs with dN/dS above
+#' \code{dnds.threshold}. This function returns them.
+#' @param x a divergence map returned by \code{\link{divergence_stratigraphy}}.
+#' @return A \code{data.frame} with \code{query_id}, \code{subject_id}, \code{dN}, \code{dS}, \code{dNdS} and
+#' \code{reason}, one row per gene pair that is in the dN/dS table of the run (\code{attr(x, "dNdS_tbl")}) but not in
+#' the map. It has no rows when every pair is in the map.
+#' @details Genes with identical coding sequences in both species are among the most conserved genes of a
+#' comparison. They are not in the map because their dN/dS is 0/0. To give them a stratum anyway - for example the
+#' lowest one - take them from this table and add them to the map; \code{divergence_stratigraphy(dS_zero = "keep")}
+#' keeps them in the map with the stratum \code{NA}.
+#' @examples \dontrun{
+#' dm <- divergence_stratigraphy(
+#'   query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
+#'   subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
+#' divergence_left_out(dm)
+#' }
+#' @seealso \code{\link{divergence_stratigraphy}}, \code{\link{filter_dNdS}}
+#' @export
+divergence_left_out <- function(x) {
+        res <- attr(x, "left_out")
+        if (is.null(res))
+                stop("'x' has no attribute \"left_out\": it must be a divergence map returned by divergence_stratigraphy() ",
+                     "of orthologr >= 0.5.0.", call. = FALSE)
+        res
+}
