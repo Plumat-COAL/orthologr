@@ -5,8 +5,94 @@ some default results change (see "Changes to pairwise alignments that change dN/
 default mode, `aa_aln_params` being passed on), functions that returned `NULL` or stale results now stop with an
 error, and packages moved from Imports to Suggests.
 
-**Default change that alters which orthologs are returned: best hits are ranked by bit score.** See the next
-section; `options(orthologr.best_hit_rule = "evalue")` restores the rule of 0.4.3.
+**Default change that alters which orthologs are returned: best hits are ranked by bit score.** See the section
+"Best hits are ranked by bit score"; `options(orthologr.best_hit_rule = "evalue")` restores the rule of 0.4.3.
+
+### New: orthogroups of several species with DIAMOND - `orthogroups()`, `write_orthogroups()`, `dNdS_orthogroups()`
+
+orthologr no longer needs OrthoFinder for groups of orthologs of more than two species (`orthofinder2()` never
+worked beyond starting the program and is soft-deprecated; its warning and `?orthologs` now point to
+`orthogroups()`). Nothing in this section changes the result of an existing function.
+
+- **`orthogroups(files, method = c("rbh", "deepclust"), ...)`** for 2 to N species (a named vector or list of
+  FASTA files, or a folder; coding sequences or proteins).
+  - `method = "rbh"` (default; about 2 to 15 species): **one** all-against-all DIAMOND search of the proteins of all
+    species, reciprocal best hits for every pair of species - chosen by the code `diamond_rec()` uses, so
+    `best_hit_rule` applies -, and the connected components of the graph of reciprocal best hits as groups.
+    E-values are converted to those of a search against the subject species alone (DIAMOND's e-value is
+    proportional to the database size), so that the result for two species does not depend on which other species
+    are in the run. `inparalogs = TRUE` attaches a gene without reciprocal best hit to a gene of its species when
+    the two are more similar to each other than either is to any gene of another species (heuristic, off by
+    default). Optional hit filters `min_qcov`, `min_identity` (off by default).
+  - `method = "deepclust"` (many species, large data): `deepclust()` on the proteins of all species; clusters with
+    genes of at least two species are the groups. `refine = TRUE` splits the clusters with more than one gene of a
+    species by the reciprocal best hits inside the cluster (one further search, of the members of these clusters
+    only); `realign = TRUE` adds `deepclust_realign()` statistics.
+  - The result (class `"orthogroups"`) holds `groups` (long), `wide` (one row per group, one column per species,
+    as OrthoFinder's `Orthogroups.tsv`), `pairs` (every pair of genes of different species in a group with bit
+    score, e-value, identity, alignment length, coverage, `rbh`, and `relation`: `"1:1"` or `"co-ortholog"`),
+    `single_copy`, `unassigned`, `genes`, `species`, `params`; `print()`, `summary()`, `as.data.frame()`.
+  - The result does not depend on `comp_cores` or on the order of the files. Sequence IDs of any form work (they
+    are replaced by numbers during the search); IDs that occur in several species are prefixed with the species
+    name, and a message says so.
+- **`write_orthogroups(x, dir)`** writes `Orthogroups/Orthogroups.tsv`, `Orthogroups_SingleCopyOrthologues.txt`,
+  `Orthogroups_UnassignedGenes.tsv`, `Orthogroups.GeneCount.tsv` and `pairs.tsv` in OrthoFinder's layout;
+  `orthofinder2_retrieve_core_orthologs()` reads them. `ortholog_tables = TRUE` adds pairwise tables for
+  `import_ortholog_tables_all()` / `retrieve_core_orthologs()`.
+- **`dNdS_orthogroups(x, cds_files, groups = c("single_copy", "all"), ...)`**: for every group one protein
+  alignment (`aa_aln_tool = "clustalo"`, `"mafft"`, `"muscle"`, `"clustalw"`, `"t_coffee"`; or `"pairwise"`), the
+  codon alignment (PAL2NAL), and dN, dS, dN/dS for every pair of genes of different species
+  (`substitutionrate()`; default method Comeron), plus a summary per group (numbers of pairs, of pairs without
+  value and of saturated pairs; median, mean and quartiles of dN, dS, dN/dS). A gene, pair or group that cannot be
+  used gives `NA` rows and a reason, never an error. With `aa_aln_tool = "pairwise"` the values are those of
+  `dNdS()` for the same pairs (tested).
+  **`engine = "coal"`** hands the gene pairs of all groups to COAL in one call (`coalr::coal_dnds_clusters()` with
+  one Clustal Omega or MAFFT alignment per group, the machinery of `dNdS_clusters()`; `coalr::coal_dnds_pairs()`
+  with `aa_aln_tool = "pairwise"`), for the methods COAL computes (`"YN"` by default). Measured on
+  single-copy groups of four yeasts (2 cores): 200 groups / 1,200 pairs in 26 s with one Clustal Omega alignment
+  per group and in 8 s with pairwise alignments (`engine = "orthologr"`: 70 s with Clustal Omega and Comeron's
+  method); all 3,941 groups / 23,646 pairs in 68 s (pairwise). These species are so distant that COAL reports
+  21,148 of the 23,646 pairs as saturated - the `note` column says so.
+
+Measured (DIAMOND 2.2.8, 2 cores; the data are not part of the package):
+
+| human / mouse (19,583 + 21,457 genes), against Ensembl Compara | ortholog pairs | of them Compara orthologs | one-to-one found (of 16,188) | one-to-many / many-to-many found (of 5,400) | time |
+|---|---|---|---|---|---|
+| `method = "rbh"` | 16,827 | 97.4% | 97.5% | 11.0% | 2.3 min |
+| `method = "rbh", inparalogs = TRUE` | 19,930 | 88.2% | 97.7% | 32.6% | 2.3 min |
+| `method = "deepclust"` | 123,438 | 15.6% | 95.9% | 68.4% | 4.1 min |
+| `method = "deepclust", refine = TRUE` | 16,487 | 97.2% | 95.5% | 10.4% | 4.5 min |
+
+- The single all-against-all search gives **exactly** the reciprocal best hits of two separate searches: 16,827
+  pairs from the hit tables of the second audit (human -> mouse, mouse -> human) with `best_hits()`, the same
+  16,827 pairs from `orthogroups()`, with the same bit scores. (The percentages differ slightly from those of
+  the section on best hits, 97.4% / 96.8%, because the denominators here are the Compara pairs whose two genes
+  were read by `orthogroups()`.)
+- An earlier in-paralog rule (any two genes of a species that are more similar to each other than to any gene of
+  another species) gave 25,283 pairs of which 71.2% were Compara orthologs; it was replaced by the rule above
+  (a gene without reciprocal best hit is attached to one gene; groups are never merged) before release.
+
+| four yeasts (21,095 proteins), against OrthoFinder 3.2 (MCL orthogroups with >= 2 species) | groups | single-copy | gene pairs OrthoFinder also groups | OrthoFinder's pairs found | adjusted Rand index | time |
+|---|---|---|---|---|---|---|
+| `method = "rbh"` | 4,616 | 3,487 | 99.7% | 70.7% | 0.77 | 17 s |
+| `method = "rbh", sensitivity_mode = "sensitive"` | 4,823 | 3,941 | 99.8% | 77.5% | 0.82 | 1.7 min |
+| ... `inparalogs = TRUE` | 4,823 | 3,846 | 98.8% | 80.0% | 0.84 | 1.9 min |
+| `method = "deepclust"` | 4,195 | 2,429 | 72.3% | 80.7% | 0.72 | 44 s |
+| `method = "deepclust", refine = TRUE` | 4,679 | 3,259 | 99.8% | 66.9% | 0.75 | 46 s |
+| OrthoFinder (`-og` stage: DIAMOND searches and MCL) | 4,591 | 3,324 | | | | 3.7 min |
+
+- 2,901 (fast mode) and 3,311 (sensitive mode) of OrthoFinder's 3,324 single-copy orthogroups are found with
+  identical members. OrthoFinder's full run (gene trees, hierarchical orthogroups) could not be completed in the
+  test environment (its tree step was stopped for lack of memory), so its MCL orthogroups are the reference.
+- Scaling (2, 4, 8, 14 fungal proteomes; 11,234 to 76,576 proteins; fast mode): `"rbh"` 16 / 29 / 67 / 150 CPU
+  seconds and 0.30 to 0.78 GB in R; `"deepclust"` 68 / 98 / 249 CPU seconds for 4 / 8 / 14 species;
+  `"deepclust"` with `refine = TRUE` 76 / 132 / 310. At these sizes `"rbh"` is both faster and more accurate;
+  `"deepclust"` is meant for protein sets too large for an all-against-all search (not measurable here).
+
+Known limits: groups are connected components of the RBH graph (one false reciprocal best hit joins two groups;
+largest group 10 genes with 4 species, 101 with 14); no gene trees, so no hierarchical orthogroups and no
+distinction of out-paralogs; DeepClust clusters without `refine = TRUE` are protein families, not orthogroups;
+one sequence per gene is assumed. See the vignette "Orthogroups of Several Species with DIAMOND".
 
 ### Best hits are ranked by bit score (default change)
 

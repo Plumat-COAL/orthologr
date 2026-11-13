@@ -49,8 +49,11 @@ Available methods:
   \item \code{"DIAMOND_BH"}: DIAMOND2 best hit
   \item \code{"RBH"}: BLAST reciprocal best hit
   \item \code{"BH"}: BLAST best hit
-  \item \code{"Orthofinder2"}: not implemented (an error; run OrthoFinder yourself and import its tables)
-}}
+  \item \code{"Orthofinder2"}: not implemented (an error). For orthogroups of two or more species use
+  \code{\link{orthogroups}}, which needs DIAMOND only.
+}
+\code{orthologs()} compares one query with one subject; \code{\link{orthogroups}} infers groups of orthologs for
+any number of species (reciprocal best hits of all pairs of species, or DIAMOND DeepClust clusters).}
 
 \item{sensitivity_mode}{a character string specifying the DIAMOND2 sensitivity level.
 Only used when \code{ortho_detection} is \code{"DIAMOND_RBH"} or \code{"DIAMOND_BH"}.
@@ -161,7 +164,7 @@ orthologs(query_file      = system.file('seqs/ortho_thal_aa.fasta', package = 'o
 }
 }
 \seealso{
-\code{\link{diamond_rec}}, \code{\link{diamond_best}}, \code{\link{blast_rec}}, \code{\link{dNdS}}
+\code{\link{orthogroups}} (two or more species), \code{\link{diamond_rec}}, \code{\link{diamond_best}}, \code{\link{blast_rec}}, \code{\link{dNdS}}
 }
 \author{
 Hajk-Georg Drost
