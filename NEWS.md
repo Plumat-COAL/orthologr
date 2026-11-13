@@ -2,6 +2,10 @@
 
 ### New
 
+- `attr(result, "failed_pairs")` and `attr(result, "dropped_sequences")` on dN/dS tables: gene pairs that could
+  not be processed and input sequences that were left out, each with the reason.
+- A warning when an input file of `dNdS()`, `divergence_stratigraphy()`, `orthologs()` or `orthogroups()` seems
+  to hold several transcripts per gene (`options(orthologr.isoform_warning = FALSE)` switches it off).
 - MUSCLE 5 is supported; `"MLPB"` is an accepted `dnds_est.method`.
 - `environment.yml` (conda environment with R, the R packages and the external programs); a pkgdown site
   configuration; an article on the setup on Windows.
@@ -35,7 +39,11 @@ Further behaviour that differs from 0.4.3 and cannot be switched back:
 Results:
 
 - `dNdS()` mixed up the two species when query and subject file had the same file name in different folders.
+- Sequence IDs are returned as they are in the input files. IDs with a hyphen, with `|`, numeric-looking IDs
+  (`007`, `1e5`), IDs of more than 15 characters (MAFFT) and the same ID in both files lost rows, came back
+  changed or gave `NA`. The dN/dS rows are joined with the hit table by gene pair (was: by query only).
 - Li's method returned text columns and took small values (`9.95e-05`) for the saturation marker.
+- `substitutionrate(kaks_calc.params = )` is added to the method instead of replacing it.
 
 Running programs:
 

@@ -174,6 +174,75 @@ test_that("R07: ordinary parameter strings still reach the program", {
         expect_true(all(b$perc_identity >= 99.5))
 })
 
+# ---------------------------------------------------------------- R06: the same sequence ID in query and subject
+
+test_that("R06: dNdS() works when query and subject sequences have the same IDs, on every tool path", {
+        skip_on_cran()
+        skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
+        d <- new_test_dir("r06_")
+        q <- Biostrings::readDNAStringSet(thal_cds()); s <- Biostrings::readDNAStringSet(lyra_cds())
+        ref <- suppressMessages(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE))
+        ref_ids <- sub("\\s.*", "", names(q))
+        for (scheme in c("same", "numeric", "minus")) {
+                ids <- switch(scheme, same = sprintf("gene%02d", 1:20), numeric = as.character(1:20), minus = as.character(-(1:20)))
+                x <- q; names(x) <- ids; y <- s; names(y) <- ids
+                qf <- file.path(d, paste0(scheme, "_q.fa")); sf <- file.path(d, paste0(scheme, "_s.fa"))
+                Biostrings::writeXStringSet(x, qf); Biostrings::writeXStringSet(y, sf)
+                run <- function(...) suppressMessages(dNdS(qf, sf, print_citation = FALSE, ...))
+                res <- run()
+                expect_equal(nrow(attr(res, "failed_pairs")), 0, info = scheme)
+                expect_identical(res$query_id, res$subject_id, info = scheme)       # gene i pairs with gene i
+                # the values of the run with the original IDs
+                m <- match(ref$query_id, ref_ids[match(res$query_id, ids)])
+                expect_equal(res$dN[m], ref$dN, info = scheme)
+                expect_equal(res$dS[m], ref$dS, info = scheme)
+                expect_equal(run(dnds_est.method = "Li")$dN[m], suppressMessages(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "Li", print_citation = FALSE))$dN,
+                             info = scheme)
+                if (kaks_available) {
+                        r <- run(dnds_est.method = "YN")
+                        expect_equal(nrow(attr(r, "failed_pairs")), 0, info = scheme)
+                        expect_true(sum(!is.na(r$dS)) >= 18, info = scheme)
+                }
+                for (tool in c("clustalo", "mafft", "muscle", "clustalw")) {
+                        if (!get(paste0(tool, "_available"))) next
+                        r <- run(aa_aln_type = "multiple", aa_aln_tool = tool)
+                        expect_equal(nrow(attr(r, "failed_pairs")), 0, info = paste(scheme, tool))
+                        expect_true(all(is.element(r$query_id, ids)) && sum(!is.na(r$dN)) >= 18, info = paste(scheme, tool))
+                }
+        }
+})
+
+test_that("R06: the reason of a failed pair names the IDs of the pair, and stored alignments come with an index", {
+        skip_if_not(perl_available, "perl is not installed")
+        expect_identical(dnds_pair_reason("PAL2NAL failed for gene pair 'query' / 'subject' (q3): x", "A|1", "A|1"),
+                         "PAL2NAL failed for gene pair 'A|1' / 'A|1' (q3): x")
+        tbl <- data.table::data.table(
+                query_id = c("same", "bad"), subject_id = c("same", "bad"),
+                query_cds   = rep("ATGAAAACCGCGTATATTGCGAAACAGCGTCTGGAAGGTGATCTGAAAGCGTGGCTGACC", 2),
+                # the coding sequence of the subject of 'bad' lacks its last nucleotide
+                subject_cds = c("ATGAAGACCGCCTATATTGCGAAACAACGTCTGGATGGTGATCTGAAGGCGTGGTTGACC",
+                                "ATGAAGACCGCCTATATTGCGAAACAACGTCTGGATGGTGATCTGAAGGCGTGGTTGAC"),
+                query_aa    = c("MKTAYIAKQRLEGDLKAWLT", "MKTAYIAKQRLEGDLKAWLT"),
+                subject_aa  = c("MKTAYIAKQRLDGDLKAWLT", "MKTAYIAKQRLDGDLKAWLT"))
+        expect_warning(
+                res <- suppressMessages(compute_dnds(tbl, aa_aln_type = "pairwise", aa_aln_tool = "NW", dnds_est.method = "Comeron", quiet = TRUE)),
+                "1 of 2 gene pairs could not be processed")
+        expect_identical(res$query_id, c("bad", "same"))
+        expect_false(is.na(res$dN[2]))
+        fp <- attr(res, "failed_pairs")
+        expect_match(fp$reason, "gene pair 'bad' / 'bad'")
+        expect_false(grepl("'query' / 'subject'", fp$reason, fixed = TRUE))
+        
+        wd <- new_test_dir("r06_store_")
+        old <- setwd(wd); on.exit(setwd(old), add = TRUE)
+        dir.create("orthologr_alignment_files")
+        suppressMessages(compute_dnds(tbl[1], aa_aln_type = "pairwise", aa_aln_tool = "NW", dnds_est.method = "Comeron",
+                                      quiet = TRUE, store_locally = TRUE))
+        idx <- utils::read.delim(file.path("orthologr_alignment_files", "_alignment", "pair_ids.tsv"), colClasses = "character")
+        expect_identical(idx, data.frame(file_prefix = "q1", query = "same", subject = "same"))
+        expect_identical(fasta_ids(file.path("orthologr_alignment_files", "_alignment", "pairwise_aln", "q1_NW_AA.aln")), c("query", "subject"))
+})
+
 # ---------------------------------------------------------------- R09: a missing program is an error before the search
 
 test_that("R09: a missing program stops dNdS() and dNdS_orthogroups() before the search", {
