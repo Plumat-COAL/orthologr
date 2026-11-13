@@ -253,27 +253,32 @@ void omega(const pair<string,string> *seq1,
     double Q4_site = q4 / sites->L4();
 
     // orthologr: checked_log() gives what the code gave before (0 where the logarithm is not finite) and
-    // records whether an argument was <= 0 (saturation) on the synonymous or the nonsynonymous side
-    log1 = checked_log (1.0 - (2.0 * P2S_site) - Qa, saturated_s);
-    log2 = checked_log (1.0 - (2.0 * Qa), saturated_s);
+    // records whether an argument was <= 0 (saturation) on the synonymous or the nonsynonymous side.
+    // A class without sites (L = 0) has weight 0 in As / Aa: an undefined logarithm there says nothing about
+    // the estimate and is not a saturation ('none' takes the flag). (Differences can be counted in a class
+    // without sites because the sites of a column are the mean of the two codons, while a change on a pathway
+    // between codons that differ at several positions is classified by an intermediate codon.)
+    bool none = false;
+    log1 = checked_log (1.0 - (2.0 * P2S_site) - Qa, sites->L2S() > 0 ? saturated_s : none);
+    log2 = checked_log (1.0 - (2.0 * Qa), sites->L2S() > 0 ? saturated_s : none);
 
     A2S = (-0.5) * log1 + (0.25) * log2;
 
-    log1 = checked_log (1.0 - (2.0 * P4_site) - Q4_site, saturated_s);
-    log2 = checked_log (1.0 - (2.0 * Q4_site), saturated_s);
+    log1 = checked_log (1.0 - (2.0 * P4_site) - Q4_site, sites->L4() > 0 ? saturated_s : none);
+    log2 = checked_log (1.0 - (2.0 * Q4_site), sites->L4() > 0 ? saturated_s : none);
 
     A4 = (-0.5) * log1 + (0.25) * log2;
 
     As = (sites->L2S() * A2S + sites->L4() * A4) / (sites->L2S() +
          sites->L4());
 
-    log1 = checked_log (1.0 - (2.0 * P2V_site) - Qs, saturated_a);
-    log2 = checked_log (1.0 - (2.0 * Qs), saturated_a);
+    log1 = checked_log (1.0 - (2.0 * P2V_site) - Qs, sites->L2V() > 0 ? saturated_a : none);
+    log2 = checked_log (1.0 - (2.0 * Qs), sites->L2V() > 0 ? saturated_a : none);
 
     A2V = (-0.5) * log1 + (0.25) * log2;
 
-    log1 = checked_log (1.0 - (2.0 * P0_site) - Q0_site, saturated_a);
-    log2 = checked_log (1.0 - (2.0 * Q0_site), saturated_a);
+    log1 = checked_log (1.0 - (2.0 * P0_site) - Q0_site, sites->L0() > 0 ? saturated_a : none);
+    log2 = checked_log (1.0 - (2.0 * Q0_site), sites->L0() > 0 ? saturated_a : none);
 
     A0 = (-0.5) * log1 + (0.25) * log2;
 
