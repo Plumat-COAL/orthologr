@@ -1,3 +1,54 @@
+## `orthologr` development version
+
+### Changes to pairwise alignments that change dN/dS values (methods change)
+
+`dNdS()`, `divergence_stratigraphy()` and `pairwise_aln()` align each pair of orthologous proteins with
+`pwalign::pairwiseAlignment(type = "global")`. Three things about this step have changed. Each of them changes
+some alignments and therefore the dN, dS and dN/dS values of the affected gene pairs; results computed
+with this version are not numerically identical to results from `orthologr` <= 0.4.3. Please report the
+`orthologr` version (and, if you changed it, `aa_sub_matrix`) in the methods of analyses based on these values.
+
+**How large the change is.** Measured on the 1,000-gene example of the package (`ortho_thal_cds_1000.fasta` vs
+`ortho_lyra_cds_1000.fasta`, 984 reciprocal best hit pairs), 0.4.3 against this version:
+
+| | Comeron (default) | YN (KaKs_Calculator) |
+|---|---|---|
+| pairs with unchanged dN and dS | 66% (651 of 984) | 71% (699 of 984) |
+| Pearson r of dN, old vs new | 0.971 | 0.967 |
+| Pearson r of dS, old vs new | 0.940 | 0.997 |
+| Pearson r of dN/dS, old vs new | 0.988 | 0.984 |
+| largest change of dN / dS / dN/dS | 0.19 / 0.41 / 0.31 | 0.19 / 0.48 / 0.44 |
+| pairs whose dN/dS changes by more than 0.01 | 22% | 20% |
+
+So about a third of the gene pairs get other values. For most of them the change is small (median change of dN
+0.002, of dS 0.004-0.005 among the changed pairs), but for single pairs it is large, and rankings or thresholds
+on dN/dS (e.g. `filter_dNdS()`, divergence strata) can move. `options(orthologr.legacy_pairwise_aln = TRUE)`
+reproduces the values of 0.4.3.
+
+- **Amino acid alignments are scored with BLOSUM62.** Up to 0.4.3 no substitution matrix was passed to
+  `pairwiseAlignment()`, so every mismatch cost the same, whichever amino acids were exchanged, and the aligner took
+  most of the run time of `dNdS()`. The new argument `aa_sub_matrix` (in `dNdS()`, `compute_dnds()` and
+  `pairwise_aln()`, default `"BLOSUM62"`) names the substitution matrix; `aa_sub_matrix = NULL` gives the old scoring.
+- **The alignment is written full length.** `pwalign::pattern()`/`subject()` return only the aligned range, so the
+  overhanging ends of the longer protein were cut off before the codon alignment. The full rows
+  (`pwalign::alignedPattern()`/`alignedSubject()`) are written now: overhangs are aligned against gaps.
+- **A terminal stop codon is no longer aligned.** The `*` at the end of a translated protein is removed before the
+  alignment, so the stop codon is not a column of the codon alignment and is not scored in the dN/dS estimate.
+
+`options(orthologr.legacy_pairwise_aln = TRUE)` restores all of the 0.4.3 behaviour of this step (old scoring,
+truncated overhangs, stop codon aligned, score file always written) for reproducing earlier results.
+
+### Speed
+
+- `pairwise_aln()` no longer writes a second copy of every alignment (with its score, via
+  `pwalign::writePairwiseAlignments()`) into `tempdir()`; that file is only written when `store_locally = TRUE`.
+  Together with the BLOSUM62 scoring this removes most of the run time of `dNdS()` with the default
+  `aa_aln_tool = "NW"`.
+
+### Miscellaneous
+
+- Unit tests for `pairwise_aln()`.
+
 ## `orthologr` version 0.4.3
 
 ### New Function

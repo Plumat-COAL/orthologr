@@ -12,7 +12,8 @@ pairwise_aln(
   pairwise_aln_name = NULL,
   path = NULL,
   quiet = FALSE,
-  store_locally = FALSE
+  store_locally = FALSE,
+  aa_sub_matrix = "BLOSUM62"
 )
 }
 \arguments{
@@ -33,7 +34,17 @@ Default is \code{pairwise_aln_name} = \code{NULL} denoting a default name: 'tool
 
 \item{quiet}{a logical value specifying whether a successful interface call shall be printed out.}
 
-\item{store_locally}{a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.}
+\item{store_locally}{a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.
+If \code{store_locally = TRUE}, the alignment is also written with its score to
+\code{orthologr_alignment_files/_pairwise_alignment_with_score} (\code{\link[pwalign]{writePairwiseAlignments}}).
+This score file is no longer written when \code{store_locally = FALSE}.}
+
+\item{aa_sub_matrix}{the substitution matrix used to score amino acid alignments (\code{seq_type = "protein"}):
+the name of a matrix shipped with \pkg{pwalign} (\code{"BLOSUM62"} (Default), \code{"BLOSUM45"}, \code{"BLOSUM50"},
+\code{"BLOSUM80"}, \code{"BLOSUM100"}, \code{"PAM30"}, \code{"PAM40"}, \code{"PAM70"}, \code{"PAM120"}, \code{"PAM250"}),
+or a numeric substitution matrix. \code{aa_sub_matrix = NULL} gives the scoring of \pkg{orthologr} <= 0.4.3
+(\code{\link[pwalign]{pairwiseAlignment}} without a substitution matrix, i.e. a match/mismatch score that ignores which
+amino acids are exchanged). The argument is ignored for DNA sequences.}
 }
 \value{
 In case the argument \code{get_aln} is set \code{TRUE}, an object of class alignment of the seqinr package is returned.
@@ -49,6 +60,19 @@ The current version of this function computes pairwise alignments based on the \
 function implemented in the \pkg{pwalign} package.
 
 The default pairwise alignment method is based on the \emph{Needleman-Wunsch Algorithm}.
+
+Since \pkg{orthologr} 0.4.4 (see \code{NEWS.md}):
+\itemize{
+\item amino acid sequences are scored with \code{BLOSUM62} by default (argument \code{aa_sub_matrix});
+\item the alignment that is written is full length: every residue of both sequences is in it, and the overhanging
+ends of the longer sequence are aligned against gaps. Earlier versions wrote only the aligned range and thereby cut
+the overhangs off;
+\item a stop codon symbol (\code{*}) at the end of an amino acid sequence is removed before aligning, so that the
+stop codon is not part of the alignment (and of the codon alignment and dN/dS estimate derived from it).
+}
+All three change the alignments and therefore, slightly, the dN/dS values computed from them.
+The behaviour of \pkg{orthologr} <= 0.4.3 (old scoring, truncated overhangs, stop codon aligned, score file always
+written) can be restored for reproducing earlier results with \code{options(orthologr.legacy_pairwise_aln = TRUE)}.
 }
 \examples{
 \dontrun{        
