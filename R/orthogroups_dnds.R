@@ -140,7 +140,8 @@ dNdS_orthogroups <- function(x,
         if (!inherits(x, "orthogroups")) {
                 if (!is.null(cds_files))
                         stop("When 'x' holds the files of the coding sequences, 'cds_files' must be NULL.", call. = FALSE)
-                x <- orthogroups(x, seq_type = "cds", comp_cores = comp_cores, quiet = quiet, ...)
+                x <- orthogroups(x, seq_type = "cds", comp_cores = comp_cores, quiet = quiet,
+                                 delete_corrupt_cds = delete_corrupt_cds, ...)
         } else if (...length() > 0) {
                 stop("Unused argument", if (...length() > 1) "s", ": ", paste(names(list(...)), collapse = ", "),
                      " ('...' is handed to orthogroups() when 'x' holds files).", call. = FALSE)

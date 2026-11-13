@@ -16,7 +16,7 @@ dNdS_orthogroups(
   max_group_size = 50,
   dS_saturation = 2,
   kaks_calc_path = NULL,
-  delete_corrupt_cds = TRUE,
+  delete_corrupt_cds = FALSE,
   comp_cores = 1,
   quiet = TRUE,
   aa_aln_scoring = "pwalign",
@@ -67,8 +67,9 @@ in \code{failed}. Default is \code{50}.}
 
 \item{kaks_calc_path}{the folder that holds KaKs_Calculator (for its methods, see \code{\link{substitutionrate}}).}
 
-\item{delete_corrupt_cds}{a logical value: leave out coding sequences whose length is not a multiple of 3.
-Default is \code{TRUE} (such sequences cannot be used in a codon alignment).}
+\item{delete_corrupt_cds}{a logical value: what happens to coding sequences whose length is not a multiple
+of 3. \code{FALSE} (default, as in \code{\link{dNdS}} and \code{\link{orthogroups}}): the incomplete codon at the
+end is cut off. \code{TRUE}: the sequence is left out (table \code{failed}).}
 
 \item{comp_cores}{the number of R processes (\code{engine = "orthologr"}) or threads.}
 

@@ -27,6 +27,10 @@ nonsynonymous change is returned with \code{dN = NA}, \code{dNdS = 0} by the KaK
 (default: \code{dN = 0}; see \code{\link{substitutionrate}}).}
 \item{\code{orthologr.dS_zero}}{\code{"drop"} (default, as in 0.4.3) or \code{"keep"}: the default of the
 argument \code{dS_zero} of \code{\link{filter_dNdS}} and \code{\link{divergence_stratigraphy}}.}
+\item{\code{orthologr.status_column}}{\code{TRUE} (default): the dN/dS tables end with the column \code{status}
+(see \code{\link{dNdS}}, section "Status of a gene pair"). \code{FALSE}: no such column, as in 0.4.3.}
+\item{\code{orthologr.legacy}}{\code{FALSE} (default). \code{TRUE}: every option of this section that is not set
+itself has the value that gives the results of 0.4.3. \code{\link{orthologr_legacy_options}} sets them all.}
 }
 }
 
@@ -43,11 +47,11 @@ their own (\code{pairwise_aln()}, \code{multi_aln()}, \code{codon_aln()}, \code{
 \code{diamond()}, \code{blast()}, ...) keep the folders \code{_alignment}, \code{_blast_db}, \code{_diamond_db}
 and \code{_calculation}. \code{dNdS()}, \code{dNdS_orthogroups()} and \code{orthogroups()} set it to a folder of
 their own for the time of the call and restore it; it is rarely useful to set it by hand.}
-\item{\code{orthologr.corrupted_cds_dir}}{\code{NULL} (default: the working directory, as in 0.4.3): the folder in
-which the file \code{<name>_corrupted_cds_seqs.fasta} with the coding sequences whose length is not a multiple
-of 3 is written.}
+\item{\code{orthologr.corrupted_cds_dir}}{\code{NULL} (default: \code{tempdir()}; 0.4.3 wrote into the working
+directory): the folder in which the file \code{<name>_corrupted_cds_seqs.fasta} with the coding sequences whose
+length is not a multiple of 3 is written. A message names the file.}
 \item{\code{orthologr.isoform_warning}}{\code{TRUE} (default). \code{FALSE}: \code{dNdS()} and
-\code{orthologs()} do not check whether the input files hold several isoforms per gene.}
+\code{orthologs()} and \code{orthogroups()} do not check whether the input files hold several isoforms per gene.}
 \item{\code{orthologr.coal_backend}}{only with the COAL integration (\code{dNdS(engine = "coal")},
 \code{dNdS_coal()}, \code{dNdS_clusters()}): \code{NULL} (default: the R package \pkg{coalr} when it is
 installed, else the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}.}

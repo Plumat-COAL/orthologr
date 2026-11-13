@@ -398,12 +398,18 @@ write_dNdS <- function(x, file) {
         for (col in names(plain))
                 if (is.factor(plain[[col]]))
                         plain[[col]] <- as.character(plain[[col]])
+        classes <- lapply(plain, function(v) class(v)[1])
+        # numbers as text with the digits needed to read the same number back (15 significant digits where that
+        # is enough, else 17)
+        for (col in names(plain))
+                if (is.double(plain[[col]]))
+                        plain[[col]] <- number_text(plain[[col]])
         data.table::fwrite(plain, file, sep = "\t", na = "NA", quote = "auto")
         side <- list(
                 format   = "orthologr dN/dS table",
                 table    = basename(file),
                 rows     = nrow(plain),
-                columns  = lapply(plain, function(v) class(v)[1]),
+                columns  = classes,
                 run      = run,
                 failed_pairs      = if (is.data.frame(failed)) failed else NULL,
                 dropped_sequences = if (is.data.frame(dropped)) dropped else NULL
@@ -427,13 +433,15 @@ read_dNdS <- function(file) {
         } else {
                 warning("'", side_file, "' was not found: the table is read without the record of its run.", call. = FALSE)
         }
-        classes <- NULL
-        if (!is.null(side$columns)) {
-                classes <- unlist(side$columns)
-                classes[!is.element(classes, c("character", "numeric", "integer", "logical"))] <- "character"
-        }
-        tbl <- data.table::fread(file, sep = "\t", header = TRUE, na.strings = "NA", colClasses = classes,
+        # every column is read as text and then given its type: R's own conversion reads a number exactly
+        tbl <- data.table::fread(file, sep = "\t", header = TRUE, na.strings = "NA", colClasses = "character",
                                  data.table = FALSE, showProgress = FALSE)
+        classes <- if (!is.null(side$columns)) unlist(side$columns) else
+                vapply(tbl, function(v) if (all(is.na(v) | !is.na(suppressWarnings(as.numeric(v))))) "numeric" else "character", "")
+        for (col in intersect(names(tbl), names(classes)))
+                tbl[[col]] <- switch(classes[[col]],
+                                     numeric = as.numeric(tbl[[col]]), integer = as.integer(tbl[[col]]),
+                                     logical = as.logical(tbl[[col]]), tbl[[col]])
         tbl <- tibble::as_tibble(tbl)
         as_table <- function(l) {
                 if (is.null(l))
@@ -443,8 +451,10 @@ read_dNdS <- function(file) {
         }
         if (!is.null(side)) {
                 run <- side$run
-                if (!is.null(run$input_files))
+                if (!is.null(run$input_files)) {
                         run$input_files <- as_table(run$input_files)
+                        run$input_files$size <- as.numeric(run$input_files$size)
+                }
                 attr(tbl, "orthologr_run") <- run
                 if (!is.null(side$failed_pairs))
                         attr(tbl, "failed_pairs") <- as_table(side$failed_pairs)
@@ -452,6 +462,16 @@ read_dNdS <- function(file) {
                         attr(tbl, "dropped_sequences") <- as_table(side$dropped_sequences)
         }
         tbl
+}
+
+# Numbers as text that reads back as the same number.
+number_text <- function(x) {
+        txt <- as.character(x)
+        ok <- !is.na(x) & is.finite(x)
+        longer <- ok & suppressWarnings(as.numeric(txt)) != x
+        txt[longer] <- sprintf("%.17g", x[longer])
+        txt[is.na(x)] <- NA_character_
+        txt
 }
 
 # ---- one switch for the results of 0.4.3 -----------------------------------------------------------------------

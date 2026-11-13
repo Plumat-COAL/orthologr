@@ -18,7 +18,7 @@ orthogroups(
   realign = FALSE,
   max.target.seqs = 10000,
   pairs_max_group_size = 500,
-  delete_corrupt_cds = TRUE,
+  delete_corrupt_cds = FALSE,
   diamond_params = NULL,
   comp_cores = 1,
   path = NULL,
@@ -76,8 +76,10 @@ reaches this number, as its best hit in some species may then be missing.}
 \item{pairs_max_group_size}{groups with more genes than this are left out of the table \code{pairs} (the number of
 pairs grows with the square of the group size). Default is \code{500}.}
 
-\item{delete_corrupt_cds}{a logical value: leave out coding sequences whose length is not a multiple of 3
-(\code{seq_type = "cds"}). Default is \code{TRUE}, as in \code{\link{diamond_rec}}.}
+\item{delete_corrupt_cds}{a logical value (\code{seq_type = "cds"}): what happens to coding sequences whose
+length is not a multiple of 3. \code{FALSE} (default, as in \code{\link{dNdS}}): the incomplete codon at the end
+is cut off and the sequence is used. \code{TRUE}: the sequence is left out. Sequences with characters other
+than A, C, G, T (e.g. \code{N}) are always left out, as in \code{dNdS()}.}
 
 \item{diamond_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) further parameters for \code{diamond blastp} (one character string), e.g.
 \code{"--masking 0"}. Default is \code{NULL}.}
@@ -109,7 +111,7 @@ reciprocal best hits; \code{relation} is \code{"1:1"} when both species have exa
 \item \code{unassigned}: the genes in no group (\code{species}, \code{gene});
 \item \code{genes}: all genes (\code{species}, \code{gene}, \code{id}: the ID in the file, \code{length}: protein
 length, \code{orthogroup});
-\item \code{params}: the parameters of the call, the DIAMOND version and the files.
+\item \code{params}: the parameters of the call, the versions of DIAMOND and of \pkg{orthologr}, and the files.
 }
 See \code{\link{write_orthogroups}} for files in OrthoFinder's layout and \code{\link{dNdS_orthogroups}} for dN/dS
 within the groups.

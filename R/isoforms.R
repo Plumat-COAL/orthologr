@@ -69,6 +69,11 @@ isoform_warning <- function(file, arg = "file") {
         n_multi <- sum(per_gene > 1)
         if (n_multi == 0)
                 return(invisible(NULL))
+        # the same threshold for genes named in the headers as for genes judged by the IDs: at least 5 genes and
+        # at least 1 % of the genes with more than one sequence (a bacterial genome has a few genes with two
+        # coding sequences, e.g. programmed frameshifts, and no splice variants)
+        if (n_multi < 5 || n_multi < 0.01 * length(per_gene))
+                return(invisible(NULL))
         ex <- names(per_gene)[which.max(per_gene)]
         warning(
                 arg, " '", basename(file), "' seems to hold several transcripts (splice variants) per gene: ",
@@ -77,6 +82,8 @@ isoform_warning <- function(file, arg = "file") {
                 if (identical(attr(gene, "source"), "header")) "from the gene names in the FASTA headers" else "judged by the sequence IDs",
                 "). Every sequence is treated as a gene: the result will hold several rows per gene, with different ",
                 "partners and dN/dS values. Please keep one transcript per gene, e.g. with retrieve_longest_isoforms(). ",
+                "(Bare transcript IDs such as ENST..., XM_... or XP_... do not show their gene: such a file is not ",
+                "detected by this check and needs the annotation file.) ",
                 "(options(orthologr.isoform_warning = FALSE) switches this check off.)",
                 call. = FALSE
         )

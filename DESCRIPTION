@@ -39,6 +39,7 @@ Suggests:
     tidyr,
     biomartr,
     metablastr,
+    jsonlite,
     coalr
 Remotes:
     drostlab/metablastr,

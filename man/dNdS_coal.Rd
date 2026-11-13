@@ -72,9 +72,10 @@ of them.}
 
 \item{comp_cores}{the number of threads COAL (and the DIAMOND or BLAST search) uses.}
 
-\item{quiet}{a logical value specifying whether the output of the search tool shall be printed to the console.}
+\item{quiet}{\code{TRUE} (default): one line at the start and one summary at the end of the run (messages).
+\code{FALSE}: also the messages of the search program.}
 
-\item{print_citation}{a logical value indicating whether or not the citation message shall be printed.}
+\item{print_citation}{a logical value indicating whether the citation note is shown (as a message, once per R session).}
 
 \item{best_hit_rule}{how best hits are chosen: \code{"bitscore"} (default since orthologr 0.5.0) or \code{"evalue"}
 (the rule of orthologr <= 0.4.3); see \code{\link{dNdS}} and \code{\link{diamond_best}}.
@@ -119,7 +120,7 @@ COAL's complete table for the gene pairs (standard errors, numbers of sites and 
 protein identity, status and note) is attached as \code{attr(result, "coal")}.
 
 This function needs the R package \pkg{coalr}:
-\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")}.
 }
 \examples{
 \dontrun{

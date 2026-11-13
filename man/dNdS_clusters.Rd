@@ -96,7 +96,7 @@ the codons are threaded onto the alignment and Ka/Ks is estimated for the pairs 
 }
 \details{
 This function needs the R package \pkg{coalr}:
-\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")}.
 A gene, pair or cluster that cannot be used never ends the run: see the \code{status} and \code{note} columns and
 the \code{failed} table.
 }
