@@ -136,6 +136,9 @@ Running programs:
   `promotor_divergence_estimation()`, `lnc_map_counts()`, `map_generator_dnds()` with one subject file: errors
   on valid input fixed. `check_annotation(remove_annotation_outliers = TRUE)` no longer overwrites the
   annotation file.
+- An unknown `aa_sub_matrix` name (`dNdS()`, `pairwise_aln()`) is an error (`orthologr_error_bad_argument`)
+  before the search; it ran the whole search and then failed every gene pair (1,000-gene example,
+  `aa_sub_matrix = "FOO"`: before 6.4 s and 995 of 995 pairs `NA` with one warning; after an error at once).
 - A protein file given where coding sequences are expected is an error that says so (was: a DIAMOND error about
   memory).
 - `orthogroups()` runs the check for several transcripts per gene; the check no longer warns for a bacterial
