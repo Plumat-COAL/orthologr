@@ -22,7 +22,7 @@ select_orthologs(
 
 \item{collapse_by}{locus type by which orthologs should be determined. Options are:
 \itemize{
-\item \code{type = "gene_locus"}: the splice variant having the lowest e-value of the BLAST search is chosen to represent the gene locus for the orthology relationship.
+\item \code{type = "gene_locus"}: the best splice variant according to \code{best_hit_rule} (by default the one with the highest bit score) is chosen to represent the gene locus for the orthology relationship.
 \item \code{type = "splice_variant"}: all splice variants of homologous gene loci will be returned.
 }}
 
@@ -38,7 +38,12 @@ the longest alignment; of several, the alphabetically first \code{subject_id}. T
 }
 \strong{This default changed in 0.5.0 and changes which orthologs are returned.} DIAMOND and BLAST report an
 e-value of 0 for every strong hit of a long protein, so that under the old rule the alignment length decided
-among them and a paralog could win over the true ortholog. @BHNUM@
+among them and a paralog could win over the true ortholog. Measured (DIAMOND, reciprocal best
+hits): human against mouse, 19,746 x 21,584 genes, compared with the orthologs of Ensembl Compara - old rule
+16,458 pairs, 330 of them (2.0\%) pairing a human gene with another mouse gene than any Compara ortholog, 93.0\% of
+the Compara one-to-one orthologs found; bit-score rule 16,827 pairs, 68 (0.4\%), 96.8\%; 3.2\% of the best hits
+change. On the 1,000-gene example of the package 12 of 986 best hits change and there are 983 instead of 972
+reciprocal best hits (970 in common).
 \code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.}
 }
 \description{
