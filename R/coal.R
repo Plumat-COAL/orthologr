@@ -374,6 +374,8 @@ cds_vector <- function(cds_dt) {
 #' started per gene pair (no Perl / PAL2NAL, no KaKs_Calculator).
 #'
 #' The result is the table \code{\link{dNdS}} returns: the same columns and types, joined with the hit table.
+#' The default method differs: \code{dNdS_coal()} computes \code{"YN"}, \code{dNdS()} (also with
+#' \code{engine = "coal"}) \code{"Comeron"}.
 #' \code{dNdS(..., engine = "coal")} calls this function.
 #' @param query_file a character string specifying the path to the CDS file of interest (query organism).
 #' @param subject_file a character string specifying the path to the CDS file of interest (subject organism).
@@ -665,7 +667,9 @@ dNdS_coal <- function(query_file,
 #' dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
 #' cluster that have a dN (dS, dN/dS) value, whatever their status - a pair with status \code{"saturated"} that
 #' has a dN counts with it. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the numbers behind the statistics
-#' (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule.
+#' (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule, but
+#' names the quartiles \code{_q1} / \code{_q3} and has no minimum and maximum (the names here are those of
+#' \pkg{coalr}'s summary).
 #' (\pkg{coalr}'s own summary takes the statistics over the pairs with status \code{"ok"} only.)
 #' \item \code{failed}: genes and clusters that could not be used, and why.
 #' }

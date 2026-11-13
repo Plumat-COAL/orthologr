@@ -82,7 +82,9 @@ and a dN/dS value), and median, mean, quartiles (\code{_q25}, \code{_q75}), mini
 dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
 cluster that have a dN (dS, dN/dS) value, whatever their status - a pair with status \code{"saturated"} that
 has a dN counts with it. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the numbers behind the statistics
-(\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule.
+(\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule, but
+names the quartiles \code{_q1} / \code{_q3} and has no minimum and maximum (the names here are those of
+\pkg{coalr}'s summary).
 (\pkg{coalr}'s own summary takes the statistics over the pairs with status \code{"ok"} only.)
 \item \code{failed}: genes and clusters that could not be used, and why.
 }

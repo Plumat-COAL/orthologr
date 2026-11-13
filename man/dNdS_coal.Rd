@@ -94,6 +94,8 @@ dN, dS and dN/dS, inside the R process and on \code{comp_cores} threads. No file
 started per gene pair (no Perl / PAL2NAL, no KaKs_Calculator).
 
 The result is the table \code{\link{dNdS}} returns: the same columns and types, joined with the hit table.
+The default method differs: \code{dNdS_coal()} computes \code{"YN"}, \code{dNdS()} (also with
+\code{engine = "coal"}) \code{"Comeron"}.
 \code{dNdS(..., engine = "coal")} calls this function.
 }
 \details{
