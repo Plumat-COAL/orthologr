@@ -286,3 +286,34 @@ test_that("check_annotation() finds over-long lines without holding the file in 
         # small block size: the same answer
         expect_identical(annotation_long_lines(f, n = 7L), 10L)
 })
+
+test_that("generate_ortholog_tables_all() runs generate_ortholog_tables() for every subject species, and checks its input", {
+        cds <- fx("ensembl_human_chr21_cds.fa")
+        ids <- sub(" .*", "", fasta_headers(cds))
+        d <- new_test_dir("ortho_tables_all_")
+        dnds_dir <- file.path(d, "dnds"); ann_dir <- file.path(d, "ann"); out <- file.path(d, "out")
+        for (x in c(dnds_dir, ann_dir, out)) dir.create(x)
+        for (sp in c("SpeciesA", "SpeciesB")) {
+                utils::write.table(mk_dnds(ids, rev(ids)), file.path(dnds_dir, paste0(sp, "_dnds.csv")), sep = ";",
+                                   row.names = FALSE, quote = FALSE)
+                file.copy(fx("ensembl_human_chr21.gtf"), file.path(ann_dir, paste0(sp, ".gtf")))
+        }
+        qry <- file.path(d, "Query.gtf")
+        file.copy(fx("ensembl_human_chr21.gtf"), qry)
+        res <- suppressMessages(generate_ortholog_tables_all(dnds_dir, qry, ann_dir, output_folder = out))
+        single <- suppressMessages(generate_ortholog_tables(file.path(dnds_dir, "SpeciesA_dnds.csv"), qry,
+                                                            file.path(ann_dir, "SpeciesA.gtf"), output_folder = new_test_dir(),
+                                                            format = c("gtf", "gtf")))
+        expect_s3_class(res, "data.frame")
+        expect_identical(nrow(res), 2L * nrow(single))
+        expect_identical(names(res), c(names(single), "scope"))
+        expect_equal(res$scope, 1 - abs(res$q_len - res$alig_length) / res$q_len)
+        # input checks
+        expect_error(generate_ortholog_tables_all(file.path(d, "none"), qry, ann_dir, out), "does not seem to exist")
+        expect_error(generate_ortholog_tables_all(dnds_dir, qry, file.path(d, "none"), out), "does not seem to exist")
+        expect_error(suppressMessages(generate_ortholog_tables_all(dnds_dir, c(qry, qry), ann_dir, out)), "one query annotation")
+        file.remove(file.path(ann_dir, "SpeciesB.gtf"))
+        expect_error(suppressMessages(generate_ortholog_tables_all(dnds_dir, qry, ann_dir, out)), "do not match")
+        file.copy(fx("ensembl_human_chr21.gtf"), file.path(ann_dir, "Other.gtf"))
+        expect_error(suppressMessages(generate_ortholog_tables_all(dnds_dir, qry, ann_dir, out)), "does not match")
+})
