@@ -103,12 +103,12 @@ to specify the 't_coffee' execution path on your system:
 In case you use the default path to the muscle program,
 the following calls to muscle should work properly on your system:
 
-\code{system("muscle -help")}
+\code{system("muscle -version")}
 
 In case this procedures doesn't work properly, please use the \code{path} argument
 to specify the 'muscle' execution path on your system:
 
-\code{system("path/to/muscle/muscle -help")}
+\code{system("path/to/muscle/muscle -version")}
 
 Both MUSCLE 3.8 and MUSCLE 5 are supported; the version is detected from \code{muscle -version}.
 MUSCLE 3.8 is run as \code{muscle -in <file> -out <aln> -clwstrict -quiet} (CLUSTAL output). MUSCLE 5 has
@@ -136,12 +136,12 @@ to specify the 'clustalo' execution path on your system:
 In case you use the default path to the mafft program,
 the following calls to mafft should work properly on your system:
 
-\code{system("mafft -help")}
+\code{system("mafft --version")}
 
 In case this procedures doesn't work properly, please use the \code{path} argument
 to specify the 'mafft' execution path on your system:
 
-\code{system("path/to/mafft/mafft -help")}
+\code{system("path/to/mafft/mafft --version")}
 
 }
 }

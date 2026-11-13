@@ -6,10 +6,10 @@ man-roxygen
 README.html
 README.Rmd
 COPYING
-^\.travis\.yml$
 ^\.httr-oauth$
 docs
 LICENSE
-orthologr-conda-env.sh
-orthologr.yml
-^orthologr-conda-env\.sh$
+^\.github$
+^_pkgdown\.yml$
+^pkgdown$
+^environment\.yml$

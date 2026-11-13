@@ -354,8 +354,7 @@ dNdS <- function(query_file,
                 if (aligner == "blast" & ortho_detection == "RBH")
                         align <- function(...) 
                                 blast_rec(...,
-                                          blast_params = aligner_params,
-                                          )
+                                          blast_params = aligner_params)
                 
                 # run orthology inference.
                 hit.table <- 

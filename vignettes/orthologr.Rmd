@@ -30,11 +30,15 @@ Four steps get you started.
 ```{r,eval=FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
-BiocManager::install(c("Biostrings", "GenomicRanges", "GenomicFeatures",
-                       "Rsamtools", "rtracklayer", "pwalign"))
-install.packages(c("doParallel", "foreach", "ape", "Rdpack", "benchmarkme", "devtools"))
-devtools::install_github("drostlab/metablastr")
-devtools::install_github("drostlab/orthologr")
+# needs R >= 4.4 and Bioconductor >= 3.19
+BiocManager::install(c("Biostrings", "pwalign"))
+install.packages("remotes")
+remotes::install_github("drostlab/orthologr")   # also installs the CRAN dependencies
+
+# optional, for some functions only:
+# BiocManager::install("rtracklayer")            # annotation files (select_orthologs(), retrieve_longest_isoforms())
+# install.packages(c("ggplot2", "scales", "ape")) # plots, promotor divergence
+# remotes::install_github("drostlab/metablastr")  # lncRNA orthology
 ```
 
 Windows users also need [Rtools](setup_windows.html#install-rtools).

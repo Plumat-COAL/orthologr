@@ -1,0 +1,40 @@
+codon_aln_example <- system.file("seqs/pal2nal.aln", package = "orthologr")
+
+test_that("substitutionrate() computes Comeron's dN, dS and dN/dS for the example codon alignment", {
+        res <- substitutionrate(codon_aln_example, est.method = "Comeron", quiet = TRUE)
+        expect_s3_class(res, "data.table")
+        expect_identical(names(res), c("query_id", "subject_id", "dN", "dS", "dNdS"))
+        expect_identical(res$query_id, "AT1G01030.1")
+        expect_identical(res$subject_id, "470180|PACid_16054974")
+        expect_equal(res$dN, 0.01499, tolerance = 1e-4)
+        expect_equal(res$dS, 0.1265, tolerance = 1e-4)
+        expect_equal(res$dNdS, 0.1185, tolerance = 1e-3)
+})
+
+test_that("substitutionrate() computes Li's dN and dS with seqinr::kaks()", {
+        res <- substitutionrate(codon_aln_example, est.method = "Li", quiet = TRUE)
+        k <- seqinr::kaks(seqinr::read.alignment(codon_aln_example, format = "fasta"))
+        expect_equal(res$dN, as.numeric(k$ka))
+        expect_equal(res$dS, as.numeric(k$ks))
+        expect_equal(res$dNdS, as.numeric(k$ka) / as.numeric(k$ks))
+})
+
+test_that("substitutionrate() checks method and format", {
+        expect_error(substitutionrate(codon_aln_example, est.method = "XX"), "dNdS estimation method")
+        expect_error(substitutionrate(codon_aln_example, est.method = "Comeron", format = "nexus"), "format")
+        expect_error(substitutionrate(codon_aln_example, est.method = "Comeron", format = "clustal"), "fasta")
+})
+
+test_that("substitutionrate() runs the KaKs_Calculator models", {
+        skip_if_not(kaks_available, "KaKs_Calculator is not installed")
+        for (m in c("NG", "YN", "LWL", "MLWL", "LPB", "MYN")) {
+                res <- substitutionrate(codon_aln_example, est.method = m, quiet = TRUE)
+                expect_identical(res$method, m)
+                expect_identical(res$query_id, "AT1G01030.1")
+                expect_true(res$dN > 0 && res$dN < 0.05, info = m)
+                expect_true(res$dS > 0.05 && res$dS < 0.3, info = m)
+                expect_equal(res$dNdS, res$dN / res$dS, tolerance = 1e-3, info = m)
+        }
+        both <- substitutionrate(codon_aln_example, est.method = "kaks_calc", kaks_calc.params = "-m NG -m YN", quiet = TRUE)
+        expect_setequal(both$method, c("NG", "YN"))
+})

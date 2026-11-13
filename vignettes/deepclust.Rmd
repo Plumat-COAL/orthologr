@@ -86,7 +86,7 @@ annotated <- deepclust_annotate(
   ),
   approx_id    = 50,
   mutual_cover = 90,
-  comp_cores   = 4
+  comp_cores   = 1
 )
 annotated
 ```

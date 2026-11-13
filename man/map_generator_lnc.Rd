@@ -116,9 +116,8 @@ map_generator_lnc(
 }
 }
 \references{
-{
-\insertRef{Sarropoulos2019}{orthologr}
-}
+Sarropoulos I, Marin R, Cardoso-Moreira M, Kaessmann H (2019). Developmental dynamics of lncRNAs across
+mammalian organs and species. Nature 571, 510-514.
 }
 \author{
 Hajk-Georg Drost

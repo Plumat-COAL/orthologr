@@ -28,6 +28,7 @@ promotor_divergence_estimation <-
         function(query,
                  subject,
                  model = "K80") {
+                need_package("ape", "promotor_divergence_estimation()")
                 
                 if (!file.exists(query))
                         stop("Please provide a valid path to a query file.", call. = FALSE)

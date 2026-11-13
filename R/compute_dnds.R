@@ -48,7 +48,6 @@
 #' \code{reason}), and a warning reports how many pairs failed.
 #' 
 #' @seealso \code{\link{multi_aln}}, \code{\link{substitutionrate}}, \code{\link{dNdS}}
-#' @import data.table
 compute_dnds <- function(complete_tbl,
                          aa_aln_type     = "multiple", 
                          aa_aln_tool     = "clustalw", 

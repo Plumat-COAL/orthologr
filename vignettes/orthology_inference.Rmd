@@ -50,7 +50,7 @@ The following interfaces are implemented in the `orthologs()` function:
 
 ### Orthogroup based methods:
 
-- [Orthofinder2](https://github.com/davidemms/OrthoFinder): see `orthofinder2()`.
+- [OrthoFinder](https://github.com/davidemms/OrthoFinder): `orthofinder2()` is a thin, soft-deprecated wrapper that starts OrthoFinder; we recommend running OrthoFinder on the command line and importing its single-copy orthogroups with `orthofinder2_retrieve_core_orthologs()`. `orthologs(ortho_detection = "Orthofinder2")` is not implemented.
 
 ### Clustering based methods:
 

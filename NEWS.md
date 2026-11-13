@@ -1,4 +1,62 @@
-## `orthologr` development version
+## `orthologr` 0.5.0
+
+Version 0.5.0 instead of 0.4.4 because results and behaviour change in ways a patch release should not bring:
+some default results change (see "Changes to pairwise alignments" where that change is merged, the T-Coffee
+default mode, `aa_aln_params` being passed on), functions that returned `NULL` or stale results now stop with an
+error, and packages moved from Imports to Suggests.
+
+### Dependencies, documentation, continuous integration
+
+Dependencies
+- **Lighter installation.** Imports went from 21 to 11 packages. `ggplot2`, `scales` (the `plot_*()` functions),
+  `ape` (`promotor_divergence_estimation()`), `rtracklayer` (`select_orthologs()`, `retrieve_longest_isoforms()`,
+  `generate_ortholog_tables()`) and `benchmarkme` (memory check of `check_annotation()`) are now in Suggests: the
+  functions say which package to install when it is missing. `fs` (replaced by `file.exists()` / `dir.exists()`),
+  `Rdpack` (one reference, now plain text), `R.utils`, `foreach` and `doParallel` are no longer used. Unused
+  Suggests (`DBI`, `IRanges`, `RSQLite`, `devtools`, `pkgload`) were dropped; `tidyr` and `biomartr`, which the
+  examples use, were added.
+- **R >= 4.4 instead of (in effect) R >= 4.5.** `pwalign (>= 1.6.0)` (Bioconductor 3.22) forced R 4.5 although
+  the DESCRIPTION said R >= 4.0. The functions used (`pairwiseAlignment()`, `alignedPattern()`,
+  `alignedSubject()`, `pattern()`, `subject()`, `writePairwiseAlignments()`) are exported by `pwalign` 1.0.0
+  (Bioconductor 3.19, R 4.4), so the version requirement was dropped and `Depends: R (>= 4.4.0)`,
+  `Biostrings (>= 2.72.0)` state what is needed. (Checked against the NAMESPACE of pwalign 1.0.0; the package
+  itself was run on R 4.5 only - the `oldrel-1` job of the check workflow covers R 4.4.)
+- `SystemRequirements` lists Perl and DIAMOND and the optional programs; the `C++11` entry is gone (R CMD check
+  NOTE).
+- `NAMESPACE` imports three functions of `data.table` instead of the whole of `data.table` and `Biostrings`.
+
+Documentation
+- README: installation rewritten (the listed Bioconductor packages `GenomicRanges`, `GenomicFeatures`,
+  `Rsamtools` and the GitHub package `rdiamond` are not needed; DIAMOND and Perl, which are, were not mentioned),
+  the lists of orthology and dN/dS methods include the defaults (DIAMOND reciprocal best hit, Comeron), the
+  example output was regenerated, the Windows section no longer refers to `?build_github_devtools` and
+  `install.packages("rtools")`, the function overview covers the DIAMOND, DeepClust and stratigraphy functions.
+  The quoted libsequence licence header now reads "version 3" as the files in `src/` do.
+- Vignettes: `Install` (R version, BLAST+ 2.2.31 example with a wrong file name and `usr/local/bin`, ClustalW2
+  executable name, MUSCLE 3.8/5, Li's method is from `seqinr` not `ape`, KaKs_Calculator 2.0 from bioconda),
+  `dNdS_estimation` (the pairwise aligner is Needleman-Wunsch, the default method is Comeron, all methods listed,
+  `aligner_params` instead of the non-existing `blast_params`), `sequence_alignments` (`clustalw2`, MUSCLE,
+  `mafft --version`, a `pairwise_aln()` example that is run), `orthology_inference` (OrthoFinder), `orthologr`
+  (installation). `deepclust.Rmd` used `comp_cores = 4` in a chunk that is run, which stopped `R CMD build` on
+  machines with fewer cores.
+- Man pages: `blast()` example with `blast_params = "-max_target_seqs 1"` (BLAST stops: the option is set by
+  `max.target.seqs`), `format = "gbk"` (never supported), `orthologs()` arguments `outgroup_file` and `cdd.path`
+  (deprecated; a warning when set), `diamond_install()` (no checksum, no Linux aarch64 build).
+- `environment.yml` replaces `orthologr.yml` (R 3.5.1, python 2.7, macOS build hashes) and
+  `orthologr-conda-env.sh` (defunct `biobuilds` channel): R >= 4.4, the R packages and all external programs from
+  conda-forge and bioconda; it solves on linux-64 (micromamba, 289 packages, R 4.5.3, DIAMOND 2.2.8, BLAST+ 2.17.0).
+- Removed `.travis.yml` and `Read-and-delete-me`.
+
+Continuous integration and tests
+- The R-CMD-check workflow installs DIAMOND, BLAST+, Clustal Omega, MAFFT and KaKs_Calculator (bioconda; on
+  Windows DIAMOND from its release), so the tests that were skipped without them run.
+- A pkgdown workflow and `_pkgdown.yml` (grouped reference index) were added.
+- 16 of the 20 empty test files now hold tests (`multi_aln`, `orthologs`, `select_orthologs`,
+  `retrieve_longest_isoforms`, `read.genome`, `read.proteome`, `read.dnds.tbl`, `set_blast`, `substitutionrate`,
+  `codon_aln`, `cds2aa`, `filter_best_hits`, `extract_features`, `generate_ortholog_table`, `orthofinder2`,
+  `orthofinder2_retrieve_core_orthologs`). Still empty: `map_generator`, `map_generator_lnc`, `orthologs_lnc`
+  (they need long runs or the GitHub package `metablastr`) and `pairwise_aln` (its tests come with
+  `fix/pairwise-aln-speed`).
 
 ### Changes to pairwise alignments that change dN/dS values (methods change)
 
