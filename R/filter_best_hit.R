@@ -42,7 +42,8 @@ first_row_per_group <- function(group, keys = list()) {
 #   rule = "bitscore" (default since 0.5.0): the hit with the highest bit score; of several, the one with the
 #          smallest e-value; then the longest alignment; then the highest percent identity; then the
 #          alphabetically first subject_id (then query_id). The last keys make the choice deterministic: it does not
-#          depend on the order of the rows of the hit table.
+#          depend on the order of the rows of the hit table. Of several rows of the chosen subject that tie in all
+#          of this, the one with the highest raw score, then the smallest values of the remaining columns.
 #   rule = "evalue" (the rule of orthologr <= 0.4.3): the hit with the smallest e-value; of several, the one with
 #          the longest alignment; of several, the first row of the hit table (which is sorted by query_id and
 #          subject_id, i.e. the alphabetically first subject). The bit score is not used. DIAMOND and BLAST report
@@ -65,7 +66,21 @@ best_hits <- function(hit_tbl, group_col = "query_id", rule = NULL) {
                 last <- lapply(intersect(c("subject_id", "query_id"), names(hit_tbl)), function(col) as.character(hit_tbl[[col]]))
                 keys <- c(list(-as.numeric(hit_tbl$bit_score), as.numeric(hit_tbl$evalue), -as.numeric(hit_tbl$alig_length),
                                -as.numeric(hit_tbl$perc_identity)), last)
-                rows <- first_row_per_group(hit_tbl[[group_col]], keys)
+                # Several rows of one query and one subject (several HSPs; BLAST tables) can tie in all these keys:
+                # which of them is kept (its q_start, s_start, ...) then depended on the order of the rows. The
+                # raw score, which resolves ties hidden by the rounding of printed bit scores, and then every
+                # other column of the table decide now. These keys come after subject_id, so they never change
+                # which subject is the best hit - only which of its rows represents it.
+                rest <- setdiff(names(hit_tbl), c("bit_score", "evalue", "alig_length", "perc_identity", "subject_id",
+                                                  "query_id", "score_raw"))
+                row_keys <- c(
+                        if (is.element("score_raw", names(hit_tbl))) list(-as.numeric(hit_tbl$score_raw)),
+                        lapply(rest, function(col) {
+                                v <- hit_tbl[[col]]
+                                if (is.numeric(v)) v else as.character(v)
+                        })
+                )
+                rows <- first_row_per_group(hit_tbl[[group_col]], c(keys, row_keys))
                 res <- tibble::as_tibble(hit_tbl)[rows, ]
                 return(dplyr::group_by(res, .data[[group_col]]))
         }

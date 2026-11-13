@@ -448,6 +448,30 @@ test_that("R10: longest_per_group_do() is not misled by a column named 'pos'", {
         expect_setequal(res$id, best)
 })
 
+# ---------------------------------------------------------------- R20: the row kept for a best hit
+
+test_that("R20: the row kept for the best hit does not depend on the order of the hit table", {
+        hits <- tibble::tibble(
+                query_id = "q1", subject_id = c("s1", "s1", "s1", "s2"),
+                perc_identity = 90, alig_length = 100L, evalue = 0, bit_score = c(200, 200, 200, 150),
+                score_raw = c(507, 508, 508, 380), q_start = c(1L, 300L, 150L, 1L), s_start = c(5L, 310L, 160L, 1L))
+        ref <- as.data.frame(best_hits(hits))
+        expect_identical(ref$subject_id, "s1")
+        expect_identical(ref$score_raw, 508)            # the higher raw score behind the same printed bit score
+        expect_identical(ref$q_start, 150L)             # then the smallest values of the other columns
+        for (p in list(4:1, c(2, 1, 3, 4), c(3, 4, 1, 2), c(2, 3, 4, 1)))
+                expect_identical(as.data.frame(best_hits(hits[p, ])), ref)
+        # the raw score never changes the subject: s0 ties with s1 in the documented keys and wins alphabetically
+        more <- rbind(hits, tibble::tibble(query_id = "q1", subject_id = "s0", perc_identity = 90, alig_length = 100L, evalue = 0,
+                                           bit_score = 200, score_raw = 506, q_start = 1L, s_start = 1L))
+        expect_identical(as.data.frame(best_hits(more))$subject_id, "s0")
+        expect_identical(as.data.frame(best_hits(more[5:1, ]))$subject_id, "s0")
+        # tables without score_raw
+        expect_identical(as.data.frame(best_hits(hits[ , names(hits) != "score_raw"]))$q_start, 1L)
+        # the old rule is untouched
+        expect_identical(as.data.frame(best_hits(hits, rule = "evalue")), as.data.frame(best_hits_do(hits)))
+})
+
 # ---------------------------------------------------------------- R11: the pkgdown reference index is complete
 
 test_that("R11: every exported function and every help topic is in the reference index of _pkgdown.yml", {
