@@ -95,6 +95,7 @@ test_that("dNdS() ends with the column 'status', one summary message and the rec
         expect_identical(rec$options$orthologr.best_hit_rule, "bitscore")
         expect_identical(rec$options$orthologr.legacy_pairwise_aln, FALSE)
         expect_identical(rec$options$orthologr.status_column, TRUE)
+        expect_identical(rec$options$orthologr.ambiguous_cds, "drop")
         expect_match(rec$tools$diamond, "diamond")
         expect_true(nzchar(rec$tools$pwalign))
         expect_identical(rec$input_files$md5, unname(tools::md5sum(c(thal_cds(), lyra_cds()))))

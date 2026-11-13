@@ -230,6 +230,7 @@ orthologr_options_in_force <- function() {
                 orthologr.legacy_comeron_saturation = FALSE,
                 orthologr.legacy_kaks_zero_dn       = FALSE,
                 orthologr.dS_zero                   = "drop",
+                orthologr.ambiguous_cds             = "drop",
                 orthologr.status_column             = TRUE,
                 orthologr.isoform_warning           = TRUE,
                 orthologr.cluster_type              = if (.Platform$OS.type == "windows") "PSOCK" else "FORK",
