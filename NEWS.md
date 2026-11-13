@@ -128,6 +128,16 @@ codon alignments:
   pairs that leave are nearly saturated (dS 5.2 and 5.4 in both versions) and carry the correlation. Both
   figures are now in the table's note.
 
+**Checked after these fixes** (integration of all branches, with coalr 0.5.0 and `coal-cpp`):
+- With all legacy options - `orthologr.best_hit_rule = "evalue"`, `orthologr.legacy_pairwise_aln = TRUE`,
+  `orthologr.legacy_comeron_saturation = TRUE`, `orthologr.legacy_kaks_zero_dn = TRUE` (`orthologr.dS_zero`
+  needs no setting any more) - `dNdS()` returns the tables of 0.4.3 (master 06c3098): the 20-gene example and the
+  1,000-gene example, Comeron and YN, same rows in the same order and every common column `identical()`.
+- Default path against the state before the review (23aaa52), 1,000-gene example, 995 pairs: Comeron - every
+  column identical; YN - 11 pairs change from `dN = NA` to `dN = 0` (R14), nothing else; `engine = "coal"` with
+  YN - unchanged. The other changes of this section do not touch a value of this data set (R17: no pair; R20: no
+  row; R06, R07, R08, R09: only inputs or settings that failed before).
+
 **Behaviour changes of 0.5.0 that were not listed before**
 1. `divergence_stratigraphy(ds.values = FALSE)` no longer ran `na.omit()` on its result (now, with the default
    `dS_zero = "drop"`, it holds no `NA` again).
