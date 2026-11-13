@@ -176,7 +176,7 @@ test_that("orthogroups(method = 'rbh') finds the known groups of the simulated s
         # print and summary
         expect_output(print(og), "13 groups with 49 of 52 genes; 11 single-copy")
         s <- summary(og)
-        expect_identical(s$per_species$unassigned, c(1, 1, 1, 0))
+        expect_identical(s$per_species$unassigned, c(1L, 1L, 1L, 0L))
         expect_identical(s$group_sizes$groups[s$group_sizes$genes == 4], 11L)
         expect_identical(s$species_per_group$groups, c(1L, 1L, 11L))
         expect_output(print(s), "Groups by number of species")
@@ -253,7 +253,7 @@ test_that("orthogroups(): hit filters, IDs shared by species, three species from
         names(aa) <- paste0("g", seq_along(aa))
         Biostrings::writeXStringSet(aa, f1)
         Biostrings::writeXStringSet(rev(aa), f2)
-        expect_message(dup <- orthogroups(c(one = f1, two = f2), seq_type = "protein"), "more than one species")
+        suppressMessages(expect_message(dup <- orthogroups(c(one = f1, two = f2), seq_type = "protein"), "more than one species"))
         check_invariants(dup)
         expect_true(dup$params$ids_prefixed)
         expect_identical(nrow(dup$single_copy), 20L)
@@ -430,8 +430,8 @@ test_that("dNdS_orthogroups(): one codon alignment per group, all between-specie
         expect_gt(stats::cor(li1$pairs$dN, p$dN), 0.95)
         
         # groups = "single_copy" (default) and "all" with max_group_size
-        expect_message(all4 <- dNdS_orthogroups(og, groups = "all", max_group_size = 4, aa_aln_tool = "clustalo"),
-                       "could not be used")
+        suppressMessages(expect_message(all4 <- dNdS_orthogroups(og, groups = "all", max_group_size = 4, aa_aln_tool = "clustalo"),
+                                        "could not be used"))
         expect_identical(all4$failed$orthogroup, fam(11))
         expect_match(all4$failed$reason, "above max_group_size = 4")
         expect_identical(nrow(all4$summary), nrow(og$wide) - 1L)
