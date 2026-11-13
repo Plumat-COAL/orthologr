@@ -180,16 +180,23 @@ test_that("deepclust_realign() accepts a TSV file path as clusters", {
 test_that("deepclust_realign() writes a TSV when save.output is specified", {
         skip_if_not(diamond_available, "DIAMOND2 is not installed or not on PATH")
         clusters <- get_clusters()
-        out_dir  <- tempdir()
+        # a folder of its own (not the shared tempdir(), where an earlier test may have left such a file)
+        out_dir  <- new_test_dir("realign_out_")
+        expect_length(list.files(out_dir), 0)
 
-        deepclust_realign(
+        res <- suppressMessages(deepclust_realign(
                 input_file  = c(protein_file, protein_file2),
                 clusters    = clusters,
                 save.output = out_dir
-        )
+        ))
 
-        written_files <- list.files(out_dir, pattern = "^deepclust_realign_.*\\.tsv$")
-        expect_gt(length(written_files), 0L)
+        written_files <- list.files(out_dir, pattern = "^deepclust_realign_.*\\.tsv$", full.names = TRUE)
+        expect_length(written_files, 1)
+        expect_equal(length(readLines(written_files)), nrow(res))
+        # a second run replaces the file
+        writeLines("STALE", written_files)
+        suppressMessages(deepclust_realign(input_file = c(protein_file, protein_file2), clusters = clusters, save.output = out_dir))
+        expect_false(identical(readLines(written_files, n = 1), "STALE"))
 })
 
 # --- Single-file input -------------------------------------------------------

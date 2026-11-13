@@ -268,6 +268,32 @@ Changes of results and row counts in this section
   worker processes left behind after an error - were fixed by `fix/robustness` / `perf/vectorise`: one function for
   both paths, `on.exit(parallel::stopCluster())`.)
 
+### Golden-value tests (second audit)
+
+No test asserted a single dN/dS value, a known ortholog pair, or an ID with `|`, digits only or more than 15
+characters. `tests/testthat/test-golden_values.R` and `tests/testthat/fixtures/` add:
+- **Pinned dN, dS and dN/dS** of four fixed codon alignments for Comeron's and Li's method, cross-checked against
+  an independent program (KaKs_Calculator 2.0, method MLPB): Comeron and Li agree with it within 12% on these
+  pairs, the test states a tolerance of 15% (or 0.005); hand-made alignments with no, one synonymous and one
+  nonsynonymous change.
+- The **20 known ortholog pairs** of the example data with their values, end to end through `dNdS()`, for both
+  best-hit rules; **reciprocal best hits are symmetric** (query and subject swapped; DIAMOND and BLAST).
+- A **tie-break fixture** (a hit table file in which every level of the two best-hit rules decides once).
+- **IDs end to end**: UniProt / NCBI `|` IDs, numeric IDs, `007`, IDs with a hyphen, 60-character IDs through
+  `dNdS()` with Comeron, Li, YN, MAFFT, Clustal Omega and through `divergence_stratigraphy()`.
+
+Tests that passed for the wrong reason, or could fail without a defect, were repaired:
+- `test-deepclust.R` "stricter approx_id yields at least as many rows": `deepclust()` returns one row per sequence,
+  so the test compared 20 with 20. It now clusters proteins with near-identical copies and compares the numbers
+  of clusters.
+- The `save.output` tests of `deepclust()` / `deepclust_realign()` wrote into the shared `tempdir()`, where the
+  file of an earlier test existed already; they passed although the file was never overwritten. They use a folder
+  of their own, start from a stale file and compare the content.
+- `test-filter_dNdS.R` asserted that a gene pair with dN = dS = 0 is dropped (see "dS = 0" above).
+- `test-diamond.R` "more-sensitive returns at least as many hits as fast" is a tendency of a heuristic, not a
+  guarantee; the test now requires the same top hit for each of the 20 example genes in both modes.
+- The `comp_cores = 2` test of `divergence_stratigraphy()` is skipped on machines with one core.
+
 ### Dependencies, documentation, continuous integration
 
 Dependencies
