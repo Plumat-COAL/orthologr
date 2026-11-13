@@ -98,9 +98,9 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 # Install the Bioconductor packages orthologr imports
 BiocManager::install(c("Biostrings", "pwalign"))
 
-# install orthologr from GitHub (this also installs its CRAN dependencies)
+# install orthologr 0.5.0 from GitHub (this also installs its CRAN dependencies)
 install.packages("remotes")
-remotes::install_github("drostlab/orthologr")
+remotes::install_github("Plumat-COAL/orthologr@integration/all")
 ```
 
 Optional packages, needed by some functions only (a message tells you when one is missing):
@@ -197,7 +197,7 @@ dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'ortho
 ```
 
 A faster way to the same kind of table uses [COAL](https://github.com/Plumat-COAL/COAL) for the alignment,
-codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")`):
+codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")`):
 
 ```r
 # orthologs by DIAMOND reciprocal best hits, then all gene pairs in one batch (no Perl, no KaKs_Calculator)
@@ -254,7 +254,7 @@ On Windows the package is built from source, which needs [Rtools](https://cran.r
 
 ```r
 install.packages("remotes")
-remotes::install_github("drostlab/orthologr")
+remotes::install_github("Plumat-COAL/orthologr@integration/all")
 ```
 
 The article [Setup on Windows](https://drostlab.github.io/orthologr/articles/setup_windows.html) describes how to

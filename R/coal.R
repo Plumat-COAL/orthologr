@@ -56,7 +56,7 @@ coal_check_methods <- function(methods, what, other = "engine = \"orthologr\"") 
                      "\" needs a COAL that computes Comeron's and Li's method (coalr >= 0.5.0 whose ",
                      "coalr::coal_info()$methods lists \"Comeron\" and \"Li\"; ",
                      if (is.null(have)) "coalr is not installed" else paste0("the installed coalr ", have, " does not"),
-                     "). Update it with remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\"), ",
+                     "). Update it with remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\", ref = \"improve/pass2\"), ",
                      "choose one of ", paste0("\"", coal_kaks_calculator_methods(), "\"", collapse = ", "),
                      ", or use ", other, ".", call. = FALSE)
         }
@@ -132,7 +132,7 @@ coal_orthologr_values <- function(tbl) {
 coal_install_message <- function() {
         paste0(
                 "COAL is not available. Install its R package (recommended; runs inside R, no other program needed):\n",
-                "    remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\")\n",
+                "    remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\", ref = \"improve/pass2\")\n",
                 "or put COAL's 'coal-cpp' program on the PATH (pip install coal-align; ",
                 "or set options(orthologr.coal_path = \"/path/to/coal-cpp\"))."
         )
@@ -154,7 +154,7 @@ coal_backend <- function(need = NULL) {
         if (identical(forced, "coalr") || identical(need, "coalr"))
                 stop(
                         "This needs the R package 'coalr' (COAL's C++ engine inside R). Install it with:\n",
-                        "    remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\")",
+                        "    remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\", ref = \"improve/pass2\")",
                         call. = FALSE
                 )
 
@@ -399,7 +399,7 @@ cds_vector <- function(cds_dt) {
 #' protein identity, status and note) is attached as \code{attr(result, "coal")}.
 #'
 #' This function needs the R package \pkg{coalr}:
-#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")}.
 #' @author Chloe Newton
 #' @return A tibble with the columns of \code{\link{dNdS}}: \code{query_id}, \code{subject_id}, \code{dN}, \code{dS},
 #' \code{dNdS}, \code{method} and the columns of the hit table.
@@ -639,7 +639,7 @@ dNdS_coal <- function(query_file,
 #' @param ... additional arguments passed to \code{\link{deepclust}} when \code{clusters = NULL}
 #' (e.g. \code{approx_id}, \code{mutual_cover}).
 #' @details This function needs the R package \pkg{coalr}:
-#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")}.
 #' A gene, pair or cluster that cannot be used never ends the run: see the \code{status} and \code{note} columns and
 #' the \code{failed} table.
 #' @author Chloe Newton

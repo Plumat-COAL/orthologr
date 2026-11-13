@@ -63,3 +63,18 @@ A GPL-2-only orthologr that calls a GPL-3 package at run time is a second reason
 
 With all legacy options set, the 20-gene and 1,000-gene examples give the tables of 0.4.3 (master 06c3098)
 for Comeron and YN; see NEWS.
+
+## 3. Things that are set for the fork and must change when this is merged
+
+| Where | Now | Change to |
+|---|---|---|
+| `DESCRIPTION`, `Remotes:` | `Plumat-COAL/COAL/packaging/r/coalr@improve/pass2` (syntax `owner/repo/subdir@ref`). The R package coalr is not on COAL's default branch yet; `improve/pass2` is the branch that has it with the Comeron / Li methods. | `Plumat-COAL/COAL/packaging/r/coalr` (default branch) or `...@<release tag>` once COAL's pull requests are merged |
+| the coalr install command in `README.md`, `?codon_aln`, `?dNdS_coal`, `?dNdS_clusters` and in the messages of `R/coal.R` | `remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")` | the same without `ref` (or with the release tag) |
+| install command of orthologr in `README.md` (two places), `environment.yml`, `vignettes/orthologr.Rmd` | `remotes::install_github("Plumat-COAL/orthologr@integration/all")`, so that the command installs the version the page describes | `remotes::install_github("drostlab/orthologr")` |
+| `.github/workflows/R-CMD-check.yaml`, `on: push: branches` | also `integration/**`, `upstream/**`, `upstream-v2/**`, `fix/**` (the fork's working branches) and `workflow_dispatch` | the fork branches can be removed; `workflow_dispatch` is worth keeping |
+
+GitHub Actions has not run on the fork (Actions are not enabled in the fork's settings): the macOS and Windows
+legs of the workflow and the installation of the programs with micromamba are untested there. The CI installs
+coalr through the `Remotes` field; if the COAL repository cannot be read by the workflow's token, or the ref
+disappears, the dependency step fails on every leg - remove the `Remotes` line (coalr is in `Suggests` and every
+use is guarded) rather than leave it dangling.
