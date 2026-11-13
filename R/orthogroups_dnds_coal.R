@@ -6,17 +6,10 @@
 dnds_groups_coal_check <- function(dnds_est.method, aa_aln_tool) {
         if (is.null(dnds_est.method))
                 dnds_est.method <- "YN"
-        if (!is.character(dnds_est.method) || length(dnds_est.method) < 1 || !all(is.element(dnds_est.method, coal_methods())))
-                stop(
-                        "engine = \"coal\" computes dnds_est.method = ", paste0("\"", coal_methods(), "\"", collapse = ", "),
-                        " (KaKs_Calculator's methods). \"",
-                        paste(setdiff(dnds_est.method, coal_methods()), collapse = "\", \""),
-                        "\" is only available with engine = \"orthologr\".",
-                        call. = FALSE
-                )
         check_choice(aa_aln_tool, c("clustalo", "mafft", "pairwise"), "aa_aln_tool",
                      hint = "(with engine = \"coal\"; 'muscle', 'clustalw' and 't_coffee' need engine = \"orthologr\").")
         coal_backend(need = "coalr")
+        coal_check_methods(dnds_est.method, "engine = \"coal\"")
         dnds_est.method
 }
 
@@ -26,16 +19,21 @@ dnds_groups_coal_check <- function(dnds_est.method, aa_aln_tool) {
 #                                         dNdS_clusters(); the pairs of genes of the same species it also computes
 #                                         are left out
 # Returns the table dnds_groups_orthologr() returns: orthogroup, query_id, subject_id, method, dN, dS, dNdS, note.
-dnds_groups_coal <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_aln_path = NULL, comp_cores = 1, quiet = TRUE) {
+#   aa_aln_scoring : the scoring of the pairwise protein alignments COAL makes itself ("pwalign": that of dNdS();
+#                    "needle": COAL's own defaults) - the same argument, with the same default, as in
+#                    dNdS(engine = "coal"), dNdS_coal() and dNdS_clusters()
+dnds_groups_coal <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_aln_path = NULL, comp_cores = 1, quiet = TRUE,
+                             aa_aln_scoring = "pwalign") {
         used <- unique(c(pairs$query_id, pairs$subject_id))
         if (aa_aln_tool == "pairwise") {
-                res <- coalr::coal_dnds_pairs(
+                res <- do.call(coalr::coal_dnds_pairs, c(list(
                         query_cds   = cds[unique(pairs$query_id)],
                         subject_cds = cds[unique(pairs$subject_id)],
                         pairs       = data.frame(query_id = pairs$query_id, subject_id = pairs$subject_id, stringsAsFactors = FALSE),
                         methods     = dnds_est.method,
-                        threads     = comp_cores
-                )
+                        threads     = comp_cores,
+                        preset      = aa_aln_scoring
+                ), coal_flavour_args(coalr::coal_dnds_pairs)))
         } else {
                 exe <- if (is.null(aa_aln_path)) NULL else {
                         if (dir.exists(aa_aln_path)) file.path(aa_aln_path, aa_aln_tool) else aa_aln_path
@@ -51,18 +49,21 @@ dnds_groups_coal <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_aln_pa
                                              member_id = c(pairs$query_id, pairs$subject_id), stringsAsFactors = FALSE))
                 clusters <- data.frame(representative_id = members$member_id[match(members$orthogroup, members$orthogroup)],
                                        member_id = members$member_id, stringsAsFactors = FALSE)
-                out <- coalr::coal_dnds_clusters(
+                out <- do.call(coalr::coal_dnds_clusters, c(list(
                         cds              = cds[used],
                         clusters         = clusters,
                         aligner          = msa_aligner,
                         methods          = dnds_est.method,
                         threads          = comp_cores,
                         max_cluster_size = max(table(members$orthogroup), 2L),
-                        large_clusters   = "skip"
-                )
+                        large_clusters   = "skip",
+                        # groups of two genes are aligned pairwise by COAL
+                        preset           = aa_aln_scoring
+                ), coal_flavour_args(coalr::coal_dnds_clusters)))
                 res <- out$pairs
         }
-        res <- data.table::as.data.table(res)
+        # Comeron and Li as orthologr's own methods return them (saturation rule, 4 digits, Li's markers)
+        res <- data.table::as.data.table(coal_orthologr_values(res))
         # COAL names the two genes seq1 and seq2, in an order of its own: both orders are looked up
         key <- function(a, b) paste(a, b, sep = "\r")
         at <- match(key(res$seq1, res$seq2), key(pairs$query_id, pairs$subject_id))

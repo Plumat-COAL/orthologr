@@ -64,13 +64,21 @@
 #' @param kaks_tool the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
 #' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
 #' program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).
+#' With a COAL that computes them, \code{kaks_tool = "coal"} also computes \code{"Comeron"} and \code{"Li"} (same
+#' values as the built-in code for the same codon alignment).
 #' @param engine \code{"orthologr"} (Default): each gene pair is processed on its own (protein alignment, codon alignment and
 #' dN/dS estimation with the tools chosen above, with intermediate files per pair). \code{"coal"}: the batched fast path
 #' \code{\link{dNdS_coal}}: orthologs are detected as usual, then all gene pairs are aligned and estimated by COAL in one
 #' call, in memory and on \code{comp_cores} threads. \code{engine = "coal"} needs the package \pkg{coalr}, a
-#' \code{dnds_est.method} that COAL computes (e.g. \code{"YN"}; not \code{"Comeron"} or \code{"Li"}),
-#' \code{ortho_detection} \code{"RBH"} or \code{"BH"}, and ignores \code{aa_aln_type}, \code{aa_aln_tool},
-#' \code{codon_aln_tool}, \code{kaks_tool} and \code{store_locally}. It returns the same table.
+#' \code{dnds_est.method} that COAL computes (\code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"},
+#' \code{"YN"}, \code{"MYN"}; and \code{"Comeron"} - the default method - and \code{"Li"} with a \pkg{coalr} that has
+#' them, see \code{\link{dNdS_coal}}), \code{ortho_detection} \code{"RBH"} or \code{"BH"}, and ignores
+#' \code{aa_aln_type}, \code{aa_aln_tool}, \code{codon_aln_tool}, \code{kaks_tool} and \code{store_locally}. It
+#' returns the same table, with the same attributes.
+#' @param aa_aln_scoring with \code{engine = "coal"}: how COAL scores the pairwise protein alignments -
+#' \code{"pwalign"} (Default; the scoring of \code{\link{pairwise_aln}}, so that the alignments are those of
+#' \code{engine = "orthologr"} up to co-optimal alignments) or \code{"needle"} (COAL's own defaults). The same
+#' argument as in \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}.
 #' @param kaks_calc_path a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 #' (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).
 #' @param dnds_est.method the dNdS estimation method that shall be used.
@@ -310,7 +318,8 @@ dNdS <- function(query_file,
                  aa_sub_matrix   = "BLOSUM62",
                  kaks_tool       = "kaks_calculator",
                  engine          = "orthologr",
-                 best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")
+                 best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore"),
+                 aa_aln_scoring  = "pwalign"
                  ){
         
         best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
@@ -367,6 +376,11 @@ dNdS <- function(query_file,
                                       dnds_est.method = dnds_est.method, kaks_calc_path = kaks_calc_path,
                                       need_kaks = !(kaks_tool == "coal" && is.element(dnds_est.method, coal_methods())))
         
+        check_aa_aln_scoring(aa_aln_scoring)
+        if (engine == "orthologr" && aa_aln_scoring != "pwalign")
+                stop("aa_aln_scoring = \"", aa_aln_scoring, "\" needs engine = \"coal\" (engine = \"orthologr\" aligns with ",
+                     "pairwise_aln(), i.e. \"pwalign\").", call. = FALSE)
+        
         # the batched fast path: all gene pairs in one call to COAL
         if (engine == "coal") {
                 if (is.null(aa_sub_matrix) || !is.character(aa_sub_matrix))
@@ -384,6 +398,7 @@ dNdS <- function(query_file,
                         aligner_params     = aligner_params,
                         eval               = eval,
                         dnds_est.method    = dnds_est.method,
+                        aa_aln_scoring     = aa_aln_scoring,
                         aa_sub_matrix      = aa_sub_matrix,
                         comp_cores         = comp_cores,
                         quiet              = quiet,
