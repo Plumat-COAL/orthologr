@@ -56,7 +56,7 @@ The popular codon alignment tool PAL2NAL is included in this package and is bein
 \code{tool} = \code{"coal"} builds the codon alignment with COAL, a re-implementation of PAL2NAL's algorithm that does
 not need Perl and has no limit on the protein length (PAL2NAL fails for proteins of more than about 21,800 residues).
 COAL is optional: install its R package with
-\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")}, or put the \code{coal-cpp} program on
+\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}, or put the \code{coal-cpp} program on
 the \code{PATH} (\code{pip install coal-align}; \code{options(orthologr.coal_path = )} names another location).
 The PAL2NAL parameters in \code{params} are not available with \code{tool = "coal"}.
 }

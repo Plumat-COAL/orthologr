@@ -120,7 +120,7 @@ COAL's complete table for the gene pairs (standard errors, numbers of sites and 
 protein identity, status and note) is attached as \code{attr(result, "coal")}.
 
 This function needs the R package \pkg{coalr}:
-\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")}.
+\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
 }
 \examples{
 \dontshow{if (nzchar(system.file(package = "coalr"))) withAutoprint(\{ # examplesIf}

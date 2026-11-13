@@ -202,7 +202,7 @@ dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'ortho
 ```
 
 A faster way to the same kind of table uses [COAL](https://github.com/Plumat-COAL/COAL) for the alignment,
-codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")`):
+codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")`):
 
 ```r
 # orthologs by DIAMOND reciprocal best hits, then all gene pairs in one batch (no Perl, no KaKs_Calculator)
