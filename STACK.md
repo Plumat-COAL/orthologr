@@ -31,4 +31,10 @@ restores it to that test, so the test shows that the old numbers can still be ha
 The fixes of the third review (R01 - R23) are in the branches they correct (named in the table and in the
 commit messages); there is no separate fix-up branch.
 
+CI evidence: GitHub Actions ran the full matrix on `upstream-v2/01-ci-and-tests`, `upstream-v2/15-coal` and
+`integration/all` (same tree as 15 without this file), and partly on `upstream-v2/08-annotation`; the fork's
+runners start about one job at a time, so the runs of 02 - 14 were cancelled. Every branch was checked locally
+(R CMD check / the full test suite with DIAMOND, BLAST+, Clustal Omega, MAFFT, KaKs_Calculator and coalr); fixes
+found later were added as commits to the branch they belong to and merged forward through the later branches.
+
 Differences from `integration/all`: this file, and its line in `.Rbuildignore`.
