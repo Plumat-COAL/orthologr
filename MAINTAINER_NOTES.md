@@ -72,7 +72,7 @@ the 0.4.3 package installed) on every run, for both ways of setting the switch.
 
 | Where | Now | Change to |
 |---|---|---|
-| `DESCRIPTION`, `Remotes:` | `Plumat-COAL/COAL/packaging/r/coalr@improve/pass2` (syntax `owner/repo/subdir@ref`). The R package coalr is not on COAL's default branch yet; `improve/pass2` is the branch that has it with the Comeron / Li methods. | `Plumat-COAL/COAL/packaging/r/coalr` (default branch) or `...@<release tag>` once COAL's pull requests are merged |
+| `DESCRIPTION`, `Remotes:` | `coalr=Plumat-COAL/COAL/packaging/r/coalr@improve/pass2` (syntax `package=owner/repo/subdir@ref`; the `coalr=` prefix is needed because the package is not named like its repository - without it pak, which GitHub Actions uses, reports "Can't find package called coalr"). The R package coalr is not on COAL's default branch yet; `improve/pass2` is the branch that has it with the Comeron / Li methods. | `coalr=Plumat-COAL/COAL/packaging/r/coalr` (default branch) or `...@<release tag>` once COAL's pull requests are merged |
 | the coalr install command in `README.md`, `?codon_aln`, `?dNdS_coal`, `?dNdS_clusters` and in the messages of `R/coal.R` | `remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")` | the same without `ref` (or with the release tag) |
 | install command of orthologr in `README.md` (two places), `environment.yml`, `vignettes/orthologr.Rmd` | `remotes::install_github("Plumat-COAL/orthologr@integration/all")`, so that the command installs the version the page describes | `remotes::install_github("drostlab/orthologr")` |
 | `.github/workflows/R-CMD-check.yaml`, `on: push: branches` | also `integration/**`, `upstream/**`, `upstream-v2/**`, `fix/**` (the fork's working branches) and `workflow_dispatch` | the fork branches can be removed; `workflow_dispatch` is worth keeping |
@@ -113,3 +113,8 @@ use is guarded) rather than leave it dangling.
   `stdout`. Scripts that parse the messages or take columns by position from the end are affected.
 - `dNdS(quiet = FALSE)` no longer prints one line per alignment and estimation call; it reports progress.
 - The detailed, review-by-review log that used to be the NEWS entry is `MAINTAINER_CHANGELOG.md`.
+
+The first Actions run on the fork failed before any R code ran: micromamba received `"diamond>=2.1"` with its
+double quotes (inside a folded YAML block no shell removes them) and could not parse the version, and pak could
+not match the `Remotes` entry to coalr. Both are corrected (`diamond>=2.1` unquoted in the two workflows; the
+`coalr=` prefix). The following runs have to show whether the legs now pass.

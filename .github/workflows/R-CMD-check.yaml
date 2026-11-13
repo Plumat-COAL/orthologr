@@ -61,7 +61,7 @@ jobs:
           environment-name: orthologr-tools
           create-args: >-
             -c conda-forge -c bioconda
-            "diamond>=2.1"
+            diamond>=2.1
             blast
             clustalo
             mafft

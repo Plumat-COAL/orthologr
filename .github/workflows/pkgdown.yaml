@@ -36,7 +36,7 @@ jobs:
           environment-name: orthologr-tools
           create-args: >-
             -c conda-forge -c bioconda
-            "diamond>=2.1"
+            diamond>=2.1
           cache-environment: true
           init-shell: none
           generate-run-shell: false
