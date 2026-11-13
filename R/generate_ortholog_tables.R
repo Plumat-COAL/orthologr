@@ -70,11 +70,11 @@ generate_ortholog_tables <-
                 dNdS_tbl <-
                         read.dnds.tbl(dNdS_file)
                 
-                # check if annotation file is corrupt and remove outliers
-                annotation_file_query <-
-                        check_annotation(annotation_file_query, remove_annotation_outliers = TRUE)
-                
-                annotation_file_subject <- check_annotation(annotation_file_subject, remove_annotation_outliers = TRUE)
+                # (the annotation files are read as they are: lines of more than 65,000 characters are no longer
+                # removed, see ?check_annotation)
+                for (f in c(annotation_file_query, annotation_file_subject))
+                        if (!file.exists(f))
+                                stop("The file '", f, "' does not seem to exist. Please provide a valid path to the annotation file.", call. = FALSE)
                 
                 # select orthologs by gene_locus
                 select_orthologs_by_gene_locus <- select_orthologs(
