@@ -45,14 +45,15 @@ worked beyond starting the program and is soft-deprecated; its warning and `?ort
   (`substitutionrate()`; default method Comeron), plus a summary per group (numbers of pairs, of pairs without
   value and of saturated pairs; median, mean and quartiles of dN, dS, dN/dS). A gene, pair or group that cannot be
   used gives `NA` rows and a reason, never an error. With `aa_aln_tool = "pairwise"` the values are those of
-  `dNdS()` for the same pairs (tested).
+  `dNdS()` for the same pairs (tested). Run time: 200 single-copy groups of four yeasts (1,200 pairs) in 70 s
+  with `comp_cores = 2` (Clustal Omega, Comeron); 183 of these pairs have a dN/dS value, the others are saturated
+  at synonymous sites (the species are too distant).
   **`engine = "coal"`** hands the gene pairs of all groups to COAL in one call (`coalr::coal_dnds_clusters()` with
   one Clustal Omega or MAFFT alignment per group, the machinery of `dNdS_clusters()`; `coalr::coal_dnds_pairs()`
-  with `aa_aln_tool = "pairwise"`), for the methods COAL computes (`"YN"` by default). Measured on
-  single-copy groups of four yeasts (2 cores): 200 groups / 1,200 pairs in 26 s with one Clustal Omega alignment
-  per group and in 8 s with pairwise alignments (`engine = "orthologr"`: 70 s with Clustal Omega and Comeron's
-  method); all 3,941 groups / 23,646 pairs in 68 s (pairwise). These species are so distant that COAL reports
-  21,148 of the 23,646 pairs as saturated - the `note` column says so.
+  with `aa_aln_tool = "pairwise"`), for the methods COAL computes (`"YN"` by default). The same 1,200 pairs take
+  26 s with one Clustal Omega alignment per group and 8 s with pairwise alignments; all 3,941 single-copy groups
+  (23,646 pairs) take 68 s (pairwise). COAL reports 21,148 of these 23,646 pairs as saturated - the `note` column
+  says so.
 
 Measured (DIAMOND 2.2.8, 2 cores; the data are not part of the package):
 

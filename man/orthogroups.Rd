@@ -137,7 +137,7 @@ e-value of a search against the subject species alone (multiplied by the share o
 all species; DIAMOND's e-value is proportional to the database size), and \code{eval} is applied to the converted
 value. Bit scores do not depend on the database. The orthologs of two species therefore do not change when further
 species are added, and \code{orthogroups()} with two species returns the reciprocal best hits of
-\code{\link{diamond_rec}} (verified in the tests of the package and, on human and mouse, on 41,330 proteins).
+\code{\link{diamond_rec}} (verified in the tests of the package and, on human and mouse, 41,040 proteins).
 \item DIAMOND reports at most \code{max.target.seqs} hits per query. A gene with more better hits than that
 (members of very large families in many species) can lose its best hit in a species; a warning counts such queries.
 }
