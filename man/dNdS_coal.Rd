@@ -21,7 +21,8 @@ dNdS_coal(
   aa_sub_matrix = "BLOSUM62",
   comp_cores = 1,
   quiet = TRUE,
-  print_citation = TRUE
+  print_citation = TRUE,
+  best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
 )
 }
 \arguments{
@@ -68,6 +69,10 @@ end gaps free).
 \item{quiet}{a logical value specifying whether the output of the search tool shall be printed to the console.}
 
 \item{print_citation}{a logical value indicating whether or not the citation message shall be printed.}
+
+\item{best_hit_rule}{how best hits are chosen: \code{"bitscore"} (default since orthologr 0.5.0) or \code{"evalue"}
+(the rule of orthologr <= 0.4.3); see \code{\link{dNdS}} and \code{\link{diamond_best}}.
+\code{options(orthologr.best_hit_rule = "evalue")} sets the old rule for a session.}
 }
 \value{
 A tibble with the columns of \code{\link{dNdS}}: \code{query_id}, \code{subject_id}, \code{dN}, \code{dS},
