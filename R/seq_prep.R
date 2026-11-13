@@ -24,6 +24,11 @@ protein_table_read <- function(file, seq_type = "cds", delete_corrupt_cds = TRUE
         
         seqs <- aa <- geneids <- NULL
         
+        # the file that is being read, for the messages about sequences that are left out
+        old_file <- .orthologr_state$current_file
+        .orthologr_state$current_file <- file
+        on.exit(.orthologr_state$current_file <- old_file, add = TRUE)
+        
         if (seq_type == "cds") {
                 dt <- if (...length() == 0)
                         read_cds_once(file, delete_corrupt_cds = delete_corrupt_cds)
@@ -32,14 +37,20 @@ protein_table_read <- function(file, seq_type = "cds", delete_corrupt_cds = TRUE
                 dt <- tryCatch(
                         cds2aa(dt, delete_corrupt_cds = delete_corrupt_cds),
                         error = function(e) {
-                                stop("The input coding sequences could not be translated properly to amino acid sequences.",
-                                     "\n", " Please check whether ", file, " stores valid coding sequences.", call. = FALSE)
+                                # what went wrong is kept (e.g. duplicated sequence IDs are named)
+                                if (grepl("more than once", conditionMessage(e), fixed = TRUE))
+                                        stop(conditionMessage(e), call. = FALSE)
+                                stop(sub("\n Please check whether the input file stores valid coding sequences.", "",
+                                         conditionMessage(e), fixed = TRUE),
+                                     "\n", " Please check whether ", file,
+                                     " stores valid coding sequences.", call. = FALSE)
                         }
                 )
         }
         
         if (seq_type == "protein") {
                 dt <- data.table::copy(read.proteome(file = file, format = "fasta", ...))
+                check_duplicate_ids(dt[ , geneids], what = "protein sequences", file = file)
                 data.table::setnames(dt, old = "seqs", new = "aa")
         }
         

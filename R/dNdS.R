@@ -182,6 +182,30 @@
 #' 
 #' Each call keeps its intermediate files (search database, alignments, KaKs_Calculator files) in a folder of its own
 #' inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it.
+#' 
+#' \code{attr(result, "dropped_sequences")} is a \code{data.frame} (\code{file}, \code{id}, \code{reason}) with the
+#' input sequences that were left out before the search: coding sequences with characters other than A, C, G, T (they
+#' cannot be translated; e.g. 5'-incomplete Ensembl CDS that are padded with N), empty sequences and, with
+#' \code{delete_corrupt_cds = TRUE}, sequences whose length is not a multiple of 3. A message gives their number.
+#' 
+#' @section Sequence IDs:
+#' The ID of a sequence is its FASTA header up to the first white space. IDs must be unique within a file (a
+#' duplicated ID is an error that names it) and are returned exactly as they are in the input files, whatever they
+#' look like (numbers, \code{|}, \code{-}, more than 15 characters): the IDs of a gene pair are carried through the
+#' alignment and estimation steps and are not read back from the output of the external programs.
+#' 
+#' @section Splice variants:
+#' Every sequence of an input file is treated as a gene. A file that holds several transcripts per gene (for example
+#' the \code{cds/all} files of Ensembl or files retrieved with \code{biomartr::getCDS()}) gives several rows per gene
+#' with different partners and different dN/dS values, and the splice variants of a gene compete as best hits.
+#' Please keep one transcript per gene first, e.g. with \code{\link{retrieve_longest_isoforms}}.
+#' \code{dNdS()} warns when a file seems to hold several transcripts per gene. The check is a conservative heuristic
+#' that never changes a result: (1) when at least 90\% of the FASTA headers name their gene (Ensembl
+#' \code{gene:<ID>}, NCBI \code{[locus_tag=<ID>]} or \code{[gene=<symbol>]}) the genes are counted from these fields;
+#' (2) otherwise a transcript suffix is removed from the IDs (\code{.<number>}, \code{.t<number>}, \code{-T<number>},
+#' \code{-R<letter>}, \code{-P<letter>}, \code{-mRNA-<number>}, \code{_i<number>}, \code{.p<number>}) and a warning
+#' is given only when at least 5 of the remaining stems, and at least 1\% of them, occur more than once.
+#' \code{options(orthologr.isoform_warning = FALSE)} switches the check off.
 #' @examples \dontrun{
 #' 
 #' # get a dNdS table using:
@@ -313,6 +337,14 @@ dNdS <- function(query_file,
         end_seq_cache <- seq_cache_start()
         on.exit(end_seq_cache(), add = TRUE)
         
+        # sequences that are left out are collected for attr(<result>, "dropped_sequences")
+        end_dropped <- dropped_start()
+        on.exit(end_dropped(), add = TRUE)
+        
+        # several transcripts per gene in an input file? (a warning; see ?dNdS, section 'Splice variants')
+        isoforms_query <- isoform_warning(query_file, "query_file")
+        isoform_warning(subject_file, "subject_file")
+        
         if (store_locally) {
                 if (file.exists("orthologr_alignment_files")) {
                         message("The folder 'orthologr_alignment_files' seems to exist already.",
@@ -399,6 +431,13 @@ dNdS <- function(query_file,
         joint_subject_tbl <- dplyr::inner_join(tibble::as_tibble(hit.table), tibble::as_tibble(subject_tbl), by = "subject_id")
         final_tbl <- dplyr::inner_join(tibble::as_tibble(joint_query_tbl), tibble::as_tibble(joint_subject_tbl), by = c("query_id","subject_id"))
         
+        if (nrow(hit.table) == 0)
+                stop("No orthologs could be found: the ", if (aligner == "diamond") "DIAMOND" else "BLAST",
+                     " search of '", basename(query_file), "' against '", basename(subject_file),
+                     "' returned no ", if (ortho_detection == "RBH") "reciprocal best hits" else "hits",
+                     " at e-value ", eval, ". Please check your input files (are both sets of coding sequences related?) ",
+                     "or relax 'eval'.", call. = FALSE)
+        
         if (nrow(final_tbl) == 0)
                 stop("No orthologs could be found! Please check your input files!", call. = FALSE)
         
@@ -419,10 +458,24 @@ dNdS <- function(query_file,
                                   clean_folders   = clean_folders,
                                   aa_sub_matrix   = aa_sub_matrix )
         
-        subject_id <- NULL
-        hit.table_selected <- dplyr::select(hit.table, -subject_id)
+        # the dN/dS rows are joined with the hit table by the pair (query_id and subject_id; it was query_id only)
+        res <- dplyr::inner_join(dNdS_tbl, tibble::as_tibble(hit.table), by = c("query_id", "subject_id"))
         
-        res <- dplyr::inner_join(dNdS_tbl, hit.table_selected, by = "query_id", copy = TRUE)
+        if (nrow(res) != nrow(dNdS_tbl))
+                warning(nrow(dNdS_tbl) - nrow(res), " of ", nrow(dNdS_tbl), " gene pairs with dN/dS values have no row ",
+                        "in the hit table and are missing in the result. Please report this as a bug of orthologr.",
+                        call. = FALSE)
+        
+        # sequences that were left out before the search (file, id, reason), and a note on splice variants
+        dropped <- end_dropped()
+        if (!is.null(dropped)) {
+                attr(res, "dropped_sequences") <- dropped
+                if (nrow(dropped) > 0)
+                        message(nrow(dropped), " input sequence", if (nrow(dropped) > 1) "s were" else " was",
+                                " left out before the search (", paste0(table(dropped$reason), " x ", names(table(dropped$reason)), collapse = "; "),
+                                "). They are listed in attr(<result>, \"dropped_sequences\").")
+        }
+        isoform_result_note(res, isoforms_query)
         
         # gene pairs that could not be processed (their dN, dS and dNdS are NA) and why
         attr(res, "failed_pairs") <- attr(dNdS_tbl, "failed_pairs")

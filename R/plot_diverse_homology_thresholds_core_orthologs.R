@@ -32,6 +32,7 @@ plot_diverse_homology_thresholds_core_orthologs <-
                         )
                 
                 qcovhsp <- perc_identity <- scope <- NULL
+                ortho_tables <- ensure_scope(ortho_tables, "plot_diverse_homology_thresholds_core_orthologs()")
                 core_sets_multi <-
                         dplyr::bind_rows(
                                 list(

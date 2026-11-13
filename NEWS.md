@@ -5,6 +5,84 @@ some default results change (see "Changes to pairwise alignments" where that cha
 default mode, `aa_aln_params` being passed on), functions that returned `NULL` or stale results now stop with an
 error, and packages moved from Imports to Suggests.
 
+### Sequence IDs, joins, reported drops (second audit)
+
+Fixes for defects found by a second audit of the package on real data (human, mouse, yeast, *E. coli*, plant
+genomes). None of the changes in this section alters dN, dS or dN/dS values or which orthologs are found for
+input that worked before; what changes is listed under "Changes of results and row counts".
+
+Sequence IDs
+- **The IDs of a gene pair are carried through the dN/dS pipeline** instead of being read back from the output
+  of the external programs, and `dNdS()` joins its result with the hit table by `query_id` *and* `subject_id`
+  (was `query_id`). This fixes, structurally, every case in which a program or a file reader changed an ID on
+  the way:
+  - `aa_aln_tool = "mafft"`: MAFFT cuts names to 15 characters in CLUSTAL output. Query IDs longer than that
+    gave a result with **0 rows without error or warning**; longer subject IDs (e.g. Ensembl mouse
+    `ENSMUST00000012345`) gave truncated IDs that are in no input file. `multi_aln(tool = "mafft")` also passes
+    `--namelength` now, so the alignment file itself keeps the IDs.
+  - IDs that look like numbers: the table written by gestimator (Comeron's method) was read with
+    `data.table::fread()` type guessing. Purely numeric IDs (Entrez GeneIDs, JGI protein IDs) stopped `dNdS()`
+    in its last join after all pairs had been computed ("incompatible types"), and IDs such as `007`, `1e5`,
+    `1.10`, `NA` were rewritten (`7`, `1e+05`, `1.1`, missing) and vanished from the result. All tables written
+    by programs are read with fixed column types (IDs as text, no `NA` strings, no quote characters).
+  - (IDs with a hyphen and the KaKs_Calculator methods were fixed on `fix/robustness`; that fix is now a
+    consequence of the same rule.)
+- **Duplicated sequence IDs are an error that names them** (`cds2aa()`, `set_diamond()`, `set_blast()`, `dNdS()`,
+  ...; for coding sequences and proteins). They used to end in `Wrong argument type in s2c()` / "could not be
+  translated properly".
+- The ID of a sequence is its FASTA header up to the first white space; it was cut at the first *space*, so
+  `>g1<TAB>description` gave the ID `g1\tdescription` (`read.cds()`, `read.proteome()`, `read.genome()`).
+
+Sequences that are left out are reported
+- `dNdS()` returns `attr(result, "dropped_sequences")`: a `data.frame` (`file`, `id`, `reason`) of the input
+  sequences that were left out before the search, and a message gives their number per reason. The message
+  about coding sequences with characters other than A, C, G, T names the file, the number of sequences read and
+  how many of them hold `N` only (5'-incomplete Ensembl CDS are padded with `N`: 9,035 of the 245,535 records of
+  the human `cds.all` file of Ensembl 115 are left out for this reason). Empty sequences, which were left out
+  silently, are reported too.
+- With `delete_corrupt_cds = FALSE` sequences whose length is not a multiple of 3 are trimmed at their 3' end, as
+  before; the message now says that a 5'-incomplete sequence (not starting in phase 0) is then translated in the
+  wrong reading frame.
+
+Splice variants
+- **New warning** when an input file of `dNdS()`, `divergence_stratigraphy()` or `orthologs()` seems to hold
+  several transcripts per gene (every sequence is treated as a gene: human chr21 with all isoforms gave 228 RBH
+  rows for 168 genes, with dN/dS differing by more than a factor of 2 within 6 genes). The heuristic is
+  conservative and documented in `?dNdS` (section "Splice variants"): gene names in Ensembl / NCBI FASTA headers,
+  otherwise transcript suffixes of the IDs when at least 5 and at least 1% of the ID stems repeat. `dNdS()` also
+  says how many rows per query gene the result holds. `options(orthologr.isoform_warning = FALSE)` switches the
+  check off. Results are not changed.
+
+Searches and arguments
+- A search without any hit returns a hit table with no rows and the usual columns (`diamond()`, `blast()`,
+  `diamond_best()`, `diamond_rec()`, ...) and says "found no hits"; it was reported as "the hit table could not
+  be read" with a `data.table` message attached. `dNdS()` then stops with "No orthologs could be found: the
+  DIAMOND search of ... returned no reciprocal best hits at e-value 1E-5".
+- `substitutionrate(kaks_calc.params = )` **is added to the method instead of replacing it**: `est.method = "YN"`
+  with `kaks_calc.params = "-c 1"` ran KaKs_Calculator's default model (MA) and returned its values under the
+  heading of the call. `est.method = "kaks_calc"` still takes the methods from `kaks_calc.params`.
+- `eval` must be a number (or a number as text); anything else is rejected before a program is started.
+- The message shown when DIAMOND is not found recommends `orthologr::diamond_install()` and the arguments `path` /
+  `aligner_path` (it named an argument `diamond_exec_path` that no exported function has).
+- `map_generator_dnds()` and `map_generator_lnc()` with **one** subject file and the default `progress_bar = TRUE`
+  stopped with `object 'pb' not found` after the run.
+- `orthologs(seq_type = "cds")` no longer writes `<file>_translated.fasta` copies (they held the untranslated
+  DNA) into `tempdir()`; the searches read the input files. Same result.
+- `plot_diverse_homology_thresholds()` and `plot_diverse_homology_thresholds_core_orthologs()` compute the
+  `scope` column when the table does not have it (tables of `import_ortholog_tables_all()`,
+  `select_orthologs()`); `plot_diverse_homology_thresholds()`, `plot_pairwise_orthologs()` and `lnc_map_counts()`
+  stop when `species_order` does not name a species of the table (it was plotted at `NA`).
+
+Changes of results and row counts in this section
+- `dNdS(aa_aln_tool = "mafft")` with IDs longer than 15 characters: rows that were lost (0 of 8 pairs returned
+  in the test of the audit) are returned (8 of 8), and `subject_id` holds the input IDs. No option restores the
+  old behaviour (it was a loss of data).
+- `dNdS()` with numeric-looking IDs: 6 of 6 instead of an error or 2 of 6 rows in the audit's test. No option.
+- `substitutionrate(est.method = <method>, kaks_calc.params = <text without -m>)`: values are now those of
+  `<method>`, not of model averaging (MA). The old call is `est.method = "kaks_calc"`,
+  `kaks_calc.params = "<text>"`.
+- Input files with duplicated IDs, and `eval` values that are not numbers, are now errors.
+
 ### Dependencies, documentation, continuous integration
 
 Dependencies

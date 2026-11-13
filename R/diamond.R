@@ -127,6 +127,8 @@ diamond <- function(
         # in case one tries to use more cores than are available
         comp_cores <- check_comp_cores(comp_cores)
         
+        eval <- check_evalue(eval)
+        
         # every call works in a folder of its own, which is removed when the call ends: a table left by an
         # earlier or failed call cannot be returned as the result of this one
         work <- call_dir_start("diamond_")
@@ -276,6 +278,6 @@ diamond_version <- function(path = NULL) {
                 "diamond", version_args = "version", pattern = "diamond", path = path,
                 not_found = paste0(
                         "It seems like you don't have DIAMOND2 installed locally on your machine or the PATH variable to the DIAMOND2 program is not set correctly.",
-                        " Please use the 'diamond_exec_path' argument to specify a path to your diamond excecutable, e.g. diamond_exec_path = '/usr/local/bin' or diamond_exec_path = '/opt/miniconda3/bin'.")
+                        " Please run orthologr::diamond_install() to download DIAMOND2 for orthologr, or name the folder that holds your diamond executable with the argument 'path' (diamond(), diamond_best(), diamond_rec(), set_diamond(), deepclust()) or 'aligner_path' (dNdS(), divergence_stratigraphy()), e.g. path = '/usr/local/bin' or aligner_path = '/opt/miniconda3/bin'.")
         )
 }
