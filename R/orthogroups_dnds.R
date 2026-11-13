@@ -12,7 +12,7 @@
 #' (\code{seq_type = "cds"}).
 #' @param groups \code{"single_copy"} (Default): the groups with exactly one gene in every species;
 #' \code{"all"}: all groups with at most \code{max_group_size} genes (pairs of genes of the same species are not
-#' computed).
+#' computed); or a character vector with the IDs of the groups to compute (e.g. \code{c("OG0000000", "OG0000007")}).
 #' @param dnds_est.method the dN/dS estimation method, see \code{\link{dNdS}} and \code{\link{substitutionrate}}.
 #' Default (\code{NULL}) is \code{"Comeron"} with \code{engine = "orthologr"}.
 #' @param engine \code{"orthologr"} (Default): the programs \code{\link{dNdS}} uses - \code{\link{multi_aln}} or
@@ -83,7 +83,13 @@ dNdS_orthogroups <- function(x,
                              quiet              = TRUE,
                              ...) {
         
-        groups <- check_choice(groups[1], c("single_copy", "all"), "groups")
+        group_ids <- NULL
+        if (is.character(groups) && length(groups) >= 1 && !anyNA(groups) && !is.element(groups[1], c("single_copy", "all"))) {
+                group_ids <- unique(groups)
+                groups <- "all"
+        } else {
+                groups <- check_choice(groups[1], c("single_copy", "all"), "groups")
+        }
         engine <- check_choice(engine[1], c("orthologr", "coal"), "engine")
         check_count(max_group_size, "max_group_size")
         check_flag(quiet, "quiet")
@@ -116,6 +122,13 @@ dNdS_orthogroups <- function(x,
         orthogroup <- gene <- n <- query_species <- query_id <- subject_species <- subject_id <- method <- NULL
         members <- data.table::as.data.table(x$groups)
         failed <- list()
+        if (!is.null(group_ids)) {
+                unknown <- setdiff(group_ids, members$orthogroup)
+                if (length(unknown) > 0)
+                        stop("groups = '", paste(utils::head(unknown, 5), collapse = "', '"), "'", if (length(unknown) > 5) ", ..." else "",
+                             ": no such orthogroup in 'x'. Please give \"single_copy\", \"all\" or IDs of x$wide$orthogroup.", call. = FALSE)
+                members <- members[is.element(orthogroup, group_ids)]
+        }
         if (groups == "single_copy") {
                 members <- members[is.element(orthogroup, x$single_copy$orthogroup)]
         } else {
