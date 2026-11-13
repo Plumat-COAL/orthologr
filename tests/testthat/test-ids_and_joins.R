@@ -124,7 +124,9 @@ test_that("sequences that are left out are reported with number and reason and r
         f <- tempfile(fileext = ".fa")
         writeLines(as.vector(rbind(paste0(">", paste0("g", 1:6)), x)), f)
         
-        msg <- testthat::capture_messages(res <- dNdS(f, lyra_cds(), delete_corrupt_cds = TRUE, print_citation = FALSE))
+        # quiet = FALSE: one message per reason, with the numbers and the first IDs
+        msg <- testthat::capture_messages(res <- dNdS(f, lyra_cds(), delete_corrupt_cds = TRUE, print_citation = FALSE,
+                                                      quiet = FALSE))
         expect_match(paste(msg, collapse = ""), "3 of 5 coding sequences of '.*' have characters other than A, C, G, T")
         expect_match(paste(msg, collapse = ""), "2 of them with N as the only such character")
         expect_match(paste(msg, collapse = ""), "4 input sequences were left out before the search")
@@ -135,16 +137,24 @@ test_that("sequences that are left out are reported with number and reason and r
         expect_match(d$reason[d$id == "g5"], "not a multiple of 3")
         expect_match(d$reason[d$id == "g2"], "other than A, C, G, T")
         expect_setequal(res$query_id, c("g1", "g6"))
+        # quiet = TRUE (default): the start line and the summary, which counts them
+        msg_q <- testthat::capture_messages(res_q <- dNdS(f, lyra_cds(), delete_corrupt_cds = TRUE, print_citation = FALSE))
+        expect_length(msg_q, 2)
+        expect_match(msg_q[2], "4 input sequences were left out before the search")
+        expect_identical(attr(res_q, "dropped_sequences"), d)
         
         # nothing left out: an empty table
         ok <- run_dnds(thal_cds(), lyra_cds())
         expect_equal(nrow(attr(ok, "dropped_sequences")), 0)
         
-        # delete_corrupt_cds = FALSE: the phase-1 sequence is trimmed at its 3' end (and kept); the message says
-        # what that means for 5'-incomplete sequences
+        # delete_corrupt_cds = FALSE: the phase-1 sequence is trimmed at its 3' end (and kept); the summary says
+        # what that means for 5'-incomplete sequences (quiet = FALSE: the long explanation)
         msg2 <- testthat::capture_messages(res2 <- dNdS(f, lyra_cds(), delete_corrupt_cds = FALSE, print_citation = FALSE))
-        expect_match(paste(msg2, collapse = ""), "trimmed at their 3' end")
+        expect_match(paste(msg2, collapse = ""), "trimmed at the 3' end (delete_corrupt_cds = FALSE; a sequence incomplete at its 5' end", fixed = TRUE)
         expect_setequal(attr(res2, "dropped_sequences")$id, c("g2", "g3", "g4"))
+        expect_identical(attr(res2, "trimmed_sequences")$id, "g5")
+        msg3 <- testthat::capture_messages(dNdS(f, lyra_cds(), delete_corrupt_cds = FALSE, print_citation = FALSE, quiet = FALSE))
+        expect_match(paste(msg3, collapse = ""), "trimmed at their 3' end")
 })
 
 # ---------------------------------------------------------------- N24: several transcripts per gene
