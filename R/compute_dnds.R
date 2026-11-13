@@ -310,7 +310,8 @@ compute_dnds <- function(complete_tbl,
                 ))
         
         if (nrow(failed_pairs) > 0) {
-                warning(
+                orthologr_warn(
+                        class = "failed_pairs",
                         nrow(failed_pairs), " of ", nrow(complete_tbl),
                         " gene pairs could not be processed; their dN, dS and dNdS values are NA. ",
                         "The reasons are in attr(<result>, \"failed_pairs\"). First one: ",

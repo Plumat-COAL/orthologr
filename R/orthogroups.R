@@ -279,7 +279,7 @@ NULL
 
 check_flag <- function(x, arg) {
         if (!is.logical(x) || length(x) != 1 || is.na(x))
-                stop(arg, " must be TRUE or FALSE.", call. = FALSE)
+                orthologr_abort(arg, " must be TRUE or FALSE.", class = "bad_argument")
         invisible(x)
 }
 
@@ -293,7 +293,7 @@ check_percent <- function(x, arg) {
 
 check_count <- function(x, arg) {
         if (!is.numeric(x) || length(x) != 1 || is.na(x) || x < 1)
-                stop(arg, " must be one number >= 1.", call. = FALSE)
+                orthologr_abort(arg, " must be one number >= 1.", class = "bad_argument")
         invisible(x)
 }
 

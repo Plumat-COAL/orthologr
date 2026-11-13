@@ -44,7 +44,7 @@ read.genome <- function(file, format, ...){
                 
                 data.table::setkey(genome.dt,geneids)
                 
-        }, error = function(e){ stop(paste0("File ",file, " could not be read properly. \n",
+        }, error = function(e){ orthologr_abort(class = "bad_input", paste0("File ",file, " could not be read properly. \n",
                                             "Please make sure that ",file," contains only DNA sequences and is in ",format," format."))}
         )
         
@@ -99,7 +99,7 @@ read.proteome <- function(file, format, ...){
                         
                         data.table::setkey(proteome.dt, geneids)
                         
-                }, error = function(e){ stop("File ",file, " could not be read properly.", "\n",
+                }, error = function(e){ orthologr_abort(class = "bad_input", "File ",file, " could not be read properly.", "\n",
                                                     "Please make sure that ",file," contains only amino acid sequences and is in ",format," format.")}
                 )
         
@@ -143,7 +143,7 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
         # a protein file given as coding sequences: Biostrings would drop the letters that are no nucleotides
         # with a warning, and the search would fail later with a message that does not name the cause
         if (format == "fasta" && fasta_looks_like_protein(file))
-                stop("'", file, "' does not look like coding DNA: more than 10 % of the first residues are not ",
+                orthologr_abort(class = "bad_input", "'", file, "' does not look like coding DNA: more than 10 % of the first residues are not ",
                      "nucleotide letters. Is this a protein file? dN/dS and the functions that read coding ",
                      "sequences (seq_type = \"cds\") need the coding sequences; for proteins use seq_type = \"protein\" ",
                      "where a function has it.", call. = FALSE)
@@ -175,7 +175,8 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                 n_seqs <- nrow(cds.dt)
                 
         }, error = function(e) {
-                stop(
+                orthologr_abort(
+                        class = "bad_input",
                         "File ",
                         file,
                         " could not be read properly.",

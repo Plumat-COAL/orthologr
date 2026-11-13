@@ -41,6 +41,11 @@
 #' length is not a multiple of 3 is written. A message names the file.}
 #' \item{\code{orthologr.isoform_warning}}{\code{TRUE} (default). \code{FALSE}: \code{dNdS()} and
 #' \code{orthologs()} and \code{orthogroups()} do not check whether the input files hold several isoforms per gene.}
+#' \item{\code{orthologr.ambiguous_cds}}{\code{"drop"} (default, as 0.4.3): coding sequences with characters other
+#' than A, C, G, T are left out before the search (they are counted in the summary and listed in
+#' \code{attr(result, "dropped_sequences")}). \code{"keep"}: sequences whose other letters are IUPAC ambiguity codes
+#' (N, R, Y, K, M, S, W, B, D, H, V) are kept; a codon with such a base is translated to \code{X}, and the
+#' alignment and estimation programs treat it as a codon of unknown identity.}
 #' }
 #' The option \code{timeout} of R is raised to at least 600 seconds while \code{diamond_install()} downloads DIAMOND.
 #' @section Environment variables:
@@ -59,6 +64,27 @@
 #' \code{>}, \code{$( )}, backquotes, \code{*}) are not interpreted: \code{params = "--force; touch x"} gives the
 #' program the three arguments \code{--force;}, \code{touch} and \code{x}, which it will reject. Redirections and
 #' pipes inside such a string therefore do not work (they did, unintended, up to 0.4.3).
+#' @section Errors and warnings:
+#' The errors and warnings a caller may want to handle carry the class \code{"orthologr_error"} /
+#' \code{"orthologr_warning"} and one or two classes for their kind, so that they can be caught without matching
+#' the text of the message, e.g.
+#' \code{tryCatch(dNdS(q, s), orthologr_error_tool_missing = function(e) message("please install it"))}:
+#' \describe{
+#' \item{\code{orthologr_error_tool_missing}}{an external program (DIAMOND, BLAST+, Perl, an alignment program,
+#' KaKs_Calculator) was not found;}
+#' \item{\code{orthologr_error_package_missing}}{an optional R package (Suggests) is needed but not installed;}
+#' \item{\code{orthologr_error_tool_failed}}{an external program failed or wrote no output; with
+#' \code{orthologr_error_alignment_failed} when it was an alignment program (PAL2NAL, Clustal, MAFFT, MUSCLE,
+#' T-Coffee);}
+#' \item{\code{orthologr_error_no_hits}}{the search found no (reciprocal best) hits, so there are no gene pairs;}
+#' \item{\code{orthologr_error_bad_input}}{an input file cannot be used (a protein file given as coding sequences,
+#' duplicated sequence IDs);}
+#' \item{\code{orthologr_error_bad_argument}}{an argument value is not supported;}
+#' \item{\code{orthologr_warning_failed_pairs}}{some gene pairs could not be processed (their values are \code{NA},
+#' the reasons are in \code{attr(result, "failed_pairs")});}
+#' \item{\code{orthologr_warning_isoforms}}{an input file seems to hold several transcripts per gene.}
+#' }
+#' A failure of one gene pair inside \code{dNdS()} is not an error: it becomes an \code{NA} row with its reason.
 #' @name orthologr_options
 #' @aliases orthologr_options orthologr-options
 #' @seealso \code{\link{dNdS}}, \code{\link{substitutionrate}}, \code{\link{filter_dNdS}}
