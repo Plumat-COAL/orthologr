@@ -129,19 +129,35 @@ test_that("divergence_stratigraphy() keeps the dN/dS table of the run and surviv
         expect_equal(nrow(full), 20)
         n_zero <- sum(full$dS == 0, na.rm = TRUE)
         expect_gte(n_zero, 8)
-        # kept by default: the genes with dS = 0 are rows with DS = NA
-        expect_equal(nrow(ds), sum(!is.na(full$dN) & !is.na(full$dS) & (full$dS == 0 | full$dNdS <= 2), na.rm = TRUE))
-        expect_equal(sum(is.na(ds$DS)), n_zero)
-        # the behaviour of orthologr <= 0.4.3
-        old <- suppressWarnings(suppressMessages(divergence_stratigraphy(qf, sf, quiet = TRUE, dS_zero = "drop")))
-        expect_equal(nrow(old), nrow(ds) - n_zero)
-        expect_false(anyNA(old$DS))
+        # the contract of earlier versions: no NA stratum; the genes with dS = 0 are left out, and listed
+        expect_false(anyNA(ds$DS))
+        expect_equal(nrow(ds), sum(!is.na(full$dNdS) & full$dNdS <= 2))
+        lo <- divergence_left_out(ds)
+        expect_identical(lo, attr(ds, "left_out"))
+        expect_identical(names(lo), c("query_id", "subject_id", "dN", "dS", "dNdS", "reason"))
+        expect_equal(nrow(lo) + nrow(ds), nrow(full))
+        expect_equal(sum(startsWith(lo$reason, "dS = 0")), n_zero)
+        expect_message(suppressWarnings(divergence_stratigraphy(qf, sf, quiet = TRUE)),
+                       "gene pairs are not in the divergence map: .*dS = 0")
+        # on request the pairs with dS = 0 are rows with DS = NA
+        kept <- suppressWarnings(suppressMessages(divergence_stratigraphy(qf, sf, quiet = TRUE, dS_zero = "keep")))
+        expect_equal(nrow(kept), nrow(ds) + n_zero)
+        expect_equal(sum(is.na(kept$DS)), n_zero)
+        expect_equal(sum(startsWith(divergence_left_out(kept)$reason, "dS = 0")), 0)
+        # ds.values = FALSE: dN/dS values, none of them NA (as before)
+        vals <- suppressWarnings(suppressMessages(divergence_stratigraphy(qf, sf, quiet = TRUE, ds.values = FALSE)))
+        expect_identical(names(vals), c("dNdS", "query_id"))
+        expect_false(anyNA(vals$dNdS))
+        expect_equal(nrow(vals), nrow(ds))
         # the run can be binned again from the attribute
         again <- suppressWarnings(suppressMessages(divergence_map(filter_dNdS(full), n_quantile = 3)))
         expect_equal(nrow(again), nrow(ds))
+        expect_error(divergence_left_out(data.frame(DS = 1)), "left_out")
         
         # checked before the run
         expect_error(divergence_stratigraphy(qf, sf, n_quantile = 0), "n_quantile must be one whole number")
+        expect_error(divergence_stratigraphy(qf, sf, n_quantile = Inf), "n_quantile must be one whole number")
+        expect_error(divergence_map(full, n_quantile = Inf), "n_quantile must be one whole number")
         expect_error(divergence_stratigraphy(qf, sf, dS_zero = "x"), "\"keep\" or \"drop\"")
 })
 

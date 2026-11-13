@@ -31,7 +31,7 @@ Default is \code{aa_aln_type} = "multiple".}
 
 \item{aa_aln_path}{a character string specifying the path to the corresponding multiple alignment tool.}
 
-\item{aa_aln_params}{a character string specifying additional parameters that shall be passed to the multiple alignment system call.}
+\item{aa_aln_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters that shall be passed to the multiple alignment system call.}
 
 \item{codon_aln_tool}{a character string specifying the codon alignment tool that shall be used for codon alignments. Default is \code{codon_aln_tool} = \code{"pal2nal"}.}
 

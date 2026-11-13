@@ -53,7 +53,7 @@ when \code{seq_type = "cds"}. Default is \code{delete_corrupt_cds = TRUE}.}
 \item{comp_cores}{a numeric value specifying the number of CPU threads to
 use. Passed to \code{--threads}. Default is \code{comp_cores = 1}.}
 
-\item{realign_params}{a character string of additional \code{diamond realign}
+\item{realign_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string of additional \code{diamond realign}
 parameters to append to the command. Default is \code{NULL}.}
 
 \item{save.output}{a character string specifying the path where the output

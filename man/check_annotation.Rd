@@ -2,38 +2,45 @@
 % Please edit documentation in R/check_annotation.R
 \name{check_annotation}
 \alias{check_annotation}
-\title{Check whether an annotation file contains outlier lines}
+\title{Report over-long lines of an annotation file}
 \usage{
 check_annotation(annotation_file, remove_annotation_outliers = FALSE)
 }
 \arguments{
 \item{annotation_file}{a file path tp the annotation file.}
 
-\item{remove_annotation_outliers}{shall outlier lines be removed from the input \code{annotation_file}? 
-If yes, a copy of the annotation file without these lines is written to
+\item{remove_annotation_outliers}{shall a copy of \code{annotation_file} without the over-long lines be written?
+Default is \code{FALSE}: the lines are only reported.
+If \code{TRUE}, the copy is written to
 \code{file.path(tempdir(), "orthologr_annotation_without_outliers")} under the same file name (without \code{.gz}) and
-its path is returned. The \code{annotation_file} itself is not changed (until version 0.4.3 it was overwritten).
-The removed outlier lines are stored in \code{\link{tempdir}} for further exploration.}
+its path is returned; a warning says how many lines - that is, annotated features - the copy lacks.
+The \code{annotation_file} itself is not changed (until version 0.4.3 it was overwritten).
+The removed lines are stored in \code{\link{tempdir}} for further exploration.}
 }
 \value{
-The path of the annotation file that can be imported: \code{annotation_file} itself when it holds no
-outlier lines (or when \code{remove_annotation_outliers = FALSE}), otherwise the path of the cleaned copy.
+The path of the annotation file: \code{annotation_file} itself when it holds no
+over-long lines (or when \code{remove_annotation_outliers = FALSE}), otherwise the path of the copy.
 }
 \description{
-Some annotation files include lines with character lengths greater than 65000. This causes problems when trying to import such annotation files into R using \href{https://rdrr.io/bioc/rtracklayer/man/export.html}{\code{import}}.
-To overcome this issue, this function screens for such lines
-in a given annotation file and removes these lines so that
-\href{https://rdrr.io/bioc/rtracklayer/man/export.html}{\code{import}} can handle the file.
+Some annotation files hold lines with more than 65,000 characters (for example CDS and mRNA rows
+of NCBI RefSeq files with very long \code{Note} attributes). The import function of \pkg{rtracklayer} could not
+read such files, which is why this function exists. The functions of orthologr that read annotation files
+(\code{\link{retrieve_longest_isoforms}}, \code{\link{select_orthologs}}, \code{\link{generate_ortholog_tables}},
+\code{\link{extract_features}}) have their own reader since version 0.5.0, read lines of any length and
+\strong{no longer call this function}: until then they removed these lines, and with them real features (NCBI
+TAIR10.1: proteins were reported as not annotated and a shorter isoform was chosen for one gene).
+
+\code{check_annotation()} reports how many such lines a file has. A copy without them is only written on
+request, for other software that cannot read them.
 }
 \examples{
 \dontrun{
 # download an example annotation file from NCBI RefSeq
 Ath_path <- biomartr::getGFF(organism = "Arabidopsis thaliana")
-# run annotation file check on the downloaded file
+# how many over-long lines does it have?
 orthologr::check_annotation(Ath_path)
-# several outlier lines were detected, thus we re-run the
-# function using 'remove_annotation_outliers = TRUE'
-# to get a copy of the file without the outlier lines
+# orthologr reads the file as it is
+# a copy without these lines, for software that cannot read them (their features are lost!)
 Ath_clean <- check_annotation(Ath_path, remove_annotation_outliers = TRUE)
 }
 }

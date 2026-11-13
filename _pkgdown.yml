@@ -16,6 +16,7 @@ reference:
   contents:
   - divergence_stratigraphy
   - divergence_map
+  - divergence_left_out
 - title: "Orthology inference"
   contents:
   - orthologs
@@ -101,6 +102,10 @@ reference:
   - filter_core_set_lnc
   - testCoreOrthoParamsGeneLocus
   - testCoreOrthoParamsSpliceVariant
+- title: "Options"
+  desc: "Options and environment variables the package reads; how parameter strings for external programs are handled."
+  contents:
+  - orthologr_options
 
 articles:
 - title: Get started

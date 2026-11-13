@@ -13,3 +13,4 @@ LICENSE
 ^_pkgdown\.yml$
 ^pkgdown$
 ^environment\.yml$
+^MAINTAINER_NOTES\.md$

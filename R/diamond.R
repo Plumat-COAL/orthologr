@@ -28,7 +28,7 @@
 #' @param path a character string specifying the path to the DIAMOND2 program (in case you don't use the default path).
 #' @param comp_cores a numeric value specifying the number of cores that shall be
 #' used to run DIAMOND2 searches.
-#' @param diamond_params a character string listing the input parameters that shall be passed to the executing DIAMOND2 program. Default is \code{NULL}, implicating
+#' @param diamond_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string listing the input parameters that shall be passed to the executing DIAMOND2 program. Default is \code{NULL}, implicating
 #' that a set of default parameters is used when running DIAMOND2.
 #' @param clean_folders a boolean value specifying whether all internal folders storing the output of used programs
 #' shall be removed. Default is \code{clean_folders} = \code{FALSE}.

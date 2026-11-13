@@ -27,7 +27,7 @@ hence it is important to use format = "fasta" when choosing est.method = "Comero
 
 \item{quiet}{a logical value specifying whether the output of the coresponding interface shall be printed out.}
 
-\item{kaks_calc.params}{a character string storing additional parameters for KaKs_Calculator. Default is \code{NULL}.
+\item{kaks_calc.params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string storing additional parameters for KaKs_Calculator. Default is \code{NULL}.
 The parameters are added to the method chosen with \code{est.method} (e.g. \code{est.method = "YN"},
 \code{kaks_calc.params = "-c 11"} runs \code{-m YN -c 11}; up to orthologr 0.4.3 they replaced the method).
 With \code{est.method = "kaks_calc"} the methods themselves are given here, e.g.
@@ -89,6 +89,16 @@ Maximum-Likelihood Methods:
 \item GY: Goldman, N. and Yang, Z. (1994)
 }
 }
+\section{Gene pairs without nonsynonymous change (KaKs_Calculator methods)}{
+
+KaKs_Calculator prints \code{NA} for every Ka below 1e-6, also when the estimate is exactly 0, and still prints
+\code{Ka/Ks = 0}. Up to orthologr 0.4.3 such a pair was returned with \code{dN = NA} and \code{dNdS = 0}, and
+\code{\link{filter_dNdS}} / \code{\link{divergence_stratigraphy}} then removed it - the most conserved genes of
+a comparison. Since 0.5.0 \code{dN = 0} is returned when Ka is \code{NA}, Ks is a positive number and Ka/Ks is
+0. When Ka/Ks is \code{NA} as well (identical sequences, a model that failed) \code{dN} stays \code{NA}.
+\code{options(orthologr.legacy_kaks_zero_dn = TRUE)} restores the old table.
+}
+
 \section{Saturation (Comeron's method)}{
 
 The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:
@@ -99,6 +109,15 @@ that case \code{dS} (synonymous classes) or \code{dN} (nonsynonymous classes) an
 (e.g. \code{dS = 0} for \code{ATGGCTAAA} / \code{ATGGCCAAA}, which differ by one synonymous substitution);
 \code{options(orthologr.legacy_comeron_saturation = TRUE)} reproduces those values. Values of gene pairs
 without such a term are the same in both modes.
+
+A class of sites that has no sites (weight 0 in the estimate) never makes an estimate \code{NA}; this is also
+the rule of COAL's Comeron method, so \code{engine = "coal"} gives the same \code{NA} pattern.
+\strong{Short alignments:} with few codons a class with very few sites (typically the twofold sites whose
+synonymous change is a transversion) is easily "saturated" by one or two differences, and \code{dN} is then
+\code{NA} although the legacy value was a usable estimate: in a simulation of random sequences without
+selection, 4 to 13\% of the pairs of 30 codons lost \code{dN} at 10 to 35\% differing sites, 3 of 600 pairs of
+100 codons, none of 300 codons or more. For short sequences consider the legacy option, or a method with
+pooled site classes (\code{"NG"}, \code{"YN"}).
 
 The alignment must be a codon alignment: at least two sequences of the same length, which is a multiple of 3.
 Anything else is an error.

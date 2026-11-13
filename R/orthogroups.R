@@ -49,7 +49,7 @@
 #' pairs grows with the square of the group size). Default is \code{500}.
 #' @param delete_corrupt_cds a logical value: leave out coding sequences whose length is not a multiple of 3
 #' (\code{seq_type = "cds"}). Default is \code{TRUE}, as in \code{\link{diamond_rec}}.
-#' @param diamond_params further parameters for \code{diamond blastp} (one character string), e.g.
+#' @param diamond_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) further parameters for \code{diamond blastp} (one character string), e.g.
 #' \code{"--masking 0"}. Default is \code{NULL}.
 #' @param comp_cores the number of threads DIAMOND uses. The result does not depend on it.
 #' @param path the folder that holds the DIAMOND executable (in case it is not on the PATH).

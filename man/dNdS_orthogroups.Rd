@@ -51,7 +51,7 @@ from which the alignment of every pair is taken; or \code{"pairwise"} - every pa
 
 \item{aa_aln_path}{the folder that holds the alignment program (in case it is not on the PATH).}
 
-\item{aa_aln_params}{parameters for the alignment program (see \code{\link{multi_aln}}).}
+\item{aa_aln_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) parameters for the alignment program (see \code{\link{multi_aln}}).}
 
 \item{max_group_size}{groups with more genes than this are not computed (\code{groups = "all"}); they are listed
 in \code{failed}. Default is \code{50}.}

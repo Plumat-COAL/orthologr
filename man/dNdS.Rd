@@ -79,7 +79,7 @@ Any other value is an error (\code{"Orthofinder2"}, \code{"PO"} and \code{"DELTA
 
 \item{cdd.path}{deprecated and not used (a warning is given when it is set).}
 
-\item{aligner_params}{a character string specifying additional parameters that shall be passed to DIAMOND or BLAST. Default is \code{aligner_params} = \code{NULL}.}
+\item{aligner_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters that shall be passed to DIAMOND or BLAST. Default is \code{aligner_params} = \code{NULL}.}
 
 \item{eval}{a numeric value specifying the E-Value cutoff for DIAMOND or BLAST hit detection.}
 
@@ -98,7 +98,7 @@ Any other value is an error (\code{"Orthofinder2"}, \code{"PO"} and \code{"DELTA
 
 \item{aa_aln_path}{a character string specifying the path to the multiple alignment program (in case you don't use the default path).}
 
-\item{aa_aln_params}{a character string with command-line parameters for the multiple alignment program selected via
+\item{aa_aln_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string with command-line parameters for the multiple alignment program selected via
 \code{aa_aln_tool}. It is handed to \code{\link{multi_aln}} as \code{params} and \emph{replaces} the default parameters
 of that program (see there; the alignment must still be written in CLUSTAL or FASTA format, e.g.
 \code{aa_aln_tool = "mafft", aa_aln_params = "--maxiterate 1 --clustalout"}). It is not used (with a warning)
