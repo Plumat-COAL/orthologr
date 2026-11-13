@@ -98,20 +98,22 @@ hit_table_example <- function() {
         )
 }
 
+# (the rule of orthologr <= 0.4.3, best_hit_rule = "evalue", is what these reference implementations compute; the
+# default rule since 0.5.0, "bitscore", is tested in test-best_hit_rule.R)
 test_that("best_hits() is identical to the per-query dplyr::do() result, with ties in e-value and length", {
         h <- hit_table_example()
-        expect_identical(best_hits(h, "query_id"), best_hits_do(h, "query_id"))
+        expect_identical(best_hits(h, "query_id", rule = "evalue"), best_hits_do(h, "query_id"))
         # a grouping column that is not the first one, with missing values
-        expect_identical(best_hits(h, "locus"), best_hits_do(h, "locus"))
+        expect_identical(best_hits(h, "locus", rule = "evalue"), best_hits_do(h, "locus"))
         # the form used until 0.4.3
         query_id <- NULL
-        expect_identical(best_hits(h), dplyr::do(dplyr::group_by(h, query_id), filter_best_hits(.)))
+        expect_identical(best_hits(h, rule = "evalue"), dplyr::do(dplyr::group_by(h, query_id), filter_best_hits(.)))
         # all hits tied: the first row of each query wins
         h$evalue <- 0; h$alig_length <- 10L
-        expect_identical(best_hits(h), best_hits_do(h))
+        expect_identical(best_hits(h, rule = "evalue"), best_hits_do(h))
         # missing e-values take the old path
         h$evalue[3] <- NA
-        expect_identical(best_hits(h), best_hits_do(h))
+        expect_identical(best_hits(h, rule = "evalue"), best_hits_do(h))
 })
 
 test_that("diamond_best() and diamond_rec() on the 1,000-gene example are identical to the dplyr::do() result", {
@@ -120,13 +122,13 @@ test_that("diamond_best() and diamond_rec() on the 1,000-gene example are identi
         fwd <- suppressMessages(diamond(thal_1000(), lyra_1000()))
         rev <- suppressMessages(diamond(lyra_1000(), thal_1000()))
         expect_gt(nrow(fwd), 1000)
-        expect_identical(best_hits(fwd), best_hits_do(fwd))
-        expect_identical(best_hits(rev), best_hits_do(rev))
-        expect_identical(suppressMessages(diamond_best(thal_1000(), lyra_1000())), best_hits_do(fwd))
+        expect_identical(best_hits(fwd, rule = "evalue"), best_hits_do(fwd))
+        expect_identical(best_hits(rev, rule = "evalue"), best_hits_do(rev))
+        expect_identical(suppressMessages(diamond_best(thal_1000(), lyra_1000(), best_hit_rule = "evalue")), best_hits_do(fwd))
         # reciprocal best hits as they were computed before
         a <- best_hits_do(fwd); b <- best_hits_do(rev)
         colnames(b)[1:2] <- c("subject_id", "query_id")
-        expect_identical(suppressMessages(diamond_rec(thal_1000(), lyra_1000())),
+        expect_identical(suppressMessages(diamond_rec(thal_1000(), lyra_1000(), best_hit_rule = "evalue")),
                          dplyr::semi_join(a, b, by = c("query_id", "subject_id")))
 })
 
@@ -134,7 +136,7 @@ test_that("blast_best() is identical to the dplyr::do() result", {
         skip_if_not(blast_available, "BLAST+ is not installed")
         pars <- "-best_hit_score_edge 0.05 -best_hit_overhang 0.25"
         h <- suppressMessages(blast(thal_cds(), lyra_cds(), blast_params = pars))
-        expect_identical(suppressMessages(blast_best(thal_cds(), lyra_cds())), best_hits_do(h))
+        expect_identical(suppressMessages(blast_best(thal_cds(), lyra_cds(), best_hit_rule = "evalue")), best_hits_do(h))
 })
 
 # ---------------------------------------------------------------- annotation helpers
