@@ -82,7 +82,10 @@
 #' \item{\code{orthologr_error_bad_argument}}{an argument value is not supported;}
 #' \item{\code{orthologr_warning_failed_pairs}}{some gene pairs could not be processed (their values are \code{NA},
 #' the reasons are in \code{attr(result, "failed_pairs")});}
-#' \item{\code{orthologr_warning_isoforms}}{an input file seems to hold several transcripts per gene.}
+#' \item{\code{orthologr_warning_isoforms}}{an input file seems to hold several transcripts per gene;}
+#' \item{\code{orthologr_warning_legacy_engine}}{the settings of 0.4.3 are in force
+#' (\code{orthologr.legacy_pairwise_aln}, \code{\link{orthologr_legacy_options}}) but the COAL engine was asked for,
+#' which cannot reproduce the numbers of 0.4.3.}
 #' }
 #' A failure of one gene pair inside \code{dNdS()} is not an error: it becomes an \code{NA} row with its reason.
 #' @name orthologr_options

@@ -36,7 +36,10 @@ With them, `dNdS()` returns the tables of 0.4.3 for the 20-gene and the 1,000-ge
 (Comeron and YN; same rows, same order, every column identical). The test suite compares the 20-gene result
 with tables stored from 0.4.3 on every run. Two things are arguments, not options: T-Coffee ran with
 `-mode accurate` in 0.4.3 (`aa_aln_params = "-mode accurate"` restores it), and `aa_aln_params` was ignored for
-every alignment program.
+every alignment program. The settings apply to `engine = "orthologr"` (the default) only: the COAL engine
+(`engine = "coal"`, `dNdS_coal()`, `dNdS_clusters()`) aligns the proteins itself and cannot reproduce the
+alignments of 0.4.3, so with these settings it warns (class `orthologr_warning_legacy_engine`) and its numbers
+differ from those of 0.4.3 (20-gene example: 10 of 20 pairs differ, largest difference in dN/dS 0.147, r = 0.984).
 
 Whether a result was computed with these settings can be read from the result itself:
 `attr(result, "orthologr_run")$options`.

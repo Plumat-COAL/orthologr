@@ -38,6 +38,12 @@ Not covered by an option, because they are arguments: T-Coffee was run with \cod
 (\code{aa_aln_params = "-mode accurate"} restores it), and \code{aa_aln_params} was ignored for all alignment
 programs (do not set it). With these settings the 20-gene and the 1,000-gene example of the package give the
 tables of 0.4.3 (tested against a stored table; see the article "Upgrading from 0.4.3").
+
+Only \code{engine = "orthologr"} (the default) gives the numbers of 0.4.3. The COAL engine
+(\code{dNdS(engine = "coal")}, \code{\link{dNdS_coal}}, \code{dNdS_orthogroups(engine = "coal")},
+\code{\link{dNdS_clusters}}) makes its own pairwise alignments and cannot make those of 0.4.3; with these
+settings it warns (class \code{orthologr_warning_legacy_engine}). 20-gene example with these settings: 10 of 20
+pairs differ from 0.4.3, largest difference in dN/dS 0.147.
 }
 \examples{
 orthologr_legacy_options(set = FALSE)

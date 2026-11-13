@@ -314,3 +314,27 @@ test_that("dNdS_clusters() aligns larger clusters with Clustal Omega ...", {
                                    aa_aln_path = file.path(tempdir(), "no_such_clustalo")),
                      "was not found")
 })
+
+test_that("the settings of 0.4.3 with the COAL engine give a classed warning (COAL cannot make the 0.4.3 alignments)", {
+        skip_if_not(diamond_available, "DIAMOND2 is not installed or not on PATH")
+        skip_if_not(coalr_available, "the R package coalr is not installed")
+        old <- options(orthologr.legacy = NULL, orthologr.legacy_pairwise_aln = NULL)
+        on.exit(options(old), add = TRUE)
+        # not without the settings
+        expect_no_warning(suppressMessages(dNdS(thal_cds(), lyra_cds(), engine = "coal", print_citation = FALSE)),
+                          class = "orthologr_warning_legacy_engine")
+        expect_no_warning(orthologr:::dnds_groups_coal_check("YN", "pairwise"), class = "orthologr_warning_legacy_engine")
+        for (opt in list(list(orthologr.legacy = TRUE), list(orthologr.legacy_pairwise_aln = TRUE))) {
+                do.call(options, opt)
+                expect_warning(res <- suppressMessages(dNdS(thal_cds(), lyra_cds(), engine = "coal", print_citation = FALSE)),
+                               class = "orthologr_warning_legacy_engine")
+                expect_equal(nrow(res), 20)
+                expect_warning(orthologr:::dnds_groups_coal_check("YN", "pairwise"), class = "orthologr_warning_legacy_engine")
+                options(orthologr.legacy = NULL, orthologr.legacy_pairwise_aln = NULL)
+        }
+        # the native engine reproduces 0.4.3 and does not warn
+        skip_if_not(perl_available, "perl is not installed")
+        options(orthologr.legacy = TRUE)
+        expect_no_warning(suppressMessages(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE)),
+                          class = "orthologr_warning_legacy_engine")
+})

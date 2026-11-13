@@ -29,12 +29,15 @@ change. Please report the version of orthologr in the methods of analyses based 
   status. **`write_dNdS()`** writes a table as TSV with this record in `<file>.run.json`; **`read_dNdS()`** reads
   both back (needs `jsonlite`). `orthogroups()$params` holds the package version.
 - **`orthologr_legacy_options()`** and `options(orthologr.legacy = TRUE)`: all settings of 0.4.3 at once. A test
-  compares the result with tables stored from 0.4.3 (20-gene example, Comeron and YN).
+  compares the result with tables stored from 0.4.3 (20-gene example, Comeron and YN). Only the default engine
+  gives the numbers of 0.4.3: the COAL engine cannot make the pairwise alignments of 0.4.3 and with these settings
+  warns (`orthologr_warning_legacy_engine`; 20-gene example: 10 of 20 pairs differ from 0.4.3, largest
+  difference in dN/dS 0.147, r = 0.984).
 - **`?orthologr_options`**: every option and environment variable the package reads.
 - **Classed errors and warnings**: the common failures have the class `orthologr_error` plus one for their kind -
   `orthologr_error_tool_missing`, `_package_missing`, `_tool_failed` (with `_alignment_failed` for an alignment
   program), `_no_hits`, `_bad_input`, `_bad_argument` - and the warnings about failed gene pairs and isoforms the
-  classes `orthologr_warning_failed_pairs` / `_isoforms`, so that they can be handled with `tryCatch()` without
+  classes `orthologr_warning_failed_pairs` / `_isoforms` (and `_legacy_engine`, above), so that they can be handled with `tryCatch()` without
   matching message text (`?orthologr_options`, section "Errors and warnings"). Messages are unchanged.
 - `divergence_left_out()`: the gene pairs that are not in a divergence map, with the reason.
 - `attr(result, "failed_pairs")` and `attr(result, "dropped_sequences")` on dN/dS tables: gene pairs that could

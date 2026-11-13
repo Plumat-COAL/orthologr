@@ -10,6 +10,7 @@ dnds_groups_coal_check <- function(dnds_est.method, aa_aln_tool) {
                      hint = "(with engine = \"coal\"; 'muscle', 'clustalw' and 't_coffee' need engine = \"orthologr\").")
         coal_backend(need = "coalr")
         coal_check_methods(dnds_est.method, "engine = \"coal\"")
+        coal_legacy_warning("dNdS_orthogroups(engine = \"coal\")")
         dnds_est.method
 }
 
