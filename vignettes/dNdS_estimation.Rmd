@@ -171,7 +171,10 @@ sequences for 220 genes. `dNdS()` warns when it sees this; keep the longest isof
 search (they cannot be translated), also when it is a single leading `N` - 2.5 to 4.7 % of the Ensembl
 transcripts of human and mouse chromosomes, almost none in RefSeq sets. Sequences whose length is not a multiple
 of 3 are trimmed (`delete_corrupt_cds = FALSE`) or left out (`TRUE`). The summary at the end of the run gives the
-number and `attr(result, "dropped_sequences")` lists them.
+numbers; `attr(result, "dropped_sequences")` lists the sequences left out and `attr(result, "trimmed_sequences")`
+the trimmed ones. `options(orthologr.ambiguous_cds = "keep")` keeps sequences whose other letters are IUPAC
+ambiguity codes (`N`, `R`, `Y`, ...): a codon with such a base is translated to `X`, and the alignment and
+estimation programs treat it as a codon of unknown identity.
 
 **Sensitivity of the search.** The default `sensitivity_mode = "fast"` is tuned for closely related species
 (DIAMOND: hits of more than 90 % identity). For distant species it misses orthologs and saves almost no time:
@@ -260,15 +263,17 @@ filter_dNdS(Ath_Aly_dnds, dnds.threshold = 0.1)
 
 ```
 
-     query_id      subject_id       dN     dS    dNdS
-1 AT1G01050.1 909874|PACid:16 0.000000 0.1750 0.00000
-2 AT1G01090.1 470171|PACid:16 0.009843 0.2150 0.04579
-3 AT1G01120.1 918858|PACid:16 0.003072 0.1326 0.02317
-4 AT1G01140.3 470161|PACid:16 0.005672 0.1312 0.04324
-5 AT1G01170.2 311317|PACid:16 0.008750 0.2827 0.03095
-6 AT1G01220.1 470155|PACid:16 0.015210 0.1533 0.09919
+     query_id            subject_id       dN     dS    dNdS status
+1 AT1G01050.1 909874|PACid:16064489 0.000000 0.1750 0.00000     ok
+2 AT1G01090.1 470171|PACid:16052860 0.009843 0.2150 0.04579     ok
+3 AT1G01120.1 918858|PACid:16049140 0.003072 0.1326 0.02317     ok
+4 AT1G01140.3 470161|PACid:16036015 0.005672 0.1312 0.04324     ok
+5 AT1G01170.2 311317|PACid:16052302 0.000000 0.2743 0.00000     ok
 
 ```
+
+(orthologr 0.5.0 with DIAMOND 2 and MAFFT 7.526; 5 rows, the columns of the hit table between `dNdS` and
+`status` are not shown.)
 Here `aligner_params` and `aa_aln_params` take a character string specifying the parameters
 that shall be passed to DIAMOND2 (or BLAST when `aligner = "blast"`) and MAFFT, respectively.
 The notation of these parameters must follow the command line call of the stand alone versions
