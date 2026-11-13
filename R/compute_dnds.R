@@ -60,6 +60,8 @@ compute_dnds <- function(complete_tbl,
                          comp_cores      = 1, 
                          clean_folders   = FALSE){
         
+        # every argument is evaluated here: the gene pairs may be computed in other R processes (see force_args())
+        force_args()
         comp_cores <- check_comp_cores(comp_cores)
         
         
@@ -238,9 +240,11 @@ compute_dnds <- function(complete_tbl,
                 # processes where the operating system can fork, otherwise (Windows) processes that are started
                 # anew and get the package, the options and the working folder of this call.
                 par_cores <- dnds_cluster(comp_cores)
-                on.exit(parallel::stopCluster(par_cores), add = TRUE)
+                finished <- FALSE
+                on.exit(dnds_cluster_stop(par_cores, finished = finished), add = TRUE)
                 
                 dNdS_values <- parallel::parLapply(par_cores, seq_len(nrow(complete_tbl)), safe_pair)
+                finished <- TRUE
         }
         
         dNdS_tbl <- data.table::rbindlist(dNdS_values, use.names = TRUE, fill = TRUE)
@@ -303,8 +307,11 @@ dnds_cluster <- function(n) {
                 stop("options(orthologr.cluster_type = ) must be \"FORK\" or \"PSOCK\".", call. = FALSE)
         if (type == "FORK" && .Platform$OS.type == "windows")
                 type <- "PSOCK"
-        if (type == "FORK")
-                return(parallel::makeForkCluster(n))
+        if (type == "FORK") {
+                cl <- parallel::makeForkCluster(n)
+                attr(cl, "orthologr_pids") <- tryCatch(unlist(parallel::clusterCall(cl, Sys.getpid)), error = function(e) integer(0))
+                return(cl)
+        }
         
         cl <- parallel::makePSOCKcluster(n)
         ok <- tryCatch({
@@ -322,5 +329,23 @@ dnds_cluster <- function(n) {
                 parallel::stopCluster(cl)
                 stop("The R processes for comp_cores = ", n, " could not be started: ", conditionMessage(e), call. = FALSE)
         })
+        attr(cl, "orthologr_pids") <- tryCatch(unlist(parallel::clusterCall(cl, Sys.getpid)), error = function(e) integer(0))
         cl
+}
+
+# Stop the processes of dnds_cluster(). When the work did not finish (error, interrupt) the workers may still be
+# busy with a gene pair - a forked worker only reads the request to stop after its current task - and would go on
+# writing into the working folder of the call after the caller has removed it (the folder 'orthologr_dNdS_*' was
+# left in tempdir() after an interrupt). They are therefore ended, and given a moment to do so, before the
+# caller's on.exit() removes the folder.
+dnds_cluster_stop <- function(cl, finished = TRUE) {
+        pids <- attr(cl, "orthologr_pids")
+        try(parallel::stopCluster(cl), silent = TRUE)
+        if (!isTRUE(finished) && length(pids) > 0) {
+                try(tools::pskill(pids, tools::SIGTERM), silent = TRUE)
+                Sys.sleep(0.3)
+                try(tools::pskill(pids, tools::SIGKILL), silent = TRUE)
+                Sys.sleep(0.1)
+        }
+        invisible(TRUE)
 }

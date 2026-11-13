@@ -83,6 +83,7 @@ dNdS_orthogroups <- function(x,
                              quiet              = TRUE,
                              ...) {
         
+        force_args()
         group_ids <- NULL
         if (is.character(groups) && length(groups) >= 1 && !anyNA(groups) && !is.element(groups[1], c("single_copy", "all"))) {
                 group_ids <- unique(groups)
@@ -293,6 +294,8 @@ dnds_groups_read_cds <- function(x, cds_files, delete_corrupt_cds = TRUE) {
 dnds_groups_orthologr <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_aln_path = NULL, aa_aln_params = NULL,
                                   kaks_calc_path = NULL, comp_cores = 1, quiet = TRUE) {
         
+        # the groups may be computed in other R processes: no argument may travel there unevaluated
+        force_args()
         end_tmpdir <- orthologr_tmpdir_start("orthologr_dNdS_orthogroups_")
         on.exit(end_tmpdir(), add = TRUE)
         
@@ -345,8 +348,10 @@ dnds_groups_orthologr <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_a
         run <- function(expr) if (quiet) suppressMessages(expr) else expr
         if (comp_cores > 1 && length(by_group) > 1) {
                 cl <- dnds_cluster(min(comp_cores, length(by_group)))
-                on.exit(parallel::stopCluster(cl), add = TRUE)
+                finished <- FALSE
+                on.exit(dnds_cluster_stop(cl, finished = finished), add = TRUE, after = FALSE)
                 res <- parallel::parLapply(cl, seq_along(by_group), one_group)
+                finished <- TRUE
         } else {
                 res <- run(lapply(seq_along(by_group), one_group))
         }
