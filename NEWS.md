@@ -5,8 +5,8 @@ some default results change (see "Changes to pairwise alignments" where that cha
 default mode, `aa_aln_params` being passed on), functions that returned `NULL` or stale results now stop with an
 error, and packages moved from Imports to Suggests.
 
-**Default change that alters which orthologs are returned: best hits are ranked by bit score.** See the next
-section; `options(orthologr.best_hit_rule = "evalue")` restores the rule of 0.4.3.
+**Default change that alters which orthologs are returned: best hits are ranked by bit score.** See the section
+"Best hits are ranked by bit score"; `options(orthologr.best_hit_rule = "evalue")` restores the rule of 0.4.3.
 
 ### New: orthogroups of several species with DIAMOND - `orthogroups()`, `write_orthogroups()`, `dNdS_orthogroups()`
 
