@@ -117,6 +117,7 @@ annotation_table <- function(file, format = c("gff", "gtf")) {
 
 annotation_table_gtf <- function(file) {
         gene_id <- transcript_id <- protein_id <- gene_biotype <- type <- has_cds <- NULL
+        transcript_version <- protein_version <- has_gene_row <- NULL
         blocks <- annotation_blocks(file, function(type, attr) {
                 keep <- is.element(type, c("gene", "transcript", "mRNA", "CDS"))
                 if (!any(keep))
@@ -168,6 +169,7 @@ annotation_table_gtf <- function(file) {
 
 annotation_table_gff <- function(file) {
         ID <- Parent <- type <- protein_id <- transcript_id <- gene_id <- has_cds <- NULL
+        gene_raw <- gene_biotype <- has_gene_row <- NULL
         blocks <- annotation_blocks(file, function(type, attr) {
                 id <- gff_attr(attr, "ID")
                 parent <- gff_attr(attr, "Parent")
