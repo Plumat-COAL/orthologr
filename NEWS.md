@@ -45,7 +45,9 @@ worked beyond starting the program and is soft-deprecated; its warning and `?ort
   (`substitutionrate()`; default method Comeron), plus a summary per group (numbers of pairs, of pairs without
   value and of saturated pairs; median, mean and quartiles of dN, dS, dN/dS). A gene, pair or group that cannot be
   used gives `NA` rows and a reason, never an error. With `aa_aln_tool = "pairwise"` the values are those of
-  `dNdS()` for the same pairs (tested).
+  `dNdS()` for the same pairs (tested). Run time: 200 single-copy groups of four yeasts (1,200 pairs) in 70 s
+  with `comp_cores = 2` (Clustal Omega, Comeron); 183 of these pairs have a dN/dS value, the others are saturated
+  at synonymous sites (the species are too distant).
 
 Measured (DIAMOND 2.2.8, 2 cores; the data are not part of the package):
 
