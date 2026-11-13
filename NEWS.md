@@ -8,6 +8,49 @@ error, and packages moved from Imports to Suggests.
 **Default change that alters which orthologs are returned: best hits are ranked by bit score.** See the next
 section; `options(orthologr.best_hit_rule = "evalue")` restores the rule of 0.4.3.
 
+### New: orthogroups of several species with DIAMOND - `orthogroups()`, `write_orthogroups()`, `dNdS_orthogroups()`
+
+orthologr no longer needs OrthoFinder for groups of orthologs of more than two species (`orthofinder2()` never
+worked beyond starting the program and is soft-deprecated; its warning and `?orthologs` now point to
+`orthogroups()`). Nothing in this section changes the result of an existing function.
+
+- **`orthogroups(files, method = c("rbh", "deepclust"), ...)`** for 2 to N species (a named vector or list of
+  FASTA files, or a folder; coding sequences or proteins).
+  - `method = "rbh"` (default; about 2 to 15 species): **one** all-against-all DIAMOND search of the proteins of all
+    species, reciprocal best hits for every pair of species - chosen by the code `diamond_rec()` uses, so
+    `best_hit_rule` applies -, and the connected components of the graph of reciprocal best hits as groups.
+    E-values are converted to those of a search against the subject species alone (DIAMOND's e-value is
+    proportional to the database size), so that the result for two species does not depend on which other species
+    are in the run. `inparalogs = TRUE` attaches a gene without reciprocal best hit to a gene of its species when
+    the two are more similar to each other than either is to any gene of another species (heuristic, off by
+    default). Optional hit filters `min_qcov`, `min_identity` (off by default).
+  - `method = "deepclust"` (many species, large data): `deepclust()` on the proteins of all species; clusters with
+    genes of at least two species are the groups. `refine = TRUE` splits the clusters with more than one gene of a
+    species by the reciprocal best hits inside the cluster (one further search, of the members of these clusters
+    only); `realign = TRUE` adds `deepclust_realign()` statistics.
+  - The result (class `"orthogroups"`) holds `groups` (long), `wide` (one row per group, one column per species,
+    as OrthoFinder's `Orthogroups.tsv`), `pairs` (every pair of genes of different species in a group with bit
+    score, e-value, identity, alignment length, coverage, `rbh`, and `relation`: `"1:1"` or `"co-ortholog"`),
+    `single_copy`, `unassigned`, `genes`, `species`, `params`; `print()`, `summary()`, `as.data.frame()`.
+  - The result does not depend on `comp_cores` or on the order of the files. Sequence IDs of any form work (they
+    are replaced by numbers during the search); IDs that occur in several species are prefixed with the species
+    name, and a message says so.
+- **`write_orthogroups(x, dir)`** writes `Orthogroups/Orthogroups.tsv`, `Orthogroups_SingleCopyOrthologues.txt`,
+  `Orthogroups_UnassignedGenes.tsv`, `Orthogroups.GeneCount.tsv` and `pairs.tsv` in OrthoFinder's layout;
+  `orthofinder2_retrieve_core_orthologs()` reads them. `ortholog_tables = TRUE` adds pairwise tables for
+  `import_ortholog_tables_all()` / `retrieve_core_orthologs()`.
+- **`dNdS_orthogroups(x, cds_files, groups = c("single_copy", "all"), ...)`**: for every group one protein
+  alignment (`aa_aln_tool = "clustalo"`, `"mafft"`, `"muscle"`, `"clustalw"`, `"t_coffee"`; or `"pairwise"`), the
+  codon alignment (PAL2NAL), and dN, dS, dN/dS for every pair of genes of different species
+  (`substitutionrate()`; default method Comeron), plus a summary per group (numbers of pairs, of pairs without
+  value and of saturated pairs; median, mean and quartiles of dN, dS, dN/dS). A gene, pair or group that cannot be
+  used gives `NA` rows and a reason, never an error. With `aa_aln_tool = "pairwise"` the values are those of
+  `dNdS()` for the same pairs (tested).
+
+Measured (DIAMOND 2.2.8, 2 cores; the data are not part of the package):
+
+VALIDATION_NEWS
+
 ### Best hits are ranked by bit score (default change)
 
 Decided by the maintainer of this fork for 0.5.0. `diamond_best()`, `blast_best()`, `diamond_rec()`, `blast_rec()`,
