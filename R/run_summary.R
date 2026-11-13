@@ -65,7 +65,7 @@ dnds_is_failed <- function(tbl, failed_pairs) {
 #   not_converged : number of pairs for which the engine reported that an iteration did not converge
 #   what          : the unit, e.g. "gene pairs"
 dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged = 0, what = "gene pairs", fun = "dNdS()",
-                              failed_where = "attr(<result>, \"failed_pairs\")") {
+                              failed_where = "attr(<result>, \"failed_pairs\")", trimmed = NULL) {
         n <- length(status)
         counts <- dnds_status_counts(status)
         parts <- c(
@@ -89,6 +89,13 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
                               " left out before the search (", paste0(tab, " x ", names(tab), collapse = "; "),
                               "). They are listed in attr(<result>, \"dropped_sequences\").")
         }
+        if (!is.null(trimmed) && NROW(trimmed) > 0) {
+                txt <- paste0(txt, "\n", nrow(trimmed), " coding sequence", if (nrow(trimmed) > 1) "s have" else " has",
+                              " a length that is not a multiple of 3 and ", if (nrow(trimmed) > 1) "were" else "was",
+                              " trimmed at the 3' end (delete_corrupt_cds = FALSE; a sequence incomplete at its 5' end is ",
+                              "then read in the wrong frame). They are listed in attr(<result>, \"trimmed_sequences\"); ",
+                              "as read: ", paste0("'", unique(trimmed$corrupted_file), "'", collapse = ", "), ".")
+        }
         if (dnds_saturation_hint(status, med))
                 txt <- paste0(txt, "\n", saturation_hint_text(counts[["saturated"]], n, med))
         txt
@@ -102,8 +109,10 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
 #   dropped       : data.frame (file, id, reason) or NULL
 #   engine_status : NULL, or the status the engine gave for every row of `res`
 #   record        : list(fun, args, engine, tools, files) for run_record()
+#   trimmed       : data.frame (file, id, removed_nt, corrupted_file) of the sequences trimmed to a multiple of 3,
+#                   or NULL
 dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_converged = 0, record,
-                        print_citation = TRUE, extra_attr = list()) {
+                        print_citation = TRUE, extra_attr = list(), trimmed = NULL) {
         status <- dnds_status(res$dN, res$dS, res$dNdS, failed = dnds_is_failed(res, failed_pairs),
                               engine_status = engine_status)
         if (dnds_status_column())
@@ -111,12 +120,14 @@ dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_co
         if (!is.null(dropped))
                 attr(res, "dropped_sequences") <- dropped
         attr(res, "failed_pairs") <- failed_pairs
+        if (!is.null(trimmed) && nrow(trimmed) > 0)
+                attr(res, "trimmed_sequences") <- trimmed
         for (n in names(extra_attr))
                 attr(res, n) <- extra_attr[[n]]
         attr(res, "orthologr_run") <- run_record(fun = record$fun, args = record$args, engine = record$engine,
                                                  tools = record$tools, files = record$files, status = status)
         message(dnds_summary_text(status, dS = res$dS, dropped = dropped, not_converged = not_converged,
-                                  fun = paste0(record$fun, "()")))
+                                  fun = paste0(record$fun, "()"), trimmed = trimmed))
         citation_message(print_citation)
         res
 }

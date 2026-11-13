@@ -140,9 +140,9 @@ Options are:
 When it is larger than the number of available cores, the number of available cores is used and a warning is given.}
 
 \item{quiet}{\code{TRUE} (default): one line at the start and one summary at the end of the run (as messages,
-i.e. on \code{stderr}; nothing is written to \code{stdout}). \code{FALSE}: also the parameters, the messages of
-the search program and a progress message about every tenth of the gene pairs.
-Default is \code{quiet} = \code{FALSE}.}
+i.e. on \code{stderr}; nothing is written to \code{stdout}); input sequences that were left out or trimmed are
+counted in the summary. \code{FALSE}: also the parameters, the messages of the search program, a message for each
+kind of input sequence that was left out or trimmed, and a progress message about every tenth of the gene pairs.}
 
 \item{clean_folders}{kept for compatibility. All intermediate files of a call are written to a folder of its own inside
 \code{tempdir()}, which is always removed when the call ends (see Details), so there is nothing left to clean.}
@@ -215,7 +215,9 @@ the files: 0 to 1 sequence in each of eight RefSeq sets of yeasts and bacteria a
 \emph{A. lyrata} example, but 51 of 2,048 (2.5 \%) of the Ensembl transcripts of human chromosome 21 and 365 of
 7,728 (4.7 \%) of those of mouse chromosomes 10, 16 and 17 - there typically one leading \code{N} of a transcript
 whose start is not annotated (\code{cds_start_NF}). Sequences whose length is not a multiple of 3 (97 of 2,048
-and 934 of 7,728 in the same files) are trimmed by default (\code{delete_corrupt_cds = FALSE}).
+and 934 of 7,728 in the same files) are trimmed by default (\code{delete_corrupt_cds = FALSE}); they are listed in
+\code{attr(result, "trimmed_sequences")} (\code{file}, \code{id}, \code{removed_nt}, \code{corrupted_file}: the
+sequences as read) and counted in the summary message.
 }
 \description{
 This function takes the CDS files of two organisms of interest (query_file and subject_file)

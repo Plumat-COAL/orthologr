@@ -202,6 +202,8 @@ report_dropped_cds <- function(ids, reason = "not_acgt", total = NULL, seqs = NU
                 reason
         )
         dropped_record(ids, reason_text, file)
+        if (sequence_messages_quiet())
+                return(invisible(ids))
         run_dir <- getOption("orthologr.tmpdir", NULL)
         if (!is.null(run_dir)) {
                 # inside one dNdS() call: say it once
@@ -228,6 +230,38 @@ report_dropped_cds <- function(ids, reason = "not_acgt", total = NULL, seqs = NU
         invisible(ids)
 }
 
+# Inside a dNdS() / dNdS_coal() call with quiet = TRUE: the messages about single input sequences are left to the
+# summary (see dropped_start()).
+sequence_messages_quiet <- function() {
+        !is.null(.orthologr_state$dropped) && isTRUE(.orthologr_state$sequence_messages_quiet)
+}
+
+# Collect the coding sequences that read.cds() trimmed to a multiple of 3 (delete_corrupt_cds = FALSE) while a
+# dNdS() call runs; `corrupted_file` holds them as they were read.
+trimmed_record <- function(ids, removed, file, corrupted_file) {
+        if (is.null(.orthologr_state$trimmed))
+                return(invisible(NULL))
+        .orthologr_state$trimmed[[length(.orthologr_state$trimmed) + 1L]] <- data.frame(
+                file           = as.character(file),
+                id             = as.character(ids),
+                removed_nt     = as.integer(removed),
+                corrupted_file = as.character(corrupted_file),
+                stringsAsFactors = FALSE
+        )
+        invisible(NULL)
+}
+
+# The table of the sequences trimmed so far in this call (file, id, removed_nt, corrupted_file; no row twice), or
+# NULL when there are none.
+trimmed_table <- function() {
+        res <- .orthologr_state$trimmed
+        if (length(res) == 0)
+                return(NULL)
+        res <- unique(do.call(rbind, res))
+        rownames(res) <- NULL
+        res
+}
+
 # Collect the sequences left out while a dNdS() call runs (see dropped_start()).
 dropped_record <- function(ids, reason, file = NULL) {
         if (is.null(.orthologr_state$dropped))
@@ -242,13 +276,20 @@ dropped_record <- function(ids, reason, file = NULL) {
 }
 
 # Start collecting; returns a function that ends it and returns the table (file, id, reason; no row twice).
-dropped_start <- function() {
+#   quiet : the run's quiet (dNdS(), dNdS_coal()). With quiet = TRUE the messages about single sequences (left
+#           out, trimmed to a multiple of 3) are not shown: they are counted in the summary at the end, and the
+#           sequences are listed in attr(<result>, "dropped_sequences") / attr(<result>, "trimmed_sequences").
+dropped_start <- function(quiet = FALSE) {
         if (!is.null(.orthologr_state$dropped))
                 return(function() NULL)
         .orthologr_state$dropped <- list()
+        .orthologr_state$trimmed <- list()
+        .orthologr_state$sequence_messages_quiet <- isTRUE(quiet)
         function() {
                 res <- .orthologr_state$dropped
                 .orthologr_state$dropped <- NULL
+                .orthologr_state$trimmed <- NULL
+                .orthologr_state$sequence_messages_quiet <- NULL
                 if (length(res) == 0)
                         return(data.frame(file = character(0), id = character(0), reason = character(0),
                                           stringsAsFactors = FALSE))

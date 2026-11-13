@@ -71,6 +71,7 @@ change. Please report the version of orthologr in the methods of analyses based 
 | dN/dS tables end with the column `status` | one more column | `options(orthologr.status_column = FALSE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
+| `divergence_stratigraphy(quiet = TRUE)`, as `dNdS()` (was `FALSE`) | 1,000-gene example: 10 messages instead of 45; same result | `quiet = FALSE` |
 | `orthogroups()` and `dNdS_orthogroups()` trim coding sequences whose length is not a multiple of 3 (`delete_corrupt_cds = FALSE`, as `dNdS()` does) | - (new functions) | `delete_corrupt_cds = TRUE` |
 
 All of the first five at once: `orthologr_legacy_options()`.
@@ -85,7 +86,11 @@ Further behaviour that differs from 0.4.3 and cannot be switched back:
   `kaks_calc.params`, ...) are lists of arguments, not shell text: `;`, pipes and redirections inside them no
   longer work.
 - `dNdS()` writes nothing to `stdout`. With `quiet = TRUE` (default) it gives a line at the start and the
-  summary at the end (31 messages before); the citation note is a message shown once per session.
+  summary at the end (31 messages before); the citation note is a message shown once per session. Input sequences
+  that are left out or trimmed to a multiple of 3 are counted in the summary (listed in
+  `attr(, "dropped_sequences")` / `attr(, "trimmed_sequences")`) instead of a block of messages about each kind:
+  1,000-gene example, 12 messages before (8 about the 12 trimmed sequences), 2 after; `quiet = FALSE` shows the
+  old messages.
 - Coding sequences with characters other than A, C, G, T are left out before the search, as before, but no
   longer without a word: they are counted in the summary and listed in `attr(, "dropped_sequences")`.
 - Intermediate files are kept in a folder of the call inside `tempdir()` and removed afterwards
