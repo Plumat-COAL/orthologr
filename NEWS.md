@@ -147,6 +147,7 @@ Running programs:
 - An unknown `aa_sub_matrix` name (`dNdS()`, `pairwise_aln()`) is an error (`orthologr_error_bad_argument`)
   before the search; it ran the whole search and then failed every gene pair (1,000-gene example,
   `aa_sub_matrix = "FOO"`: before 6.4 s and 995 of 995 pairs `NA` with one warning; after an error at once).
+  With `engine = "coal"` the name is checked against the matrices of COAL (BLOSUM62, BLOSUM45, BLOSUM80, PAM250).
 - A protein file given where coding sequences are expected is an error that says so (was: a DIAMOND error about
   memory).
 - `orthogroups()` runs the check for several transcripts per gene; the check no longer warns for a bacterial

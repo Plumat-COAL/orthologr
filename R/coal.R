@@ -107,6 +107,9 @@ coal_legacy_warning <- function(what) {
         invisible(NULL)
 }
 
+# The substitution matrices COAL has (aa_sub_matrix of dNdS(engine = "coal") / dNdS_coal()).
+coal_sub_matrix_names <- function() c("BLOSUM62", "BLOSUM45", "BLOSUM80", "PAM250")
+
 # The alignment scoring of the COAL entry points: one argument `aa_aln_scoring` everywhere.
 check_aa_aln_scoring <- function(aa_aln_scoring) {
         check_choice(aa_aln_scoring, c("pwalign", "needle"), "aa_aln_scoring")
@@ -478,8 +481,7 @@ dNdS_coal <- function(query_file,
                 check_sensitivity_mode(sensitivity_mode)
         comp_cores <- check_comp_cores(comp_cores)
         check_aa_aln_scoring(aa_aln_scoring)
-        if (!is.character(aa_sub_matrix) || length(aa_sub_matrix) != 1)
-                stop("With engine = \"coal\", aa_sub_matrix must be the name of a matrix: \"BLOSUM62\", \"BLOSUM45\", \"BLOSUM80\" or \"PAM250\".", call. = FALSE)
+        check_choice(aa_sub_matrix, coal_sub_matrix_names(), "aa_sub_matrix", hint = "(the matrices of the COAL engine)")
         coal_backend(need = "coalr")
         coal_check_methods(dnds_est.method, "engine = \"coal\"")
         coal_legacy_warning("dNdS(engine = \"coal\") / dNdS_coal()")
