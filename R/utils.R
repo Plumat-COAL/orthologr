@@ -230,7 +230,7 @@ report_dropped_cds <- function(ids, reason = "not_acgt", total = NULL, seqs = NU
         invisible(ids)
 }
 
-# Inside a dNdS() / dNdS_coal() call with quiet = TRUE: the messages about single input sequences are left to the
+# Inside a dNdS() call with quiet = TRUE: the messages about single input sequences are left to the
 # summary (see dropped_start()).
 sequence_messages_quiet <- function() {
         !is.null(.orthologr_state$dropped) && isTRUE(.orthologr_state$sequence_messages_quiet)
@@ -276,7 +276,7 @@ dropped_record <- function(ids, reason, file = NULL) {
 }
 
 # Start collecting; returns a function that ends it and returns the table (file, id, reason; no row twice).
-#   quiet : the run's quiet (dNdS(), dNdS_coal()). With quiet = TRUE the messages about single sequences (left
+#   quiet : the run's quiet (dNdS()). With quiet = TRUE the messages about single sequences (left
 #           out, trimmed to a multiple of 3) are not shown: they are counted in the summary at the end, and the
 #           sequences are listed in attr(<result>, "dropped_sequences") / attr(<result>, "trimmed_sequences").
 dropped_start <- function(quiet = FALSE) {

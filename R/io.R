@@ -190,7 +190,7 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
         })
         
         if (!all(all_triplets)) {
-                # inside dNdS() / dNdS_coal() with quiet = TRUE these messages are left to the summary of the run
+                # inside dNdS() with quiet = TRUE these messages are left to the summary of the run
                 # (the sequences are listed in attr(<result>, "dropped_sequences") / "trimmed_sequences")
                 quiet_run <- sequence_messages_quiet()
                 if (!quiet_run) message(

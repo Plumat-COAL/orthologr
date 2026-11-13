@@ -17,11 +17,11 @@ change. Please report the version of orthologr in the methods of analyses based 
 - **One summary message at the end of a run**: gene pairs by status, median dS, sequences left out before the
   search, and a note when most pairs are saturated or the median dS is above 1.5 (species too distant for
   pairwise dN/dS). With `quiet = FALSE`, a progress message about every tenth of the gene pairs.
-- **Record of the run**: `attr(result, "orthologr_run")` on results of `dNdS()`, `dNdS_coal()`,
-  `dNdS_clusters()`, `dNdS_orthogroups()` and `divergence_stratigraphy()`: package version, arguments, every
-  `orthologr.*` option in force (with its default when it is not set, `orthologr.ambiguous_cds` included), engine,
-  program versions, date, size and MD5 of the input files, counts by status. **`write_dNdS()`** writes a table as TSV with this record in `<file>.run.json`; **`read_dNdS()`** reads
-  both back (needs `jsonlite`). `orthogroups()$params` holds the package version.
+- **Record of the run**: `attr(result, "orthologr_run")` on results of `dNdS()`, `dNdS_orthogroups()` and
+  `divergence_stratigraphy()`: package version, arguments, every `orthologr.*` option in force (with its default
+  when it is not set, `orthologr.ambiguous_cds` included), engine, program versions, date, size and MD5 of the
+  input files, counts by status. **`write_dNdS()`** writes a table as TSV with this record in
+  `<file>.run.json`; **`read_dNdS()`** reads both back (needs `jsonlite`). `orthogroups()$params` holds the package version.
 - **`orthologr_legacy_options()`** and `options(orthologr.legacy = TRUE)`: all settings of 0.4.3 at once. A test
   compares the result with tables stored from 0.4.3 (20-gene example, Comeron and YN).
 - **`?orthologr_options`**: every option and environment variable the package reads.
