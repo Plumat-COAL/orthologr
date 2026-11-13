@@ -276,9 +276,10 @@ test_that("check_annotation() finds over-long lines without holding the file in 
         long <- paste0(x[10], ";Note=", strrep("A", 70000))
         f <- file.path(new_test_dir("ann_"), "long.gff")
         writeLines(c(x[1:9], long, x[10:length(x)]), f)
-        expect_warning(res <- suppressMessages(check_annotation(f)), "1 lines that have more than 65000 characters")
+        expect_warning(res <- suppressMessages(check_annotation(f)), "1 line that have more than 65000 characters")
         expect_identical(res, f)
-        cleaned <- suppressMessages(check_annotation(f, remove_annotation_outliers = TRUE))
+        expect_warning(cleaned <- suppressMessages(check_annotation(f, remove_annotation_outliers = TRUE)),
+                       "1 line of more than 65000 characters is not in the copy")
         expect_false(identical(cleaned, f))
         expect_identical(readLines(cleaned), x)
         expect_identical(readLines(f)[10], long)        # the file of the user is not changed

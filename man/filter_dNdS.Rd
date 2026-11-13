@@ -7,7 +7,7 @@
 filter_dNdS(
   dNdS_tbl,
   dnds.threshold = 2,
-  dS_zero = getOption("orthologr.dS_zero", "keep")
+  dS_zero = getOption("orthologr.dS_zero", "drop")
 )
 }
 \arguments{
@@ -20,14 +20,18 @@ Hence all genes having a dNdS value <= \code{dnds.threshold} are retained. Defau
 pairs without any substitution (dN = dS = 0, e.g. identical coding sequences) and gene pairs with nonsynonymous
 substitutions only (dN > 0, dS = 0).
 \itemize{
-\item \code{"keep"} (default): they are kept, with \code{dNdS = NA}, and the logical column \code{dS_zero} marks
-them (\code{FALSE} for all other rows). \strong{This is a change of the default}: up to orthologr 0.4.3 these
-rows were dropped without a message (because \code{NA <= dnds.threshold} is \code{NA}), so the result can now
-hold more rows, and it has one more column.
-\item \code{"drop"}: they are left out, as before; no column is added.
+\item \code{"drop"} (default): they are left out, as in every released version of orthologr (there because
+\code{NA <= dnds.threshold} is \code{NA}); a message now says how many they are and how to keep them.
+\item \code{"keep"}: they are kept, with \code{dNdS = NA}, and the logical column \code{dS_zero} marks
+them (\code{FALSE} for all other rows): the result then has more rows and one more column.
 }
-The default can be set for the session with \code{options(orthologr.dS_zero = "drop")}. A message gives the number
-of such gene pairs in either case.}
+The default can be set for the session with \code{options(orthologr.dS_zero = "keep")}. (During the development
+of 0.5.0 the default was \code{"keep"} for a while; it was set back to \code{"drop"} before release so that
+results and the shape of the table stay as they were for existing code.)}
+}
+\value{
+The rows of \code{dNdS_tbl} that pass the filter (with the column \code{dS_zero} when
+\code{dS_zero = "keep"}). A message gives the number of rows left out for each reason.
 }
 \description{
 This function takes the output data.table returned by \code{\link{dNdS}} and

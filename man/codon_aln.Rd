@@ -26,7 +26,7 @@ codon_aln(
 or \code{"coal"} (COAL, \url{https://github.com/Plumat-COAL/COAL}: the same codon alignment without Perl, computed inside R
 when the package \pkg{coalr} is installed and otherwise by the \code{coal-cpp} program).}
 
-\item{params}{a character string specifying additional parameters that shall be passed to PAL2NAL. For example
+\item{params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters that shall be passed to PAL2NAL. For example
 \code{params} = \code{"-codontable 2"} would specify a codon table: \emph{vertebrate mitochondrial code}
 instead if the \emph{universal code} (default). The default value is \code{params} = \code{NULL}.
 Default is \code{codon_aln_name} = \code{NULL} denoting a default name: 'tool_name.aln' .}

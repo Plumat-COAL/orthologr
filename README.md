@@ -106,7 +106,8 @@ remotes::install_github("drostlab/orthologr")
 Optional packages, needed by some functions only (a message tells you when one is missing):
 
 ```r
-BiocManager::install("rtracklayer")           # annotation files: select_orthologs(), retrieve_longest_isoforms()
+BiocManager::install("rtracklayer")           # only extract_features() on imported annotations and the *_do() reference code;
+                                              # select_orthologs() and retrieve_longest_isoforms() read GFF3 / GTF files themselves
 install.packages(c("ggplot2", "scales"))      # the plot_*() functions
 install.packages("ape")                       # promotor_divergence_estimation()
 remotes::install_github("drostlab/metablastr") # lncRNA orthology: orthologs_lnc(), map_generator_lnc()
@@ -267,9 +268,17 @@ The complete list of functions is in the [reference](https://drostlab.github.io/
 ### dN/dS estimation
 
 * `dNdS()`: Compute dN/dS values for the orthologous genes of two organisms
+* `dNdS_coal()` (= `dNdS(engine = "coal")`), `dNdS_clusters()`: the same, and dN/dS within DeepClust clusters, with the COAL engine (optional package `coalr`)
 * `divergence_stratigraphy()`, `divergence_map()`, `filter_dNdS()`: divergence strata from dN/dS values
 * `map_generator_dnds()`, `read.dnds.tbl()`: dN/dS tables of one query against many subject organisms
+* `divergence_left_out()`: the gene pairs a divergence map does not hold, and why
 * `substitutionrate()`: dN/dS of one codon alignment
+* `orthogroups()`, `write_orthogroups()`, `dNdS_orthogroups()`: orthogroups of 2 to N species with DIAMOND, files in
+  OrthoFinder's layout, dN/dS of all gene pairs within the groups
+
+Options that change results or behaviour (best-hit rule, the switches that restore numbers of 0.4.3, working
+folders, kind of parallel processes) and the way parameter strings for external programs are handled are listed in
+one place: [`?orthologr_options`](https://drostlab.github.io/orthologr/reference/orthologr_options.html).
 
 ### Sequence searches and orthology inference
 
@@ -289,6 +298,7 @@ The complete list of functions is in the [reference](https://drostlab.github.io/
 ### Gene loci, isoforms and ortholog tables
 
 * `retrieve_longest_isoforms()`, `retrieve_longest_isoforms_all()`: keep the longest isoform per gene locus
+* `check_annotation()`, `extract_features()`: report over-long lines of an annotation file, features of a locus
 * `select_orthologs()`, `generate_ortholog_tables()`, `generate_ortholog_tables_all()`, `import_ortholog_tables_all()`,
   `retrieve_core_orthologs()`: one representative ortholog per gene locus, core orthologs across species
 * `plot_pairwise_orthologs()`, `plot_diverse_homology_thresholds()`, `plot_diverse_homology_thresholds_core_orthologs()`
@@ -346,14 +356,9 @@ version 2 of the License, or any later version.
 
 ### KaKs_Calculator
 
-In `orthologr` the file `parseFastaIntoAXT.pl` is stored in `/inst/KaKs_Calc_parser`.
-
-```
-The parseFastaIntoAXT.pl script is freely available under GNU GPL v3 
-Licence and included in the KaKs_Calculator project that can be found at 
-https://code.google.com/archive/p/kaks-calculator
-
-```
+`orthologr` runs the program KaKs_Calculator when it is installed; none of its code is part of the package. (The
+script `parseFastaIntoAXT.pl` of the KaKs_Calculator project, GNU GPL v3, was shipped in `inst/KaKs_Calc_parser`
+up to version 0.4.3; it is no longer used and was removed in 0.5.0.)
 
 
 

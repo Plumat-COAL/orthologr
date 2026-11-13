@@ -57,7 +57,7 @@ identity to report an alignment or to cluster sequences. Passed to
 \item{eval}{a numeric value specifying the maximum E-value to report alignments.
 Passed to \code{--evalue}. Default is \code{NULL} (DIAMOND2 default of 0.001 applies).}
 
-\item{deepclust_params}{a character string of additional DIAMOND2 deepclust
+\item{deepclust_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string of additional DIAMOND2 deepclust
 parameters to append to the \code{deepclust} call. Default is \code{NULL}.}
 
 \item{save.output}{a character string specifying the path where the output TSV

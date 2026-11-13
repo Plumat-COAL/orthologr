@@ -16,19 +16,79 @@ tool_command <- function(program, path = NULL) {
         cmd
 }
 
-# Quote arguments for the command line; an argument wrapped in I() is passed as it is (used for the free-text
-# parameter strings users hand over, e.g. blast_params = "-seg no -word_size 3").
+# Split a free-text parameter string (blast_params = "-seg no -word_size 3") into its arguments, the way a shell
+# would split it into words - but without a shell: white space separates arguments; single quotes keep everything
+# between them as it is; double quotes do the same, with \" and \\ for a quote and a backslash inside; outside
+# quotes a backslash takes the next character literally. Nothing else has a meaning: ';', '|', '&', '$(...)', '`',
+# '>', '*' are ordinary characters of an argument and are handed to the program as they are.
+split_params <- function(x) {
+        if (is.null(x) || length(x) == 0)
+                return(character(0))
+        x <- paste(as.character(x[!is.na(x)]), collapse = " ")
+        chars <- strsplit(x, "", fixed = TRUE)[[1]]
+        out <- character(0)
+        cur <- character(0)
+        open_tok <- FALSE
+        quote <- ""
+        i <- 1L
+        n <- length(chars)
+        while (i <= n) {
+                ch <- chars[i]
+                if (quote == "'") {
+                        if (ch == "'") quote <- "" else cur <- c(cur, ch)
+                } else if (quote == "\"") {
+                        if (ch == "\"") {
+                                quote <- ""
+                        } else if (ch == "\\" && i < n && is.element(chars[i + 1L], c("\"", "\\"))) {
+                                i <- i + 1L
+                                cur <- c(cur, chars[i])
+                        } else {
+                                cur <- c(cur, ch)
+                        }
+                } else if (ch == "'" || ch == "\"") {
+                        quote <- ch
+                        open_tok <- TRUE
+                } else if (ch == "\\" && i < n) {
+                        i <- i + 1L
+                        cur <- c(cur, chars[i])
+                        open_tok <- TRUE
+                } else if (grepl("[[:space:]]", ch)) {
+                        if (open_tok || length(cur) > 0)
+                                out <- c(out, paste(cur, collapse = ""))
+                        cur <- character(0)
+                        open_tok <- FALSE
+                } else {
+                        cur <- c(cur, ch)
+                }
+                i <- i + 1L
+        }
+        if (nzchar(quote))
+                stop("Unbalanced quote (", quote, ") in the parameter string: ", x, call. = FALSE)
+        if (open_tok || length(cur) > 0)
+                out <- c(out, paste(cur, collapse = ""))
+        out
+}
+
+# Quote arguments for the command line. An argument wrapped in I() is a free-text parameter string users hand over
+# (e.g. blast_params = "-seg no -word_size 3"): it is split into its arguments (split_params()) and every one of
+# them is quoted like all other arguments, so that the command line the shell sees holds no character with a
+# meaning for the shell. (Until 0.5.0 such strings were pasted into the command line as they were:
+# params = "--force; touch X" ran 'touch X'.)
 quote_args <- function(args) {
         if (length(args) == 0)
                 return(character(0))
         if (!is.list(args))
                 args <- as.list(args)
+        type <- if (.Platform$OS.type == "windows") "cmd" else "sh"
         unlist(lapply(args, function(a) {
                 if (is.null(a) || length(a) == 0)
                         return(character(0))
-                if (inherits(a, "AsIs"))
-                        return(as.character(a))
-                shQuote(as.character(a), type = if (.Platform$OS.type == "windows") "cmd" else "sh")
+                if (inherits(a, "AsIs")) {
+                        a <- split_params(unclass(a))
+                        if (length(a) == 0)
+                                return(character(0))
+                }
+                shQuote(as.character(a), type = type)
         }), use.names = FALSE)
 }
 
@@ -170,4 +230,17 @@ need_package <- function(pkg, what, bioc = FALSE) {
                 ".",
                 call. = FALSE
         )
+}
+
+# Evaluate every argument of the calling function now. A function that hands a closure to worker processes
+# (parallel::parLapply() on a PSOCK cluster, the default on Windows) must call this before the cluster is used:
+# an argument that was not evaluated yet travels to the workers as a promise - the expression the user typed plus
+# a reference to the environment it was typed in - and is evaluated there, where a variable of the user's
+# workspace does not exist ("object 'kp' not found") or means something else (`quiet = qt` found stats::qt).
+force_args <- function() {
+        env <- parent.frame()
+        fn <- sys.function(sys.parent())
+        for (arg in setdiff(names(formals(fn)), "..."))
+                get(arg, envir = env, inherits = FALSE)
+        invisible(TRUE)
 }

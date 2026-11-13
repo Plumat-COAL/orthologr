@@ -48,7 +48,7 @@ Please be aware that \code{max.target.seqs} selects best hits based on the datab
 
 \item{comp_cores}{a numeric value specifying the number of cores to be used for multicore BLAST computations.}
 
-\item{blast_params}{a character string listing the input paramters that shall be passed to the executing BLAST program. Default is \code{NULL}, implicating
+\item{blast_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string listing the input paramters that shall be passed to the executing BLAST program. Default is \code{NULL}, implicating
 that a set of default parameters is used when running BLAST.}
 
 \item{clean_folders}{a boolean value spefiying whether all internall folders storing the output of used programs

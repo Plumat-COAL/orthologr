@@ -38,7 +38,7 @@
 #' \code{NULL} (DIAMOND2 default applies).
 #' @param eval a numeric value specifying the maximum E-value. Passed to
 #' \code{--evalue}. Default is \code{NULL} (DIAMOND2 default of 0.001 applies).
-#' @param deepclust_params a character string of additional DIAMOND2 deepclust
+#' @param deepclust_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string of additional DIAMOND2 deepclust
 #' parameters to append to the \code{deepclust} call. Default is \code{NULL}.
 #' @param quiet a logical value indicating whether DIAMOND2 should run in quiet
 #' mode. Default is \code{quiet = TRUE}.

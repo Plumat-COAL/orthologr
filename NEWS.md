@@ -8,6 +8,111 @@ error, and packages moved from Imports to Suggests.
 **Default change that alters which orthologs are returned: best hits are ranked by bit score.** See the section
 "Best hits are ranked by bit score"; `options(orthologr.best_hit_rule = "evalue")` restores the rule of 0.4.3.
 
+### Fixes after the third review (findings R01 - R23)
+
+For the maintainer: the licence question (R05) and the list of defaults that differ from 0.4.3 with their
+restoring options are in `MAINTAINER_NOTES.md` at the top of the repository.
+
+**A default introduced earlier on this fork is taken back (R23).** `filter_dNdS()` and
+`divergence_stratigraphy()` again leave gene pairs with dS = 0 out (`dS_zero = "drop"`, the behaviour of 0.4.3 and
+of every released version). For a while during the development of 0.5.0 the default was `"keep"`, which returned
+such pairs with `dNdS = NA` / stratum `NA` and an extra column: code that feeds a divergence map into
+phylotranscriptomic tools (e.g. myTAI) would have met `NA` strata for the first time. Now:
+- `divergence_stratigraphy()` returns a divergence map without `NA` strata, as before - but no longer silently:
+  a message gives the number of gene pairs that are not in the map per reason (dN or dS not available; dS = 0
+  with dN = 0; dS = 0 with dN > 0; dN/dS above the threshold), and the pairs are in `attr(result, "left_out")`,
+  returned by the new function **`divergence_left_out()`**. `dS_zero = "keep"` (or
+  `options(orthologr.dS_zero = "keep")`) keeps the dS = 0 pairs as rows with stratum `NA` on request.
+- `divergence_stratigraphy()` always returns a divergence map: should the binning fail after the dN/dS run, a
+  map without rows is returned with a warning (not the dN/dS table, as an earlier state of this fork did); the
+  dN/dS table of the run is in `attr(result, "dNdS_tbl")` as before. With `ds.values = FALSE` no `NA` value is
+  returned (as in 0.4.3).
+- `filter_dNdS()`: the argument `dS_zero` stays, its default is `"drop"`; the result has the rows and columns of
+  0.4.3. Messages say how many pairs with dS = 0 were left out and how to keep them, and how many rows were left
+  out for the other reasons.
+- `n_quantile = Inf` is rejected with a clear message.
+
+**Results that change**
+- **R14, KaKs_Calculator methods (`"YN"`, `"NG"`, ...): a gene pair without nonsynonymous change has `dN = 0`,
+  not `dN = NA`.** KaKs_Calculator prints `NA` for every Ka below 1e-6 and still prints `Ka/Ks = 0`; orthologr
+  returned `dN = NA`, `dNdS = 0`, and `filter_dNdS()` / `divergence_stratigraphy()` then dropped exactly the most
+  conserved genes. Now `dN = 0` when Ka is `NA`, Ks is a positive number and Ka/Ks is 0 (also `-0`). Pairs for
+  which KaKs_Calculator gives no ratio either (identical sequences: `NA NA NA`; a model that failed: `nan`) are
+  unchanged. Pre-existing in 0.4.3. 1,000-gene example, YN, default pipeline: TBD-R14.
+  `options(orthologr.legacy_kaks_zero_dn = TRUE)` restores the old table.
+- **R17, Comeron's method: an undefined logarithm in a class of sites that has no sites is not a saturation.**
+  The rule "saturation is `NA`" (below) flagged an estimate whenever a logarithm of the correction had a
+  non-positive argument, also in a class with weight 0 in the estimate. Such a class no longer makes dN or dS
+  `NA`. This is the rule of COAL's Comeron, so both give the same `NA` pattern. TBD-R17.
+  Short alignments remain affected by the saturation rule when a small class *with* sites is saturated (30
+  codons: several percent of random pairs lose dN; see `?substitutionrate`);
+  `options(orthologr.legacy_comeron_saturation = TRUE)` returns the finite values of 0.4.3.
+- **R03, annotation lines of more than 65,000 characters are no longer deleted** by
+  `retrieve_longest_isoforms()`, `generate_ortholog_tables()` (through `check_annotation()`; a workaround for
+  rtracklayer's import, which these functions no longer use). NCBI TAIR10.1 has CDS / mRNA rows of 168,000
+  characters: with the GFF3 file 2 proteins were reported as not annotated and AT5G38410 got the shorter
+  NP_198657.1 instead of NP_001119331.1; with the GTF file 15 proteins and 11 loci were lost. Now 27,562 (GFF3)
+  and 27,561 (GTF) loci, the numbers and sequences an independent parser gives. `check_annotation()` reports such
+  lines; `remove_annotation_outliers = TRUE` still writes a copy without them, with a warning that their
+  features are missing. No option restores the deletion.
+- **R06, the same sequence ID in query and subject file.** Every such gene pair was `NA` on the PAL2NAL path
+  (PAL2NAL matches protein and coding sequence by name; 20 of 20 pairs in the test, silently in 0.4.3). The two
+  sequences of a pair are now called `query` and `subject` in the per-pair files on every tool path, and the IDs
+  come from the pair table. This also removes the problems of IDs such as `-1` with Clustal Omega. With
+  `store_locally = TRUE` the stored alignments therefore hold these names; the new file
+  `orthologr_alignment_files/_alignment/pair_ids.tsv` says which pair a file `q<i>_...` holds.
+- **R20, best hits:** of several rows of the chosen subject that tie in bit score, e-value, alignment length and
+  identity (several HSPs), the row kept is the one with the highest raw score, then the smallest values of the
+  remaining columns - no longer the first in the table. The subject chosen never changes (these keys come after
+  `subject_id`): human / mouse 16,827 reciprocal best hits, 68 and 96.8% as before (TBD-R20).
+
+**Behaviour**
+- **R08, parallel runs on Windows (and with `options(orthologr.cluster_type = "PSOCK")`):** an argument given as a
+  variable (`kaks_calc_path = kp`, `aa_aln_path = ap`, `quiet = qt`) reached the worker processes unevaluated and
+  failed there ("object 'kp' not found"; `qt` was found as `stats::qt`): all gene pairs `NA`, also through
+  `divergence_stratigraphy()` and `dNdS_orthogroups()`. All arguments are evaluated before the cluster is used.
+- **R07, parameter strings are argument lists, not shell text.** `params`, `aa_aln_params`, `aligner_params`,
+  `diamond_params`, `blast_params`, `kaks_calc.params`, `deepclust_params`, `realign_params` were pasted into a
+  shell command line: `multi_aln(params = "--force; touch X")` ran `touch X`. They are now split into arguments
+  (white space separates, quotes group, a backslash escapes) and each argument is handed to the program quoted.
+  Shell syntax inside such a string (`;`, `|`, `>`, `$( )`) no longer works and reaches the program as text.
+- **R09, a missing program is an error before the search starts.** Without KaKs_Calculator
+  (`dnds_est.method = "YN"`), without the alignment program (`aa_aln_tool = "clustalo"`, the default of
+  `dNdS_orthogroups()`) or without perl, `dNdS()`, `divergence_stratigraphy()` and `dNdS_orthogroups()` ran the
+  complete search and returned a table of `NA` rows with one warning.
+- **R13:** after an interrupt (or error) of a parallel run the worker processes are ended before the working
+  folder of the call is removed; the folder `orthologr_dNdS_*` stayed in `tempdir()` after an interrupted FORK run.
+- **R10:** `longest_per_group_do()` (reference code, reached with missing sequence widths) returned wrong rows
+  when the table had a column named `pos`.
+- **R18 / R11, tests and CI:** the suite passes without any optional program (PATH with R and perl only; no
+  ClustalW needed by the ID test); the R-CMD-check workflow has a leg without optional tools;
+  `"diamond>=2.1"` is quoted in the workflows (unquoted, a shell reads `>=2.1` as a redirection); `_pkgdown.yml`
+  lists every topic and a test fails when one is missing.
+- **R22:** new help page **`?orthologr_options`** with every option and environment variable the package reads,
+  and the rules for parameter strings.
+- **R12 / R19 / R05:** README no longer says rtracklayer is needed for `select_orthologs()` /
+  `retrieve_longest_isoforms()` and lists the orthogroup functions; the `multi_aln()` examples for MUSCLE and
+  T-Coffee run with current versions; the unused `inst/KaKs_Calc_parser/parseFastaIntoAXT.pl` is removed;
+  `MAINTAINER_NOTES.md` describes the licence inconsistency (GPL-2 in DESCRIPTION, GPL-3-or-later sources).
+
+**Corrections of numbers in this file (R01, R02):** TBD-R01R02.
+
+**Behaviour changes of 0.5.0 that were not listed before**
+1. `divergence_stratigraphy(ds.values = FALSE)` no longer ran `na.omit()` on its result (now, with the default
+   `dS_zero = "drop"`, it holds no `NA` again).
+2. A missing external program gave a table of `NA` rows and a warning (0.4.3: an error at the first gene pair);
+   now an error before the search (R09).
+3. A gene pair whose alignment or estimation fails is an `NA` row with a reason in
+   `attr(, "failed_pairs")`; in 0.4.3 the first failure ended the run. Consequence: when a program is killed by
+   Ctrl-C in an interactive session, R itself usually receives the interrupt as well and the run ends; should
+   only the program be hit, that pair becomes an `NA` row and the run goes on.
+4. The options `orthologr.tmpdir`, `orthologr.cluster_type`, `orthologr.corrupted_cds_dir`,
+   `orthologr.keep_tmp`, `orthologr.isoform_warning` exist (now documented in `?orthologr_options`).
+5. `multi_aln()` and `codon_aln()` return the path of the alignment file (invisibly) with `get_aln = FALSE`.
+6. `dNdS()` results carry the attributes `failed_pairs` and `dropped_sequences`.
+7. `inst/KaKs_Calc_parser/parseFastaIntoAXT.pl` was shipped but no longer run (removed now).
+8. The pkgdown site in `docs/` is not rebuilt on this fork (the pkgdown workflow builds it).
+
 ### New: orthogroups of several species with DIAMOND - `orthogroups()`, `write_orthogroups()`, `dNdS_orthogroups()`
 
 orthologr no longer needs OrthoFinder for groups of orthologs of more than two species (`orthofinder2()` never
@@ -304,8 +409,8 @@ Changes of results in this section
   (1,500 genes) against O157 Sakai ran for 40 minutes and failed, because 28% of the gene pairs have dN/dS = 0.
   Now (1) strata are assigned by a tie-safe rule (below), (2) `attr(result, "dNdS_tbl")` of
   `divergence_stratigraphy()` holds the complete dN/dS table of the run, before filtering and binning, (3) should
-  the binning fail all the same, the dN/dS table is returned with a warning, and (4) `n_quantile` and `dS_zero`
-  are checked before the run starts.
+  the binning fail all the same, a divergence map without rows is returned with a warning (the table of the run
+  is in that attribute), and (4) `n_quantile` and `dS_zero` are checked before the run starts.
 - **Tie-safe strata.** Stratum `k` holds the values in `(q[k-1], q[k]]` of the `n_quantile` quantiles, as before;
   with coinciding thresholds the same rule is applied through ranks
   (`max(1, ceiling((r - 1) * n / (N - 1)))` with `r` the smallest rank of a value). Without ties the strata are
@@ -321,9 +426,12 @@ dS = 0
   because their `dNdS` is `NA` and `NA <= dnds.threshold` is `NA`: genes with identical coding sequences
   (dN = dS = 0) and genes with nonsynonymous changes only (dN > 0, dS = 0). In the *E. coli* run 85 of 1,280 pairs
   disappeared, 47 of them identical sequences. New argument `dS_zero`:
-  `"keep"` (**the new default**) keeps these pairs with `dNdS = NA` and marks them in a new logical column
-  `dS_zero`; in a divergence map they have the stratum `NA`. `"drop"` leaves them out as before. A message gives
-  the numbers (identical / dN > 0) in both cases. `options(orthologr.dS_zero = "drop")` restores the old default.
+  `"drop"` (the default) leaves them out as before, but a message now gives the numbers (identical / dN > 0)
+  and says how to keep them; `"keep"` keeps these pairs with `dNdS = NA` and marks them in a new logical column
+  `dS_zero` (in a divergence map they then have the stratum `NA`). `options(orthologr.dS_zero = "keep")` sets
+  the default for a session. (`"keep"` was the default for a while during development; it was taken back after
+  the third review, see "Fixes after the third review".) `divergence_stratigraphy()` lists the pairs it leaves
+  out in `attr(result, "left_out")`.
 
 Comeron's method (`dnds_est.method = "Comeron"`, the default)
 - **Saturation is `NA`, not a finite number.** When the argument of a logarithm of the correction is not positive
@@ -358,10 +466,9 @@ Comeron's method (`dnds_est.method = "Comeron"`, the default)
   the first `_`, which broke IDs such as `NM_001234` or `LOC_Os01g01010`.
 
 Changes of results and row counts in this section
-- `filter_dNdS()`, `divergence_stratigraphy()`: gene pairs with dS = 0 are kept (more rows; `dNdS` / stratum `NA`;
-  `filter_dNdS()` returns the extra column `dS_zero`). *E. coli* K-12 vs Sakai in the audit: the 85 of 1,280 pairs
-  that were dropped are kept.
-  Restored by `dS_zero = "drop"` or `options(orthologr.dS_zero = "drop")`.
+- `filter_dNdS()`, `divergence_stratigraphy()`: no change of rows or columns by default (gene pairs with dS = 0
+  are left out as in 0.4.3, now with a message; *E. coli* K-12 vs Sakai in the audit: 85 of 1,280 pairs). They
+  are kept on request with `dS_zero = "keep"` or `options(orthologr.dS_zero = "keep")`.
 - `divergence_map()`, `divergence_stratigraphy()`: tables that stopped with "duplicate threshold" now give
   strata; tables that worked give the same strata (except `n_quantile` 49 / 98, where the `NA` is gone).
 - Comeron dN / dS / dN/dS: `NA` instead of a finite value for saturated pairs (numbers above). Restored by

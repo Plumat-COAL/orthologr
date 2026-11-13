@@ -19,7 +19,7 @@ jobs:
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
 
-    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }}${{ matrix.config.tools == 'none' && ', no optional tools' || '' }})
 
     strategy:
       fail-fast: false
@@ -30,6 +30,9 @@ jobs:
           - {os: ubuntu-latest,  r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,  r: 'release'}
           - {os: ubuntu-latest,  r: 'oldrel-1'}
+          # no optional tools: no DIAMOND, BLAST+, aligners, KaKs_Calculator (perl is on the runner). Every
+          # test that needs one of them must skip; none may fail.
+          - {os: ubuntu-latest,  r: 'release', tools: 'none'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -39,13 +42,13 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install DIAMOND, BLAST+ and the optional programs (Linux, macOS)
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && matrix.config.tools != 'none'
         uses: mamba-org/setup-micromamba@v2
         with:
           environment-name: orthologr-tools
           create-args: >-
             -c conda-forge -c bioconda
-            diamond>=2.1
+            "diamond>=2.1"
             blast
             clustalo
             mafft
@@ -55,7 +58,7 @@ jobs:
           generate-run-shell: false
 
       - name: Put the programs on the PATH (Linux, macOS)
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && matrix.config.tools != 'none'
         shell: bash
         run: |
           echo "$MAMBA_ROOT_PREFIX/envs/orthologr-tools/bin" >> "$GITHUB_PATH"
@@ -73,7 +76,7 @@ jobs:
       - name: Show the versions of the external programs
         shell: bash
         run: |
-          diamond version
+          if command -v diamond > /dev/null; then diamond version; else echo "no DIAMOND (leg without optional tools)"; fi
           perl -v | head -n 2
           if command -v blastp > /dev/null; then blastp -version; fi
           if command -v clustalo > /dev/null; then clustalo --version; fi
