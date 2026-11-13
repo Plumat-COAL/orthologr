@@ -236,6 +236,37 @@ test_that("multi_aln(tool = 't_coffee') works without network in its default mod
                          "multi_aln_example.fasta_t_coffee.aln")
 })
 
+test_that("multi_aln(tool = 't_coffee') aligns sequences that end in '*' (they were returned unaligned)", {
+        skip_if_not(tcoffee_available, "T-Coffee is not installed")
+        # The example proteins end in '*', as the translated coding sequences of dNdS() do. Given with '-infile',
+        # T-Coffee 12 took such a file for a finished alignment: rows without a single internal gap, padded at
+        # the end, out of register.
+        aa <- system.file("seqs/multi_aln_example.fasta", package = "orthologr")
+        aln <- multi_aln(aa, tool = "t_coffee", get_aln = TRUE, quiet = TRUE)
+        rows <- as.character(Biostrings::unmasked(aln))
+        internal_gaps <- nchar(gsub("[^-]", "", gsub("^-+|-+$", "", rows)))
+        expect_true(all(internal_gaps > 0))
+        input <- as.character(Biostrings::readAAStringSet(aa))
+        expect_identical(unname(gsub("[-*]", "", rows)), unname(gsub("\\*", "", input)))
+})
+
+test_that("dNdS() with T-Coffee as multiple aligner agrees with ClustalW on the 20-gene example", {
+        skip_if_not(tcoffee_available && clustalw_available && diamond_available && perl_available,
+                    "T-Coffee, ClustalW, DIAMOND2 or perl is not installed")
+        run <- function(tool) suppressMessages(dNdS(thal_cds(), lyra_cds(), aa_aln_type = "multiple",
+                                                    aa_aln_tool = tool, print_citation = FALSE))
+        tc <- run("t_coffee")
+        cw <- run("clustalw")
+        expect_equal(nrow(tc), 20)
+        # unaligned rows gave 10 of 20 pairs a saturated (NA) dN/dS and 7 of 20 within 0.1 of ClustalW
+        expect_false(anyNA(tc$dNdS))
+        m <- merge(as.data.frame(tc)[, c("query_id", "subject_id", "dNdS")],
+                   as.data.frame(cw)[, c("query_id", "subject_id", "dNdS")], by = c("query_id", "subject_id"))
+        expect_equal(nrow(m), 20)
+        expect_gte(sum(abs(m$dNdS.x - m$dNdS.y) <= 0.1, na.rm = TRUE), 18)
+        expect_gt(stats::cor(m$dNdS.x, m$dNdS.y, use = "complete.obs"), 0.95)
+})
+
 # ---------------------------------------------------------------- coding sequences that are left out
 
 test_that("is.dnaSequence() accepts A, C, G, T only", {
