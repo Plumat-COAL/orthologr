@@ -194,7 +194,7 @@ test_that("write_dNdS() and read_dNdS() keep the table, its column types and its
 
         back <- read_dNdS(f)
         expect_s3_class(back, "tbl_df")
-        expect_identical(as.data.frame(back), as.data.frame(tbl), ignore_attr = TRUE)
+        expect_equal(as.data.frame(back), as.data.frame(tbl), ignore_attr = TRUE, tolerance = 1e-6)
         expect_identical(vapply(back, function(v) class(v)[1], ""), vapply(tbl, function(v) class(v)[1], ""))
         expect_identical(attr(back, "failed_pairs"), attr(tbl, "failed_pairs"))
         expect_identical(attr(back, "dropped_sequences"), attr(tbl, "dropped_sequences"))
@@ -232,7 +232,8 @@ test_that("a dNdS() result survives write_dNdS() / read_dNdS()", {
         on.exit(unlink(c(f, paste0(f, ".run.json"))), add = TRUE)
         write_dNdS(res, f)
         back <- read_dNdS(f)
-        expect_identical(as.data.frame(back), as.data.frame(res), ignore_attr = TRUE)
+        # (tolerance: R's reading of numbers of extreme exponent, e.g. 1e-300, is not exact on macOS arm64)
+        expect_equal(as.data.frame(back), as.data.frame(res), ignore_attr = TRUE, tolerance = 1e-6)
         expect_identical(attr(back, "orthologr_run")$tools, attr(res, "orthologr_run")$tools)
         expect_identical(attr(back, "orthologr_run")$input_files, attr(res, "orthologr_run")$input_files)
         expect_identical(attr(back, "orthologr_run")$arguments$dnds_est.method, "Comeron")
