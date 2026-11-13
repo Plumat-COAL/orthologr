@@ -35,6 +35,27 @@ ensembl_human_chr21.gtf, ensembl_human_chr21.gff3, ensembl_human_chr21_pep.fa, e
 The pieces were cut from the copies of these files that the second audit of the package downloaded
 (/home/claude/audit2/work/r05 and /home/claude/audit2/work/iso on the machine of the audit).
 
+codon_aln/
+----------
+pair1_pal2nal.aln, pair2_pal2nal.aln, pair3_pal2nal.aln, pair7_pal2nal.aln
+    The PAL2NAL codon alignments (FASTA) of the 1st, 2nd, 3rd and 7th gene pair of the example data of the package
+    (inst/seqs/ortho_thal_cds.fasta vs inst/seqs/ortho_lyra_cds.fasta), as dNdS() builds them with the protein
+    alignments of orthologr <= 0.4.3 (Needleman-Wunsch without substitution matrix).
+golden_values.tsv
+    dN, dS and dN/dS of these alignments: Comeron (gestimator; it writes four significant digits) and Li
+    (seqinr::kaks) as computed by orthologr 0.5.0, and MLPB as computed by KaKs_Calculator 2.0 (bioconda build)
+    for the cross-check. Comeron and Li agree with MLPB within 12% for dN and dS on these pairs; the test states
+    a tolerance of 15% (or 0.005).
+known_pairs.tsv
+    The 20 reciprocal best hit pairs of the example data with their Comeron dN, dS and dN/dS (same alignments).
+    Written by /home/claude/tools-h/scripts/mk_golden.R on the machine of the second audit round.
+
+hits/
+-----
+tie_break_hits.tsv, tie_break_expected.tsv
+    A hand-written hit table in the 21-column format of diamond() / blast() in which every level of the best-hit
+    rules decides once, and the best hit expected under best_hit_rule = "bitscore" and "evalue".
+
 dnds_0.4.3/
 -----------
 comeron_20.rds, yn_20.rds
