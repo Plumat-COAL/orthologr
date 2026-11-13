@@ -6,6 +6,7 @@
   not be processed and input sequences that were left out, each with the reason.
 - A warning when an input file of `dNdS()`, `divergence_stratigraphy()`, `orthologs()` or `orthogroups()` seems
   to hold several transcripts per gene (`options(orthologr.isoform_warning = FALSE)` switches it off).
+- `aa_sub_matrix` (`dNdS()`, `pairwise_aln()`): the substitution matrix of pairwise protein alignments.
 - MUSCLE 5 is supported; `"MLPB"` is an accepted `dnds_est.method`.
 - `environment.yml` (conda environment with R, the R packages and the external programs); a pkgdown site
   configuration; an article on the setup on Windows.
@@ -14,6 +15,7 @@
 
 | Change | Effect (measured) | Old behaviour |
 |---|---|---|
+| Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | 1,000-gene example: dN or dS changes for a third of the gene pairs, mostly slightly (r of dN/dS old vs new 0.988) | `options(orthologr.legacy_pairwise_aln = TRUE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
 
@@ -68,6 +70,10 @@ Running programs:
 
 ### Speed (results unchanged)
 
+- Default `dNdS()` on the 1,000-gene example, 1 core: 744 s (0.4.3) -> 50 s; with 2 cores 27 s. Half of the last
+  step comes from building the full-length alignment rows directly instead of with `pwalign::alignedPattern()`
+  (97 s -> 50 s); the rest from BLOSUM62 scoring, reading and translating every file once, vectorised
+  translation and best-hit selection, and not writing a second copy of every alignment.
 - `select_orthologs()`, `retrieve_longest_isoforms()` and `deepclust()` read annotations and sequences in one
   pass.
 
