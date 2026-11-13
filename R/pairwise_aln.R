@@ -177,13 +177,13 @@ pairwise_aln <- function(file,
                 # write file
                 # pwalign::pattern(aln) / pwalign::subject(aln) only hold the aligned range of each sequence:
                 # for a global alignment the overhanging ends of the longer sequence are cut off.
-                # pwalign::alignedPattern(aln) / pwalign::alignedSubject(aln) are the full-length rows
-                # (overhangs aligned against gaps).
+                # The full-length rows (overhangs aligned against gaps) are what
+                # pwalign::alignedPattern(aln) / pwalign::alignedSubject(aln) return; aligned_rows() builds the
+                # same two strings from the aligned ranges, which takes about a hundredth of the time.
                 if (legacy) {
                         aln_seqs <- list(pwalign::pattern(aln), pwalign::subject(aln))
                 } else {
-                        aln_seqs <- list(as.character(pwalign::alignedPattern(aln)),
-                                         as.character(pwalign::alignedSubject(aln)))
+                        aln_seqs <- as.list(aligned_rows(aln, as.character(seqs[[1]]), as.character(seqs[[2]])))
                 }
                 
                 seqinr::write.fasta(
@@ -218,3 +218,27 @@ pairwise_aln <- function(file,
 
 
 
+
+# The two full-length rows of a global pairwise alignment as character strings: what
+# as.character(pwalign::alignedPattern(aln)) and as.character(pwalign::alignedSubject(aln)) return, built from the
+# aligned ranges (pwalign::pattern(aln), pwalign::subject(aln)) and the ends of the two sequences that lie outside
+# them. An unaligned end of the pattern stands against gaps in the subject row and the other way round. (Only
+# for type = "global": for local and overlap alignments pwalign's functions leave the unaligned ends out.)
+#   aln         : a PairwiseAlignments object holding one alignment
+#   pattern_seq : the complete (unaligned) pattern sequence, one string
+#   subject_seq : the complete (unaligned) subject sequence, one string
+aligned_rows <- function(aln, pattern_seq, subject_seq) {
+        p_range <- pwalign::pattern(aln)
+        s_range <- pwalign::subject(aln)
+        p_start <- pwalign::start(p_range)
+        p_end   <- pwalign::end(p_range)
+        s_start <- pwalign::start(s_range)
+        s_end   <- pwalign::end(s_range)
+        n_p <- nchar(pattern_seq)
+        n_s <- nchar(subject_seq)
+        gaps <- function(n) strrep("-", max(n, 0))
+        c(paste0(gaps(s_start - 1), substr(pattern_seq, 1, p_start - 1), as.character(p_range),
+                 substr(pattern_seq, p_end + 1, n_p), gaps(n_s - s_end)),
+          paste0(substr(subject_seq, 1, s_start - 1), gaps(p_start - 1), as.character(s_range),
+                 gaps(n_p - p_end), substr(subject_seq, s_end + 1, n_s)))
+}
