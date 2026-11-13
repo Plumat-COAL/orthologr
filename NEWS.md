@@ -2,11 +2,14 @@
 
 ### New
 
+- `divergence_left_out()`: the gene pairs that are not in a divergence map, with the reason.
 - `attr(result, "failed_pairs")` and `attr(result, "dropped_sequences")` on dN/dS tables: gene pairs that could
   not be processed and input sequences that were left out, each with the reason.
 - A warning when an input file of `dNdS()`, `divergence_stratigraphy()`, `orthologs()` or `orthogroups()` seems
   to hold several transcripts per gene (`options(orthologr.isoform_warning = FALSE)` switches it off).
 - `aa_sub_matrix` (`dNdS()`, `pairwise_aln()`): the substitution matrix of pairwise protein alignments.
+- `dS_zero` (`filter_dNdS()`, `divergence_stratigraphy()`): `"keep"` returns gene pairs with dS = 0 instead of
+  leaving them out.
 - MUSCLE 5 is supported; `"MLPB"` is an accepted `dnds_est.method`.
 - `environment.yml` (conda environment with R, the R packages and the external programs); a pkgdown site
   configuration; an article on the setup on Windows.
@@ -16,6 +19,8 @@
 | Change | Effect (measured) | Old behaviour |
 |---|---|---|
 | Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | 1,000-gene example: dN or dS changes for a third of the gene pairs, mostly slightly (r of dN/dS old vs new 0.988) | `options(orthologr.legacy_pairwise_aln = TRUE)` |
+| Comeron's method: `NA` for a saturated dN or dS (was: a finite, too small value) | 1 dN of 995 pairs (example); 17 dN and 1 dS of 1,500 pairs (human / mouse) | `options(orthologr.legacy_comeron_saturation = TRUE)` |
+| KaKs_Calculator methods: `dN = 0` for a pair without nonsynonymous change (was `NA`, with `dNdS = 0`) | 11 of 995 pairs; `filter_dNdS()` keeps them | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
 
@@ -45,9 +50,16 @@ Results:
   (`007`, `1e5`), IDs of more than 15 characters (MAFFT) and the same ID in both files lost rows, came back
   changed or gave `NA`. The dN/dS rows are joined with the hit table by gene pair (was: by query only).
 - Li's method returned text columns and took small values (`9.95e-05`) for the saturation marker.
+- `filter_dNdS()` and `divergence_stratigraphy()` say how many gene pairs they leave out and why
+  (`divergence_left_out()`); gene pairs with dS = 0 are left out as before unless `dS_zero = "keep"`.
+- `divergence_map()`: strata are tie-safe, `n_quantile = 49` or `98` no longer gives `NA` for the largest value,
+  a failed binning no longer loses the finished dN/dS run, and the caller's table is not changed.
+- Comeron's method (gestimator): input that is not a codon alignment is an R error (a sequence shorter than one
+  codon ended the R session; sequences of unequal length gave numbers).
 - `retrieve_longest_isoforms()` and `select_orthologs()` work on real NCBI and Ensembl GFF3 / GTF files
   (proteins were lost without notice, annotation lines of more than 65,000 characters were deleted, GFF3 loci
   were grouped by name).
+- `promotor_divergence_of_orthologous_genes()` pairs promoters by ortholog pair.
 - `substitutionrate(kaks_calc.params = )` is added to the method instead of replacing it.
 
 Running programs:

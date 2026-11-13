@@ -16,6 +16,7 @@ reference:
   contents:
   - divergence_stratigraphy
   - divergence_map
+  - divergence_left_out
 - title: "Orthology inference"
   contents:
   - orthologs
