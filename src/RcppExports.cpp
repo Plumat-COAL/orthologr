@@ -139,8 +139,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // gestimator
-void gestimator(std::string file, std::string file_out, int maxHits, bool verbose, bool remove_all_gaps);
-RcppExport SEXP _orthologr_gestimator(SEXP fileSEXP, SEXP file_outSEXP, SEXP maxHitsSEXP, SEXP verboseSEXP, SEXP remove_all_gapsSEXP) {
+void gestimator(std::string file, std::string file_out, int maxHits, bool verbose, bool remove_all_gaps, bool legacy_saturation);
+RcppExport SEXP _orthologr_gestimator(SEXP fileSEXP, SEXP file_outSEXP, SEXP maxHitsSEXP, SEXP verboseSEXP, SEXP remove_all_gapsSEXP, SEXP legacy_saturationSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< std::string >::type file(fileSEXP);
@@ -148,7 +148,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type maxHits(maxHitsSEXP);
     Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
     Rcpp::traits::input_parameter< bool >::type remove_all_gaps(remove_all_gapsSEXP);
-    gestimator(file, file_out, maxHits, verbose, remove_all_gaps);
+    Rcpp::traits::input_parameter< bool >::type legacy_saturation(legacy_saturationSEXP);
+    gestimator(file, file_out, maxHits, verbose, remove_all_gaps, legacy_saturation);
     return R_NilValue;
 END_RCPP
 }
