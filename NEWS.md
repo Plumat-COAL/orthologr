@@ -8,6 +8,8 @@
 - A warning when an input file of `dNdS()`, `divergence_stratigraphy()`, `orthologs()` or `orthogroups()` seems
   to hold several transcripts per gene (`options(orthologr.isoform_warning = FALSE)` switches it off).
 - `aa_sub_matrix` (`dNdS()`, `pairwise_aln()`): the substitution matrix of pairwise protein alignments.
+- `best_hit_rule` (`dNdS()`, `orthologs()`, `diamond_best()`, `diamond_rec()`, `blast_best()`, `blast_rec()`,
+  `divergence_stratigraphy()`, `select_orthologs()`, `orthogroups()`).
 - `dS_zero` (`filter_dNdS()`, `divergence_stratigraphy()`): `"keep"` returns gene pairs with dS = 0 instead of
   leaving them out.
 - MUSCLE 5 is supported; `"MLPB"` is an accepted `dnds_est.method`.
@@ -18,6 +20,7 @@
 
 | Change | Effect (measured) | Old behaviour |
 |---|---|---|
+| Best hits are chosen by bit score (was: e-value, then alignment length) | human / mouse: 3.2 % of the best hits change; pairs that contradict Ensembl Compara fall from 2.0 % to 0.4 % | `best_hit_rule = "evalue"` or `options(orthologr.best_hit_rule = "evalue")` |
 | Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | 1,000-gene example: dN or dS changes for a third of the gene pairs, mostly slightly (r of dN/dS old vs new 0.988) | `options(orthologr.legacy_pairwise_aln = TRUE)` |
 | Comeron's method: `NA` for a saturated dN or dS (was: a finite, too small value) | 1 dN of 995 pairs (example); 17 dN and 1 dS of 1,500 pairs (human / mouse) | `options(orthologr.legacy_comeron_saturation = TRUE)` |
 | KaKs_Calculator methods: `dN = 0` for a pair without nonsynonymous change (was `NA`, with `dNdS = 0`) | 11 of 995 pairs; `filter_dNdS()` keeps them | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
@@ -56,6 +59,7 @@ Results:
   a failed binning no longer loses the finished dN/dS run, and the caller's table is not changed.
 - Comeron's method (gestimator): input that is not a codon alignment is an R error (a sequence shorter than one
   codon ended the R session; sequences of unequal length gave numbers).
+- Best hits no longer depend on the order of the hit table.
 - `retrieve_longest_isoforms()` and `select_orthologs()` work on real NCBI and Ensembl GFF3 / GTF files
   (proteins were lost without notice, annotation lines of more than 65,000 characters were deleted, GFF3 loci
   were grouped by name).
