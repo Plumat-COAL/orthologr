@@ -62,6 +62,7 @@ export(write_orthogroups)
 importFrom(Rcpp,sourceCpp)
 importFrom(data.table,
   ":=",
+  .N,
   is.data.table,
   setkeyv
 )

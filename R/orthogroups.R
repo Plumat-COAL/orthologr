@@ -259,6 +259,10 @@ orthogroups <- function(files,
         res
 }
 
+# data.table's .N (number of rows of a group) is used in the functions of this file and of orthogroups_dnds.R
+#' @importFrom data.table .N
+NULL
+
 # ---- argument checks ------------------------------------------------------------------------------------------
 
 check_flag <- function(x, arg) {
