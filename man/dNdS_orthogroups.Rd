@@ -97,7 +97,8 @@ and a dN/dS value), and median, mean, first and third quartile of dN, dS and dN/
 the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the group that have a dN (dS,
 dN/dS) value - a pair without dS (e.g. saturated at synonymous sites) still counts with its dN, and a pair
 above \code{dS_saturation} counts with all its values. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the
-numbers behind the statistics. \code{\link{dNdS_clusters}} uses the same rule;
+numbers behind the statistics. \code{\link{dNdS_clusters}} uses the same rule (its quartile columns are named
+\code{_q25} / \code{_q75}, and it adds minimum and maximum);
 \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 }
 }

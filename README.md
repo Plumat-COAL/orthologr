@@ -294,7 +294,7 @@ The complete list of functions is in the [reference](https://drostlab.github.io/
 ### dN/dS estimation
 
 * `dNdS()`: Compute dN/dS values for the orthologous genes of two organisms
-* `dNdS_coal()` (= `dNdS(engine = "coal")`), `dNdS_clusters()`: the same, and dN/dS within DeepClust clusters, with the COAL engine (optional package `coalr`)
+* `dNdS_coal()` (`dNdS(engine = "coal")` calls it; note that the default method differs: `"YN"` for `dNdS_coal()`, `"Comeron"` for `dNdS()`), `dNdS_clusters()`: the same, and dN/dS within DeepClust clusters, with the COAL engine (optional package `coalr`)
 * `divergence_stratigraphy()`, `divergence_map()`, `filter_dNdS()`: divergence strata from dN/dS values
 * `map_generator_dnds()`, `read.dnds.tbl()`: dN/dS tables of one query against many subject organisms
 * `divergence_left_out()`: the gene pairs a divergence map does not hold, and why
