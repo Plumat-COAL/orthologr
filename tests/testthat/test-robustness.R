@@ -116,6 +116,21 @@ test_that("compute_dnds() returns an NA row with a reason for a pair that fails,
         expect_false(anyNA(res$dNdS))
 })
 
+test_that("compute_dnds() with new R processes (PSOCK) works in the folder of the caller (Windows: every pair failed)", {
+        skip_if_not(perl_available, "perl is not installed")
+        skip_if(parallel::detectCores() < 2, "one core only")
+        skip_on_cran()
+        tbl <- data.table::data.table(query_id = c("q1", "q2"), subject_id = c("s1", "s2"),
+                                      query_cds = c(cds_a, cds_b), subject_cds = c(cds_b, cds_a),
+                                      query_aa = c(aa_a, aa_b), subject_aa = c(aa_b, aa_a))
+        old <- options(orthologr.cluster_type = "PSOCK", orthologr.tmpdir = NULL)
+        on.exit(options(old), add = TRUE)
+        res <- compute_dnds(tbl, aa_aln_type = "pairwise", aa_aln_tool = "NW", dnds_est.method = "Comeron",
+                            quiet = TRUE, comp_cores = 2)
+        expect_equal(nrow(attr(res, "failed_pairs")), 0)
+        expect_false(anyNA(res$dNdS))
+})
+
 test_that("an NA row has the columns of the method's result ...", {
         expect_equal(names(dnds_na_row("a", "b", "Comeron", "why")), c("query_id", "subject_id", "dN", "dS", "dNdS", ".reason"))
         expect_equal(names(dnds_na_row("a", "b", "YN", "why")), c("query_id", "subject_id", "dN", "dS", "dNdS", "method", ".reason"))
@@ -156,7 +171,7 @@ test_that("orthologr_tmpdir() is tempdir() unless a call set its own folder ..."
         d <- orthologr_tmpdir()
         expect_true(dir.exists(d))
         expect_false(identical(d, tempdir()))
-        expect_equal(dirname(d), tempdir())
+        expect_equal(normalizePath(dirname(d), winslash = "/"), normalizePath(tempdir(), winslash = "/"))
         end()
         expect_false(dir.exists(d))
         expect_equal(orthologr_tmpdir(), tempdir())

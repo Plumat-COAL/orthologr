@@ -374,6 +374,10 @@ dnds_cluster <- function(n) {
         ok <- tryCatch({
                 opts <- options()
                 opts <- opts[startsWith(names(opts), "orthologr.")]
+                # the new processes have a tempdir() of their own: they must work in the folder of this session
+                # (it was not handed over when the caller had not set one, and every pair failed with
+                # "cannot open the connection")
+                opts[["orthologr.tmpdir"]] <- orthologr_tmpdir()
                 parallel::clusterCall(cl, function(lib_paths, opts, path) {
                         .libPaths(lib_paths)
                         Sys.setenv(PATH = path)

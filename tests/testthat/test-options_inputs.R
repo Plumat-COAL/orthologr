@@ -53,6 +53,9 @@ test_that("comp_cores above the number of cores is capped with a warning (it was
         expect_silent(check_comp_cores(1))
         expect_error(check_comp_cores(0), "positive")
         skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
+        # R CMD check --as-cran (_R_CHECK_LIMIT_CORES_) does not allow more than 2 processes
+        skip_if(n > 2 && nzchar(Sys.getenv("_R_CHECK_LIMIT_CORES_")) && Sys.getenv("_R_CHECK_LIMIT_CORES_") != "false",
+                "more than 2 cores and _R_CHECK_LIMIT_CORES_ is set")
         expect_warning(
                 res <- suppressMessages(dNdS(thal_cds(), lyra_cds(), comp_cores = n + 5, print_citation = FALSE)),
                 "more than the .* available"
