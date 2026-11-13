@@ -55,9 +55,12 @@ less than \code{min_qcov} percent of the query, or with a percent identity below
 in effect a coverage of both proteins.}
 
 \item{inparalogs}{a logical value. \code{FALSE} (Default): groups are built from reciprocal best hits only.
-\code{TRUE}: in addition, two genes of the same species are joined when they hit each other with a bit score
-(the smaller one of both directions) higher than the best between-species hit of either gene - a duplication after
-the speciation, in the manner of InParanoid. This is a heuristic on bit scores, not a gene-tree reconciliation.}
+\code{TRUE}: in addition, a gene without reciprocal best hit is attached to a gene of its own species that has
+one, when the two hit each other with a bit score (the smaller one of both directions) higher than the best
+between-species hit of either gene - the second copy of a duplication after the speciation, in the manner of
+InParanoid. A gene is attached to one gene only, so groups are never merged. This is a heuristic on bit scores,
+not a gene-tree reconciliation: it finds more of the one-to-many orthologs at the price of more false pairs (see
+the numbers in the vignette).}
 
 \item{refine}{\code{method = "deepclust"} only: split the clusters that hold more than one gene of a species by the
 reciprocal best hits inside the cluster (one further DIAMOND search, of the members of these clusters only).

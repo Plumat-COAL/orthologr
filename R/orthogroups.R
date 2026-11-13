@@ -31,9 +31,12 @@
 #' \emph{before} best hits are chosen. As a reciprocal best hit needs a hit in both directions, \code{min_qcov} is
 #' in effect a coverage of both proteins.
 #' @param inparalogs a logical value. \code{FALSE} (Default): groups are built from reciprocal best hits only.
-#' \code{TRUE}: in addition, two genes of the same species are joined when they hit each other with a bit score
-#' (the smaller one of both directions) higher than the best between-species hit of either gene - a duplication after
-#' the speciation, in the manner of InParanoid. This is a heuristic on bit scores, not a gene-tree reconciliation.
+#' \code{TRUE}: in addition, a gene without reciprocal best hit is attached to a gene of its own species that has
+#' one, when the two hit each other with a bit score (the smaller one of both directions) higher than the best
+#' between-species hit of either gene - the second copy of a duplication after the speciation, in the manner of
+#' InParanoid. A gene is attached to one gene only, so groups are never merged. This is a heuristic on bit scores,
+#' not a gene-tree reconciliation: it finds more of the one-to-many orthologs at the price of more false pairs (see
+#' the numbers in the vignette).
 #' @param refine \code{method = "deepclust"} only: split the clusters that hold more than one gene of a species by the
 #' reciprocal best hits inside the cluster (one further DIAMOND search, of the members of these clusters only).
 #' Default is \code{FALSE}.
@@ -478,21 +481,29 @@ orthogroups_rbh <- function(best) {
         both
 }
 
-# In-paralog edges (q < s): two genes of one species that hit each other with a bit score (the smaller one of both
-# directions) above the best between-species bit score of either gene.
-orthogroups_inparalogs <- function(hits, genes) {
-        q <- s <- bit_score <- rev_score <- NULL
+# In-paralog edges (seed, in-paralog): a gene without reciprocal best hit is attached to a gene of its species that
+# has one (the seed) when the two hit each other with a bit score (the smaller one of both directions) above the best
+# between-species bit score of either gene. A gene is attached to one seed only (the one with the highest score; of
+# several, the first in the order of the genes), so that groups are never merged by in-paralogs.
+orthogroups_inparalogs <- function(hits, genes, rbh) {
+        q <- s <- bit_score <- rev_score <- score <- NULL
         n <- nrow(genes)
+        none <- data.table::data.table(q = integer(0), s = integer(0))
         sp <- as.integer(factor(genes$species))
+        paired <- logical(n)
+        paired[c(rbh$q, rbh$s)] <- TRUE
         between <- hits[sp[q] != sp[s], list(best = max(bit_score)), by = q]
         best_between <- numeric(n)
         best_between[between$q] <- between$best
-        within <- hits[sp[q] == sp[s], list(q, s, bit_score)]
+        within <- hits[sp[q] == sp[s] & paired[q] & !paired[s], list(q, s, bit_score)]
         if (nrow(within) == 0)
-                return(data.table::data.table(q = integer(0), s = integer(0)))
-        rev <- data.table::data.table(q = within$s, s = within$q, rev_score = within$bit_score)
-        within <- merge(within, rev, by = c("q", "s"))
-        within <- within[q < s & pmin(bit_score, rev_score) > pmax(best_between[q], best_between[s]), list(q, s)]
+                return(none)
+        back <- hits[sp[q] == sp[s] & !paired[q] & paired[s], list(q = s, s = q, rev_score = bit_score)]
+        within <- merge(within, back, by = c("q", "s"))
+        within[ , score := pmin(bit_score, rev_score)]
+        within <- within[score > pmax(best_between[q], best_between[s])]
+        data.table::setorder(within, s, -score, q)
+        within <- within[!duplicated(s), list(q, s)]
         data.table::setorder(within, q, s)
         within
 }
@@ -523,7 +534,7 @@ orthogroups_graph <- function(hits, genes, rule, inparalogs = FALSE) {
         rbh <- orthogroups_rbh(best)
         edges <- rbh
         if (inparalogs)
-                edges <- rbind(edges, orthogroups_inparalogs(hits, genes))
+                edges <- rbind(edges, orthogroups_inparalogs(hits, genes, rbh))
         list(label = connected_components(nrow(genes), edges$q, edges$s), rbh = rbh)
 }
 
