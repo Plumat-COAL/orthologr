@@ -126,8 +126,19 @@ cds2aa <- function(dt, delete_corrupt_cds = TRUE){
                 }
         }
         
-        # omit sequences consisting of others than ACGT - and say which
+        # omit sequences consisting of others than ACGT - and say which. With options(orthologr.ambiguous_cds = "keep")
+        # sequences with IUPAC ambiguity codes (N, R, Y, ...) are kept: a codon with such a letter is translated to X
+        # and left to the alignment and estimation programs (see ?orthologr_options); only other letters are left out.
         not_acgt <- !vapply(dt[ , seqs], is.dnaSequence, logical(1), USE.NAMES = FALSE)
+        if (any(not_acgt) && identical(ambiguous_cds_mode(), "keep")) {
+                iupac <- grepl("^[ACGTNRYKMSWBDHVacgtnrykmswbdhv]*$", dt[ , seqs])
+                kept <- not_acgt & iupac
+                if (any(kept))
+                        message(sum(kept), " coding sequence", if (sum(kept) > 1) "s" else "", " with ambiguous bases (e.g. N) ",
+                                if (sum(kept) > 1) "are" else "is", " kept (options(orthologr.ambiguous_cds = \"keep\")); ",
+                                "codons with such a base are translated to X.")
+                not_acgt <- not_acgt & !iupac
+        }
         if (any(not_acgt)) {
                 report_dropped_cds(dt[not_acgt, geneids], reason = "not_acgt", total = n_total,
                                    seqs = dt[not_acgt, seqs])
@@ -259,13 +270,32 @@ translate_cds <- function(seqs) {
                 return(res)
         n <- nchar(seqs)
         fast <- !is.na(seqs) & n > 0 & n %% 3 == 0 & !grepl("[^ACGTacgt]", seqs)
+        # ambiguous bases (options(orthologr.ambiguous_cds = "keep")): a codon with such a base becomes X
+        fuzzy <- !fast & !is.na(seqs) & n > 0 & n %% 3 == 0 & grepl("^[ACGTNRYKMSWBDHVacgtnrykmswbdhv]*$", seqs)
+        if (any(fuzzy))
+                res[fuzzy] <- as.character(Biostrings::translate(
+                        Biostrings::DNAStringSet(seqs[fuzzy]),
+                        genetic.code   = Biostrings::GENETIC_CODE,
+                        no.init.codon  = TRUE,
+                        if.fuzzy.codon = "X"
+                ))
         if (any(fast))
                 res[fast] <- as.character(Biostrings::translate(
                         Biostrings::DNAStringSet(seqs[fast]),
                         genetic.code  = Biostrings::GENETIC_CODE,
                         no.init.codon = TRUE
                 ))
-        if (any(!fast))
-                res[!fast] <- vapply(seqs[!fast], transl, character(1), USE.NAMES = FALSE)
+        rest <- !fast & !fuzzy
+        if (any(rest))
+                res[rest] <- vapply(seqs[rest], transl, character(1), USE.NAMES = FALSE)
         res
+}
+
+# "drop" (default) or "keep": what happens to coding sequences with IUPAC ambiguity codes (N, R, Y, ...);
+# options(orthologr.ambiguous_cds = ).
+ambiguous_cds_mode <- function() {
+        m <- getOption("orthologr.ambiguous_cds", "drop")
+        if (!is.character(m) || length(m) != 1 || !is.element(m, c("drop", "keep")))
+                orthologr_abort("options(orthologr.ambiguous_cds = ) must be \"drop\" or \"keep\".", class = "bad_argument")
+        m
 }

@@ -67,6 +67,11 @@ directory): the folder in which the file \code{<name>_corrupted_cds_seqs.fasta} 
 length is not a multiple of 3 is written. A message names the file.}
 \item{\code{orthologr.isoform_warning}}{\code{TRUE} (default). \code{FALSE}: \code{dNdS()} and
 \code{orthologs()} and \code{orthogroups()} do not check whether the input files hold several isoforms per gene.}
+\item{\code{orthologr.ambiguous_cds}}{\code{"drop"} (default, as 0.4.3): coding sequences with characters other
+than A, C, G, T are left out before the search (they are counted in the summary and listed in
+\code{attr(result, "dropped_sequences")}). \code{"keep"}: sequences whose other letters are IUPAC ambiguity codes
+(N, R, Y, K, M, S, W, B, D, H, V) are kept; a codon with such a base is translated to \code{X}, and the
+alignment and estimation programs treat it as a codon of unknown identity.}
 }
 The option \code{timeout} of R is raised to at least 600 seconds while \code{diamond_install()} downloads DIAMOND.
 }
