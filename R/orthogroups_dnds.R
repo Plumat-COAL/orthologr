@@ -131,7 +131,7 @@ dNdS_orthogroups <- function(x,
         }
         check_aa_aln_scoring(aa_aln_scoring)
         if (engine == "orthologr" && aa_aln_scoring != "pwalign")
-                stop("aa_aln_scoring = \"", aa_aln_scoring, "\" needs engine = \"coal\": engine = \"orthologr\" aligns pairs ",
+                orthologr_abort(class = "bad_argument", "aa_aln_scoring = \"", aa_aln_scoring, "\" needs engine = \"coal\": engine = \"orthologr\" aligns pairs ",
                      "with pairwise_aln(), i.e. \"pwalign\".", call. = FALSE)
         comp_cores <- check_comp_cores(comp_cores)
         

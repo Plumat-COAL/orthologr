@@ -186,10 +186,10 @@ substitutionrate <- function(file,
                 orthologr_abort(class = "bad_argument", "Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
         
         if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
-                stop("Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
         
         if (kaks_tool == "coal" && !is.element(est.method, c("Comeron", "Li", coal_methods())))
-                stop("kaks_tool = \"coal\" computes the methods ", paste(coal_methods(), collapse = ", "),
+                orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" computes the methods ", paste(coal_methods(), collapse = ", "),
                      "; est.method = \"", est.method, "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
         
         if (!is.element(format, c("mase", "clustal", "phylip", "fasta" , "msf")))
@@ -301,7 +301,7 @@ substitutionrate <- function(file,
         # the KaKs_Calculator methods computed by COAL (in process, or by the coal-cpp program): no KaKs_Calculator
         if (kaks_tool == "coal" && is.element(est.method, coal_methods())) {
                 if (format != "fasta")
-                        stop("kaks_tool = \"coal\" needs the codon alignment in fasta format.", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" needs the codon alignment in fasta format.", call. = FALSE)
                 res <- coal_kaks_file(file = file, est.method = est.method, subst_name = subst_name)
                 if (!quiet)
                         message("Substitutionrate successfully calculated by COAL.")

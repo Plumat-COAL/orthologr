@@ -44,15 +44,15 @@ coal_methods <- function() {
 # Stop unless COAL computes all `methods`; `what` names the caller for the message ("engine = \"coal\"").
 coal_check_methods <- function(methods, what, other = "engine = \"orthologr\"") {
         if (!is.character(methods) || length(methods) < 1 || anyNA(methods))
-                stop("dnds_est.method must be the name of a method.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "dnds_est.method must be the name of a method.", call. = FALSE)
         known <- c(coal_kaks_calculator_methods(), coal_native_methods())
         unknown <- setdiff(methods, known)
         if (length(unknown) > 0)
-                stop(what, " computes dnds_est.method = ", paste0("\"", known, "\"", collapse = ", "), ". \"",
+                orthologr_abort(class = "bad_argument", what, " computes dnds_est.method = ", paste0("\"", known, "\"", collapse = ", "), ". \"",
                      paste(unknown, collapse = "\", \""), "\" is only available with ", other, ".", call. = FALSE)
         if (any(is.element(methods, coal_native_methods())) && !coal_has_native_methods()) {
                 have <- tryCatch(as.character(utils::packageVersion("coalr")), error = function(e) NULL)
-                stop(what, ": dnds_est.method = \"", paste(intersect(methods, coal_native_methods()), collapse = "\", \""),
+                orthologr_abort(class = "package_missing", what, ": dnds_est.method = \"", paste(intersect(methods, coal_native_methods()), collapse = "\", \""),
                      "\" needs a COAL that computes Comeron's and Li's method (coalr >= 0.5.0 whose ",
                      "coalr::coal_info()$methods lists \"Comeron\" and \"Li\"; ",
                      if (is.null(have)) "coalr is not installed" else paste0("the installed coalr ", have, " does not"),
@@ -176,15 +176,15 @@ coal_install_message <- function() {
 coal_backend <- function(need = NULL) {
         forced <- getOption("orthologr.coal_backend", NULL)
         if (!is.null(forced) && !is.element(forced, c("coalr", "binary", "none")))
-                stop("options(orthologr.coal_backend) must be \"coalr\" or \"binary\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "options(orthologr.coal_backend) must be \"coalr\" or \"binary\".", call. = FALSE)
         if (identical(forced, "none"))
-                stop(coal_install_message(), call. = FALSE)
+                orthologr_abort(class = c("package_missing", "tool_missing"), coal_install_message())
 
         if (!identical(forced, "binary") && requireNamespace("coalr", quietly = TRUE))
                 return(list(type = "coalr", path = NULL))
 
         if (identical(forced, "coalr") || identical(need, "coalr"))
-                stop(
+                orthologr_abort(class = "package_missing",
                         "This needs the R package 'coalr' (COAL's C++ engine inside R). Install it with:\n",
                         "    remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\")",
                         call. = FALSE
@@ -192,7 +192,7 @@ coal_backend <- function(need = NULL) {
 
         exe <- coal_binary()
         if (is.null(exe))
-                stop(coal_install_message(), call. = FALSE)
+                orthologr_abort(class = c("package_missing", "tool_missing"), coal_install_message())
         return(list(type = "binary", path = exe))
 }
 
@@ -471,12 +471,13 @@ dNdS_coal <- function(query_file,
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
 
         if (!is.element(aligner, c("diamond", "blast")))
-                stop("engine = \"coal\" detects orthologs with aligner = \"diamond\" or \"blast\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "engine = \"coal\" detects orthologs with aligner = \"diamond\" or \"blast\".", call. = FALSE)
         if (!is.element(ortho_detection, c("BH", "RBH")))
-                stop("engine = \"coal\" supports ortho_detection = \"RBH\" or \"BH\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "engine = \"coal\" supports ortho_detection = \"RBH\" or \"BH\".", call. = FALSE)
         if (!identical(seq_type, "cds"))
-                stop("dN/dS estimation needs coding sequences: seq_type = \"cds\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "dN/dS estimation needs coding sequences: seq_type = \"cds\".", call. = FALSE)
         check_choice(format, "fasta", "format", hint = "dNdS_coal() reads coding sequences from FASTA files.")
+        check_input_files(query_file, subject_file)
         if (aligner == "diamond")
                 check_sensitivity_mode(sensitivity_mode)
         comp_cores <- check_comp_cores(comp_cores)
@@ -696,11 +697,11 @@ dNdS_clusters <- function(cds_file,
 
         missing_files <- cds_file[!file.exists(cds_file)]
         if (length(missing_files) > 0)
-                stop("The following input file(s) were not found:\n", paste(missing_files, collapse = "\n"), call. = FALSE)
+                orthologr_abort(class = "bad_input", "The following input file(s) were not found:\n", paste(missing_files, collapse = "\n"), call. = FALSE)
         if (!is.element(aa_aln_tool, c("clustalo", "mafft", "pairwise")))
-                stop("aa_aln_tool must be \"clustalo\", \"mafft\" or \"pairwise\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "aa_aln_tool must be \"clustalo\", \"mafft\" or \"pairwise\".", call. = FALSE)
         if (!is.element(large_clusters, c("representative", "sample", "skip")))
-                stop("large_clusters must be \"representative\", \"sample\" or \"skip\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "large_clusters must be \"representative\", \"sample\" or \"skip\".", call. = FALSE)
         check_aa_aln_scoring(aa_aln_scoring)
         coal_backend(need = "coalr")
         coal_check_methods(dnds_est.method, "dNdS_clusters()", other = "dNdS() or dNdS_orthogroups(engine = \"orthologr\")")
@@ -715,9 +716,9 @@ dNdS_clusters <- function(cds_file,
                                       path = path, comp_cores = comp_cores, ...)
         } else if (is.character(clusters) && length(clusters) == 1) {
                 if (!file.exists(clusters))
-                        stop("The clusters file '", clusters, "' was not found.", call. = FALSE)
+                        orthologr_abort(class = "bad_input", "The clusters file '", clusters, "' was not found.", call. = FALSE)
         } else if (!is.data.frame(clusters) || ncol(clusters) < 2) {
-                stop("'clusters' must be the table returned by deepclust() / deepclust_realign() (representative_id, member_id), ",
+                orthologr_abort(class = "bad_argument", "'clusters' must be the table returned by deepclust() / deepclust_realign() (representative_id, member_id), ",
                      "a file of that table, or NULL.", call. = FALSE)
         }
         if (is.data.frame(clusters))
