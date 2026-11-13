@@ -83,6 +83,67 @@ Changes of results and row counts in this section
   `kaks_calc.params = "<text>"`.
 - Input files with duplicated IDs, and `eval` values that are not numbers, are now errors.
 
+### Annotations: longest isoforms and gene loci on real GFF3 / GTF files (second audit)
+
+`retrieve_longest_isoforms()`, `select_orthologs()` and `generate_ortholog_tables()` now read which gene locus a
+transcript or protein belongs to from **one transcript -> gene table** that is built the same way for every
+annotation source: GFF3 through the `Parent` / `ID` relations (CDS -> mRNA -> gene, or CDS -> gene in NCBI
+prokaryote files; the locus is the gene `ID` without `gene-` / `gene:`, i.e. the `locus_tag` for NCBI), GTF through
+`gene_id` / `transcript_id` / `protein_id`. IDs of the FASTA file or dN/dS table are matched as they are, then
+without version suffix, and NCBI `lcl|..._cds_<protein>_<n>` IDs by their protein accession. Tested on pieces of
+real annotations that ship with the tests (`tests/testthat/fixtures`): NCBI RefSeq GFF3 + `protein.faa`, NCBI GTF,
+Ensembl GFF3 and Ensembl GTF with `pep` and `cds` FASTA.
+
+- **`retrieve_longest_isoforms(annotation_format = "gff")` lost proteins without saying so.** CDS rows were
+  grouped by the `gene` attribute, the gene *symbol*: all loci without a symbol were merged into one, and loci
+  sharing a symbol into one. *E. coli* O157:H7 Sakai (NCBI RefSeq): 5,155 proteins of 5,155 loci in, **3,816 out**
+  (1,283 unnamed loci -> 1 protein, 57 more lost to shared symbols). Now 5,155 out, one per locus. Loci are never
+  grouped by symbol.
+- `retrieve_longest_isoforms()` only worked for NCBI GFF3 + `protein.faa` and for Ensembl GTF when the FASTA
+  headers were unversioned transcript IDs. Measured on the files of the audit (before -> after):
+
+  | annotation + sequences | before | after |
+  |---|---|---|
+  | NCBI *E. coli* K-12 GFF3 + protein.faa (4,300 proteins, 4,290 loci) | 4,290 | 4,290 |
+  | NCBI *E. coli* O157 Sakai GFF3 + protein.faa (5,155 loci) | 3,816 | 5,155 |
+  | NCBI *E. coli* K-12 GTF + protein.faa | error | 4,290 |
+  | NCBI GFF3 `.gz` + protein `.gz` | 4,290 | 4,290 |
+  | Ensembl yeast GTF + pep (6,600) | error | 6,600 |
+  | Ensembl yeast GTF + cds | 6,600 | 6,600 |
+  | Ensembl yeast GFF3 + pep | error | 6,600 |
+  | Ensembl human chr21 GTF + pep (2,212 proteins, 221 protein-coding genes) | error | 221 (all the longest of their gene) |
+  | Ensembl human chr21 GFF3 + pep (222 genes with a protein) | error | 222 |
+
+  With `annotation_format = "gtf"` only genes with `gene_biotype "protein_coding"` are kept, as before (a message
+  now says how many sequences of which other biotypes are left out); with `"gff"` every locus with a sequence, as
+  before.
+- **`select_orthologs(format = "gff")` could not work on real GFF3 files** (rows were grouped by `Name`, which a
+  gene and its mRNA never share; NCBI: "Something went wrong during the feature extraction", Ensembl: "missing
+  value where TRUE/FALSE needed"). **`select_orthologs(format = "gtf")`** matched IDs to `transcript_id` literally
+  and failed for the versioned IDs of Ensembl FASTA files (`ENST00000373020.9`). Both work now, also for protein
+  IDs and for raw GFF3 IDs (`rna-NM_...`, `transcript:ENST...`).
+- When no ID fits, the error shows example IDs of the sequence file / dN/dS table and of the annotation
+  (was: "Something went wrong during the feature extraction ..."). Sequences / IDs that are not in the annotation
+  are counted in a message.
+- **Memory and time.** The annotation is read as text in blocks and only feature type and the needed attributes
+  are kept; `check_annotation()` no longer holds the whole file in memory to look for over-long lines.
+  `select_orthologs()` on a human / mouse GTF pair cut down to 436k + 123k lines, 1,500 gene pairs:
+  peak RSS 1,004 MB -> 369 MB, 16 s -> 10 s (R with the packages loaded takes about 250 MB of that).
+  `rtracklayer` is no longer needed by these functions (it stays in Suggests for the reference implementations
+  that the tests compare with).
+- `retrieve_longest_isoforms()` returns the path of the new file invisibly (was `NULL`), with the number of loci
+  and sequences as attributes, and stops on duplicated sequence IDs.
+
+Changes of results in this section
+- `retrieve_longest_isoforms(annotation_format = "gff")`: more sequences for annotations with unnamed loci or
+  shared gene symbols (Sakai: 3,816 -> 5,155). No option restores the old grouping (it was a loss of data); the old
+  code is kept as the internal `retrieve_longest_isoforms_do()` for the tests.
+- `select_orthologs(format = "gff")`: `query_gene_locus_id` / `subject_gene_locus_id` hold the gene ID without
+  the prefix `gene-` / `gene:` (e.g. `AT1G01010`, was `gene-AT1G01010` in the synthetic files for which the old
+  code worked), so that GFF3 and GTF of one annotation give the same loci.
+- `select_orthologs(format = "gtf")`: transcripts of loci without a `gene` row, and IDs that only match without
+  version, are now found (rows that were left out before).
+
 ### Dependencies, documentation, continuous integration
 
 Dependencies

@@ -14,7 +14,7 @@ retrieve_longest_isoforms(
 \arguments{
 \item{proteome_file}{file path to proteome in \code{fasta} file format.}
 
-\item{annotation_file}{file path to the corresponding annotation file in \code{gtf} file format.}
+\item{annotation_file}{file path to the corresponding annotation file in \code{gff} (GFF3) or \code{gtf} file format (may be gzip-compressed).}
 
 \item{new_file}{file path to new file storing only peptide sequences of the longest isoforms.}
 
@@ -24,12 +24,42 @@ retrieve_longest_isoforms(
 \item \code{annotation_file = "gtf"} 
 }}
 }
+\value{
+The path \code{new_file}, invisibly, with the attributes \code{n_loci} and \code{n_sequences}.
+}
 \description{
 Based on a fasta file storing the peptide isoforms of gene loci and
-an annotation file in \code{gtf} file format, this function extracts the longest
+an annotation file in \code{gff} (GFF3) or \code{gtf} file format, this function extracts the longest
 isoform per gene locus and stores the results in a new \code{fasta} file.
 This procedure enables easier downstream analyses such as orthology inference etc
 when dealing with proteome \code{fasta} files which usually include isoform peptides.
+}
+\details{
+\strong{Which gene locus a sequence belongs to} is read from the annotation in the same way for all annotation
+sources:
+\itemize{
+\item \code{gff} (GFF3): the \code{Parent} / \code{ID} relations are followed from every CDS and transcript up
+to the top-level feature, the gene (CDS -> mRNA -> gene; in NCBI prokaryote annotations CDS -> gene). The gene
+locus is the \code{ID} of the gene without the prefix \code{gene-} (NCBI; this is the \code{locus_tag}) or
+\code{gene:} (Ensembl). It is never the gene symbol: genes without a symbol and genes that share one are
+separate loci.
+\item \code{gtf}: \code{gene_id} is the gene locus; \code{transcript_id} and \code{protein_id} name the
+transcript and the protein.
+}
+The IDs of the sequence file (the FASTA header up to the first white space) may be protein IDs or transcript IDs.
+They are compared with the IDs of the annotation as they are (including the spelling with the version that Ensembl
+gives in a field of its own, e.g. \code{ENST00000373020.9}, and the raw GFF3 IDs such as \code{rna-NM_001.1} or
+\code{transcript:ENST00000373020}); IDs that are not found are compared without their version suffix, and IDs of
+NCBI \code{cds_from_genomic} files (\code{lcl|NC_000913.3_cds_NP_414542.1_1}) by their protein accession.
+Tested with NCBI RefSeq GFF3 + \code{protein.faa}, NCBI GTF, Ensembl GFF3 and Ensembl GTF with \code{pep} and
+\code{cds} FASTA files. The annotation is read as text in blocks (\code{.gz} files too); it is not imported with
+\pkg{rtracklayer}.
+
+Of several equally long sequences of a locus the first one in the file is kept. With \code{annotation_format = "gtf"}
+only genes with \code{gene_biotype "protein_coding"} are kept when the annotation gives biotypes (as in earlier
+versions; a message says how many sequences of other biotypes are left out); with \code{"gff"} every locus with a
+sequence is kept. Sequences that are not in the annotation are left out with a message; when no ID fits, the
+error shows example IDs of both files.
 }
 \examples{
 \dontrun{
