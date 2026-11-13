@@ -424,10 +424,11 @@ test_that("R06: the reason of a failed pair names the IDs of the pair, and store
         tbl <- data.table::data.table(
                 query_id = c("same", "bad"), subject_id = c("same", "bad"),
                 query_cds   = rep("ATGAAAACCGCGTATATTGCGAAACAGCGTCTGGAAGGTGATCTGAAAGCGTGGCTGACC", 2),
-                subject_cds = rep("ATGAAGACCGCCTATATTGCGAAACAACGTCTGGATGGTGATCTGAAGGCGTGGTTGACC", 2),
+                # the coding sequence of the subject of 'bad' lacks its last nucleotide
+                subject_cds = c("ATGAAGACCGCCTATATTGCGAAACAACGTCTGGATGGTGATCTGAAGGCGTGGTTGACC",
+                                "ATGAAGACCGCCTATATTGCGAAACAACGTCTGGATGGTGATCTGAAGGCGTGGTTGAC"),
                 query_aa    = c("MKTAYIAKQRLEGDLKAWLT", "MKTAYIAKQRLEGDLKAWLT"),
-                # the protein of the subject of 'bad' is longer than its coding sequence
-                subject_aa  = c("MKTAYIAKQRLDGDLKAWLT", "MKTAYIAKQRLDGDLKAWLTWWWWWWWWWW"))
+                subject_aa  = c("MKTAYIAKQRLDGDLKAWLT", "MKTAYIAKQRLDGDLKAWLT"))
         expect_warning(
                 res <- suppressMessages(compute_dnds(tbl, aa_aln_type = "pairwise", aa_aln_tool = "NW", dnds_est.method = "Comeron", quiet = TRUE)),
                 "1 of 2 gene pairs could not be processed")
