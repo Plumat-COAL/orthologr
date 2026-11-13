@@ -72,8 +72,10 @@ retrieve_longest_isoforms <- function(proteome_file, annotation_file, new_file, 
         check_duplicate_ids(new_names, what = "sequences", file = proteome_file)
         names(pep_file) <- new_names
         
-        # check if annotation file is corrupt and remove outliers
-        annotation_file <- check_annotation(annotation_file, remove_annotation_outliers = TRUE)
+        # Lines of any length are read: until 0.5.0 (development) every line with more than 65,000 characters was
+        # removed first - a workaround for the import of rtracklayer, which is no longer used here - and with it
+        # the CDS / mRNA rows NCBI writes with very long 'Note' attributes (TAIR10.1: proteins "not in the
+        # annotation", a shorter isoform chosen for AT5G38410).
         
         message("Reading the transcript -> gene relations of the ", annotation_format, " file ", basename(annotation_file), " ...")
         tbl <- annotation_table(annotation_file, format = annotation_format)
@@ -160,8 +162,9 @@ retrieve_longest_isoforms_do <- function(proteome_file, annotation_file, new_fil
         }))
         names(pep_file) <- new_names
         
-        # check if annotation file is corrupt and remove outliers
-        annotation_file <- check_annotation(annotation_file, remove_annotation_outliers = TRUE)
+        # rtracklayer cannot import lines of more than 65,000 characters: this reference implementation removes them
+        # (and loses their features), as 0.4.3 did
+        annotation_file <- suppressWarnings(check_annotation(annotation_file, remove_annotation_outliers = TRUE))
         
         if (annotation_format == "gtf") {
                 

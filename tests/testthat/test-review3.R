@@ -94,6 +94,73 @@ test_that("R13: the workers of an unfinished parallel run are ended", {
         expect_false(any(alive(pids)))
 })
 
+# ---------------------------------------------------------------- R03: annotation lines of more than 65,000 characters
+
+test_that("R03: retrieve_longest_isoforms() keeps features annotated in lines of more than 65,000 characters", {
+        d <- new_test_dir("r03_")
+        a <- suppressWarnings(make_test_annotation(thal_aa(), "Athaliana", function(x) sub("\\..*", "", x), d))
+        long_note <- strrep("A", 70000)
+        for (fmt in c("gff", "gtf")) {
+                f <- a[[fmt]]
+                x <- readLines(f)
+                # the CDS and transcript rows of the long isoform of the first gene get a very long attribute
+                hit <- which(grepl(a$ids[1], x, fixed = TRUE) & !grepl("_iso2", x, fixed = TRUE) & !grepl("\tgene\t", x, fixed = TRUE))
+                expect_true(length(hit) >= 2)
+                x[hit] <- if (fmt == "gff") paste0(x[hit], ";Note=", long_note) else paste0(x[hit], " note \"", long_note, "\";")
+                long_file <- file.path(d, paste0("long.", fmt))
+                writeLines(x, long_file)
+                expect_true(all(nchar(readLines(long_file)[hit]) > 65000))
+                out <- file.path(d, paste0("longest_", fmt, ".fa"))
+                msgs <- character(0)
+                res <- withCallingHandlers(
+                        retrieve_longest_isoforms(a$proteome, long_file, out, annotation_format = fmt),
+                        message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+                got <- sub("\\s.*", "", names(Biostrings::readAAStringSet(out)))
+                expect_setequal(got, a$ids)                    # the long isoform of every gene, also of the first
+                expect_false(any(grepl("not in the annotation", msgs)))
+                expect_false(any(grepl("outlier", msgs)))
+                # the same result as for the file without the long attribute
+                out2 <- file.path(d, paste0("ref_", fmt, ".fa"))
+                suppressMessages(retrieve_longest_isoforms(a$proteome, f, out2, annotation_format = fmt))
+                expect_identical(readLines(out), readLines(out2))
+        }
+})
+
+test_that("R03: check_annotation() reports over-long lines and removes them only on request, with a warning", {
+        d <- new_test_dir("r03b_")
+        f <- file.path(d, "a.gff")
+        lines <- c("##gff-version 3", "chr1\tx\tgene\t1\t20\t.\t+\t.\tID=g1",
+                   paste0("chr1\tx\tCDS\t1\t20\t.\t+\t0\tID=c1;Parent=g1;Note=", strrep("A", 70000)))
+        writeLines(lines, f)
+        expect_warning(res <- suppressMessages(check_annotation(f)), "orthologr read such lines")
+        expect_identical(res, f)
+        expect_warning(copy <- suppressMessages(check_annotation(f, remove_annotation_outliers = TRUE)),
+                       "features annotated there .* are missing")
+        expect_identical(readLines(copy), lines[1:2])
+        expect_identical(readLines(f), lines)
+        expect_error(check_annotation(f, remove_annotation_outliers = "yes"), "remove_annotation_outliers")
+})
+
+test_that("R03: NCBI TAIR10.1 - no protein is lost and AT5G38410 gets its longest isoform (needs the files)", {
+        dl <- Sys.getenv("ORTHOLOGR_TEST_TAIR_DIR", "")
+        faa <- file.path(dl, "GCF_000001735.4_TAIR10.1_protein.faa.gz")
+        skip_if_not(nzchar(dl) && file.exists(faa), "set ORTHOLOGR_TEST_TAIR_DIR to the folder with the NCBI TAIR10.1 files")
+        for (fmt in c("gff", "gtf")) {
+                out <- tempfile(fileext = ".fa")
+                msgs <- character(0)
+                withCallingHandlers(
+                        retrieve_longest_isoforms(faa, file.path(dl, paste0("GCF_000001735.4_TAIR10.1_genomic.", fmt, ".gz")), out, fmt),
+                        message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+                got <- sub("\\s.*", "", names(Biostrings::readAAStringSet(out)))
+                expect_true(is.element("NP_001119331.1", got))
+                expect_false(is.element("NP_198657.1", got))
+                # 27,562 loci from the GFF3 file, 27,561 from the GTF file (one protein is not in the GTF file), as an
+                # independent parser finds; 27,560 / 27,551 when the long lines were removed
+                expect_length(got, if (fmt == "gff") 27562 else 27561)
+                expect_false(any(grepl("NP_001119331.1", msgs, fixed = TRUE)))
+        }
+})
+
 # ---------------------------------------------------------------- R07: parameter strings are argument lists, not shell text
 
 test_that("R07: split_params() splits like a shell and gives no character a meaning", {

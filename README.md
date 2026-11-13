@@ -243,7 +243,7 @@ The complete list of functions is in the [reference](https://drostlab.github.io/
 ### Gene loci, isoforms and ortholog tables
 
 * `retrieve_longest_isoforms()`, `retrieve_longest_isoforms_all()`: keep the longest isoform per gene locus
-* `check_annotation()`, `extract_features()`: check an annotation file, features of a locus
+* `check_annotation()`, `extract_features()`: report over-long lines of an annotation file, features of a locus
 * `select_orthologs()`, `generate_ortholog_tables()`, `generate_ortholog_tables_all()`, `import_ortholog_tables_all()`,
   `retrieve_core_orthologs()`: one representative ortholog per gene locus, core orthologs across species
 * `plot_pairwise_orthologs()`, `plot_diverse_homology_thresholds()`, `plot_diverse_homology_thresholds_core_orthologs()`

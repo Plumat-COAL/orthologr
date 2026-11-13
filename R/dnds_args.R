@@ -107,3 +107,10 @@ dnds_require_programs <- function(aa_aln_tool = "NW", aa_aln_path = NULL, codon_
         }
         invisible(TRUE)
 }
+
+# TRUE or FALSE, nothing else.
+check_flag <- function(x, arg) {
+        if (!is.logical(x) || length(x) != 1 || is.na(x))
+                stop(arg, " must be TRUE or FALSE.", call. = FALSE)
+        invisible(x)
+}

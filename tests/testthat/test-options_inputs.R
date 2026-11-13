@@ -155,7 +155,7 @@ test_that("check_annotation() leaves the annotation file of the user as it is an
         md5 <- tools::md5sum(f)
         expect_warning(res <- suppressMessages(check_annotation(f)), "65000")
         expect_identical(res, f)
-        clean <- suppressMessages(check_annotation(f, remove_annotation_outliers = TRUE))
+        clean <- suppressWarnings(suppressMessages(check_annotation(f, remove_annotation_outliers = TRUE)))
         expect_identical(unname(tools::md5sum(f)), unname(md5))
         expect_identical(basename(clean), "out.lier.gff")
         expect_false(identical(normalizePath(clean), normalizePath(f)))

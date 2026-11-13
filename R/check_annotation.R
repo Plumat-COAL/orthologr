@@ -1,25 +1,32 @@
-#' @title Check whether an annotation file contains outlier lines
-#' @description Some annotation files include lines with character lengths greater than 65000. This causes problems when trying to import such annotation files into R using \href{https://rdrr.io/bioc/rtracklayer/man/export.html}{\code{import}}.
-#' To overcome this issue, this function screens for such lines
-#' in a given annotation file and removes these lines so that
-#' \href{https://rdrr.io/bioc/rtracklayer/man/export.html}{\code{import}} can handle the file.
+#' @title Report over-long lines of an annotation file
+#' @description Some annotation files hold lines with more than 65,000 characters (for example CDS and mRNA rows
+#' of NCBI RefSeq files with very long \code{Note} attributes). The import function of \pkg{rtracklayer} could not
+#' read such files, which is why this function exists. The functions of orthologr that read annotation files
+#' (\code{\link{retrieve_longest_isoforms}}, \code{\link{select_orthologs}}, \code{\link{generate_ortholog_tables}},
+#' \code{\link{extract_features}}) have their own reader since version 0.5.0, read lines of any length and
+#' \strong{no longer call this function}: until then they removed these lines, and with them real features (NCBI
+#' TAIR10.1: proteins were reported as not annotated and a shorter isoform was chosen for one gene).
+#'
+#' \code{check_annotation()} reports how many such lines a file has. A copy without them is only written on
+#' request, for other software that cannot read them.
 #' @param annotation_file a file path tp the annotation file.
-#' @param remove_annotation_outliers shall outlier lines be removed from the input \code{annotation_file}? 
-#' If yes, a copy of the annotation file without these lines is written to
+#' @param remove_annotation_outliers shall a copy of \code{annotation_file} without the over-long lines be written?
+#' Default is \code{FALSE}: the lines are only reported.
+#' If \code{TRUE}, the copy is written to
 #' \code{file.path(tempdir(), "orthologr_annotation_without_outliers")} under the same file name (without \code{.gz}) and
-#' its path is returned. The \code{annotation_file} itself is not changed (until version 0.4.3 it was overwritten).
-#' The removed outlier lines are stored in \code{\link{tempdir}} for further exploration.
-#' @return The path of the annotation file that can be imported: \code{annotation_file} itself when it holds no
-#' outlier lines (or when \code{remove_annotation_outliers = FALSE}), otherwise the path of the cleaned copy.
+#' its path is returned; a warning says how many lines - that is, annotated features - the copy lacks.
+#' The \code{annotation_file} itself is not changed (until version 0.4.3 it was overwritten).
+#' The removed lines are stored in \code{\link{tempdir}} for further exploration.
+#' @return The path of the annotation file: \code{annotation_file} itself when it holds no
+#' over-long lines (or when \code{remove_annotation_outliers = FALSE}), otherwise the path of the copy.
 #' @author Hajk-Georg Drost
 #' @examples \dontrun{
 #' # download an example annotation file from NCBI RefSeq
 #' Ath_path <- biomartr::getGFF(organism = "Arabidopsis thaliana")
-#' # run annotation file check on the downloaded file
+#' # how many over-long lines does it have?
 #' orthologr::check_annotation(Ath_path)
-#' # several outlier lines were detected, thus we re-run the
-#' # function using 'remove_annotation_outliers = TRUE'
-#' # to get a copy of the file without the outlier lines
+#' # orthologr reads the file as it is
+#' # a copy without these lines, for software that cannot read them (their features are lost!)
 #' Ath_clean <- check_annotation(Ath_path, remove_annotation_outliers = TRUE)
 #' }
 #' @export
@@ -28,59 +35,46 @@ check_annotation <- function(annotation_file, remove_annotation_outliers = FALSE
         
         if (!file.exists(annotation_file))
                 stop("The file '", annotation_file, "' does not seem to exist. Please provide a valid path to the annotation file.", call. = FALSE)
+        check_flag(remove_annotation_outliers, "remove_annotation_outliers")
         
-        if (requireNamespace("benchmarkme", quietly = TRUE)) {
-                ram <- check_ram()
-                available_ram <- ram - ((ram / 100) * 20)
-                annotation_file_size <-
-                        file.info(annotation_file)$size / 1000000000
-                
-                if (annotation_file_size > available_ram)
-                        stop(
-                                "The size of the annotation file '",
-                                annotation_file,
-                                " exceeds the available RAM (memory) of your computer. Please try running this function with more memory.",
-                                call. = FALSE
-                        )
-        }
+        message("Reading '", annotation_file, "' ...")
         
-        message("Importing '", annotation_file, "' ...")
-        
-        # The file is read in blocks: only the numbers of the over-long lines are kept. (It used to be held in
-        # memory as a whole - once here and once more by the import that followed.)
+        # The file is read in blocks: only the numbers of the over-long lines are kept.
         outlier_lines <- annotation_long_lines(annotation_file)
         
         if (length(outlier_lines) == 0)
                 return(annotation_file)
         
-        if (length(outlier_lines) > 0 & !remove_annotation_outliers) {
-                warning("Your annotation file '", annotation_file, "' contains ", length(outlier_lines), " lines that have more than 65000 characters.",
-                        "This will cause the annotation import function to fail importing the annotation file into R.",
-                        " If you wish to remove the outlier lines then re-run this function and specify 'remove_annotation_outliers = TRUE': a copy of the annotation file without these lines is then written to tempdir() and its path is returned (your file is not changed). A file with the removed lines will also be stored in the temp directory for you to explore.")
+        if (!remove_annotation_outliers) {
+                warning("Your annotation file '", annotation_file, "' contains ", length(outlier_lines),
+                        " line", if (length(outlier_lines) != 1) "s", " that have more than 65000 characters. ",
+                        "The functions of orthologr read such lines; some other import functions (e.g. of rtracklayer) do not. ",
+                        "Only if you need the file for such software: 'remove_annotation_outliers = TRUE' writes a copy ",
+                        "without these lines to tempdir() and returns its path (your file is not changed) - the features ",
+                        "annotated in these lines are then missing from the copy.", call. = FALSE)
                 return(annotation_file)
         }
         
-        if (length(outlier_lines) > 0 & remove_annotation_outliers) {
-                message("Reading annotation file '", annotation_file, "' and removing all outlier lines with number of characters greater 65000 ...")
-                
-                # The annotation file of the user is left as it is: the lines that can be imported are written
-                # to a new file in tempdir() that has the same name and extension (without '.gz', the new file
-                # is not compressed). The path of the new file is returned.
-                out_dir <- file.path(tempdir(), "orthologr_annotation_without_outliers")
-                if (!dir.exists(out_dir))
-                        dir.create(out_dir, recursive = TRUE)
-                new_file <- file.path(out_dir, sub("\\.gz$", "", basename(annotation_file)))
-                
-                outlier_output_file <- file.path(tempdir(), paste0(basename(annotation_file),"_outlier_lines.txt"))
-                annotation_copy_lines(annotation_file, new_file, outlier_output_file, outlier_lines)
-                
-                message("The annotation file without the outlier lines has been stored at '", new_file,
-                        "' ('", annotation_file, "' was not changed).")
-                
-                message("The outlier lines were stored in a separate file to explore at '", outlier_output_file, "'.")
-                return(new_file)
-        }
+        message("Writing a copy of '", annotation_file, "' without the lines of more than 65000 characters ...")
         
+        # The annotation file of the user is left as it is: the other lines are written
+        # to a new file in tempdir() that has the same name and extension (without '.gz', the new file
+        # is not compressed). The path of the new file is returned.
+        out_dir <- file.path(tempdir(), "orthologr_annotation_without_outliers")
+        if (!dir.exists(out_dir))
+                dir.create(out_dir, recursive = TRUE)
+        new_file <- file.path(out_dir, sub("\\.gz$", "", basename(annotation_file)))
+        
+        outlier_output_file <- file.path(tempdir(), paste0(basename(annotation_file),"_outlier_lines.txt"))
+        annotation_copy_lines(annotation_file, new_file, outlier_output_file, outlier_lines)
+        
+        warning(length(outlier_lines), " line", if (length(outlier_lines) != 1) "s", " of more than 65000 characters ",
+                if (length(outlier_lines) != 1) "are" else "is", " not in the copy '", new_file, "': the features annotated there (often CDS or mRNA rows) ",
+                "are missing from it. Do not use the copy with orthologr, which reads the original file.", call. = FALSE)
+        message("The annotation file without the outlier lines has been stored at '", new_file,
+                "' ('", annotation_file, "' was not changed).")
+        message("The outlier lines were stored in a separate file to explore at '", outlier_output_file, "'.")
+        return(new_file)
 }
 
 
