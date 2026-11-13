@@ -49,7 +49,43 @@ worked beyond starting the program and is soft-deprecated; its warning and `?ort
 
 Measured (DIAMOND 2.2.8, 2 cores; the data are not part of the package):
 
-VALIDATION_NEWS
+| human / mouse (19,583 + 21,457 genes), against Ensembl Compara | ortholog pairs | of them Compara orthologs | one-to-one found (of 16,188) | one-to-many / many-to-many found (of 5,400) | time |
+|---|---|---|---|---|---|
+| `method = "rbh"` | 16,827 | 97.4% | 97.5% | 11.0% | 2.3 min |
+| `method = "rbh", inparalogs = TRUE` | 19,930 | 88.2% | 97.7% | 32.6% | 2.3 min |
+| `method = "deepclust"` | 123,438 | 15.6% | 95.9% | 68.4% | 4.1 min |
+| `method = "deepclust", refine = TRUE` | 16,487 | 97.2% | 95.5% | 10.4% | 4.5 min |
+
+- The single all-against-all search gives **exactly** the reciprocal best hits of two separate searches: 16,827
+  pairs from the hit tables of the second audit (human -> mouse, mouse -> human) with `best_hits()`, the same
+  16,827 pairs from `orthogroups()`, with the same bit scores. (The percentages differ slightly from those of
+  the section on best hits, 97.4% / 96.8%, because the denominators here are the Compara pairs whose two genes
+  were read by `orthogroups()`.)
+- An earlier in-paralog rule (any two genes of a species that are more similar to each other than to any gene of
+  another species) gave 25,283 pairs of which 71.2% were Compara orthologs; it was replaced by the rule above
+  (a gene without reciprocal best hit is attached to one gene; groups are never merged) before release.
+
+| four yeasts (21,095 proteins), against OrthoFinder 3.2 (MCL orthogroups with >= 2 species) | groups | single-copy | gene pairs OrthoFinder also groups | OrthoFinder's pairs found | adjusted Rand index | time |
+|---|---|---|---|---|---|---|
+| `method = "rbh"` | 4,616 | 3,487 | 99.7% | 70.7% | 0.77 | 17 s |
+| `method = "rbh", sensitivity_mode = "sensitive"` | 4,823 | 3,941 | 99.8% | 77.5% | 0.82 | 1.7 min |
+| ... `inparalogs = TRUE` | 4,823 | 3,846 | 98.8% | 80.0% | 0.84 | 1.9 min |
+| `method = "deepclust"` | 4,195 | 2,429 | 72.3% | 80.7% | 0.72 | 44 s |
+| `method = "deepclust", refine = TRUE` | 4,679 | 3,259 | 99.8% | 66.9% | 0.75 | 46 s |
+| OrthoFinder (`-og` stage: DIAMOND searches and MCL) | 4,591 | 3,324 | | | | 3.7 min |
+
+- 2,901 (fast mode) and 3,311 (sensitive mode) of OrthoFinder's 3,324 single-copy orthogroups are found with
+  identical members. OrthoFinder's full run (gene trees, hierarchical orthogroups) could not be completed in the
+  test environment (its tree step was stopped for lack of memory), so its MCL orthogroups are the reference.
+- Scaling (2, 4, 8, 14 fungal proteomes; 11,234 to 76,576 proteins; fast mode): `"rbh"` 16 / 29 / 67 / 150 CPU
+  seconds and 0.30 to 0.78 GB in R; `"deepclust"` 68 / 98 / 249 CPU seconds for 4 / 8 / 14 species;
+  `"deepclust"` with `refine = TRUE` 76 / 132 / 310. At these sizes `"rbh"` is both faster and more accurate;
+  `"deepclust"` is meant for protein sets too large for an all-against-all search (not measurable here).
+
+Known limits: groups are connected components of the RBH graph (one false reciprocal best hit joins two groups;
+largest group 10 genes with 4 species, 101 with 14); no gene trees, so no hierarchical orthogroups and no
+distinction of out-paralogs; DeepClust clusters without `refine = TRUE` are protein families, not orthogroups;
+one sequence per gene is assumed. See the vignette "Orthogroups of Several Species with DIAMOND".
 
 ### Best hits are ranked by bit score (default change)
 

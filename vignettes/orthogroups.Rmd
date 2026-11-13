@@ -111,17 +111,39 @@ og_dc <- orthogroups("proteomes/", method = "deepclust", seq_type = "protein",
 
 ### What to expect
 
-Measured with DIAMOND 2.2.8 on 2 cores (see the NEWS file of version 0.5.0 for the details).
+Measured with DIAMOND 2.2.8 and 2 threads; the data are not part of the package.
 
 **Human and mouse against Ensembl Compara** (19,583 and 21,457 genes, one protein per gene; 16,188 one-to-one
 and 5,400 one-to-many / many-to-many Compara ortholog pairs between them):
 
-HSMM_TABLE
+| | ortholog pairs | of them Compara orthologs | Compara one-to-one found | Compara one-to-many / many-to-many found | run time |
+|---|---|---|---|---|---|
+| `method = "rbh"` | 16,827 | 97.4% | 97.5% | 11.0% | 2.3 min |
+| `method = "rbh", inparalogs = TRUE` | 19,930 | 88.2% | 97.7% | 32.6% | 2.3 min |
+| `method = "deepclust"` | 123,438 | 15.6% | 95.9% | 68.4% | 4.1 min |
+| `method = "deepclust", refine = TRUE` | 16,487 | 97.2% | 95.5% | 10.4% | 4.5 min |
+
+(Of the 441 pairs of `method = "rbh"` that are no Compara ortholog, 373 involve a human gene for which Compara
+lists no mouse ortholog at all, and 68 pair a human gene with another mouse gene than Compara does.) The 16,827
+pairs are exactly the reciprocal best hits of two separate searches (`diamond_rec()`). The R process needed 0.6
+to 0.7 GB.
 
 **Four yeasts** (*S. cerevisiae*, *C. glabrata*, *K. lactis*, *A. gossypii*; 21,095 proteins) **against
 OrthoFinder 3** on the same proteomes:
 
-YEAST_TABLE
+| | groups | single-copy groups | genes in groups | gene pairs that OrthoFinder also groups | OrthoFinder's pairs found | adjusted Rand index | run time |
+|---|---|---|---|---|---|---|---|
+| `method = "rbh"` | 4,616 | 3,487 | 81.6% | 99.7% | 70.7% | 0.77 | 17 s |
+| `method = "rbh", sensitivity_mode = "sensitive"` | 4,823 | 3,941 | 87.6% | 99.8% | 77.5% | 0.82 | 1.7 min |
+| ... and `inparalogs = TRUE` | 4,823 | 3,846 | 89.1% | 98.8% | 80.0% | 0.84 | 1.9 min |
+| `method = "deepclust"` | 4,195 | 2,429 | 84.2% | 72.3% | 80.7% | 0.72 | 44 s |
+| `method = "deepclust", refine = TRUE` | 4,679 | 3,259 | 79.8% | 99.8% | 66.9% | 0.75 | 46 s |
+| OrthoFinder 3.2 (`-og`: MCL orthogroups with at least two species) | 4,591 | 3,324 | 92.7% | | | | 3.7 min |
+
+"Gene pairs" are pairs of genes of different species in the same group. Of OrthoFinder's 3,324 single-copy
+orthogroups, 2,901 are found with identical members by `method = "rbh"` and 3,311 with
+`sensitivity_mode = "sensitive"`. OrthoFinder's phylogenetic (hierarchical) orthogroups could not be computed in
+the test environment (the tree step ran out of memory), so the comparison is with its MCL orthogroups.
 
 Reading these numbers:
 
@@ -132,8 +154,40 @@ Reading these numbers:
   above, `sensitivity_mode = "sensitive"` (or higher) finds more groups.
 - OrthoFinder builds gene trees and reports hierarchical orthogroups; `orthogroups()` does neither. Its groups
   are smaller and it leaves more genes unassigned (species-specific groups are not reported at all).
+- DeepClust clusters without `refine = TRUE` are families rather than orthogroups: see the limits below.
 
-LIMITS_TEXT
+### Run time, memory and limits
+
+Fourteen yeast and other fungal proteomes of NCBI RefSeq (4,776 to 6,472 proteins each), the first 2, 4, 8 and 14
+of them; DIAMOND 2.2.8 with 2 threads on a shared 2-core machine (CPU seconds are given because the wall-clock
+times varied with the load of the machine):
+
+| species | proteins | `"rbh"`: CPU s (wall s) | R memory | groups / single-copy | `"deepclust"`: CPU s (wall s) | groups / single-copy | `"deepclust", refine = TRUE`: CPU s (wall s) | groups / single-copy |
+|---|---|---|---|---|---|---|---|---|
+| 2 | 11,234 | 16 (20) | 0.30 GB | 4,165 / 4,165 | | | | |
+| 4 | 21,095 | 29 (28) | 0.37 GB | 4,616 / 3,487 | 68 (44) | 4,195 / 2,429 | 76 (46) | 4,679 / 3,259 |
+| 8 | 42,187 | 67 (46) | 0.53 GB | 5,555 / 3,315 | 98 (59) | 5,225 / 2,248 | 132 (76) | 5,990 / 2,972 |
+| 14 | 76,576 | 150 (135) | 0.78 GB | 6,393 / 1,600 | 249 (145) | 7,336 / 927 | 310 (175) | 8,060 / 1,282 |
+
+With `sensitivity_mode = "sensitive"` the search of the 8 species took 393 CPU seconds instead of 67 and gave
+5,470 groups (3,654 single-copy instead of 3,315).
+
+- **`method = "rbh"`** was the faster method at every size measured here, and it is the more accurate one. Its
+  time grows somewhat faster than the number of proteins, and all hits below the e-value threshold are held in R
+  (0.8 GB at 77,000 proteins in the fast mode; more in the sensitive modes and for large gene families). It was not
+  measured beyond 77,000 proteins and 14 species. As a guide: up to about 15 proteomes or a few hundred thousand
+  proteins on a workstation.
+- **`method = "deepclust"`** does not pay off at these sizes; DIAMOND DeepClust is built for millions of
+  proteins, where an all-against-all search is no longer possible. Its clusters are protein families, not
+  orthogroups: without `refine = TRUE` only a small part of the gene pairs in a cluster are orthologs (15.6% for
+  human and mouse), and the number of single-copy groups is low. With `refine = TRUE` the result is close to that
+  of `method = "rbh"`, with fewer groups found (a cluster boundary can separate two orthologs).
+- **Groups are connected components.** A single false reciprocal best hit joins two groups, and the more species
+  there are, the more often that happens (largest group: 10 genes with 4 species, 101 with 14). There is no
+  clustering step (such as MCL) that would cut such links.
+- **No gene trees**: no hierarchical orthogroups, no rooted distinction between orthologs and out-paralogs, no
+  species tree. If you need these, run OrthoFinder.
+- One sequence per gene is assumed (see `retrieve_longest_isoforms()`).
 
 ## Files in the layout of OrthoFinder
 
@@ -181,4 +235,5 @@ res <- dNdS_orthogroups(og, cds_files = c(Athaliana = "athal_cds.fa", Alyrata = 
                         groups = "all", dnds_est.method = "Comeron", comp_cores = 4)
 ```
 
-ENGINE_TEXT
+`engine = "coal"` hands all groups to [COAL](https://github.com/Plumat-COAL/COAL) in one call, which is much
+faster; it is available in versions of orthologr with the COAL integration (`dNdS_clusters()`).
