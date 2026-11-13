@@ -338,3 +338,12 @@ test_that("the settings of 0.4.3 with the COAL engine give a classed warning (CO
         expect_no_warning(suppressMessages(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE)),
                           class = "orthologr_warning_legacy_engine")
 })
+
+test_that("aa_sub_matrix of the COAL engine is checked against the matrices COAL has, before the search", {
+        for (m in list("FOO", "BLOSUM50", NULL, 62)) {
+                expect_error(dNdS(thal_cds(), lyra_cds(), engine = "coal", aa_sub_matrix = m, print_citation = FALSE),
+                             class = "orthologr_error_bad_argument")
+        }
+        expect_error(dNdS_coal(thal_cds(), lyra_cds(), aa_sub_matrix = "FOO", print_citation = FALSE),
+                     "PAM250", class = "orthologr_error_bad_argument")
+})

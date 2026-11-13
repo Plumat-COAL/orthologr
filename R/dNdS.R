@@ -400,7 +400,9 @@ dNdS <- function(query_file,
         
         comp_cores <- check_comp_cores(comp_cores)
         
-        check_aa_sub_matrix(aa_sub_matrix)
+        # (engine = "coal": checked against the matrices of COAL in dNdS_coal())
+        if (engine != "coal")
+                check_aa_sub_matrix(aa_sub_matrix)
         
         if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
                 stop("Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
@@ -428,7 +430,8 @@ dNdS <- function(query_file,
         # the batched fast path: all gene pairs in one call to COAL
         if (engine == "coal") {
                 if (is.null(aa_sub_matrix) || !is.character(aa_sub_matrix))
-                        stop("engine = \"coal\" needs the name of a substitution matrix in aa_sub_matrix (e.g. \"BLOSUM62\").", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "engine = \"coal\" needs the name of a substitution matrix ",
+                                        "in aa_sub_matrix: ", paste0("\"", coal_sub_matrix_names(), "\"", collapse = ", "), ".")
                 return(dNdS_coal(
                         query_file         = query_file,
                         subject_file       = subject_file,
