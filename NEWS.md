@@ -38,12 +38,27 @@ phylotranscriptomic tools (e.g. myTAI) would have met `NA` strata for the first 
   returned `dN = NA`, `dNdS = 0`, and `filter_dNdS()` / `divergence_stratigraphy()` then dropped exactly the most
   conserved genes. Now `dN = 0` when Ka is `NA`, Ks is a positive number and Ka/Ks is 0 (also `-0`). Pairs for
   which KaKs_Calculator gives no ratio either (identical sequences: `NA NA NA`; a model that failed: `nan`) are
-  unchanged. Pre-existing in 0.4.3. 1,000-gene example, YN, default pipeline: TBD-R14.
+  unchanged. Pre-existing in 0.4.3. 1,000-gene example, YN, default pipeline: 11 of 995 gene pairs change from
+  `dN = NA` to `dN = 0` (their `dNdS` was and is 0; no other value changes); `filter_dNdS()` kept 984 of the 995
+  pairs and now keeps all 995. (Measured with the faster pairwise alignment and the bit-score rule merged, i.e. the default of 0.5.0; COAL's
+  implementation of these methods returns 0 for the same pairs.)
   `options(orthologr.legacy_kaks_zero_dn = TRUE)` restores the old table.
 - **R17, Comeron's method: an undefined logarithm in a class of sites that has no sites is not a saturation.**
   The rule "saturation is `NA`" (below) flagged an estimate whenever a logarithm of the correction had a
   non-positive argument, also in a class with weight 0 in the estimate. Such a class no longer makes dN or dS
-  `NA`. This is the rule of COAL's Comeron, so both give the same `NA` pattern. TBD-R17.
+  `NA`. This is the rule of COAL's Comeron, so both give the same `NA` pattern. Measured (pairs with `NA`
+  under: the computation of 0.4.3 / the rule of this fork before the review / the rule now):
+
+  | same codon alignments in all three | dN | dS | agreement of the `NA` pattern with COAL's default Comeron (before / now) |
+  |---|---|---|---|
+  | the review's simulation, 3,000 random pairs of 10 to 1,000 codons | 0 / 61 / 58 | 12 / 25 / 25 | 2,997 / 3,000 of 3,000 |
+  | ... of them 30 codons (600 pairs) | 0 / 23 / 23 | 2 / 4 / 4 | |
+  | 1,000-gene example, default pipeline: 995 pairs | 0 / 1 / 1 | 1 / 1 / 1 | 995 / 995 of 995 |
+  | human / mouse, the 1,500 pairs of the second audit | 0 / 17 / 17 | 13 / 14 / 14 | 1,500 / 1,500 of 1,500 |
+
+  All values that are not `NA` are the same under the three rules, and equal COAL's at the 4 digits gestimator
+  writes. The change of rule therefore concerns very short alignments only (3 pairs of 10 codons in the
+  simulation); no pair of the two real data sets changes.
   Short alignments remain affected by the saturation rule when a small class *with* sites is saturated (30
   codons: several percent of random pairs lose dN; see `?substitutionrate`);
   `options(orthologr.legacy_comeron_saturation = TRUE)` returns the finite values of 0.4.3.
@@ -64,7 +79,10 @@ phylotranscriptomic tools (e.g. myTAI) would have met `NA` strata for the first 
 - **R20, best hits:** of several rows of the chosen subject that tie in bit score, e-value, alignment length and
   identity (several HSPs), the row kept is the one with the highest raw score, then the smallest values of the
   remaining columns - no longer the first in the table. The subject chosen never changes (these keys come after
-  `subject_id`): human / mouse 16,827 reciprocal best hits, 68 and 96.8% as before (TBD-R20).
+  `subject_id`): on the human / mouse DIAMOND tables of the second audit the best hits of both directions
+  (18,676 and 19,827) and the 16,827 reciprocal best hits are the same pairs as before - hence the same 68 pairs
+  without Compara ortholog and 96.8% of the one-to-one orthologs -, and no kept row changes there (DIAMOND
+  reports one HSP per subject; the tie-breaks matter for BLAST tables with several HSPs).
 
 **Behaviour**
 - **R08, parallel runs on Windows (and with `options(orthologr.cluster_type = "PSOCK")`):** an argument given as a
@@ -95,7 +113,21 @@ phylotranscriptomic tools (e.g. myTAI) would have met `NA` strata for the first 
   T-Coffee run with current versions; the unused `inst/KaKs_Calc_parser/parseFastaIntoAXT.pl` is removed;
   `MAINTAINER_NOTES.md` describes the licence inconsistency (GPL-2 in DESCRIPTION, GPL-3-or-later sources).
 
-**Corrections of numbers in this file (R01, R02):** TBD-R01R02.
+**Corrections of numbers in this file (R01, R02)** - recomputed from stored runs and from new runs on the same
+codon alignments:
+- R02, table "Saturation is `NA`" of Comeron's method: the row for the 1,000-gene example said 5 dN and 2 dN/dS
+  values become `NA` (981 -> 979). With the pipeline of this version it is 3 dN, 0 dS and 0 dN/dS on the 984
+  pairs of the old best-hit rule (AT1G04600.1, AT1G04625.1, AT1G06490.1, whose dS was `NA` already) and **1 dN,
+  0 dS, 0 dN/dS on the 995 pairs of the default** (994 pairs with a dN/dS value in both modes). The row for
+  human / mouse said 2 / 23 / 15 (1,490 -> 1,475); with the alignments of this version (BLOSUM62, no stop codon)
+  it is **1 dS, 17 dN, 5 dN/dS (1,487 -> 1,482)**. The earlier figures were measured with the alignments of 0.4.3.
+  The table is corrected.
+- R01, table "How large the change is" of the pairwise alignments: every cell reproduces from the stored runs
+  (984 pairs, 0.4.3 against the alignment change alone), including r = 0.997 for dS with YN. The review's 0.985
+  is the same correlation on the 982 pairs that remain reciprocal best hits under the bit-score rule: the two
+  pairs that leave are nearly saturated (dS 5.2 and 5.4 in both versions) and carry the correlation. Both
+  figures are now in the table's note (the table is in the section on pairwise alignments, on the branch that
+  holds that change).
 
 **Behaviour changes of 0.5.0 that were not listed before**
 1. `divergence_stratigraphy(ds.values = FALSE)` no longer ran `na.omit()` on its result (now, with the default
@@ -420,13 +452,16 @@ Comeron's method (`dnds_est.method = "Comeron"`, the default)
   returned - `ATGGCTAAA` / `ATGGCCAAA` (one synonymous substitution) gave dS = 0. Such a dS / dN, and dN/dS, is now
   `NA`, as the documentation always said ("NA when it cannot be computed"). Values of all other gene pairs are
   unchanged. `options(orthologr.legacy_comeron_saturation = TRUE)` reproduces the old numbers. How many pairs
-  change (default pipeline of this branch, same codon alignments in both modes):
+  change (default pipeline of this version, same codon alignments in both modes):
 
-  | gene pairs (reciprocal best hits) | dS: value -> `NA` | dN: value -> `NA` | dN/dS: value -> `NA` | other values |
+  | gene pairs | dS: value -> `NA` | dN: value -> `NA` | dN/dS: value -> `NA` | other values |
   |---|---|---|---|---|
-  | *A. thaliana* / *A. lyrata*, 1,000-gene example of the package: 984 | 0 | 5 | 2 (981 -> 979 with a value) | identical |
-  | human / mouse, the 1,500 pairs of the audit (gene families, long genes, random pairs): 1,500 | 2 (old dS 0.71 and 1.23) | 23 | 15 (1,490 -> 1,475 with a value) | identical |
+  | *A. thaliana* / *A. lyrata*, 1,000-gene example of the package, default pipeline: 995 reciprocal best hits | 0 | 1 | 0 (994 with a value in both modes) | identical |
+  | ... with `best_hit_rule = "evalue"`: 984 | 0 | 3 | 0 | identical |
+  | human / mouse, the 1,500 pairs of the audit (gene families, long genes, random pairs) | 1 | 17 | 5 (1,487 -> 1,482 with a value) | identical |
 
+  (Numbers corrected after the third review; they are for the alignments of this version. With the alignments
+  of 0.4.3, which include the stop codons, the counts were 0 / 5 / 2 and 2 / 23 / 15.)
   (Most of the pairs concerned are flagged on the nonsynonymous side: the term for twofold-transversional sites,
   of which a gene has few. The general underestimation of large dS by Comeron's method that the audit describes -
   median 0.87 against 1.96 from PAML yn00 for pairs with yn00 dS > 1.5 - is a property of the method, not of this
