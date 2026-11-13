@@ -14,11 +14,17 @@
 #' \code{"all"}: all groups with at most \code{max_group_size} genes (pairs of genes of the same species are not
 #' computed); or a character vector with the IDs of the groups to compute (e.g. \code{c("OG0000000", "OG0000007")}).
 #' @param dnds_est.method the dN/dS estimation method, see \code{\link{dNdS}} and \code{\link{substitutionrate}}.
-#' Default (\code{NULL}) is \code{"Comeron"} with \code{engine = "orthologr"}.
+#' Default (\code{NULL}) is \code{"Comeron"} with \code{engine = "orthologr"}. With \code{engine = "coal"} the default is \code{"YN"};
+#' \code{"Comeron"} and \code{"Li"} are computed by COAL as well when the installed \pkg{coalr} has them
+#' (\code{coalr::coal_info()$methods}) and then give the values of \code{engine = "orthologr"} for the same
+#' alignment.
 #' @param engine \code{"orthologr"} (Default): the programs \code{\link{dNdS}} uses - \code{\link{multi_aln}} or
 #' \code{\link{pairwise_aln}}, PAL2NAL (\code{\link{codon_aln}}) and \code{\link{substitutionrate}}.
-#' \code{"coal"}: COAL (\url{https://github.com/Plumat-COAL/COAL}), which computes all groups in one call and is much
-#' faster; only in versions of orthologr with the COAL integration (\code{dNdS_clusters()}).
+#' \code{"coal"}: COAL (\url{https://github.com/Plumat-COAL/COAL}) through the R package \pkg{coalr}, as
+#' \code{\link{dNdS_clusters}} does: all groups are computed in one call on \code{comp_cores} threads, which is much
+#' faster. It computes the methods \code{"YN"} (its default), \code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"},
+#' \code{"MLPB"} and \code{"MYN"} (several can be given), with \code{aa_aln_tool = "clustalo"}, \code{"mafft"} or
+#' \code{"pairwise"}; \code{aa_aln_params} and \code{kaks_calc_path} are not used.
 #' @param aa_aln_tool how the proteins of a group are aligned: \code{"clustalo"} (Default), \code{"mafft"},
 #' \code{"muscle"}, \code{"clustalw"} or \code{"t_coffee"} - one multiple alignment per group with that program,
 #' from which the alignment of every pair is taken; or \code{"pairwise"} - every pair is aligned on its own
@@ -33,6 +39,12 @@
 #' Default is \code{TRUE} (such sequences cannot be used in a codon alignment).
 #' @param comp_cores the number of R processes (\code{engine = "orthologr"}) or threads.
 #' @param quiet a logical value: do not show the messages of the alignment and estimation steps.
+#' @param aa_aln_scoring with \code{engine = "coal"}: how the pairwise protein alignments COAL makes itself are
+#' scored (\code{aa_aln_tool = "pairwise"}, and groups of two genes): \code{"pwalign"} (Default) - the scoring of
+#' \code{\link{pairwise_aln}} (BLOSUM62, gap opening 10, extension 4, end gaps penalised), so that the values are
+#' those of \code{dNdS(engine = "coal")} for the same pairs - or \code{"needle"} (COAL's own defaults: gap
+#' extension 0.5, end gaps free). The same argument, with the same default, as in \code{\link{dNdS}},
+#' \code{\link{dNdS_coal}} and \code{\link{dNdS_clusters}}.
 #' @param ... arguments for \code{\link{orthogroups}} when \code{x} holds files.
 #' @details A gene, pair or group that cannot be used never ends the run. A gene without a usable coding sequence
 #' (missing in \code{cds_files}, length not a multiple of 3, characters other than A, C, G, T) is left out and listed
@@ -48,8 +60,12 @@
 #' \code{dN}, \code{dS}, \code{dNdS}, \code{note}. The query is the gene of the species that comes first in \code{x$species};
 #' \item \code{summary}: one row per group (and method): \code{orthogroup}, \code{method}, \code{n_genes},
 #' \code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value), \code{n_na}, \code{n_saturated}
-#' (dS above \code{dS_saturation}), and median, mean, first and third quartile of dN, dS and dN/dS over the pairs
-#' with values;
+#' (dS above \code{dS_saturation}), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
+#' and a dN/dS value), and median, mean, first and third quartile of dN, dS and dN/dS. \strong{Which pairs enter
+#' the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the group that have a dN (dS,
+#' dN/dS) value - a pair without dS (e.g. saturated at synonymous sites) still counts with its dN, and a pair
+#' above \code{dS_saturation} counts with all its values. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the
+#' numbers behind the statistics. \code{\link{dNdS_clusters}} uses the same rule;
 #' \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 #' }
 #' @author Chloe Newton
@@ -65,7 +81,7 @@
 #' # in one step, all groups, one Clustal Omega alignment per group
 #' res <- dNdS_orthogroups(files, groups = "all", aa_aln_tool = "clustalo", comp_cores = 2)
 #' }
-#' @seealso \code{\link{orthogroups}}, \code{\link{dNdS}}, \code{\link{substitutionrate}}
+#' @seealso \code{\link{orthogroups}}, \code{\link{dNdS_clusters}}, \code{\link{dNdS}}, \code{\link{substitutionrate}}
 #' @export
 dNdS_orthogroups <- function(x,
                              cds_files          = NULL,
@@ -81,6 +97,7 @@ dNdS_orthogroups <- function(x,
                              delete_corrupt_cds = TRUE,
                              comp_cores         = 1,
                              quiet              = TRUE,
+                             aa_aln_scoring     = "pwalign",
                              ...) {
         
         force_args()
@@ -110,6 +127,10 @@ dNdS_orthogroups <- function(x,
         } else {
                 dnds_est.method <- dnds_groups_coal_check(dnds_est.method, aa_aln_tool)
         }
+        check_aa_aln_scoring(aa_aln_scoring)
+        if (engine == "orthologr" && aa_aln_scoring != "pwalign")
+                stop("aa_aln_scoring = \"", aa_aln_scoring, "\" needs engine = \"coal\": engine = \"orthologr\" aligns pairs ",
+                     "with pairwise_aln(), i.e. \"pwalign\".", call. = FALSE)
         comp_cores <- check_comp_cores(comp_cores)
         
         if (!inherits(x, "orthogroups")) {
@@ -189,7 +210,7 @@ dNdS_orthogroups <- function(x,
         } else {
                 rates <- dnds_groups_coal(
                         pairs = pair_tbl, cds = cds$cds, dnds_est.method = dnds_est.method, aa_aln_tool = aa_aln_tool,
-                        aa_aln_path = aa_aln_path, comp_cores = comp_cores, quiet = quiet
+                        aa_aln_path = aa_aln_path, comp_cores = comp_cores, quiet = quiet, aa_aln_scoring = aa_aln_scoring
                 )
         }
         
@@ -448,6 +469,9 @@ dnds_groups_summary <- function(pairs, members, dS_saturation = 2) {
                 n_ok        = sum(!is.na(dNdS)),
                 n_na        = sum(is.na(dNdS)),
                 n_saturated = sum(!is.na(dS) & dS > dS_saturation),
+                n_dN        = sum(!is.na(dN)),
+                n_dS        = sum(!is.na(dS)),
+                n_dNdS      = sum(!is.na(dNdS)),
                 dN_median = q(dN, 0.5), dN_mean = mn(dN), dN_q1 = q(dN, 0.25), dN_q3 = q(dN, 0.75),
                 dS_median = q(dS, 0.5), dS_mean = mn(dS), dS_q1 = q(dS, 0.25), dS_q3 = q(dS, 0.75),
                 dNdS_median = q(dNdS, 0.5), dNdS_mean = mn(dNdS), dNdS_q1 = q(dNdS, 0.25), dNdS_q3 = q(dNdS, 0.75)

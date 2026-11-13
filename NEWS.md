@@ -1,7 +1,7 @@
 ## `orthologr` 0.5.0
 
 Version 0.5.0 instead of 0.4.4 because results and behaviour change in ways a patch release should not bring:
-some default results change (see "Changes to pairwise alignments" where that change is merged, the T-Coffee
+some default results change (see "Changes to pairwise alignments that change dN/dS values" below, the T-Coffee
 default mode, `aa_aln_params` being passed on), functions that returned `NULL` or stale results now stop with an
 error, and packages moved from Imports to Suggests.
 
@@ -40,8 +40,8 @@ phylotranscriptomic tools (e.g. myTAI) would have met `NA` strata for the first 
   which KaKs_Calculator gives no ratio either (identical sequences: `NA NA NA`; a model that failed: `nan`) are
   unchanged. Pre-existing in 0.4.3. 1,000-gene example, YN, default pipeline: 11 of 995 gene pairs change from
   `dN = NA` to `dN = 0` (their `dNdS` was and is 0; no other value changes); `filter_dNdS()` kept 984 of the 995
-  pairs and now keeps all 995. (Measured with the faster pairwise alignment and the bit-score rule merged, i.e. the default of 0.5.0; COAL's
-  implementation of these methods returns 0 for the same pairs.)
+  pairs and now keeps all 995. `kaks_tool = "coal"` and `engine = "coal"` always returned 0 for these pairs, so
+  both engines now give the same gene set after filtering (tested).
   `options(orthologr.legacy_kaks_zero_dn = TRUE)` restores the old table.
 - **R17, Comeron's method: an undefined logarithm in a class of sites that has no sites is not a saturation.**
   The rule "saturation is `NA`" (below) flagged an estimate whenever a logarithm of the correction had a
@@ -126,8 +126,17 @@ codon alignments:
   (984 pairs, 0.4.3 against the alignment change alone), including r = 0.997 for dS with YN. The review's 0.985
   is the same correlation on the 982 pairs that remain reciprocal best hits under the bit-score rule: the two
   pairs that leave are nearly saturated (dS 5.2 and 5.4 in both versions) and carry the correlation. Both
-  figures are now in the table's note (the table is in the section on pairwise alignments, on the branch that
-  holds that change).
+  figures are now in the table's note.
+
+**Checked after these fixes** (integration of all branches, with coalr 0.5.0 and `coal-cpp`):
+- With all legacy options - `orthologr.best_hit_rule = "evalue"`, `orthologr.legacy_pairwise_aln = TRUE`,
+  `orthologr.legacy_comeron_saturation = TRUE`, `orthologr.legacy_kaks_zero_dn = TRUE` (`orthologr.dS_zero`
+  needs no setting any more) - `dNdS()` returns the tables of 0.4.3 (master 06c3098): the 20-gene example and the
+  1,000-gene example, Comeron and YN, same rows in the same order and every common column `identical()`.
+- Default path against the state before the review (23aaa52), 1,000-gene example, 995 pairs: Comeron - every
+  column identical; YN - 11 pairs change from `dN = NA` to `dN = 0` (R14), nothing else; `engine = "coal"` with
+  YN - unchanged. The other changes of this section do not touch a value of this data set (R17: no pair; R20: no
+  row; R06, R07, R08, R09: only inputs or settings that failed before).
 
 **Behaviour changes of 0.5.0 that were not listed before**
 1. `divergence_stratigraphy(ds.values = FALSE)` no longer ran `na.omit()` on its result (now, with the default
@@ -185,6 +194,12 @@ worked beyond starting the program and is soft-deprecated; its warning and `?ort
   `dNdS()` for the same pairs (tested). Run time: 200 single-copy groups of four yeasts (1,200 pairs) in 70 s
   with `comp_cores = 2` (Clustal Omega, Comeron); 183 of these pairs have a dN/dS value, the others are saturated
   at synonymous sites (the species are too distant).
+  **`engine = "coal"`** hands the gene pairs of all groups to COAL in one call (`coalr::coal_dnds_clusters()` with
+  one Clustal Omega or MAFFT alignment per group, the machinery of `dNdS_clusters()`; `coalr::coal_dnds_pairs()`
+  with `aa_aln_tool = "pairwise"`), for the methods COAL computes (`"YN"` by default). The same 1,200 pairs take
+  26 s with one Clustal Omega alignment per group and 8 s with pairwise alignments; all 3,941 single-copy groups
+  (23,646 pairs) take 68 s (pairwise). COAL reports 21,148 of these 23,646 pairs as saturated - the `note` column
+  says so.
 
 Measured (DIAMOND 2.2.8, 2 cores; the data are not part of the package):
 
@@ -266,6 +281,19 @@ The human / mouse numbers were obtained with the best-hit code of this version o
 second audit; the old rule gives the audit's (and 0.4.3's) best hits exactly, and its numbers are those the audit
 published (16,458; 330; 93.0%). The audit's own bit-score ranking (bit score, e-value, row order) gave 16,828
 pairs; the documented tie-breaks of this version give 16,827, with the same 68 and 96.8%.
+
+`dNdS()` with its defaults on this branch (all changes of 0.5.0 together), compared with the previous state of
+the integration branch (fe29430), every difference attributed:
+- 20-gene example: identical (20 pairs, same values).
+- 1,000-gene example: 984 -> 995 gene pairs. Best-hit rule: 13 pairs new, 2 pairs gone (`AT1G04600.1` and
+  `AT1G06490.1` were paired with paralogs; both now have another partner), 982 pairs in common with identical
+  values. Saturation flag: 1 pair (`AT1G04625.1`: dN 0.4265 -> `NA`; its dS was `NA` before). ID / join fixes: no
+  change. No pair has dS = 0, so `filter_dNdS()` keeps the same 994 rows with `dS_zero = "keep"` and `"drop"`.
+- `options(orthologr.best_hit_rule = "evalue", orthologr.legacy_comeron_saturation = TRUE)` gives the table of
+  fe29430 exactly (984 pairs); with `orthologr.legacy_pairwise_aln = TRUE` in addition the 20-gene result equals
+  that of orthologr 0.4.3 (upstream 06c3098).
+- `dNdS(engine = "coal")` / `dNdS_coal()` take `best_hit_rule` as well: 995 pairs by default, the 984 pairs (and
+  values) of fe29430 with `"evalue"`.
 
 Also
 - The column `qcov` of DIAMOND hit tables always equals `qcovhsp`. This is not a parsing error: BLAST+ has a
@@ -573,50 +601,6 @@ Continuous integration and tests
   (they need long runs or the GitHub package `metablastr`) and `pairwise_aln` (its tests come with
   `fix/pairwise-aln-speed`).
 
-### Changes to pairwise alignments that change dN/dS values (methods change)
-
-`dNdS()`, `divergence_stratigraphy()` and `pairwise_aln()` align each pair of orthologous proteins with
-`pwalign::pairwiseAlignment(type = "global")`. Three things about this step have changed. Each of them changes
-some alignments and therefore the dN, dS and dN/dS values of the affected gene pairs; results computed
-with this version are not numerically identical to results from `orthologr` <= 0.4.3. Please report the
-`orthologr` version (and, if you changed it, `aa_sub_matrix`) in the methods of analyses based on these values.
-
-**How large the change is.** Measured on the 1,000-gene example of the package (`ortho_thal_cds_1000.fasta` vs
-`ortho_lyra_cds_1000.fasta`, 984 reciprocal best hit pairs), 0.4.3 against this version:
-
-| | Comeron (default) | YN (KaKs_Calculator) |
-|---|---|---|
-| pairs with unchanged dN and dS | 66% (651 of 984) | 71% (699 of 984) |
-| Pearson r of dN, old vs new | 0.971 | 0.967 |
-| Pearson r of dS, old vs new | 0.940 | 0.997 |
-| Pearson r of dN/dS, old vs new | 0.988 | 0.984 |
-| largest change of dN / dS / dN/dS | 0.19 / 0.41 / 0.31 | 0.19 / 0.48 / 0.44 |
-| pairs whose dN/dS changes by more than 0.01 | 22% | 20% |
-
-So about a third of the gene pairs get other values. For most of them the change is small (median change of dN
-0.002, of dS 0.004-0.005 among the changed pairs), but for single pairs it is large, and rankings or thresholds
-on dN/dS (e.g. `filter_dNdS()`, divergence strata) can move. `options(orthologr.legacy_pairwise_aln = TRUE)`
-reproduces the values of 0.4.3.
-
-- **Amino acid alignments are scored with BLOSUM62.** Up to 0.4.3 no substitution matrix was passed to
-  `pairwiseAlignment()`, so every mismatch cost the same, whichever amino acids were exchanged, and the aligner took
-  most of the run time of `dNdS()`. The new argument `aa_sub_matrix` (in `dNdS()`, `compute_dnds()` and
-  `pairwise_aln()`, default `"BLOSUM62"`) names the substitution matrix; `aa_sub_matrix = NULL` gives the old scoring.
-- **The alignment is written full length.** `pwalign::pattern()`/`subject()` return only the aligned range, so the
-  overhanging ends of the longer protein were cut off before the codon alignment. The full rows
-  (`pwalign::alignedPattern()`/`alignedSubject()`) are written now: overhangs are aligned against gaps.
-- **A terminal stop codon is no longer aligned.** The `*` at the end of a translated protein is removed before the
-  alignment, so the stop codon is not a column of the codon alignment and is not scored in the dN/dS estimate.
-
-`options(orthologr.legacy_pairwise_aln = TRUE)` restores all of the 0.4.3 behaviour of this step (old scoring,
-truncated overhangs, stop codon aligned, score file always written) for reproducing earlier results.
-
-### Speed
-
-- `pairwise_aln()` no longer writes a second copy of every alignment (with its score, via
-  `pwalign::writePairwiseAlignments()`) into `tempdir()`; that file is only written when `store_locally = TRUE`.
-  Together with the BLOSUM62 scoring this removes most of the run time of `dNdS()` with the default
-  `aa_aln_tool = "NW"`.
 ### Faster R code around the external programs (no change of results)
 
 The following changes do not change any result: the old per-gene code is kept as the reference and the test suite
@@ -769,6 +753,160 @@ Other fixes
   `NULL`). `multi_aln()` stops with a clear message when `file` does not exist.
 - `promotor_divergence_estimation()` writes its intermediate FASTA files to a folder of its own and removes it.
 
+### New: COAL as codon-alignment tool, Ka/Ks engine and batched dN/dS path
+
+[COAL](https://github.com/Plumat-COAL/COAL) is a fast re-implementation of PAL2NAL with a native Ka/Ks engine. It
+is optional (`Suggests: coalr`): it is used inside R through the package `coalr`
+(`remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")`) or, when that is not installed,
+through the `coal-cpp` program (`pip install coal-align`; `options(orthologr.coal_path = )`). Nothing changes for
+calls that do not ask for it.
+
+- `codon_aln(tool = "coal")` and `dNdS(codon_aln_tool = "coal")` build the codon alignment with COAL instead of the
+  PAL2NAL Perl script: no Perl, and no limit on the protein length (PAL2NAL fails above about 21,800 residues).
+  The codon alignments, and so the dN/dS values, are the same as with `"pal2nal"`.
+- `substitutionrate(kaks_tool = "coal")` and `dNdS(kaks_tool = "coal")` compute the KaKs_Calculator methods
+  `"NG"`, `"LWL"`, `"MLWL"`, `"LPB"`, `"MLPB"`, `"YN"` and `"MYN"` with COAL instead of the external program
+  KaKs_Calculator (which stays the default and is needed for `"MA"`, `"MS"`, `"GY"`, `"GMYN"`, `"ALL"`). The
+  values are KaKs_Calculator 2.0's for the same alignment, with two differences: a dN or dS of exactly 0 is returned
+  as 0 (KaKs_Calculator prints `NA` for values below 1e-6), and a saturated estimate is `NA`. `"MLPB"` is now an
+  accepted `dnds_est.method`.
+- **`dNdS(..., engine = "coal")` and the new `dNdS_coal()`**: the batched fast path. Orthologs are detected with
+  orthologr's own DIAMOND/BLAST (reciprocal) best hit code; then all gene pairs are handed to COAL in one call,
+  which aligns the proteins (BLOSUM62, the scoring of `pairwise_aln()` by default; `aa_aln_scoring = "needle"` in
+  `dNdS_coal()`), threads the codons and estimates dN/dS in memory, on `comp_cores` threads, without a file or a
+  process per gene pair. The result is the table `dNdS()` returns (same columns and types, joined with the hit
+  table); COAL's full table (standard errors, sites, codons compared, status, note) is `attr(result, "coal")`.
+  Needs `coalr` and a `dnds_est.method` that COAL computes (`"YN"`, ...; `"Comeron"` and `"Li"` with a COAL that
+  has them, see "Comeron's and Li's method with COAL" below).
+  The values differ from the pair-by-pair path with the same tools where the protein alignment has several
+  equally good solutions (the two aligners then place a gap differently): in about a third of the gene pairs of
+  the 1,000-gene example, see the table below.
+- **New function `dNdS_clusters()`**: dN, dS and dN/dS for the gene pairs within sequence clusters, e.g. of
+  `deepclust()` / `deepclust_realign()` (or run DeepClust itself), with a per-cluster summary (number of pairs,
+  median, mean, quartiles, minimum and maximum of dN, dS and dN/dS, numbers of saturated and failed pairs).
+  Clusters are aligned with Clustal Omega or MAFFT (one multiple alignment per cluster) or pairwise without an
+  external program; clusters above `max_cluster_size` are computed against their representative, sampled or
+  skipped.
+- `dNdS()` checks `aa_sub_matrix`, `kaks_tool` and `engine`, and that COAL is installed when it was asked for,
+  before the search starts. `codon_aln(get_aln = TRUE)` reads the alignment in the format it was written in.
+
+**Comeron's and Li's method with COAL (third review).** COAL (coalr >= 0.5.0) has ports of the two methods
+orthologr computes itself - libsequence's gestimator (`"Comeron"`, the default method of `dNdS()`) and
+`seqinr::kaks()` (`"Li"`). They are now available wherever COAL is: `dNdS(engine = "coal")` works with the default
+method, and so do `dNdS_coal()`, `dNdS_clusters()`, `dNdS_orthogroups(engine = "coal")` and
+`substitutionrate()` / `dNdS(kaks_tool = "coal")`.
+- `coal_methods()` (internal) lists them when `coalr::coal_info()$methods` does (or the help of `coal-cpp`); with
+  an older COAL a message names what is needed, and `kaks_tool = "coal"` keeps computing these two methods with
+  the built-in code.
+- COAL is asked for the numbers of orthologr's programs (`comeron_flavour = "gestimator"`,
+  `li_flavour = "seqinr"`), and the terminal stop codon is not compared (`terminal_stops = "drop"`: orthologr 0.5.0
+  aligns without it; `"compare"` with `options(orthologr.legacy_pairwise_aln = TRUE)`, as 0.4.3 did).
+- orthologr applies its own rules to COAL's values, so that both paths return the same table for the same
+  codon alignment: Comeron's saturation rule (`NA` where a correction is undefined in a class of sites that has
+  sites - COAL reports these rows with gestimator's finite value and a note;
+  `options(orthologr.legacy_comeron_saturation = TRUE)` keeps the finite values on both paths), `NA` for negative
+  values and the saturation marker of Li's method, and - **decided by what makes the tables identical** -
+  `signif(x, 4)` for Comeron's dN, dS and dN/dS, because gestimator writes 4 significant digits and COAL returns
+  doubles. Li's values are not rounded (seqinr returns doubles). `attr(result, "coal")` of `dNdS_coal()` keeps
+  COAL's unrounded values, status and note.
+
+Measured (package examples, one core, DIAMOND 2.2.8, coalr 0.5.0 of COAL's branch `feat/comeron-li`; the search is
+part of every time):
+
+| | 20 genes | 1,000 genes (995 pairs) |
+|---|---|---|
+| Comeron: built-in path vs COAL's tools on the same alignments (`codon_aln_tool = "coal"`, `kaks_tool = "coal"`): pairs identical in dN, dS and dN/dS | 20 of 20 | **995 of 995** |
+| Li: the same | 20 of 20 | **995 of 995** |
+| YN: KaKs_Calculator vs `kaks_tool = "coal"` (KaKs_Calculator prints 6 digits) | | 994 of 995 within 5e-7; 1 saturated dS (3.69) is `NA` with COAL |
+| Comeron: built-in path vs `engine = "coal"` (COAL aligns the proteins itself): pairs identical | 11 of 20 | 684 of 995 (69%) |
+| ... the other pairs: largest difference of dN / dS / dN/dS; Pearson r over all pairs | 0.001 / 0.032 / 0.014 | 0.020 / 0.056 / 0.153; 0.9994 / 0.9943 / 0.9967 |
+| ... pairs with `NA` (dN, dS, dN/dS), both engines | 0 | 1, 1, 1 - the same pair |
+| Li: built-in path vs `engine = "coal"`: pairs identical | 11 of 20 | 683 of 995 |
+| time, Comeron: built-in path / `engine = "coal"` | 5.4 s / 2.9 s | **97 s / 5.3 s** |
+| time, Li | 4.9 s / 3.2 s | 83 s (2 cores) / 5.7 s |
+| time, YN (KaKs_Calculator) / `engine = "coal"` | | 80 s (2 cores) / 7.0 s |
+
+So with identical alignments COAL reproduces orthologr's Comeron and Li values in every pair, and the batched
+engine differs only through its protein alignments (equally scoring alignments with gaps placed differently;
+the third review found the alignment scores equal in 150 of 150 sampled differing pairs).
+
+**One alignment scoring for every COAL entry point (R15).** `dNdS_clusters(aa_aln_tool = "pairwise")` and
+`dNdS_orthogroups(engine = "coal", aa_aln_tool = "pairwise")` called COAL with its own defaults (gap extension
+0.5, end gaps free), `dNdS(engine = "coal")` with the scoring of `pairwise_aln()` (10 / 4, end gaps penalised):
+the same gene pair got different values depending on the function (E. coli / Yersinia: 63 of 120 pairs equal).
+All four now pass the same preset and have one documented argument **`aa_aln_scoring`** (`"pwalign"`, the
+default, or `"needle"` for COAL's own scoring - the former behaviour of the two functions). **This changes the
+values of `dNdS_clusters()` and `dNdS_orthogroups(engine = "coal")` for pairs that COAL aligns itself**;
+`aa_aln_scoring = "needle"` restores them. A test compares the values of the four entry points on the same pairs.
+
+**One rule for the summaries (R16).** `dNdS_clusters()` took the statistics of dN and dS over the pairs with
+status `"ok"` only (a pair flagged `"saturated"` kept its dN in `pairs` but did not count), `dNdS_orthogroups()`
+over all pairs with a value. Both now use the second rule - every statistic of dN (dS, dN/dS) over all pairs that
+have that value - state it in their help pages, and return the columns `n_dN`, `n_dS`, `n_dNdS` with the numbers of
+pairs behind the statistics. (The statistics of `dNdS_clusters()` change for clusters with saturated pairs: 54 of
+808 clusters in the review's data.)
+
+**`dNdS(engine = "coal")` returns what `dNdS()` returns (R21):** the attribute `dropped_sequences`, the warning
+about several transcripts per gene, and the join with the hit table by both IDs.
+
+**Should `dNdS_orthogroups()` use COAL by default when coalr is installed?** No; the default stays
+`engine = "orthologr"`. A default that depends on which optional package happens to be installed would make the
+same call return different numbers on two machines (the engines differ in about a third of the pairs through
+co-optimal alignments, and COAL's multiple-alignment path supports Clustal Omega and MAFFT only), coalr is not on
+CRAN, and its licence is GPL-3 while this package is declared GPL-2 (see `MAINTAINER_NOTES.md`). The speed-up
+(about 15 to 20 times on 1,000 pairs) is one argument away: `engine = "coal"`.
+
+### Changes to pairwise alignments that change dN/dS values (methods change)
+
+`dNdS()`, `divergence_stratigraphy()` and `pairwise_aln()` align each pair of orthologous proteins with
+`pwalign::pairwiseAlignment(type = "global")`. Three things about this step have changed. Each of them changes
+some alignments and therefore the dN, dS and dN/dS values of the affected gene pairs; results computed
+with this version are not numerically identical to results from `orthologr` <= 0.4.3. Please report the
+`orthologr` version (and, if you changed it, `aa_sub_matrix`) in the methods of analyses based on these values.
+
+**How large the change is.** Measured on the 1,000-gene example of the package (`ortho_thal_cds_1000.fasta` vs
+`ortho_lyra_cds_1000.fasta`, 984 reciprocal best hit pairs), 0.4.3 against this version:
+
+| | Comeron (default) | YN (KaKs_Calculator) |
+|---|---|---|
+| pairs with unchanged dN and dS | 66% (651 of 984) | 71% (699 of 984) |
+| Pearson r of dN, old vs new | 0.971 | 0.967 |
+| Pearson r of dS, old vs new | 0.940 | 0.997 (0.985 without two nearly saturated pairs, see below) |
+| Pearson r of dN/dS, old vs new | 0.988 | 0.984 |
+| largest change of dN / dS / dN/dS | 0.19 / 0.41 / 0.31 | 0.19 / 0.48 / 0.44 |
+| pairs whose dN/dS changes by more than 0.01 | 22% | 20% |
+
+(Recomputed for the third review from the stored runs: every cell reproduces. The correlation of dS for YN is
+carried by two nearly saturated gene pairs, AT1G04600.1 and AT1G06490.1, with dS 5.2 and 5.4 in both versions:
+0.997 with them, 0.985 without. Under the bit-score rule that became the default later these two genes have
+other best hits, so on the 982 pairs that 0.4.3 and the final default of 0.5.0 share the numbers are, for
+Comeron / YN: r of dN 0.963 / 0.964, r of dS 0.940 / 0.985, r of dN/dS 0.988 / 0.984; 651 / 699 pairs unchanged.)
+
+So about a third of the gene pairs get other values. For most of them the change is small (median change of dN
+0.002, of dS 0.004-0.005 among the changed pairs), but for single pairs it is large, and rankings or thresholds
+on dN/dS (e.g. `filter_dNdS()`, divergence strata) can move. `options(orthologr.legacy_pairwise_aln = TRUE)`
+reproduces the values of 0.4.3.
+
+- **Amino acid alignments are scored with BLOSUM62.** Up to 0.4.3 no substitution matrix was passed to
+  `pairwiseAlignment()`, so every mismatch cost the same, whichever amino acids were exchanged, and the aligner took
+  most of the run time of `dNdS()`. The new argument `aa_sub_matrix` (in `dNdS()`, `compute_dnds()` and
+  `pairwise_aln()`, default `"BLOSUM62"`) names the substitution matrix; `aa_sub_matrix = NULL` gives the old scoring.
+- **The alignment is written full length.** `pwalign::pattern()`/`subject()` return only the aligned range, so the
+  overhanging ends of the longer protein were cut off before the codon alignment. The full rows
+  (`pwalign::alignedPattern()`/`alignedSubject()`) are written now: overhangs are aligned against gaps.
+- **A terminal stop codon is no longer aligned.** The `*` at the end of a translated protein is removed before the
+  alignment, so the stop codon is not a column of the codon alignment and is not scored in the dN/dS estimate.
+
+`options(orthologr.legacy_pairwise_aln = TRUE)` restores all of the 0.4.3 behaviour of this step (old scoring,
+truncated overhangs, stop codon aligned, score file always written) for reproducing earlier results.
+
+### Speed
+
+- `pairwise_aln()` no longer writes a second copy of every alignment (with its score, via
+  `pwalign::writePairwiseAlignments()`) into `tempdir()`; that file is only written when `store_locally = TRUE`.
+  Together with the BLOSUM62 scoring this removes most of the run time of `dNdS()` with the default
+  `aa_aln_tool = "NW"`.
+
 ### Robustness of `dNdS()`
 
 - **One gene pair can no longer end a run.** Each gene pair is processed inside `tryCatch()`. A pair for which a
@@ -811,7 +949,7 @@ Other fixes
 ### Miscellaneous
 
 - `compute_dnds()` uses one code path for `comp_cores = 1` and `comp_cores > 1`.
-- Unit tests for all of the above (`tests/testthat/test-robustness.R`).
+- Unit tests for all of the above (`tests/testthat/test-robustness.R`, `tests/testthat/test-coal.R`).
 - Unit tests for `pairwise_aln()`.
 
 ## `orthologr` version 0.4.3

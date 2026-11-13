@@ -242,5 +242,10 @@ res <- dNdS_orthogroups(og, cds_files = c(Athaliana = "athal_cds.fa", Alyrata = 
                         groups = "all", dnds_est.method = "Comeron", comp_cores = 4)
 ```
 
-`engine = "coal"` hands all groups to [COAL](https://github.com/Plumat-COAL/COAL) in one call, which is much
-faster; it is available in versions of orthologr with the COAL integration (`dNdS_clusters()`).
+`engine = "coal"` hands all groups to [COAL](https://github.com/Plumat-COAL/COAL) in one call (R package
+`coalr`, as `dNdS_clusters()` does), which is much faster. COAL computes KaKs_Calculator's methods (`"YN"` by
+default); Comeron's method needs `engine = "orthologr"`.
+
+```{r, eval = FALSE}
+res <- dNdS_orthogroups(og2, engine = "coal", dnds_est.method = "YN", aa_aln_tool = "clustalo", comp_cores = 4)
+```
