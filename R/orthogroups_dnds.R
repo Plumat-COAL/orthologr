@@ -70,7 +70,7 @@
 #' \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 #' }
 #' @author Chloe Newton
-#' @examples \dontrun{
+#' @examplesIf all(nzchar(Sys.which(c("diamond", "perl"))))
 #' files <- c(
 #'   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'   Alyrata   = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
@@ -79,7 +79,8 @@
 #' res$pairs
 #' res$summary
 #'
-#' # in one step, all groups, one Clustal Omega alignment per group
+#' \dontrun{
+#' # in one step, all groups, one Clustal Omega alignment per group (needs Clustal Omega)
 #' res <- dNdS_orthogroups(files, groups = "all", aa_aln_tool = "clustalo", comp_cores = 2)
 #' }
 #' @seealso \code{\link{orthogroups}}, \code{\link{dNdS_clusters}}, \code{\link{dNdS}}, \code{\link{substitutionrate}}

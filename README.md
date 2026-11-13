@@ -220,30 +220,51 @@ When running your own query file, please specify `query_file = "path/to/your/cds
 
 ### Example: Computing dN/dS values for all orthologous genes between two genomes
 
-First, users can retrieve all coding sequences from entire genomes using the [biomartr](https://github.com/ropensci/biomartr) package ([see details here](https://docs.ropensci.org/biomartr/articles/Sequence_Retrieval.html#cds-retrieval)).
+`dNdS()` treats every sequence of a file as a gene, so the two files must hold **one coding sequence per
+gene**. Files with all transcripts (Ensembl `cds/all`, `biomartr::getCDS()`) hold several splice variants per
+gene: `dNdS()` warns about such a file, and the result would have several rows per gene. The example therefore
+keeps the longest isoform per gene first.
 
 ```r
 install.packages("biomartr")
 library(biomartr)
-# download all coding sequences for Mus musculus
-Mmusculus_file <- biomartr::getCDS(organism = "Mus musculus", path = getwd())
-# download all coding sequences for Homo sapiens
-Hsapiens_file <- biomartr::getCDS(organism = "Homo sapiens", path = getwd())
-# compute dN/dS values for Homo sapiens versus Mus musculus
-Hs_vs_Mm_dNdS <- 
-  dNdS(query_file      = Hsapiens_file,
-       subject_file    = Mmusculus_file,
-       delete_corrupt_cds = FALSE,
-       ortho_detection = "RBH", 
-       aa_aln_type     = "pairwise",
-       aa_aln_tool     = "NW", 
-       codon_aln_tool  = "pal2nal", 
-       dnds_est.method = "Comeron", 
-       comp_cores      = 1 )
-# store result in Excel readable csv file
-install.packages("readr")
-readr::write_excel_csv(Hs_vs_Mm_dNdS, "Hs_vs_Mm_dNdS.csv")
+library(orthologr)
+
+# coding sequences, proteins and annotation of both species (Ensembl)
+Hs_cds <- getCDS(db = "ensembl", organism = "Homo sapiens", path = "data")
+Mm_cds <- getCDS(db = "ensembl", organism = "Mus musculus", path = "data")
+Hs_gtf <- getGTF(db = "ensembl", organism = "Homo sapiens", path = "data")
+Mm_gtf <- getGTF(db = "ensembl", organism = "Mus musculus", path = "data")
+
+# one transcript per gene: the longest isoform
+retrieve_longest_isoforms(proteome_file = Hs_cds, annotation_file = Hs_gtf,
+                          new_file = "data/Hs_cds_longest.fa", annotation_format = "gtf")
+retrieve_longest_isoforms(proteome_file = Mm_cds, annotation_file = Mm_gtf,
+                          new_file = "data/Mm_cds_longest.fa", annotation_format = "gtf")
+
+# dN/dS of the reciprocal best hits (DIAMOND), Comeron's method
+Hs_vs_Mm <- dNdS(query_file      = "data/Hs_cds_longest.fa",
+                 subject_file    = "data/Mm_cds_longest.fa",
+                 dnds_est.method = "Comeron",
+                 comp_cores      = max(1, parallel::detectCores() - 1))
+
+# the summary printed at the end says how many gene pairs have a value; the column 'status' says it per pair
+table(Hs_vs_Mm$status)
+
+# keep the result together with the record of the run (versions, options, checksums of the input files)
+write_dNdS(Hs_vs_Mm, "Hs_vs_Mm_dNdS.tsv")
+
+# gene pairs with usable values
+Hs_vs_Mm_filtered <- filter_dNdS(Hs_vs_Mm, dnds.threshold = 2)
 ```
+
+Run time: the default engine takes about 50 ms per gene pair and core (about 17,000 gene pairs for human and
+mouse: a quarter of an hour on one core, a few minutes on eight). With the optional package `coalr`,
+`engine = "coal"` computes all pairs in one call on `comp_cores` threads and is about ten times faster.
+For species that are less than about 70 % identical at the protein level use `sensitivity_mode = "default"` or
+`"sensitive"`; when the summary reports that most gene pairs are saturated, the species are too distant for
+pairwise dN/dS. See `vignette("dNdS_estimation")`, section "Good practice", and - if you used orthologr 0.4.3
+before - `vignette("upgrading_from_0.4.3")`.
 
 __This way, users can compute dN/dS values for any pairwise genome comparison.__
 

@@ -41,17 +41,10 @@
 #' length is not a multiple of 3 is written. A message names the file.}
 #' \item{\code{orthologr.isoform_warning}}{\code{TRUE} (default). \code{FALSE}: \code{dNdS()} and
 #' \code{orthologs()} and \code{orthogroups()} do not check whether the input files hold several isoforms per gene.}
-#' \item{\code{orthologr.coal_backend}}{only with the COAL integration (\code{dNdS(engine = "coal")},
-#' \code{dNdS_coal()}, \code{dNdS_clusters()}): \code{NULL} (default: the R package \pkg{coalr} when it is
-#' installed, else the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}.}
-#' \item{\code{orthologr.coal_path}}{only with the COAL integration: the full path of the program \code{coal-cpp}
-#' (default \code{""}: the environment variable \code{COAL_CPP}, then the \code{PATH}).}
 #' }
 #' The option \code{timeout} of R is raised to at least 600 seconds while \code{diamond_install()} downloads DIAMOND.
 #' @section Environment variables:
 #' \describe{
-#' \item{\code{COAL_CPP}}{only with the COAL integration: the full path of the program \code{coal-cpp}, used when it
-#' is not on the \code{PATH} and \code{options(orthologr.coal_path = )} is not set.}
 #' \item{\code{PATH}}{the external programs (DIAMOND, BLAST+, perl, KaKs_Calculator, Clustal Omega, ...) are looked
 #' up there unless the \code{*_path} argument of a function names their folder.}
 #' }

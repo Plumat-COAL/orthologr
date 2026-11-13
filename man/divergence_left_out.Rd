@@ -27,12 +27,12 @@ lowest one - take them from this table and add them to the map; \code{divergence
 keeps them in the map with the stratum \code{NA}.
 }
 \examples{
-\dontrun{
+\dontshow{if (all(nzchar(Sys.which(c("diamond", "perl"))))) withAutoprint(\{ # examplesIf}
 dm <- divergence_stratigraphy(
   query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
   subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
 divergence_left_out(dm)
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{divergence_stratigraphy}}, \code{\link{filter_dNdS}}

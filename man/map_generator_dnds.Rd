@@ -69,20 +69,22 @@ dNdS Maps between query and subject organsim and as a second step stores the cor
 in an output folder.
 }
 \examples{
-\dontrun{
+\dontshow{if (all(nzchar(Sys.which(c("diamond", "perl"))))) withAutoprint(\{ # examplesIf}
+out_dir <- file.path(tempdir(), "orthologr_dnds_maps")
 map_generator_dnds(
    query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
    subjects_folder = system.file('seqs/map_gen_example', package = 'orthologr'),
    aa_aln_type      = "pairwise",
-   aa_aln_tool      = "NW", 
-   codon_aln_tool   = "pal2nal", 
+   aa_aln_tool      = "NW",
+   codon_aln_tool   = "pal2nal",
    dnds_est_method  = "Comeron",
-   output_folder   = "orthologr_dnds_maps",
+   output_folder   = out_dir,
    quiet           = TRUE,
    comp_cores      = 1
 )
-
-}
+list.files(out_dir)
+unlink(out_dir, recursive = TRUE)
+\dontshow{\}) # examplesIf}
 }
 \author{
 Hajk-Georg Drost

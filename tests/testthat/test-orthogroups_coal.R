@@ -26,7 +26,7 @@ test_that("dNdS_orthogroups(engine = 'coal') returns COAL's values for the betwe
         res <- suppressMessages(dNdS_orthogroups(og, groups = ids, engine = "coal", aa_aln_tool = "pairwise"))
         expect_identical(names(res), c("pairs", "summary", "failed"))
         expect_identical(names(res$pairs), c("orthogroup", "query_species", "query_id", "subject_species", "subject_id",
-                                             "method", "dN", "dS", "dNdS", "note"))
+                                             "method", "dN", "dS", "dNdS", "note", "status"))
         p <- res$pairs
         s <- res$summary[match(ids, res$summary$orthogroup), ]
         expect_identical(s$n_pairs, c(6L, 9L, 3L, 1L))

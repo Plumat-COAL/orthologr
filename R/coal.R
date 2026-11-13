@@ -420,15 +420,16 @@ cds_vector <- function(cds_dt) {
 #' @author Chloe Newton
 #' @return A tibble with the columns of \code{\link{dNdS}}: \code{query_id}, \code{subject_id}, \code{dN}, \code{dS},
 #' \code{dNdS}, \code{method} and the columns of the hit table.
-#' @examples \dontrun{
-#' dNdS_coal(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
-#'           subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'           dnds_est.method = "YN", comp_cores = 2)
+#' @examplesIf nzchar(system.file(package = "coalr"))
+#' if (nzchar(Sys.which("diamond"))) {
+#'   dNdS_coal(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
+#'             subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
+#'             dnds_est.method = "YN", comp_cores = 2)
 #'
-#' # the same through dNdS()
-#' dNdS(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
-#'      subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'      dnds_est.method = "YN", engine = "coal")
+#'   # the same through dNdS()
+#'   dNdS(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
+#'        subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
+#'        dnds_est.method = "YN", engine = "coal")
 #' }
 #' @seealso \code{\link{dNdS}}, \code{\link{dNdS_clusters}}, \code{\link{diamond_rec}}
 #' @export
@@ -668,14 +669,17 @@ dNdS_coal <- function(query_file,
 #' (\pkg{coalr}'s own summary takes the statistics over the pairs with status \code{"ok"} only.)
 #' \item \code{failed}: genes and clusters that could not be used, and why.
 #' }
-#' @examples \dontrun{
+#' @examplesIf nzchar(system.file(package = "coalr"))
 #' cds <- system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr')
-#' # cluster with DIAMOND DeepClust, then dN/dS within each cluster
-#' res <- dNdS_clusters(cds, aa_aln_tool = "pairwise")
-#' res$pairs
-#' res$summary
+#' if (nzchar(Sys.which("diamond"))) {
+#'   # cluster with DIAMOND DeepClust, then dN/dS within each cluster
+#'   res <- dNdS_clusters(cds, aa_aln_tool = "pairwise")
+#'   res$pairs
+#'   res$summary
+#' }
 #'
-#' # with clusters computed before
+#' \dontrun{
+#' # with clusters computed before, one Clustal Omega alignment per cluster (needs Clustal Omega)
 #' cl <- deepclust(cds, seq_type = "cds")
 #' res <- dNdS_clusters(cds, clusters = cl, aa_aln_tool = "clustalo", comp_cores = 2)
 #' }
@@ -845,3 +849,19 @@ dnds_cluster_summary_stats <- function(summary, pairs) {
         first_stat <- match(stat_cols[1], names(summary))
         cbind(summary[ , seq_len(first_stat - 1L), drop = FALSE], counts, summary[ , first_stat:ncol(summary), drop = FALSE])
 }
+
+#' @name orthologr_options
+#' @rdname orthologr_options
+#' @section Options and environment variable of the COAL integration:
+#' Read by \code{dNdS(engine = "coal")}, \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}},
+#' \code{dNdS_orthogroups(engine = "coal")}, \code{codon_aln(tool = "coal")} and
+#' \code{substitutionrate(kaks_tool = "coal")}.
+#' \describe{
+#' \item{\code{orthologr.coal_backend}}{\code{NULL} (default: the R package \pkg{coalr} when it is installed, else
+#' the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}.}
+#' \item{\code{orthologr.coal_path}}{the full path of the program \code{coal-cpp} (default \code{""}: the
+#' environment variable \code{COAL_CPP}, then the \code{PATH}).}
+#' \item{environment variable \code{COAL_CPP}}{the full path of the program \code{coal-cpp}, used when it is not on
+#' the \code{PATH} and \code{options(orthologr.coal_path = )} is not set.}
+#' }
+NULL

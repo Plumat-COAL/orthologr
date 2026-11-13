@@ -138,46 +138,43 @@ Anything else is an error.
 }
 
 \examples{
-\dontrun{
-
 # estimate the dNdS rate using Li's method
 substitutionrate(
    file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
-   est.method = "Li", 
+   est.method = "Li",
    format     = "fasta")
- 
+
 # estimate the dNdS rate using Comeron's method
 substitutionrate(
    file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
-   est.method = "Comeron", 
+   est.method = "Comeron",
    format     = "fasta")
-                 
+
+\dontshow{if (nzchar(Sys.which("KaKs_Calculator"))) withAutoprint(\{ # examplesIf}
 # estimate the dNdS rate using model averaging provided by
 # the KaKs_Calculator 1.2 program
  substitutionrate(
-    file       = system.file("seqs/pal2nal.aln", package = "orthologr"), 
-    est.method = "MA", 
-    format     = "fasta") 
-                  
- # estimate the dNdS rate using Nei and Gojobori's method provided by the 
+    file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
+    est.method = "MA",
+    format     = "fasta")
+
+ # estimate the dNdS rate using Nei and Gojobori's method provided by the
  # KaKs_Calculator 1.2 program
  substitutionrate(
-    file       = system.file("seqs/pal2nal.aln", package = "orthologr"), 
-    est.method = "NG", 
-    format     = "fasta")     
-  
-  # estimate the dNdS rate using Nei and Gojobori's method AND Yang and Nielsen's 
-  # method provided by the KaKs_Calculator 1.2 program 
-  # for this purpose we choose: 
-  # est.method = "kaks_calc" and kaks_calc.params = "-m NG -m YN"                 
+    file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
+    est.method = "NG",
+    format     = "fasta")
+
+  # estimate the dNdS rate using Nei and Gojobori's method AND Yang and Nielsen's
+  # method provided by the KaKs_Calculator 1.2 program
+  # for this purpose we choose:
+  # est.method = "kaks_calc" and kaks_calc.params = "-m NG -m YN"
  substitutionrate(
    file             = system.file("seqs/pal2nal.aln", package = "orthologr"),
-   est.method       = "kaks_calc", 
+   est.method       = "kaks_calc",
    format           = "fasta",
    kaks_calc.params = "-m NG -m YN")
-                  
-                                          
-}
+\dontshow{\}) # examplesIf}
 }
 \references{
 Li, W.-H. (1993) Unbiased estimation of the rates of synonymous and nonsynonymous substitution. J. Mol. Evol., 36:96-99.

@@ -28,10 +28,11 @@
 #'
 #' https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options
 #'
-#' @examples \dontrun{
-#'  # running the set function to see an example output
-#'  head(set_diamond(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))[[1]] , 2)
-#' }
+#' @examples
+#' # the coding sequences of a file and their translations, as used for a DIAMOND search
+#' # (no DIAMOND database is made: makedb = FALSE)
+#' res <- set_diamond(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))
+#' head(res[[1]], 2)
 #' @seealso \code{\link{diamond_best}}, \code{\link{diamond_rec}}, \code{\link{diamond}}, \code{\link{set_blast}}
 #' @export
 

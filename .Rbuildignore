@@ -14,3 +14,4 @@ LICENSE
 ^pkgdown$
 ^environment\.yml$
 ^MAINTAINER_NOTES\.md$
+^MAINTAINER_CHANGELOG\.md$

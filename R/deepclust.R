@@ -71,7 +71,7 @@
 #' at tree-of-life scale using DIAMOND." Nature methods, 18(4), 366-368.
 #'
 #' https://github.com/bbuchfink/diamond/wiki
-#' @examples \dontrun{
+#' @examplesIf nzchar(Sys.which("diamond"))
 #' # Cluster a single proteome (protein sequences, the default)
 #' deepclust(
 #'   input_file = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr')
@@ -85,6 +85,7 @@
 #'   )
 #' )
 #'
+#' \dontrun{
 #' # Apply identity and coverage thresholds across multiple proteomes
 #' deepclust(
 #'   input_file = c(
@@ -97,13 +98,13 @@
 #'   comp_cores   = 4
 #' )
 #'
-#' # Save the cluster TSV to the current working directory
+#' # Save the cluster TSV to the folder tempdir()
 #' deepclust(
 #'   input_file = c(
 #'     system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'     system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr')
 #'   ),
-#'   save.output = getwd()
+#'   save.output = tempdir()
 #' )
 #'
 #' # Cluster CDS sequences (translated to protein internally)

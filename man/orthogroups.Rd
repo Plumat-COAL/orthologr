@@ -159,7 +159,7 @@ numbers during the search, so any ID works. When an ID occurs in more than one s
 \code{<species>|<ID>} in the result and a message says so (\code{x$genes} holds both names).
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.which("diamond"))) withAutoprint(\{ # examplesIf}
 files <- c(
   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
   Alyrata   = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
@@ -169,12 +169,17 @@ summary(og)
 og$wide
 og$pairs
 
-# proteins of all species in a folder, DeepClust route, clusters refined by reciprocal best hits
-og <- orthogroups("proteomes/", method = "deepclust", seq_type = "protein", refine = TRUE, comp_cores = 8)
-
 # files in the layout of OrthoFinder
-write_orthogroups(og, "orthogroups_out")
+out <- write_orthogroups(og, file.path(tempdir(), "orthogroups_out"))
+unlink(file.path(tempdir(), "orthogroups_out"), recursive = TRUE)
+
+\dontrun{
+# the proteomes of all species in a folder (one FASTA file per species), DeepClust route,
+# clusters refined by reciprocal best hits
+og <- orthogroups("path/to/folder_with_proteomes", method = "deepclust", seq_type = "protein",
+                  refine = TRUE, comp_cores = 8)
 }
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{write_orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{diamond_rec}},

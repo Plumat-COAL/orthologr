@@ -10,11 +10,11 @@
 #' It is possible to read in different genome file standards such as \emph{fasta} or \emph{fastq}.
 #' Genomes stored in fasta files can be downloaded from https://ensemblgenomes.org, https://www.ncbi.nlm.nih.gov/genome, or https://www.ebi.ac.uk, etc.
 #'
-#' @examples \dontrun{
+#' @examples
 #' # reading a genome stored in a fasta file
 #' Ath.genome <- read.genome(system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'                            format = "fasta")
-#' }
+#' head(Ath.genome, 2)
 #'
 #' @return A data.table storing the gene id in the first column and the corresponding
 #' sequence as string in the second column.
@@ -65,11 +65,11 @@ read.genome <- function(file, format, ...){
 #'
 #' Proteomes stored in fasta files can be downloaded from https://www.ebi.ac.uk/reference_proteomes, etc.
 #'
-#' @examples \dontrun{
+#' @examples
 #' # reading a proteome stored in a fasta file
 #' Ath.proteome <- read.proteome(system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'                                format = "fasta")
-#' }
+#' head(Ath.proteome, 2)
 #'
 #' @return A data.table storing the gene id in the first column and the corresponding
 #' sequence as string in the second column.
@@ -121,11 +121,11 @@ read.proteome <- function(file, format, ...){
 #'
 #' CDS stored in fasta files can be downloaded from https://www.ensembl.org/info/data/ftp/index.html, etc.
 #'
-#' @examples \dontrun{
+#' @examples
 #' # reading a cds file stored in fasta format
 #' Ath.cds <- read.cds(system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'                     format = "fasta")
-#' }
+#' head(Ath.cds, 2)
 #'
 #' @return A data.table storing the gene id in the first column and the corresponding
 #' sequence as string in the second column.

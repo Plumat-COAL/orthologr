@@ -136,7 +136,7 @@ matrix (one row per cluster, one column per organism/file) using
 \code{tidyr::pivot_wider}.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.which("diamond"))) withAutoprint(\{ # examplesIf}
 # Profile two proteomes with default settings
 profile <- deepclust_annotate(
   input_file = c(
@@ -154,7 +154,8 @@ profile <- deepclust_annotate(
 )
 profile
 
-# Pivot to a presence/absence matrix
+\dontrun{
+# Pivot to a presence/absence matrix (needs the package tidyr)
 library(tidyr)
 library(dplyr)
 profile |>
@@ -194,6 +195,7 @@ profile_enriched <- deepclust_annotate(
   realign       = realign_stats
 )
 }
+\dontshow{\}) # examplesIf}
 }
 \references{
 Buchfink, B., Reuter, K., & Drost, H. G. (2021) "Sensitive protein alignments

@@ -73,27 +73,25 @@ have the same order
 }
 }
 \examples{
-
-\dontrun{
-
+\dontshow{if (nzchar(Sys.which("perl"))) withAutoprint(\{ # examplesIf}
 # performing a codon alignment using PAL2NAL
 codon_aln <- codon_aln(file_aln = system.file('seqs/aa_seqs.aln', package = 'orthologr'),
-                       file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'), 
-                       format   = "clustal", 
-                       tool     = "pal2nal", 
-                       get_aln  = TRUE)
-                       
-                       
+                       file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'),
+                       format   = "clustal",
+                       tool     = "pal2nal",
+                       get_aln  = TRUE,
+                       quiet    = TRUE)
+
 # running PAL2NAL with additional parameters (e.g. a different codon table)
 codon_aln <- codon_aln(file_aln = system.file('seqs/aa_seqs.aln', package = 'orthologr'),
-                       file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'), 
-                       format   = "clustal", 
-                       tool     = "pal2nal", 
+                       file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'),
+                       format   = "clustal",
+                       tool     = "pal2nal",
                        get_aln  = TRUE,
-                       params   = "-codontable 2")
-                        
-}
+                       params   = "-codontable 2",
+                       quiet    = TRUE)
                        
+\dontshow{\}) # examplesIf}
 }
 \references{
 Mikita Suyama, David Torrents, and Peer Bork (2006)

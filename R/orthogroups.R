@@ -108,7 +108,7 @@
 #' See \code{\link{write_orthogroups}} for files in OrthoFinder's layout and \code{\link{dNdS_orthogroups}} for dN/dS
 #' within the groups.
 #' @author Chloe Newton
-#' @examples \dontrun{
+#' @examplesIf nzchar(Sys.which("diamond"))
 #' files <- c(
 #'   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'   Alyrata   = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
@@ -118,11 +118,15 @@
 #' og$wide
 #' og$pairs
 #'
-#' # proteins of all species in a folder, DeepClust route, clusters refined by reciprocal best hits
-#' og <- orthogroups("proteomes/", method = "deepclust", seq_type = "protein", refine = TRUE, comp_cores = 8)
-#'
 #' # files in the layout of OrthoFinder
-#' write_orthogroups(og, "orthogroups_out")
+#' out <- write_orthogroups(og, file.path(tempdir(), "orthogroups_out"))
+#' unlink(file.path(tempdir(), "orthogroups_out"), recursive = TRUE)
+#'
+#' \dontrun{
+#' # the proteomes of all species in a folder (one FASTA file per species), DeepClust route,
+#' # clusters refined by reciprocal best hits
+#' og <- orthogroups("path/to/folder_with_proteomes", method = "deepclust", seq_type = "protein",
+#'                   refine = TRUE, comp_cores = 8)
 #' }
 #' @seealso \code{\link{write_orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{diamond_rec}},
 #' \code{\link{deepclust}}, \code{\link{orthologs}}

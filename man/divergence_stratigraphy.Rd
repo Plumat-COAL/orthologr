@@ -169,47 +169,41 @@ In our experience performing Divergence Stratigraphy using two genomes (one quer
 on an 8 core machine can take up to 1,5 - 2 hours.
 }
 \examples{
-\dontrun{
+\dontshow{if (all(nzchar(Sys.which(c("diamond", "perl"))))) withAutoprint(\{ # examplesIf}
  # performing standard divergence stratigraphy
  divergence_stratigraphy(
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
       eval            = "1E-5",
-      ortho_detection = "RBH", 
-      comp_cores      = 1, 
-      quiet           = TRUE, 
+      ortho_detection = "RBH",
+      comp_cores      = 1,
+      quiet           = TRUE,
       clean_folders   = TRUE)
-      
-      
-      
+
+\dontrun{
  # performing standard divergence stratigraphy using the aligner_path argument to specify
  # the path to diamond
  divergence_stratigraphy(
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-      eval            = "1E-5", 
+      eval            = "1E-5",
       ortho_detection = "RBH",
       aligner_path    = "path/to/diamond",
-      comp_cores      = 1, 
-      quiet           = TRUE, 
+      comp_cores      = 1,
+      quiet           = TRUE,
       clean_folders   = TRUE)
- 
- 
- 
- # Divergence Stratigraphy can also be performed in parallel 
+
+ # Divergence Stratigraphy can also be performed in parallel
  # (on a multicore machine) using the 'comp_cores' argument
  divergence_stratigraphy(
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-      eval            = "1E-5", 
-      ortho_detection = "RBH", 
-      comp_cores      = 2, 
-      quiet           = TRUE, 
+      eval            = "1E-5",
+      ortho_detection = "RBH",
+      comp_cores      = 2,
+      quiet           = TRUE,
       clean_folders   = TRUE)
- 
- 
- 
- 
+
  # in case you want a divergence map with DS values and query_id and subject_id
  # you can specify subject.id = TRUE
  # performing standard divergence stratigraphy
@@ -217,15 +211,12 @@ on an 8 core machine can take up to 1,5 - 2 hours.
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
       eval            = "1E-5",
-      ortho_detection = "RBH", 
-      comp_cores      = 1, 
-      quiet           = TRUE, 
+      ortho_detection = "RBH",
+      comp_cores      = 1,
+      quiet           = TRUE,
       clean_folders   = TRUE,
       subject.id      = TRUE)
-      
-      
-      
-      
+
  # in case you want a divergence map with KaKs values and query_id and subject_id
  # you can specify ds.values = FALSE and subject.id = TRUE
  # performing standard divergence stratigraphy
@@ -233,29 +224,27 @@ on an 8 core machine can take up to 1,5 - 2 hours.
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
       eval            = "1E-5",
-      ortho_detection = "RBH", 
-      comp_cores      = 1, 
-      quiet           = TRUE, 
+      ortho_detection = "RBH",
+      comp_cores      = 1,
+      quiet           = TRUE,
       clean_folders   = TRUE,
       subject.id      = TRUE)
- 
-      
-      
- # in case you want a divergence map with divergence stratum as quintile (5-quantile) values 
+
+ # in case you want a divergence map with divergence stratum as quintile (5-quantile) values
  # or any other N-quantile values rather than the default decile (10-quantile) values,
  # you can specify this with n_quantile.
  divergence_stratigraphy(
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
       eval            = "1E-5",
-      ortho_detection = "RBH", 
-      comp_cores      = 1, 
-      quiet           = TRUE, 
+      ortho_detection = "RBH",
+      comp_cores      = 1,
+      quiet           = TRUE,
       clean_folders   = TRUE,
       n_quantile      = 5)
-      
- }
+}
  
+\dontshow{\}) # examplesIf}
 }
 \references{
 Quint M et al. (2012). A transcriptomic hourglass in plant embryogenesis. Nature (490): 98-101.

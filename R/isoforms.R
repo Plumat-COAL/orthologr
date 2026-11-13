@@ -69,10 +69,10 @@ isoform_warning <- function(file, arg = "file") {
         n_multi <- sum(per_gene > 1)
         if (n_multi == 0)
                 return(invisible(NULL))
-        # the same threshold for genes named in the headers as for genes judged by the IDs: at least 5 genes and
-        # at least 1 % of the genes with more than one sequence (a bacterial genome has a few genes with two
-        # coding sequences, e.g. programmed frameshifts, and no splice variants)
-        if (n_multi < 5 || n_multi < 0.01 * length(per_gene))
+        # genes named in the headers: at least 1 % of the genes must have more than one sequence, as for genes
+        # judged by the IDs (a bacterial genome has a few genes with two coding sequences, e.g. programmed
+        # frameshifts, and no splice variants: 9 of 4,308 genes of E. coli K-12)
+        if (n_multi < 0.01 * length(per_gene))
                 return(invisible(NULL))
         ex <- names(per_gene)[which.max(per_gene)]
         warning(

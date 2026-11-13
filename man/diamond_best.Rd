@@ -107,47 +107,36 @@ are used to speed up best hit computations.
 This function gives the same output as \code{\link{blast_best}} while being much much faster.
 }
 \examples{
-\dontrun{
-
+\dontshow{if (nzchar(Sys.which("diamond"))) withAutoprint(\{ # examplesIf}
 # performing gene orthology inference using the best hit (BH) method
 diamond_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
-           
-           
-           
-# performing gene orthology inference using the best hit (BH) method starting with protein sequences
+
+# performing gene orthology inference using the best hit (BH) method
+# starting with protein sequences
 diamond_best(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
            seq_type     = "protein")
 
-
-
-# save the DIAMOND2 output file to the current working directory
+# save the DIAMOND2 output file to the folder tempdir()
 diamond_best(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
            seq_type     = "protein",
-           save.output  = getwd())
-
-
-
-
+           save.output  = tempdir())
 
 # use multicore processing
-diamond_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'), 
+diamond_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
            comp_cores   = 2)
 
-
-
+\dontrun{
 # performing gene orthology inference using the best hit (BH) method and external
 # diamond path
 diamond_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
            path         = "path/to/diamond/")
-           
-           
 }
-
+\dontshow{\}) # examplesIf}
 }
 \references{
 Buchfink, B., Reuter, K., & Drost, H. G. (2021) "Sensitive protein alignments at tree-of-life scale using DIAMOND." Nature methods, 18(4), 366-368.

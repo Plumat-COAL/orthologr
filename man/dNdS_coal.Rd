@@ -123,16 +123,18 @@ This function needs the R package \pkg{coalr}:
 \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "improve/pass2")}.
 }
 \examples{
-\dontrun{
-dNdS_coal(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
-          subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-          dnds_est.method = "YN", comp_cores = 2)
+\dontshow{if (nzchar(system.file(package = "coalr"))) withAutoprint(\{ # examplesIf}
+if (nzchar(Sys.which("diamond"))) {
+  dNdS_coal(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
+            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
+            dnds_est.method = "YN", comp_cores = 2)
 
-# the same through dNdS()
-dNdS(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
-     subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-     dnds_est.method = "YN", engine = "coal")
+  # the same through dNdS()
+  dNdS(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
+       subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
+       dnds_est.method = "YN", engine = "coal")
 }
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{dNdS}}, \code{\link{dNdS_clusters}}, \code{\link{diamond_rec}}

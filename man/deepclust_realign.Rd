@@ -107,7 +107,7 @@ alignment query (\code{qseqid}) and the \emph{member} as the subject
 (\code{sseqid}); the returned tibble is named accordingly.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.which("diamond"))) withAutoprint(\{ # examplesIf}
 # 1. Run deepclust first
 clusters <- deepclust(
   input_file = c(
@@ -125,15 +125,6 @@ realign_result <- deepclust_realign(
   clusters = clusters
 )
 
-# 2. Alternatively, supply the path to the deepclust TSV directly
-realign_result <- deepclust_realign(
-  input_file = c(
-    system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
-    system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr')
-  ),
-  clusters = "/path/to/deepclust_output.tsv"
-)
-
 # 3. Incorporate into deepclust_annotate without re-running deepclust
 profile <- deepclust_annotate(
   input_file = c(
@@ -142,7 +133,18 @@ profile <- deepclust_annotate(
   ),
   realign = realign_result
 )
+
+\dontrun{
+# 2. Alternatively, supply the path to the deepclust TSV directly
+realign_result <- deepclust_realign(
+  input_file = c(
+    system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
+    system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr')
+  ),
+  clusters = "/path/to/deepclust_output.tsv"
+)
 }
+\dontshow{\}) # examplesIf}
 }
 \references{
 Buchfink, B., Reuter, K., & Drost, H. G. (2021) "Sensitive protein alignments

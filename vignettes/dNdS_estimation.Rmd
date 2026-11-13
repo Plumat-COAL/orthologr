@@ -159,6 +159,60 @@ dNdS( query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orth
 ```
 
 
+## Good practice
+
+**One transcript per gene.** `dNdS()` treats every sequence of a file as a gene. Files with all transcripts
+(the `cds/all` files of Ensembl, files from `biomartr::getCDS()`) give several rows per gene with different
+partners, and the splice variants compete as best hits: on human chromosome 21 such a file holds 2,048
+sequences for 220 genes. `dNdS()` warns when it sees this; keep the longest isoform first with
+`retrieve_longest_isoforms()` (it needs the annotation file) and run `dNdS()` on its output.
+
+**Sequences that are left out.** Coding sequences with characters other than A, C, G, T are left out before the
+search (they cannot be translated), also when it is a single leading `N` - 2.5 to 4.7 % of the Ensembl
+transcripts of human and mouse chromosomes, almost none in RefSeq sets. Sequences whose length is not a multiple
+of 3 are trimmed (`delete_corrupt_cds = FALSE`) or left out (`TRUE`). The summary at the end of the run gives the
+number and `attr(result, "dropped_sequences")` lists them.
+
+**Sensitivity of the search.** The default `sensitivity_mode = "fast"` is tuned for closely related species
+(DIAMOND: hits of more than 90 % identity). For distant species it misses orthologs and saves almost no time:
+
+| reciprocal best hits (DIAMOND, 2 cores) | `"fast"` | `"default"` | `"sensitive"` |
+|---|---|---|---|
+| *A. thaliana* / *A. lyrata*, 1,000-gene example | 983 | 985 | 985 |
+| *S. cerevisiae* / *C. glabrata* | 4,164 (7 s) | 4,384 (8 s) | 4,502 (24 s) |
+
+The pairs found only with `"default"` have a median identity of 37 % and a median length of 298 amino acids.
+Use `sensitivity_mode = "default"` or `"sensitive"` when the proteins of the two species are less than about
+70 % identical.
+
+**Best hits.** `best_hit_rule = "bitscore"` (default) chooses the hit with the highest bit score;
+`"evalue"` is the rule of 0.4.3, under which a paralog with a longer alignment could win when several hits have
+an e-value of 0 (see the article "Upgrading from 0.4.3").
+
+**Saturation and distant species.** Read the summary at the end of the run and the column `status`. A pair
+with status `"saturated"` has changed at so many sites that dS (rarely dN) cannot be estimated; its `dNdS` is
+`NA`. When a large part of the pairs is saturated, or the median dS is above 1.5, the two species are too
+distant for pairwise dN/dS: *S. cerevisiae* against *C. glabrata* gives 4,164 pairs of which 3,012 (72 %) have
+no dS, and a median dS of 1.9 for the others. dS values above about 2 carry little information even when a
+number is returned. Compare more closely related species, or use dN alone.
+
+**Filtering.** `filter_dNdS()` removes pairs without dN or dS, pairs with dS = 0 (`dS_zero = "keep"` keeps them
+with `dNdS = NA`) and pairs above `dnds.threshold` (default 2), and says how many rows it left out for each
+reason. Filter on `status == "ok"` and on dS explicitly when the analysis needs a stricter rule.
+
+**Choice of engine and method.** The default engine runs PAL2NAL (Perl) and the estimation for one gene pair at
+a time: about 50 ms per pair and core, i.e. about 17 minutes per 20,000 pairs on one core; use `comp_cores`.
+Comeron's method (default) and Li's method need no further program; `"YN"`, `"NG"`, `"MYN"` etc. need
+KaKs_Calculator.
+
+**The COAL engine.** With the optional R package `coalr`, `engine = "coal"` computes all gene pairs in one
+call, in memory and on `comp_cores` threads (about 6 s instead of 50 s for the 1,000-gene example on one core),
+without Perl or KaKs_Calculator. It returns the same kind of table, including `status`.
+
+**Keep the record.** `attr(result, "orthologr_run")` holds the versions, arguments, options and checksums of
+the run; `write_dNdS(result, "file.tsv")` writes the table together with it. Report the version of orthologr and
+any option you changed.
+
 ## Advanced options
 
 Additional arguments can be passed to `dNdS()`. This allows you to use more advanced 

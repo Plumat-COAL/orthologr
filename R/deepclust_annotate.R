@@ -86,7 +86,7 @@
 #' at tree-of-life scale using DIAMOND." Nature methods, 18(4), 366-368.
 #'
 #' https://github.com/bbuchfink/diamond/wiki
-#' @examples \dontrun{
+#' @examplesIf nzchar(Sys.which("diamond"))
 #' # Profile two proteomes with default settings
 #' profile <- deepclust_annotate(
 #'   input_file = c(
@@ -104,7 +104,8 @@
 #' )
 #' profile
 #'
-#' # Pivot to a presence/absence matrix
+#' \dontrun{
+#' # Pivot to a presence/absence matrix (needs the package tidyr)
 #' library(tidyr)
 #' library(dplyr)
 #' profile |>

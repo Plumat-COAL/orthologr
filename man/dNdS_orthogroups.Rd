@@ -117,7 +117,7 @@ With a multiple alignment, the codon alignment of a pair is the two rows of the 
 without the columns in which both have a gap.
 }
 \examples{
-\dontrun{
+\dontshow{if (all(nzchar(Sys.which(c("diamond", "perl"))))) withAutoprint(\{ # examplesIf}
 files <- c(
   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
   Alyrata   = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
@@ -126,9 +126,11 @@ res <- dNdS_orthogroups(og, aa_aln_tool = "pairwise")
 res$pairs
 res$summary
 
-# in one step, all groups, one Clustal Omega alignment per group
+\dontrun{
+# in one step, all groups, one Clustal Omega alignment per group (needs Clustal Omega)
 res <- dNdS_orthogroups(files, groups = "all", aa_aln_tool = "clustalo", comp_cores = 2)
 }
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{orthogroups}}, \code{\link{dNdS_clusters}}, \code{\link{dNdS}}, \code{\link{substitutionrate}}

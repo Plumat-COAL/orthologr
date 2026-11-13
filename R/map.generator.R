@@ -27,21 +27,21 @@
 #' dNdS Maps between query and subject organsim and as a second step stores the corresponding Map 
 #' in an output folder.
 #' @author Hajk-Georg Drost
-#' @examples
-#' \dontrun{
+#' @examplesIf all(nzchar(Sys.which(c("diamond", "perl"))))
+#' out_dir <- file.path(tempdir(), "orthologr_dnds_maps")
 #' map_generator_dnds(
 #'    query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'    subjects_folder = system.file('seqs/map_gen_example', package = 'orthologr'),
 #'    aa_aln_type      = "pairwise",
-#'    aa_aln_tool      = "NW", 
-#'    codon_aln_tool   = "pal2nal", 
+#'    aa_aln_tool      = "NW",
+#'    codon_aln_tool   = "pal2nal",
 #'    dnds_est_method  = "Comeron",
-#'    output_folder   = "orthologr_dnds_maps",
+#'    output_folder   = out_dir,
 #'    quiet           = TRUE,
 #'    comp_cores      = 1
 #' )
-#' 
-#' }
+#' list.files(out_dir)
+#' unlink(out_dir, recursive = TRUE)
 #' @export
 
 map_generator_dnds <- function(query_file, 

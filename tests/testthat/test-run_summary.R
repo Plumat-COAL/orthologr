@@ -301,7 +301,7 @@ test_that("a protein file given as coding sequences is an error that says so", {
         expect_false(orthologr:::fasta_looks_like_protein(f))
 })
 
-test_that("the isoform check uses the same threshold for genes named in the headers", {
+test_that("the isoform check needs 1 % of the genes named in the headers to have several sequences", {
         d <- new_test_dir()
         # 300 genes, 2 of them with two coding sequences (as in a bacterial genome): no warning
         genes <- sprintf("b%04d", 1:300)

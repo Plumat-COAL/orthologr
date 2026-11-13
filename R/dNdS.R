@@ -272,8 +272,7 @@
 #' \code{-R<letter>}, \code{-P<letter>}, \code{-mRNA-<number>}, \code{_i<number>}, \code{.p<number>}) and a warning
 #' is given only when at least 5 of the remaining stems, and at least 1\% of them, occur more than once.
 #' \code{options(orthologr.isoform_warning = FALSE)} switches the check off.
-#' @examples \dontrun{
-#' 
+#' @examplesIf all(nzchar(Sys.which(c("diamond", "perl"))))
 #' # get a dNdS table using:
 #' # 1) reciprocal best hit for orthology inference (RBH)
 #' # 2) Needleman-Wunsch for pairwise amino acid alignments
@@ -282,36 +281,35 @@
 #' # 5) single core processing 'comp_cores = 1'
 #' dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'      subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'      ortho_detection = "RBH", 
+#'      ortho_detection = "RBH",
 #'      aa_aln_type     = "pairwise",
-#'      aa_aln_tool     = "NW", 
-#'      codon_aln_tool  = "pal2nal", 
-#'      dnds_est.method = "Comeron", 
+#'      aa_aln_tool     = "NW",
+#'      codon_aln_tool  = "pal2nal",
+#'      dnds_est.method = "Comeron",
 #'      comp_cores      = 1 )
-#' 
-#' 
+#'
+#' \dontrun{
 #' # running dNdS using the 'aa_aln_path' argument to specify the path to
 #' # the corresponding alignment tool
 #' dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'      subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'      ortho_detection = "RBH", 
+#'      ortho_detection = "RBH",
 #'      aa_aln_type     = "multiple",
-#'      aa_aln_tool     = "clustalw", 
+#'      aa_aln_tool     = "clustalw",
 #'      aa_aln_path     = "/path/to/clustalw/",
-#'      codon_aln_tool  = "pal2nal", 
-#'      dnds_est.method = "Comeron", 
+#'      codon_aln_tool  = "pal2nal",
+#'      dnds_est.method = "Comeron",
 #'      comp_cores      = 1 )
-#' 
+#'
 #' # The same result can be obtained using multicore processing using: comp_cores = 2 or 3 or more ...
 #' dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'      subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'      ortho_detection = "RBH", 
+#'      ortho_detection = "RBH",
 #'      aa_aln_type     = "pairwise",
-#'      aa_aln_tool     = "NW", 
-#'      codon_aln_tool  = "pal2nal", 
-#'      dnds_est.method = "Comeron", 
+#'      aa_aln_tool     = "NW",
+#'      codon_aln_tool  = "pal2nal",
+#'      dnds_est.method = "Comeron",
 #'      comp_cores      = 2 )
-#' 
 #' }
 #' @seealso \code{\link{divergence_stratigraphy}}, \code{\link{orthologs}}, 
 #' \code{\link{substitutionrate}}, \code{\link{multi_aln}}, \code{\link{codon_aln}}, 

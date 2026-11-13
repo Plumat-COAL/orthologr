@@ -67,7 +67,7 @@
 #' at tree-of-life scale using DIAMOND." Nature methods, 18(4), 366-368.
 #'
 #' https://github.com/bbuchfink/diamond/wiki
-#' @examples \dontrun{
+#' @examplesIf nzchar(Sys.which("diamond"))
 #' # 1. Run deepclust first
 #' clusters <- deepclust(
 #'   input_file = c(
@@ -85,15 +85,6 @@
 #'   clusters = clusters
 #' )
 #'
-#' # 2. Alternatively, supply the path to the deepclust TSV directly
-#' realign_result <- deepclust_realign(
-#'   input_file = c(
-#'     system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
-#'     system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr')
-#'   ),
-#'   clusters = "/path/to/deepclust_output.tsv"
-#' )
-#'
 #' # 3. Incorporate into deepclust_annotate without re-running deepclust
 #' profile <- deepclust_annotate(
 #'   input_file = c(
@@ -101,6 +92,16 @@
 #'     system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr')
 #'   ),
 #'   realign = realign_result
+#' )
+#'
+#' \dontrun{
+#' # 2. Alternatively, supply the path to the deepclust TSV directly
+#' realign_result <- deepclust_realign(
+#'   input_file = c(
+#'     system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
+#'     system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr')
+#'   ),
+#'   clusters = "/path/to/deepclust_output.tsv"
 #' )
 #' }
 #' @return A \code{\link[tibble]{tibble}} with seven columns:
