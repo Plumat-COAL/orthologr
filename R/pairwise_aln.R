@@ -87,20 +87,16 @@ pairwise_aln <- function(file,
         if (legacy)
                 aa_sub_matrix <- NULL
         
-        if (!is.null(aa_sub_matrix) &&
-            !((is.character(aa_sub_matrix) && length(aa_sub_matrix) == 1 && !is.na(aa_sub_matrix)) ||
-              (is.matrix(aa_sub_matrix) && is.numeric(aa_sub_matrix))))
-                stop("'aa_sub_matrix' must be the name of a substitution matrix (e.g. \"BLOSUM62\"), a numeric substitution matrix, or NULL.", call. = FALSE)
+        check_aa_sub_matrix(aa_sub_matrix)
         
-        
-        if (!file.exists(file.path(ifelse(store_locally, "orthologr_alignment_files", tempdir()), "_alignment", "pairwise_aln"))) {
-                dir.create(file.path(ifelse(store_locally, "orthologr_alignment_files", tempdir()), "_alignment", "pairwise_aln"),
+        if (!file.exists(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment", "pairwise_aln"))) {
+                dir.create(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment", "pairwise_aln"),
                            recursive = TRUE)
         }
         
         if (is.null(pairwise_aln_name)) {
                 file.out <-
-                        file.path(ifelse(store_locally, "orthologr_alignment_files", tempdir()),
+                        file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()),
                                   "_alignment",
                                   "pairwise_aln",
                                   paste0(tool, "_", seqtype, ".aln"))
@@ -109,7 +105,7 @@ pairwise_aln <- function(file,
         if (!is.null(pairwise_aln_name)) {
                 file.out <-
                         file.path(
-                                ifelse(store_locally, "orthologr_alignment_files", tempdir()),
+                                ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()),
                                 "_alignment",
                                 "pairwise_aln",
                                 paste0(pairwise_aln_name, "_", tool, "_", seqtype, ".aln")
@@ -204,7 +200,7 @@ pairwise_aln <- function(file,
                                 dir.create(local_store_path, recursive = TRUE)
                         pwalign::writePairwiseAlignments(aln, file.path(local_store_path, paste0(pairwise_aln_name, "_", tool, "_", seqtype, ".aln")))
                 } else if (legacy) {
-                        local_store_path <- file.path(tempdir(), "_pairwise_alignment_with_score")
+                        local_store_path <- file.path(orthologr_tmpdir(), "_pairwise_alignment_with_score")
                         if (!file.exists(local_store_path))
                                 dir.create(local_store_path, recursive = TRUE)
                         pwalign::writePairwiseAlignments(aln, file.path(local_store_path, paste0(pairwise_aln_name, "_", tool, "_", seqtype, ".aln")))
@@ -219,7 +215,11 @@ pairwise_aln <- function(file,
         }
 }
 
-
-
-
-
+# 'aa_sub_matrix' must be the name of a substitution matrix, a numeric matrix, or NULL.
+check_aa_sub_matrix <- function(aa_sub_matrix) {
+        if (!is.null(aa_sub_matrix) &&
+            !((is.character(aa_sub_matrix) && length(aa_sub_matrix) == 1 && !is.na(aa_sub_matrix)) ||
+              (is.matrix(aa_sub_matrix) && is.numeric(aa_sub_matrix))))
+                stop("'aa_sub_matrix' must be the name of a substitution matrix (e.g. \"BLOSUM62\"), a numeric substitution matrix, or NULL.", call. = FALSE)
+        invisible(TRUE)
+}

@@ -144,14 +144,14 @@ set_blast <- function(file,
 
 
      if(makedb){
-        if(!file.exists(file.path(tempdir(),"_blast_db"))){ 
+        if(!file.exists(file.path(orthologr_tmpdir(),"_blast_db"))){ 
                 
-                dir.create(file.path(tempdir(),"_blast_db")) 
+                dir.create(file.path(orthologr_tmpdir(),"_blast_db")) 
                 
         }
         
         currwd <- getwd()
-        setwd(file.path(tempdir(),"_blast_db"))
+        setwd(file.path(orthologr_tmpdir(),"_blast_db"))
         on.exit(setwd(currwd), add = TRUE)
         
         dbname <- paste0("blastdb_",filename,"_protein.fasta")

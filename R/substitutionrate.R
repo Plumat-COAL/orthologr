@@ -154,19 +154,19 @@ substitutionrate <- function(file,
         # determine the file seperator of the current OS
         f_sep <- .Platform$file.sep
         
-        if (!file.exists(file.path(tempdir(), "_calculation"))) {
-                dir.create(file.path(tempdir(), "_calculation"))
+        if (!file.exists(file.path(orthologr_tmpdir(), "_calculation"))) {
+                dir.create(file.path(orthologr_tmpdir(), "_calculation"))
         }
         
         
         if (est.method == "Comeron") {
                 if (is.null(subst_name)) {
-                        file.out <- file.path(tempdir(), "_calculation", "gestimout")
+                        file.out <- file.path(orthologr_tmpdir(), "_calculation", "gestimout")
                 }
                 
                 if (!is.null(subst_name)) {
                         file.out <-
-                                file.path(tempdir(),
+                                file.path(orthologr_tmpdir(),
                                           "_calculation",
                                           paste0(subst_name, "_gestimout"))
                 }
@@ -209,9 +209,9 @@ substitutionrate <- function(file,
                         return(hit.table)
                 }, error = function(e) {
                         stop(
-                                "Please check the correct path to ",
-                                est.method,
-                                "... the interface call did not work properly."
+                                "dN/dS estimation with Comeron's method (gestimator) failed for ",
+                                pair_context(file, subst_name), ": ", conditionMessage(e),
+                                call. = FALSE
                         )
                 })
         }
@@ -222,41 +222,28 @@ substitutionrate <- function(file,
                 
                 res_list <- seqinr::kaks(aln)
                 
-                res <-
-                        data.table::data.table(t(c(
-                                unlist(aln$nam),
-                                res_list$ka,
-                                res_list$ks,
-                                (res_list$ka / res_list$ks)
-                        )))
-                
                 # seqinr::kaks documentation:
                 # When the alignment does not contain enough information (i.e we approach saturation),
                 # the Ka and Ks values take the value 10. Negative values indicate that Ka and Ks can
                 # not be computed.
                 # we set both of them to NA
+                #
+                # dN, dS and dNdS are numeric columns. (They used to be built with t(c(names, values)), which made
+                # every column a character column: the comparisons with 0 and 9.9 were then comparisons of strings
+                # ("9.95e-05" > "9.9" is TRUE, so a tiny value was taken for saturation and set to NA), and the
+                # result held text where every other method returns numbers.)
+                li <- li_values(res_list$ka, res_list$ks)
                 
-                data.table::setnames(
-                        x   = res,
-                        old = paste0("V", 1:5),
-                        new = c("query_id", "subject_id", "dN", "dS", "dNdS")
-                )
+                res <-
+                        data.table::data.table(
+                                query_id   = as.character(unlist(aln$nam))[1],
+                                subject_id = as.character(unlist(aln$nam))[2],
+                                dN         = li$dN,
+                                dS         = li$dS,
+                                dNdS       = li$dNdS
+                        )
                 
                 data.table::setkey(res, query_id)
-                
-                
-                res[which(res[, dN < 0]), dNdS := NA]
-                res[which(res[, dN < 0]), dN := NA]
-                
-                res[which(res[, dS < 0]), dNdS := NA]
-                res[which(res[, dS < 0]), dS := NA]
-                
-                res[which(res[, dN > 9.9]), dNdS := NA]
-                res[which(res[, dN > 9.9]), dN := NA]
-                
-                res[which(res[, dS > 9.9]), dNdS := NA]
-                res[which(res[, dS > 9.9]), dS := NA]
-                
                 
                 if (!quiet) {
                         print("Substitutionrate successfully calculated using Li's method.")
@@ -287,156 +274,87 @@ substitutionrate <- function(file,
                 }
                 
                 
-                # determine the file seperator of the current OS
-                f_sep <- .Platform$file.sep
-                fa2axt <-
-                        system.file(paste0("KaKs_Calc_parser", f_sep, "parseFastaIntoAXT.pl"),
-                                    package = "orthologr")
+                context <- pair_context(file, subst_name)
                 
-                ### replace paths like this: path/to a folder/of_interest
-                ### by: path/'to a folder'/of_interest
-                file_name <- unlist(strsplit(file, f_sep))
-                file_name <- file_name[length(file_name)]
-                curr_wd <- unlist(strsplit(tempdir(), f_sep))
-                wdir <- grepl(" ", curr_wd)
+                # the two gene ids are taken from the alignment itself. (They used to be recovered by splitting
+                # the name KaKs_Calculator reports, "<query>-<subject>", at "-", which broke every gene id that
+                # contains a hyphen.)
+                aln_seqs <- seqinr::read.fasta(file, as.string = TRUE, set.attributes = FALSE, forceDNAtolower = FALSE)
+                if (length(aln_seqs) != 2)
+                        stop("The codon alignment of ", context, " must hold two sequences, but '", file, "' holds ",
+                             length(aln_seqs), ".", call. = FALSE)
+                pair_ids <- fasta_ids(file)[1:2]
                 
-                if (any(wdir)) {
-                        curr_wd[wdir] <- stringr::str_replace(
-                                string     = curr_wd[wdir],
-                                replacement = paste0("'", curr_wd[wdir], "'"),
-                                pattern     = curr_wd[wdir]
-                        )
-                }
+                calc_dir <- file.path(orthologr_tmpdir(), "_calculation")
+                file_name <- basename(file)
+                axt_file <- file.path(calc_dir, paste0(file_name, ".axt"))
+                kaks_file <- file.path(calc_dir, paste0(file_name, ".axt.kaks"))
+                log_file <- file.path(calc_dir, paste0(file_name, ".axt.log"))
                 
-                curr_wd <- paste0(curr_wd, collapse = f_sep)
+                # AXT input of KaKs_Calculator: a name line, the two aligned sequences, an empty line.
+                # (Written here instead of by the Perl script inst/KaKs_Calc_parser/parseFastaIntoAXT.pl:
+                # one external call less per gene pair, and no exit status to lose.)
+                writeLines(c(if (is.null(subst_name)) "pair" else subst_name,
+                             as.character(aln_seqs[[1]]), as.character(aln_seqs[[2]]), ""), axt_file)
                 
-                ###
+                # a result of an earlier call must never be taken for the result of this one
+                if (file.exists(kaks_file))
+                        unlink(kaks_file)
                 
-                tryCatch({
-                        # converting to input file for KaKs_Calculator
-                        system(
-                                paste0(
-                                        "perl ",
-                                        fa2axt ,
-                                        " ",
-                                        file,
-                                        " ",
-                                        curr_wd,
-                                        f_sep,
-                                        "_calculation",
-                                        f_sep,
-                                        file_name
-                                )
-                        )
-                        
-                        
-                        # running KaKs_Calculator inside the orthologr package
-                        #         KaKs_Calculator <- system.file(paste0("KaKs_Calculator1.2",f_sep,"bin",f_sep,os,f_sep,calc), package = "orthologr")
-                        
-                        if (is.null(kaks_calc_path))
-                                KaKs_Calculator <- calc
-                        
-                        
-                        if (!is.null(kaks_calc_path))
-                                KaKs_Calculator <- paste0(kaks_calc_path, f_sep, calc)
-                        
-                        
-                        if (is.null(kaks_calc.params)) {
-                                system(paste0(
-                                        KaKs_Calculator,
-                                        " -i ",
-                                        file.path(
-                                                tempdir(),
-                                                "_calculation",
-                                                paste0(file_name, ".axt")
-                                        ),
-                                        " -o ",
-                                        file.path(
-                                                tempdir(),
-                                                "_calculation",
-                                                paste0(file_name, ".axt.kaks")),
-                                                " -m ",
-                                                est.method
-                                        ))
-                        }
-                                
-                        
-                        if (!is.null(kaks_calc.params)) {
-                                system(paste0(
-                                        KaKs_Calculator,
-                                        " -i ",
-                                        file.path(
-                                                tempdir(),
-                                                "_calculation",
-                                                paste0(file_name, ".axt")
-                                        ),
-                                        " -o ",
-                                        file.path(
-                                                tempdir(),
-                                                "_calculation",
-                                                paste0(file_name, ".axt.kaks")),
-                                                " ",
-                                                kaks_calc.params
-                                        ))
-                        }
-                                
-                        
+                if (is.null(kaks_calc_path))
+                        KaKs_Calculator <- calc
+                
+                if (!is.null(kaks_calc_path))
+                        KaKs_Calculator <- shQuote(file.path(kaks_calc_path, calc))
+                
+                kaks_run <- paste0(
+                        KaKs_Calculator,
+                        " -i ",
+                        shQuote(axt_file),
+                        " -o ",
+                        shQuote(kaks_file),
+                        if (is.null(kaks_calc.params)) paste0(" -m ", est.method) else paste0(" ", kaks_calc.params),
+                        " > ",
+                        shQuote(log_file),
+                        " 2>&1"
+                )
+                
+                status <- tryCatch({
+                        if (operating_sys == "Windows") shell(kaks_run) else system(kaks_run)
                 }, error = function(e) {
-                        stop(
-                                "KaKs_Calculator couldn't run properly, please check your input files."
-                        )
+                        stop("KaKs_Calculator could not be started for ", context, ": ", conditionMessage(e), call. = FALSE)
                 })
                 
-                tryCatch({
-                        kaks_tbl <-
-                                utils::read.csv(
-                                        file.path(
-                                                tempdir(),
-                                                "_calculation",
-                                                paste0(file_name, ".axt.kaks")
-                                        ),
-                                        sep = "\t",
-                                        header = TRUE
-                                )
-                        kaks_tbl_res <- kaks_tbl[ , 1:5]
-                        kaks_tbl_res <-
-                                data.frame(
-                                        sapply(kaks_tbl_res[ , 1], function(x)
-                                                unlist(
-                                                        strsplit(as.character(x), "-")
-                                                )[1]),
-                                        sapply(kaks_tbl_res[ , 1], function(x)
-                                                unlist(
-                                                        strsplit(as.character(x), "-")
-                                                )[2]) ,
-                                        kaks_tbl_res[ , c(3:5, 2)]
-                                )
-                        
-                        names(kaks_tbl_res) <-
-                                c("query_id",
-                                  "subject_id",
-                                  "dN",
-                                  "dS",
-                                  "dNdS",
-                                  "method")
-                        kaks_tbl_res <- data.table::as.data.table(kaks_tbl_res)
-                        data.table::setkey(kaks_tbl_res, query_id)
-                        
-                        return(kaks_tbl_res)
-                        
+                check_external(status, tool = "KaKs_Calculator", context = context, log = log_file, output = kaks_file)
+                
+                kaks_tbl <- tryCatch({
+                        utils::read.csv(kaks_file, sep = "\t", header = TRUE)
                 }, error = function(e) {
-                        stop(
-                                "Something went wront with KaKs_Calculator.",
-                                "\n",
-                                file.path(
-                                        tempdir(),
-                                        "_calculation",
-                                        paste0(file_name, ".axt.kaks")
-                                ),
-                                " could not be read properly."
-                        )
+                        stop("The output of KaKs_Calculator for ", context, " ('", kaks_file, "') could not be read: ",
+                             conditionMessage(e), call. = FALSE)
                 })
+                
+                return(kaks_result_table(kaks_tbl, pair_ids, context))
         }
 }
 
-
+# The result table of substitutionrate() from KaKs_Calculator's output table 'kaks_tbl' (columns Sequence, Method,
+# Ka, Ks, Ka/Ks, ...) for the gene pair 'pair_ids' (query id, subject id).
+kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair") {
+        query_id <- NULL
+        if (nrow(kaks_tbl) == 0 || ncol(kaks_tbl) < 5)
+                stop("KaKs_Calculator returned no result for ", context, ".", call. = FALSE)
+        num <- function(x) suppressWarnings(as.numeric(as.character(x)))
+        kaks_tbl_res <- data.frame(
+                query_id   = rep(as.character(pair_ids[1]), nrow(kaks_tbl)),
+                subject_id = rep(as.character(pair_ids[2]), nrow(kaks_tbl)),
+                dN         = num(kaks_tbl[ , 3]),
+                dS         = num(kaks_tbl[ , 4]),
+                dNdS       = num(kaks_tbl[ , 5]),
+                method     = kaks_tbl[ , 2],
+                stringsAsFactors = FALSE
+        )
+        kaks_tbl_res <- data.table::as.data.table(kaks_tbl_res)
+        data.table::setkey(kaks_tbl_res, query_id)
+        return(kaks_tbl_res)
+}

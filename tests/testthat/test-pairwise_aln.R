@@ -124,13 +124,19 @@ test_that("dNdS() takes aa_sub_matrix, and the codon alignments no longer hold t
                     "DIAMOND2 is not installed or not on PATH")
         query_cds   <- system.file("seqs/ortho_thal_cds.fasta", package = "orthologr")
         subject_cds <- system.file("seqs/ortho_lyra_cds.fasta", package = "orthologr")
+        # keep the call's working folder to look at its codon alignments
+        before <- list.files(tempdir(), pattern = "^orthologr_dNdS_")
+        old_opt <- options(orthologr.keep_tmp = TRUE)
         res <- suppressMessages(dNdS(query_file = query_cds, subject_file = subject_cds, comp_cores = 1,
                                      quiet = TRUE, print_citation = FALSE))
+        options(old_opt)
+        run_dir <- file.path(tempdir(), setdiff(list.files(tempdir(), pattern = "^orthologr_dNdS_"), before))
+        on.exit(unlink(run_dir, recursive = TRUE), add = TRUE)
         expect_s3_class(res, "data.frame")
         expect_gt(nrow(res), 0)
         expect_true(all(c("query_id", "subject_id", "dN", "dS", "dNdS") %in% names(res)))
         # codon alignments of this run: full length, and no pair ends in two aligned stop codons
-        codon_files <- list.files(file.path(tempdir(), "_alignment", "codon_aln"), pattern = "^q[0-9]+_pal2nal\\.aln$",
+        codon_files <- list.files(file.path(run_dir, "_alignment", "codon_aln"), pattern = "^q[0-9]+_pal2nal\\.aln$",
                                   full.names = TRUE)
         expect_gt(length(codon_files), 0)
         last_codons <- vapply(codon_files[seq_len(min(10, length(codon_files)))], function(f) {
