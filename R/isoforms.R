@@ -75,7 +75,8 @@ isoform_warning <- function(file, arg = "file") {
         if (n_multi < 0.01 * length(per_gene))
                 return(invisible(NULL))
         ex <- names(per_gene)[which.max(per_gene)]
-        warning(
+        orthologr_warn(
+                class = "isoforms",
                 arg, " '", basename(file), "' seems to hold several transcripts (splice variants) per gene: ",
                 length(gene), " sequences for ", length(per_gene), " genes, ", n_multi, " genes with more than one sequence ",
                 "(up to ", max(per_gene), ", e.g. ", paste(utils::head(names(gene)[gene == ex], 3), collapse = ", "), "; ",

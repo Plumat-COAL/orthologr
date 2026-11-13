@@ -56,12 +56,18 @@ check_external <- function(status, tool, context = NULL, log = NULL, output = NU
         what <- if (is.null(context) || !nzchar(context)) "" else paste0(" for ", context)
         detail <- tail_of_file(log)
         detail <- if (nzchar(detail)) paste0("\n", tool, " said: ", detail) else ""
+        # the kind of failure (class of the error): an alignment program, or another program
+        kind <- c(if (grepl("PAL2NAL|Clustal|MAFFT|MUSCLE|T-Coffee|t_coffee|COAL", tool, ignore.case = TRUE)) "alignment_failed",
+                  "tool_failed")
         if (!is.numeric(status) || length(status) != 1 || is.na(status) || status != 0) {
-                hint <- if (identical(as.integer(status), 127L)) " (the program was not found: is it installed and on the PATH?)" else ""
-                stop(tool, " failed", what, ": exit status ", paste(status, collapse = " "), hint, ".", detail, call. = FALSE)
+                missing <- identical(as.integer(status), 127L)
+                hint <- if (missing) " (the program was not found: is it installed and on the PATH?)" else ""
+                orthologr_abort(tool, " failed", what, ": exit status ", paste(status, collapse = " "), hint, ".", detail,
+                                class = if (missing) c("tool_missing", kind) else kind)
         }
         if (!is.null(output) && (!file.exists(output) || is.na(file.size(output)) || file.size(output) == 0)) {
-                stop(tool, " wrote no output", what, " (exit status 0, but '", output, "' is missing or empty).", detail, call. = FALSE)
+                orthologr_abort(tool, " wrote no output", what, " (exit status 0, but '", output, "' is missing or empty).", detail,
+                                class = kind)
         }
         invisible(TRUE)
 }

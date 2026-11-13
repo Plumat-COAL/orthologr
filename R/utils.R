@@ -160,7 +160,8 @@ check_duplicate_ids <- function(ids, what = "sequences", file = NULL) {
         if (length(dup) == 0)
                 return(invisible(TRUE))
         shown <- utils::head(dup, 10)
-        stop(
+        orthologr_abort(
+                class = "bad_input",
                 length(dup), " sequence ID", if (length(dup) > 1) "s occur" else " occurs", " more than once among the ",
                 what, if (!is.null(file)) paste0(" of '", file, "'") else "", ": ",
                 paste0("'", shown, "'", collapse = ", "),
