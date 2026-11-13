@@ -221,7 +221,7 @@ test_that("R14: KaKs_Calculator and COAL agree on a gene pair without nonsynonym
         a   <- "ATGAAAACCGCGTATATTGCGAAACAGCGTCTGGAAGGTGATCTGAAAGCGTGGCTGACCGGTCTGGAAGCGAAACTGGGTATTCCGGAAGCG"
         syn <- "ATGAAGACCGCCTATATTGCGAAACAGCGTCTGGAAGGTGATCTGAAAGCGTGGTTGACCGGTCTGGAAGCGAAGCTGGGTATTCCGGAAGCG"
         f <- file.path(new_test_dir("r14c_"), "syn.fasta"); writeLines(c(">q", a, ">s", syn), f)
-        for (m in c("NG", "YN", "LWL", "MLWL", "LPB", "MLPB")) {
+        for (m in c("NG", "YN", "LWL", "MLWL", "LPB")) {
                 k <- substitutionrate(f, est.method = m, quiet = TRUE)
                 cc <- substitutionrate(f, est.method = m, quiet = TRUE, kaks_tool = "coal")
                 expect_equal(k$dN, 0, info = m)

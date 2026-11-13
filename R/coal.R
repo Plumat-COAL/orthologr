@@ -651,8 +651,8 @@ dNdS_coal <- function(query_file,
 #' \item \code{summary}: one row per cluster and method: \code{cluster_id}, \code{n_members}, \code{n_used},
 #' \code{method}, \code{pair_selection}, \code{aligner}, \code{n_pairs}, \code{n_ok}, \code{n_saturated},
 #' \code{n_no_data}, \code{n_failed}, \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
-#' and a dN/dS value), and median, mean, quartiles, minimum and maximum of dN, dS and dN/dS.
-#' \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
+#' and a dN/dS value), and median, mean, quartiles (\code{_q25}, \code{_q75}), minimum and maximum of dN, dS and
+#' dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
 #' cluster that have a dN (dS, dN/dS) value, whatever their status - a pair with status \code{"saturated"} that
 #' has a dN counts with it. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the numbers behind the statistics
 #' (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule.
@@ -774,6 +774,8 @@ dnds_value_stats <- function(pairs, by, stats = c("median", "mean", "q1", "q3"))
                 mean   = function(v) if (all(is.na(v))) NA_real_ else mean(v, na.rm = TRUE),
                 q1     = function(v) if (all(is.na(v))) NA_real_ else unname(stats::quantile(v, 0.25, na.rm = TRUE, names = FALSE)),
                 q3     = function(v) if (all(is.na(v))) NA_real_ else unname(stats::quantile(v, 0.75, na.rm = TRUE, names = FALSE)),
+                q25    = function(v) if (all(is.na(v))) NA_real_ else unname(stats::quantile(v, 0.25, na.rm = TRUE, names = FALSE)),
+                q75    = function(v) if (all(is.na(v))) NA_real_ else unname(stats::quantile(v, 0.75, na.rm = TRUE, names = FALSE)),
                 min    = function(v) if (all(is.na(v))) NA_real_ else min(v, na.rm = TRUE),
                 max    = function(v) if (all(is.na(v))) NA_real_ else max(v, na.rm = TRUE)
         )[stats]
@@ -794,7 +796,7 @@ dnds_cluster_summary_stats <- function(summary, pairs) {
         if (nrow(summary) == 0 || nrow(pairs) == 0 || !all(is.element(c("cluster_id", "method"), names(summary))) ||
             !is.element("cluster_id", names(pairs)))
                 return(summary)
-        stat_cols <- grep("^(dN|dS|dNdS)_(median|mean|q1|q3|min|max)$", names(summary), value = TRUE)
+        stat_cols <- grep("^(dN|dS|dNdS)_(median|mean|q1|q3|q25|q75|min|max)$", names(summary), value = TRUE)
         stats <- unique(sub("^(dN|dS|dNdS)_", "", stat_cols))
         if (length(stats) == 0)
                 return(summary)
@@ -804,6 +806,8 @@ dnds_cluster_summary_stats <- function(summary, pairs) {
                 summary[[col]] <- new[[col]][at]
         counts <- data.frame(n_dN = new$n_dN[at], n_dS = new$n_dS[at], n_dNdS = new$n_dNdS[at])
         counts[is.na(counts)] <- 0L
+        # (newer versions of coalr have a column n_dNdS of their own, counted over status "ok")
+        summary <- summary[ , setdiff(names(summary), names(counts)), drop = FALSE]
         first_stat <- match(stat_cols[1], names(summary))
         cbind(summary[ , seq_len(first_stat - 1L), drop = FALSE], counts, summary[ , first_stat:ncol(summary), drop = FALSE])
 }

@@ -78,8 +78,8 @@ A list of three tibbles:
 \item \code{summary}: one row per cluster and method: \code{cluster_id}, \code{n_members}, \code{n_used},
 \code{method}, \code{pair_selection}, \code{aligner}, \code{n_pairs}, \code{n_ok}, \code{n_saturated},
 \code{n_no_data}, \code{n_failed}, \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
-and a dN/dS value), and median, mean, quartiles, minimum and maximum of dN, dS and dN/dS.
-\strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
+and a dN/dS value), and median, mean, quartiles (\code{_q25}, \code{_q75}), minimum and maximum of dN, dS and
+dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
 cluster that have a dN (dS, dN/dS) value, whatever their status - a pair with status \code{"saturated"} that
 has a dN counts with it. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the numbers behind the statistics
 (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule.
