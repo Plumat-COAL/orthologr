@@ -538,7 +538,7 @@ dNdS_coal <- function(query_file,
         pairs <- pairs[is.element(pairs$query_id, q_ok) & is.element(pairs$subject_id, s_ok), , drop = FALSE]
 
         if (nrow(pairs) == 0)
-                stop("No orthologs could be found! Please check your input files!", call. = FALSE)
+                orthologr_abort("No orthologs could be found! Please check your input files!", class = "no_hits")
 
         detail_message(quiet, "Orthology Inference Completed: ", nrow(pairs), " gene pairs.")
         detail_message(quiet, "Starting dN/dS Estimation (COAL, all gene pairs in one call) ...")
@@ -574,7 +574,8 @@ dNdS_coal <- function(query_file,
         failed <- unique(data.frame(query_id = failed$seq1, subject_id = failed$seq2, reason = failed$note,
                                     stringsAsFactors = FALSE))
         if (nrow(failed) > 0) {
-                warning(
+                orthologr_warn(
+                        class = "failed_pairs",
                         nrow(failed), " of ", nrow(pairs),
                         " gene pairs could not be processed; their dN, dS and dNdS values are NA. ",
                         "The reasons are in attr(<result>, \"failed_pairs\"). First one: ",

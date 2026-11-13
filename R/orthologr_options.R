@@ -75,7 +75,7 @@
 #' \item{\code{orthologr_error_package_missing}}{an optional R package (Suggests) is needed but not installed;}
 #' \item{\code{orthologr_error_tool_failed}}{an external program failed or wrote no output; with
 #' \code{orthologr_error_alignment_failed} when it was an alignment program (PAL2NAL, Clustal, MAFFT, MUSCLE,
-#' T-Coffee);}
+#' T-Coffee, COAL);}
 #' \item{\code{orthologr_error_no_hits}}{the search found no (reciprocal best) hits, so there are no gene pairs;}
 #' \item{\code{orthologr_error_bad_input}}{an input file cannot be used (a protein file given as coding sequences,
 #' duplicated sequence IDs);}

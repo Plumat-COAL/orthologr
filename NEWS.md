@@ -141,6 +141,32 @@ Running programs:
 - `select_orthologs()`, `retrieve_longest_isoforms()` and `deepclust()` read annotations and sequences in one
   pass.
 
+### Checked against other programs
+
+`dNdS()` (default engine: gestimator for Comeron, KaKs_Calculator 2.0 for YN) against the COAL engine
+(`engine = "coal"`), on 300 sampled reciprocal-best-hit pairs of each of three species pairs (NCBI RefSeq coding
+sequences; 2026-11-13). Columns: gene pairs in both results, pairs with dS > 0 from both, share of these whose dS
+agrees within 1 %, median relative difference of dS, Pearson r of dS and of dN/dS, pairs with dS from one engine
+only.
+
+| Species pair | Method (default engine) | pairs | dS both | within 1 % | median rel. diff. | r dS | r dN/dS | one only |
+|---|---|---|---|---|---|---|---|---|
+| S. cerevisiae / C. glabrata | Comeron (gestimator) | 283 | 73 | 63.0 % | 0.0018 | 0.952 | 0.989 | 3 |
+| S. cerevisiae / C. glabrata | YN (KaKs_Calculator) | 283 | 38 | 65.8 % | 2e-06 | 0.883 | 0.965 | 245 |
+| S. cerevisiae / K. lactis | Comeron (gestimator) | 265 | 68 | 69.1 % | 0.0023 | 0.977 | 0.999 | 1 |
+| S. cerevisiae / K. lactis | YN (KaKs_Calculator) | 265 | 31 | 71.0 % | 2.3e-06 | 0.965 | 0.999 | 234 |
+| Salmonella LT2 / Shigella flexneri | Comeron (gestimator) | 294 | 274 | 95.3 % | 0 | 0.999 | 0.998 | 0 |
+| Salmonella LT2 / Shigella flexneri | YN (KaKs_Calculator) | 294 | 278 | 92.4 % | 1.2e-06 | 0.972 | 0.987 | 16 |
+
+For the close pair the engines agree (median difference 0, r >= 0.97). The remaining differences come from the
+protein alignments (the two engines may place a gap differently where several alignments score the same). The
+yeast pairs are saturated at synonymous sites (median dS above 2): there COAL returns `NA` (status "saturated")
+for most YN estimates for which KaKs_Calculator still prints a number (dS 4 - 5); where both give a value they
+agree. DIAMOND `sensitivity_mode`: "fast" (default) finds 5.0 % (S. cerevisiae / C. glabrata), 8.6 %
+(S. cerevisiae / K. lactis) and 1.5 % (Salmonella / Shigella) fewer reciprocal best hits than "default", at about
+the same run time on these genomes; the default is unchanged, and `dNdS()` suggests "default" when the median
+identity of the best hits is below 70 %.
+
 ### Internal
 
 - External programs are started through one helper (`run_tool()`); `compute_dnds()` has one code path for serial

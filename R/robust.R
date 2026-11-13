@@ -57,7 +57,7 @@ check_external <- function(status, tool, context = NULL, log = NULL, output = NU
         detail <- tail_of_file(log)
         detail <- if (nzchar(detail)) paste0("\n", tool, " said: ", detail) else ""
         # the kind of failure (class of the error): an alignment program, or another program
-        kind <- c(if (grepl("PAL2NAL|Clustal|MAFFT|MUSCLE|T-Coffee|t_coffee", tool, ignore.case = TRUE)) "alignment_failed",
+        kind <- c(if (grepl("PAL2NAL|Clustal|MAFFT|MUSCLE|T-Coffee|t_coffee|COAL", tool, ignore.case = TRUE)) "alignment_failed",
                   "tool_failed")
         if (!is.numeric(status) || length(status) != 1 || is.na(status) || status != 0) {
                 missing <- identical(as.integer(status), 127L)
