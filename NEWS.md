@@ -144,6 +144,71 @@ Changes of results in this section
 - `select_orthologs(format = "gtf")`: transcripts of loci without a `gene` row, and IDs that only match without
   version, are now found (rows that were left out before).
 
+### Divergence strata, dS = 0, saturation and input checks of Comeron's method (second audit)
+
+`divergence_map()` / `divergence_stratigraphy()`
+- **A finished run is no longer lost.** `divergence_map()` stopped when two quantile thresholds coincided, and
+  `divergence_stratigraphy()` called it only after the complete dN/dS run and then returned nothing: *E. coli* K-12
+  (1,500 genes) against O157 Sakai ran for 40 minutes and failed, because 28% of the gene pairs have dN/dS = 0.
+  Now (1) strata are assigned by a tie-safe rule (below), (2) `attr(result, "dNdS_tbl")` of
+  `divergence_stratigraphy()` holds the complete dN/dS table of the run, before filtering and binning, (3) should
+  the binning fail all the same, the dN/dS table is returned with a warning, and (4) `n_quantile` and `dS_zero`
+  are checked before the run starts.
+- **Tie-safe strata.** Stratum `k` holds the values in `(q[k-1], q[k]]` of the `n_quantile` quantiles, as before;
+  with coinciding thresholds the same rule is applied through ranks
+  (`max(1, ceiling((r - 1) * n / (N - 1)))` with `r` the smallest rank of a value). Without ties the strata are
+  exactly those of earlier versions (tested for `n_quantile` 2-30, 49, 50, 98, 100). Equal values always share a
+  stratum, the lowest one their ranks reach; the strata such a block spans beyond that stay empty, so fewer than
+  `n_quantile` strata are used and they differ in size - a warning names the empty strata. See `?divergence_map`.
+- `n_quantile = 49` and `98` gave `NA` for the largest value (`seq(0, 1, 1/n)` does not end at 1).
+  `n_quantile` must be a whole number >= 1.
+- `divergence_map()` no longer changes the table of the caller (a tibble came back as a re-sorted `data.table`).
+
+dS = 0
+- **`filter_dNdS()` (and so `divergence_stratigraphy()`) dropped every gene pair with dS = 0 without a word**,
+  because their `dNdS` is `NA` and `NA <= dnds.threshold` is `NA`: genes with identical coding sequences
+  (dN = dS = 0) and genes with nonsynonymous changes only (dN > 0, dS = 0). In the *E. coli* run 85 of 1,280 pairs
+  disappeared, 47 of them identical sequences. New argument `dS_zero`:
+  `"keep"` (**the new default**) keeps these pairs with `dNdS = NA` and marks them in a new logical column
+  `dS_zero`; in a divergence map they have the stratum `NA`. `"drop"` leaves them out as before. A message gives
+  the numbers (identical / dN > 0) in both cases. `options(orthologr.dS_zero = "drop")` restores the old default.
+
+Comeron's method (`dnds_est.method = "Comeron"`, the default)
+- **Saturation is `NA`, not a finite number.** When the argument of a logarithm of the correction is not positive
+  (more differences than the model can correct for) the term was set to 0 and a finite, too small dS or dN was
+  returned - `ATGGCTAAA` / `ATGGCCAAA` (one synonymous substitution) gave dS = 0. Such a dS / dN, and dN/dS, is now
+  `NA`, as the documentation always said ("NA when it cannot be computed"). Values of all other gene pairs are
+  unchanged. `options(orthologr.legacy_comeron_saturation = TRUE)` reproduces the old numbers. How many pairs
+  change (default pipeline of this branch, same codon alignments in both modes):
+@@SATURATION@@
+- **Input that is not a codon alignment is an R error**, in the C++ code and before it is called: a sequence
+  shorter than one codon aborted the R session ("irrecoverable exception"; an unsigned `length - 3`), sequences of
+  unequal length gave numbers read from beyond the end of the shorter one (dN 0.50, dS 0.26 in the audit's test),
+  a length that is not a multiple of 3 gave a console note. `gestimator()` also reads files with Windows line
+  ends (the carriage returns were counted as sequence) and frees its memory (about 1.5 kB were lost per gene
+  pair).
+
+`promotor_divergence_of_orthologous_genes()`
+- **Promoters are paired by ortholog pair.** Query and subject promoters were selected independently and paired
+  by position. When each species lacked the promoter of a different gene, both sets had the same length, the pairs
+  in between were shifted, distances were computed between promoters of non-orthologous genes and the final join
+  dropped them: 4 valid pairs in, 2 rows out, no message. Now 4 rows; a message says how many pairs lack a promoter
+  in which species. Promoter names are matched to gene IDs as `<gene>` or `<gene>_<anything>`; they were cut at
+  the first `_`, which broke IDs such as `NM_001234` or `LOC_Os01g01010`.
+
+Changes of results and row counts in this section
+- `filter_dNdS()`, `divergence_stratigraphy()`: gene pairs with dS = 0 are kept (more rows; `dNdS` / stratum `NA`;
+  `filter_dNdS()` returns the extra column `dS_zero`). *E. coli* K-12 vs Sakai: 1,280 instead of 1,195 rows.
+  Restored by `dS_zero = "drop"` or `options(orthologr.dS_zero = "drop")`.
+- `divergence_map()`, `divergence_stratigraphy()`: tables that stopped with "duplicate threshold" now give
+  strata; tables that worked give the same strata (except `n_quantile` 49 / 98, where the `NA` is gone).
+- Comeron dN / dS / dN/dS: `NA` instead of a finite value for saturated pairs (numbers above). Restored by
+  `options(orthologr.legacy_comeron_saturation = TRUE)`.
+- `promotor_divergence_of_orthologous_genes()`: rows that were lost are returned; no option.
+- (N11, N12 of the audit - serial and parallel code of `compute_dnds()` differing for `store_locally = TRUE`, and
+  worker processes left behind after an error - were fixed by `fix/robustness` / `perf/vectorise`: one function for
+  both paths, `on.exit(parallel::stopCluster())`.)
+
 ### Dependencies, documentation, continuous integration
 
 Dependencies
