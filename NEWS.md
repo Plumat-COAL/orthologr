@@ -73,18 +73,21 @@ Measured (DIAMOND 2.2.8, 2 cores; the data are not part of the package):
   another species) gave 25,283 pairs of which 71.2% were Compara orthologs; it was replaced by the rule above
   (a gene without reciprocal best hit is attached to one gene; groups are never merged) before release.
 
-| four yeasts (21,095 proteins), against OrthoFinder 3.2 (MCL orthogroups with >= 2 species) | groups | single-copy | gene pairs OrthoFinder also groups | OrthoFinder's pairs found | adjusted Rand index | time |
+| four yeasts (21,095 proteins), against OrthoFinder 3.2 (final `Orthogroups.tsv`, groups with >= 2 species) | groups | single-copy | gene pairs OrthoFinder also groups | OrthoFinder's pairs found | adjusted Rand index | time |
 |---|---|---|---|---|---|---|
-| `method = "rbh"` | 4,616 | 3,487 | 99.7% | 70.7% | 0.77 | 17 s |
-| `method = "rbh", sensitivity_mode = "sensitive"` | 4,823 | 3,941 | 99.8% | 77.5% | 0.82 | 1.7 min |
-| ... `inparalogs = TRUE` | 4,823 | 3,846 | 98.8% | 80.0% | 0.84 | 1.9 min |
-| `method = "deepclust"` | 4,195 | 2,429 | 72.3% | 80.7% | 0.72 | 44 s |
-| `method = "deepclust", refine = TRUE` | 4,679 | 3,259 | 99.8% | 66.9% | 0.75 | 46 s |
-| OrthoFinder (`-og` stage: DIAMOND searches and MCL) | 4,591 | 3,324 | | | | 3.7 min |
+| `method = "rbh"` | 4,616 | 3,487 | 99.3% | 79.8% | 0.84 | 17 s |
+| `method = "rbh", sensitivity_mode = "sensitive"` | 4,823 | 3,941 | 99.5% | 87.5% | 0.89 | 1.7 min |
+| ... `inparalogs = TRUE` | 4,823 | 3,846 | 98.5% | 90.3% | 0.91 | 1.9 min |
+| `method = "deepclust"` | 4,195 | 2,429 | 66.0% | 83.5% | 0.69 | 44 s |
+| `method = "deepclust", refine = TRUE` | 4,679 | 3,259 | 99.5% | 75.6% | 0.81 | 46 s |
+| OrthoFinder (full run, `-M dendroblast`) | 4,788 | 3,514 | | | | 5.5 min |
 
-- 2,901 (fast mode) and 3,311 (sensitive mode) of OrthoFinder's 3,324 single-copy orthogroups are found with
-  identical members. OrthoFinder's full run (gene trees, hierarchical orthogroups) could not be completed in the
-  test environment (its tree step was stopped for lack of memory), so its MCL orthogroups are the reference.
+- 3,070 (fast mode) and 3,489 (sensitive mode) of OrthoFinder's 3,514 single-copy orthogroups are found with
+  identical members. OrthoFinder's default tree method (`-M msa`) was stopped for lack of memory in the test
+  environment; the reference is its full run with `-M dendroblast` (phylogenetic hierarchical orthogroups).
+  Against its MCL orthogroups (`-og` stage, 3.7 min; 4,591 groups, 3,324 single-copy) the five rows find 70.7%,
+  77.5%, 80.0%, 80.7% and 66.9% of the pairs, with 99.7%, 99.8%, 98.8%, 72.3% and 99.8% of their own pairs grouped
+  by OrthoFinder.
 - Scaling (2, 4, 8, 14 fungal proteomes; 11,234 to 76,576 proteins; fast mode): `"rbh"` 16 / 29 / 67 / 150 CPU
   seconds and 0.30 to 0.78 GB in R; `"deepclust"` 68 / 98 / 249 CPU seconds for 4 / 8 / 14 species;
   `"deepclust"` with `refine = TRUE` 76 / 132 / 310. At these sizes `"rbh"` is both faster and more accurate;

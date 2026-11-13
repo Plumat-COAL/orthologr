@@ -133,17 +133,19 @@ OrthoFinder 3** on the same proteomes:
 
 | | groups | single-copy groups | genes in groups | gene pairs that OrthoFinder also groups | OrthoFinder's pairs found | adjusted Rand index | run time |
 |---|---|---|---|---|---|---|---|
-| `method = "rbh"` | 4,616 | 3,487 | 81.6% | 99.7% | 70.7% | 0.77 | 17 s |
-| `method = "rbh", sensitivity_mode = "sensitive"` | 4,823 | 3,941 | 87.6% | 99.8% | 77.5% | 0.82 | 1.7 min |
-| ... and `inparalogs = TRUE` | 4,823 | 3,846 | 89.1% | 98.8% | 80.0% | 0.84 | 1.9 min |
-| `method = "deepclust"` | 4,195 | 2,429 | 84.2% | 72.3% | 80.7% | 0.72 | 44 s |
-| `method = "deepclust", refine = TRUE` | 4,679 | 3,259 | 79.8% | 99.8% | 66.9% | 0.75 | 46 s |
-| OrthoFinder 3.2 (`-og`: MCL orthogroups with at least two species) | 4,591 | 3,324 | 92.7% | | | | 3.7 min |
+| `method = "rbh"` | 4,616 | 3,487 | 81.6% | 99.3% | 79.8% | 0.84 | 17 s |
+| `method = "rbh", sensitivity_mode = "sensitive"` | 4,823 | 3,941 | 87.6% | 99.5% | 87.5% | 0.89 | 1.7 min |
+| ... and `inparalogs = TRUE` | 4,823 | 3,846 | 89.1% | 98.5% | 90.3% | 0.91 | 1.9 min |
+| `method = "deepclust"` | 4,195 | 2,429 | 84.2% | 66.0% | 83.5% | 0.69 | 44 s |
+| `method = "deepclust", refine = TRUE` | 4,679 | 3,259 | 79.8% | 99.5% | 75.6% | 0.81 | 46 s |
+| OrthoFinder 3.2 (orthogroups with at least two species) | 4,788 | 3,514 | 92.6% | | | | 5.5 min |
 
-"Gene pairs" are pairs of genes of different species in the same group. Of OrthoFinder's 3,324 single-copy
-orthogroups, 2,901 are found with identical members by `method = "rbh"` and 3,311 with
-`sensitivity_mode = "sensitive"`. OrthoFinder's phylogenetic (hierarchical) orthogroups could not be computed in
-the test environment (the tree step ran out of memory), so the comparison is with its MCL orthogroups.
+"Gene pairs" are pairs of genes of different species in the same group. The reference is OrthoFinder's final
+table `Orthogroups.tsv` (phylogenetic hierarchical orthogroups; full run with `-M dendroblast`, the default tree
+method `msa` ran out of memory in the test environment). Of its 3,514 single-copy orthogroups, 3,070 are found
+with identical members by `method = "rbh"` and 3,489 with `sensitivity_mode = "sensitive"`. Against
+OrthoFinder's MCL orthogroups (the `-og` stage, 3.7 min) the same five rows find 70.7%, 77.5%, 80.0%, 80.7% and
+66.9% of the pairs.
 
 Reading these numbers:
 
