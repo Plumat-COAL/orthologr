@@ -117,12 +117,19 @@ li_values <- function(ka, ks) {
         list(dN = dN, dS = dS, dNdS = dNdS)
 }
 
-# 'aa_sub_matrix' must be the name of a substitution matrix, a numeric matrix, or NULL.
+# 'aa_sub_matrix' must be the name of a substitution matrix that pwalign has, a numeric matrix, or NULL. Checked
+# before the search, so that a misspelt name does not cost the whole search and then fail every gene pair.
+sub_matrix_names <- function() c("BLOSUM45", "BLOSUM50", "BLOSUM62", "BLOSUM80", "BLOSUM100",
+                                 "PAM30", "PAM40", "PAM70", "PAM120", "PAM250")
+
 check_aa_sub_matrix <- function(aa_sub_matrix) {
         if (!is.null(aa_sub_matrix) &&
             !((is.character(aa_sub_matrix) && length(aa_sub_matrix) == 1 && !is.na(aa_sub_matrix)) ||
               (is.matrix(aa_sub_matrix) && is.numeric(aa_sub_matrix))))
-                stop("'aa_sub_matrix' must be the name of a substitution matrix (e.g. \"BLOSUM62\"), a numeric substitution matrix, or NULL.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "'aa_sub_matrix' must be the name of a substitution matrix ",
+                                "(e.g. \"BLOSUM62\"), a numeric substitution matrix, or NULL.")
+        if (is.character(aa_sub_matrix))
+                check_choice(aa_sub_matrix, sub_matrix_names(), "aa_sub_matrix")
         invisible(TRUE)
 }
 

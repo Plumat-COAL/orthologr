@@ -59,6 +59,24 @@ test_that("pairwise_aln() scores amino acids with BLOSUM62 by default and accept
         expect_error(pairwise_aln(file = f, seq_type = "INVALID"))
 })
 
+test_that("an unknown aa_sub_matrix is an error before the search (it failed every gene pair after it)", {
+        f <- tempfile(fileext = ".fasta")
+        seqinr::write.fasta(sequences = list("MKVLAAGIVG", "MKVLSAGIVG"), names = c("a", "b"), file.out = f)
+        expect_error(pairwise_aln(file = f, tool = "NW", seq_type = "protein", quiet = TRUE, aa_sub_matrix = "FOO"),
+                     "aa_sub_matrix", class = "orthologr_error_bad_argument")
+        expect_error(pairwise_aln(file = f, tool = "NW", seq_type = "protein", quiet = TRUE, aa_sub_matrix = 62),
+                     class = "orthologr_error_bad_argument")
+        # before DIAMOND runs: no program is needed to get this error
+        expect_error(dNdS(thal_cds(), lyra_cds(), aa_sub_matrix = "FOO", aligner_path = tempfile("no_diamond_"),
+                          print_citation = FALSE),
+                     "BLOSUM62", class = "orthologr_error_bad_argument")
+        expect_error(dNdS(thal_cds(), lyra_cds(), aa_sub_matrix = "blosum62", print_citation = FALSE),
+                     class = "orthologr_error_bad_argument")
+        for (m in c("BLOSUM45", "BLOSUM50", "BLOSUM62", "BLOSUM80", "BLOSUM100", "PAM30", "PAM40", "PAM70", "PAM120", "PAM250"))
+                expect_true(orthologr:::check_aa_sub_matrix(m), info = m)
+        expect_true(orthologr:::check_aa_sub_matrix(NULL))
+})
+
 test_that("pairwise_aln() does not align a terminal stop codon symbol ...", {
         f <- write_pair(paste0(long_aa, "*"), paste0(short_aa, "*"))
         pairwise_aln(file = f, tool = "NW", seq_type = "protein", pairwise_aln_name = "t_stop", quiet = TRUE)
