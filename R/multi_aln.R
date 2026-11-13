@@ -157,7 +157,8 @@
 #' multi_aln(file    = system.file('seqs/aa_seqs.fasta', package = 'orthologr'),
 #'           tool    = "t_coffee", 
 #'           get_aln = TRUE,
-#'           params  = "-mode expresso")
+#'           params  = "-output clustalw_aln -quiet")
+#' # (modes such as "-mode expresso" or "-mode accurate" need BLAST and access to sequence / structure databases)
 #'           
 #'
 #'
@@ -179,7 +180,8 @@
 #' multi_aln(file    = system.file('seqs/aa_seqs.fasta', package = 'orthologr'),
 #'           tool    = "muscle", 
 #'           get_aln = TRUE,
-#'           params  = "-diags -clwstrict")   # MUSCLE 3.8 options
+#'           params  = "-threads 1")          # MUSCLE 5 (what bioconda installs)
+#' # MUSCLE 3.8 has other options, e.g. params = "-diags -clwstrict"; MUSCLE 5 stops with "Unknown option diags"
 #'           
 #' 
 #' # CLUSTALO Example:  
