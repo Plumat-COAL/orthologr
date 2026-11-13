@@ -11,7 +11,7 @@ with_globals <- function(vars, call) {
 
 psock_possible <- function() {
         # PSOCK workers load the installed package
-        !isTRUE(tryCatch(pkgload::is_dev_package("orthologr"), error = function(e) FALSE)) && parallel::detectCores() >= 2
+        !loaded_with_load_all() && parallel::detectCores() >= 2
 }
 
 # ---------------------------------------------------------------- R08: PSOCK workers and arguments given as variables

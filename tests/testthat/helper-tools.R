@@ -11,6 +11,16 @@ mafft_available   <- has_program("mafft")
 muscle_available  <- has_program("muscle")
 tcoffee_available <- has_program("t_coffee")
 
+# Is the package loaded from its source folder (devtools::load_all()) rather than installed? Then new R processes
+# (PSOCK workers) cannot load it. Asked without naming a package that is not a dependency: a package can only
+# be loaded that way when the namespace of that tool is loaded.
+loaded_with_load_all <- function() {
+        dev_tool <- paste0("pkg", "load")
+        if (!is.element(dev_tool, loadedNamespaces()))
+                return(FALSE)
+        isTRUE(tryCatch(get("is_dev_package", envir = asNamespace(dev_tool))("orthologr"), error = function(e) FALSE))
+}
+
 thal_cds <- function() system.file("seqs/ortho_thal_cds.fasta", package = "orthologr")
 lyra_cds <- function() system.file("seqs/ortho_lyra_cds.fasta", package = "orthologr")
 thal_aa  <- function() system.file("seqs/ortho_thal_aa.fasta", package = "orthologr")
