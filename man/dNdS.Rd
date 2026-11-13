@@ -33,8 +33,8 @@ dNdS(
   aa_sub_matrix = "BLOSUM62",
   kaks_tool = "kaks_calculator",
   engine = "orthologr",
-  best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore"),
-  aa_aln_scoring = "pwalign"
+  aa_aln_scoring = "pwalign",
+  best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
 )
 }
 \arguments{
@@ -161,6 +161,11 @@ them, see \code{\link{dNdS_coal}}), \code{ortho_detection} \code{"RBH"} or \code
 \code{aa_aln_type}, \code{aa_aln_tool}, \code{codon_aln_tool}, \code{kaks_tool} and \code{store_locally}. It
 returns the same table, with the same attributes.}
 
+\item{aa_aln_scoring}{with \code{engine = "coal"}: how COAL scores the pairwise protein alignments -
+\code{"pwalign"} (Default; the scoring of \code{\link{pairwise_aln}}, so that the alignments are those of
+\code{engine = "orthologr"} up to co-optimal alignments) or \code{"needle"} (COAL's own defaults). The same
+argument as in \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}.}
+
 \item{best_hit_rule}{how the best hit of a query is chosen among its hits:
 \itemize{
 \item \code{"bitscore"} (default since orthologr 0.5.0): the hit with the highest bit score; of several, the one
@@ -178,11 +183,6 @@ the Compara one-to-one orthologs found; bit-score rule 16,827 pairs, 68 (0.4\%),
 change. On the 1,000-gene example of the package 12 of 986 best hits change and there are 983 instead of 972
 reciprocal best hits (970 in common).
 \code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.}
-
-\item{aa_aln_scoring}{with \code{engine = "coal"}: how COAL scores the pairwise protein alignments -
-\code{"pwalign"} (Default; the scoring of \code{\link{pairwise_aln}}, so that the alignments are those of
-\code{engine = "orthologr"} up to co-optimal alignments) or \code{"needle"} (COAL's own defaults). The same
-argument as in \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}.}
 }
 \value{
 A data.table storing the dNdS values of the correspnding genes.

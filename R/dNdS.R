@@ -318,8 +318,8 @@ dNdS <- function(query_file,
                  aa_sub_matrix   = "BLOSUM62",
                  kaks_tool       = "kaks_calculator",
                  engine          = "orthologr",
-                 best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore"),
-                 aa_aln_scoring  = "pwalign"
+                 aa_aln_scoring  = "pwalign",
+                 best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")
                  ){
         
         best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
