@@ -34,13 +34,28 @@
 #' that are not in an annotation are left out with a message; when none is found the error shows example IDs of the
 #' table and of the annotation.
 #' @author Hajk-Georg Drost
+#' @param best_hit_rule how the best hit of a query is chosen among its hits:
+#' \itemize{
+#' \item \code{"bitscore"} (default since orthologr 0.5.0): the hit with the highest bit score; of several, the one
+#' with the smallest e-value, then the longest alignment, then the highest percent identity, then the alphabetically
+#' first \code{subject_id}. The choice does not depend on the order of the hit table.
+#' \item \code{"evalue"}: the rule of orthologr <= 0.4.3 - the hit with the smallest e-value; of several, the one with
+#' the longest alignment; of several, the alphabetically first \code{subject_id}. The bit score is not used.
+#' }
+#' \strong{This default changed in 0.5.0 and changes which orthologs are returned.} DIAMOND and BLAST report an
+#' e-value of 0 for every strong hit of a long protein, so that under the old rule the alignment length decided
+#' among them and a paralog could win over the true ortholog. @@BHNUM@@
+#' \code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.
 #' @export
 select_orthologs <-
         function(dnds_tbl,
                  annotation_file_query,
                  annotation_file_subject,
                  collapse_by = "gene_locus",
-                 format = c("gtf", "gtf")) {
+                 format = c("gtf", "gtf"),
+                 best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")) {
+                
+                best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
                 if (!is.element(collapse_by, c("gene_locus", "splice_variant")))
                         stop(
                                 "Please specify a collapse method provided by this function: collapse_by = 'gene_locus' or collapse_by = 'splice_variant'.",
@@ -146,7 +161,7 @@ select_orthologs <-
                         query_gene_locus_id <-
                                 subject_gene_locus_id <- NULL
                         res_qry <-
-                                best_hits(final_join_dnds_annotation_tbl, "query_gene_locus_id")
+                                best_hits(final_join_dnds_annotation_tbl, "query_gene_locus_id", rule = best_hit_rule)
                         
                         if (nrow(res_qry) == 0)
                                 stop("After best splice variant filtering no results were retained. The output was empty ...", call. = FALSE)
@@ -155,7 +170,7 @@ select_orthologs <-
                                 "Select splice variant with smallest e-value for each gene locus of subject species ..."
                         )
                         res_sbj <-
-                                dplyr::ungroup(best_hits(final_join_dnds_annotation_tbl, "subject_gene_locus_id"))
+                                dplyr::ungroup(best_hits(final_join_dnds_annotation_tbl, "subject_gene_locus_id", rule = best_hit_rule))
                         
                         if (nrow(res_sbj) == 0)
                                 stop("After best splice variant filtering no results were retained. The output was empty ...", call. = FALSE)
