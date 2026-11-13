@@ -38,12 +38,19 @@ Running programs:
 - Stale results can no longer be returned: `blast()`, `diamond()`, `deepclust()` and the functions built on them
   check the exit status and the output of every program and work in files of their own.
 - File and folder names with spaces work. Programs are looked up once per session.
+- Parallel runs use the `parallel` package only; on Windows (PSOCK) arguments given as variables reach the
+  worker processes, and worker processes are ended after an interrupt.
 - `multi_aln()`: T-Coffee and MUSCLE examples run with current versions; CLUSTAL files of T-Coffee are read;
   the MAFFT check uses `mafft --version`.
 - `pairwise_aln()`, `read.genome(format = "fastq")`, `codon_aln(get_aln = TRUE)`,
   `promotor_divergence_estimation()`, `lnc_map_counts()`, `map_generator_dnds()` with one subject file: errors
   on valid input fixed. `check_annotation(remove_annotation_outliers = TRUE)` no longer overwrites the
   annotation file.
+
+### Speed (results unchanged)
+
+- `select_orthologs()`, `retrieve_longest_isoforms()` and `deepclust()` read annotations and sequences in one
+  pass.
 
 ### Internal
 
