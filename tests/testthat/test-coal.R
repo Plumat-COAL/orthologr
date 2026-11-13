@@ -347,3 +347,18 @@ test_that("aa_sub_matrix of the COAL engine is checked against the matrices COAL
         expect_error(dNdS_coal(thal_cds(), lyra_cds(), aa_sub_matrix = "FOO", print_citation = FALSE),
                      "PAM250", class = "orthologr_error_bad_argument")
 })
+
+test_that("dNdS(engine = \"coal\") counts sequences trimmed to a multiple of 3 in the summary (quiet = TRUE)", {
+        skip_if_not(diamond_available, "DIAMOND2 is not installed or not on PATH")
+        skip_if_not(coalr_available, "the R package coalr is not installed")
+        cds <- Biostrings::readDNAStringSet(thal_cds())
+        cds[1] <- Biostrings::DNAStringSet(paste0(as.character(cds[1]), "A"))
+        f <- file.path(new_test_dir("trimmed_coal_"), "thal_trim.fasta")
+        Biostrings::writeXStringSet(cds, f)
+        msgs <- character()
+        res <- withCallingHandlers(dNdS(f, lyra_cds(), engine = "coal", print_citation = FALSE),
+                                   message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+        expect_length(msgs, 2)
+        expect_match(msgs[2], "1 coding sequence has a length that is not a multiple of 3 and was trimmed", fixed = TRUE)
+        expect_identical(nrow(attr(res, "trimmed_sequences")), 1L)
+})

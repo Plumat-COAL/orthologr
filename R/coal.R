@@ -507,7 +507,7 @@ dNdS_coal <- function(query_file,
 
         # as dNdS(): sequences that are left out are collected for attr(<result>, "dropped_sequences"), and
         # several transcripts per gene in an input file give a warning
-        end_dropped <- dropped_start()
+        end_dropped <- dropped_start(quiet = quiet)
         on.exit(end_dropped(), add = TRUE)
         isoforms_query <- isoform_warning(query_file, "query_file")
         isoform_warning(subject_file, "subject_file")
@@ -591,8 +591,9 @@ dNdS_coal <- function(query_file,
         note <- res[[".coal_note"]]
         res[[".coal_status"]] <- NULL
         res[[".coal_note"]] <- NULL
+        trimmed <- trimmed_table()
         res <- dnds_finish(
-                res, failed_pairs = failed, dropped = end_dropped(), engine_status = engine_status,
+                res, failed_pairs = failed, dropped = end_dropped(), engine_status = engine_status, trimmed = trimmed,
                 not_converged = sum(grepl("not converge|did not converge|no convergence", note, ignore.case = TRUE)),
                 record = list(fun = "dNdS_coal", args = run_args, engine = "coal",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path), coal_versions()),
