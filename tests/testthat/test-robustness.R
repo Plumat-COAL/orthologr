@@ -90,6 +90,8 @@ test_that("compute_dnds() returns an NA row with a reason for a pair that fails,
         )
         for (cores in c(1, 2)) {
                 skip_if(cores > parallel::detectCores(), "one core only")
+                # several cores use a FORK cluster in this version, which Windows does not have
+                skip_if(cores > 1 && .Platform$OS.type == "windows", "FORK cluster (not on Windows)")
                 expect_warning(
                         res <- compute_dnds(tbl, aa_aln_type = "pairwise", aa_aln_tool = "NW", codon_aln_tool = "pal2nal",
                                             dnds_est.method = "Comeron", quiet = TRUE, comp_cores = cores),
