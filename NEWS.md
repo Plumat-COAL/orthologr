@@ -38,7 +38,10 @@ phylotranscriptomic tools (e.g. myTAI) would have met `NA` strata for the first 
   returned `dN = NA`, `dNdS = 0`, and `filter_dNdS()` / `divergence_stratigraphy()` then dropped exactly the most
   conserved genes. Now `dN = 0` when Ka is `NA`, Ks is a positive number and Ka/Ks is 0 (also `-0`). Pairs for
   which KaKs_Calculator gives no ratio either (identical sequences: `NA NA NA`; a model that failed: `nan`) are
-  unchanged. Pre-existing in 0.4.3. 1,000-gene example, YN, default pipeline: TBD-R14.
+  unchanged. Pre-existing in 0.4.3. 1,000-gene example, YN, default pipeline: 11 of 995 gene pairs change from
+  `dN = NA` to `dN = 0` (their `dNdS` was and is 0; no other value changes); `filter_dNdS()` kept 984 of the 995
+  pairs and now keeps all 995. `kaks_tool = "coal"` and `engine = "coal"` always returned 0 for these pairs, so
+  both engines now give the same gene set after filtering (tested).
   `options(orthologr.legacy_kaks_zero_dn = TRUE)` restores the old table.
 - **R17, Comeron's method: an undefined logarithm in a class of sites that has no sites is not a saturation.**
   The rule "saturation is `NA`" (below) flagged an estimate whenever a logarithm of the correction had a
@@ -732,9 +735,11 @@ calls that do not ask for it.
   `dNdS_coal()`), threads the codons and estimates dN/dS in memory, on `comp_cores` threads, without a file or a
   process per gene pair. The result is the table `dNdS()` returns (same columns and types, joined with the hit
   table); COAL's full table (standard errors, sites, codons compared, status, note) is `attr(result, "coal")`.
-  Needs `coalr` and a `dnds_est.method` that COAL computes (`"YN"`, ...; not `"Comeron"` or `"Li"`).
-  The values can differ slightly from the pair-by-pair path with the same tools where the protein alignment has
-  several equally good solutions (the two aligners then place a gap differently).
+  Needs `coalr` and a `dnds_est.method` that COAL computes (`"YN"`, ...; `"Comeron"` and `"Li"` with a COAL that
+  has them, see "Comeron's and Li's method with COAL" below).
+  The values differ from the pair-by-pair path with the same tools where the protein alignment has several
+  equally good solutions (the two aligners then place a gap differently): in about a third of the gene pairs of
+  the 1,000-gene example, see the table below.
 - **New function `dNdS_clusters()`**: dN, dS and dN/dS for the gene pairs within sequence clusters, e.g. of
   `deepclust()` / `deepclust_realign()` (or run DeepClust itself), with a per-cluster summary (number of pairs,
   median, mean, quartiles, minimum and maximum of dN, dS and dN/dS, numbers of saturated and failed pairs).
@@ -743,6 +748,72 @@ calls that do not ask for it.
   skipped.
 - `dNdS()` checks `aa_sub_matrix`, `kaks_tool` and `engine`, and that COAL is installed when it was asked for,
   before the search starts. `codon_aln(get_aln = TRUE)` reads the alignment in the format it was written in.
+
+**Comeron's and Li's method with COAL (third review).** COAL (coalr >= 0.5.0) has ports of the two methods
+orthologr computes itself - libsequence's gestimator (`"Comeron"`, the default method of `dNdS()`) and
+`seqinr::kaks()` (`"Li"`). They are now available wherever COAL is: `dNdS(engine = "coal")` works with the default
+method, and so do `dNdS_coal()`, `dNdS_clusters()`, `dNdS_orthogroups(engine = "coal")` and
+`substitutionrate()` / `dNdS(kaks_tool = "coal")`.
+- `coal_methods()` (internal) lists them when `coalr::coal_info()$methods` does (or the help of `coal-cpp`); with
+  an older COAL a message names what is needed, and `kaks_tool = "coal"` keeps computing these two methods with
+  the built-in code.
+- COAL is asked for the numbers of orthologr's programs (`comeron_flavour = "gestimator"`,
+  `li_flavour = "seqinr"`), and the terminal stop codon is not compared (`terminal_stops = "drop"`: orthologr 0.5.0
+  aligns without it; `"compare"` with `options(orthologr.legacy_pairwise_aln = TRUE)`, as 0.4.3 did).
+- orthologr applies its own rules to COAL's values, so that both paths return the same table for the same
+  codon alignment: Comeron's saturation rule (`NA` where a correction is undefined in a class of sites that has
+  sites - COAL reports these rows with gestimator's finite value and a note;
+  `options(orthologr.legacy_comeron_saturation = TRUE)` keeps the finite values on both paths), `NA` for negative
+  values and the saturation marker of Li's method, and - **decided by what makes the tables identical** -
+  `signif(x, 4)` for Comeron's dN, dS and dN/dS, because gestimator writes 4 significant digits and COAL returns
+  doubles. Li's values are not rounded (seqinr returns doubles). `attr(result, "coal")` of `dNdS_coal()` keeps
+  COAL's unrounded values, status and note.
+
+Measured (package examples, one core, DIAMOND 2.2.8, coalr 0.5.0 of COAL's branch `feat/comeron-li`; the search is
+part of every time):
+
+| | 20 genes | 1,000 genes (995 pairs) |
+|---|---|---|
+| Comeron: built-in path vs COAL's tools on the same alignments (`codon_aln_tool = "coal"`, `kaks_tool = "coal"`): pairs identical in dN, dS and dN/dS | 20 of 20 | **995 of 995** |
+| Li: the same | 20 of 20 | **995 of 995** |
+| YN: KaKs_Calculator vs `kaks_tool = "coal"` (KaKs_Calculator prints 6 digits) | | 994 of 995 within 5e-7; 1 saturated dS (3.69) is `NA` with COAL |
+| Comeron: built-in path vs `engine = "coal"` (COAL aligns the proteins itself): pairs identical | 11 of 20 | 684 of 995 (69%) |
+| ... the other pairs: largest difference of dN / dS / dN/dS; Pearson r over all pairs | 0.001 / 0.032 / 0.014 | 0.020 / 0.056 / 0.153; 0.9994 / 0.9943 / 0.9967 |
+| ... pairs with `NA` (dN, dS, dN/dS), both engines | 0 | 1, 1, 1 - the same pair |
+| Li: built-in path vs `engine = "coal"`: pairs identical | 11 of 20 | 683 of 995 |
+| time, Comeron: built-in path / `engine = "coal"` | 5.4 s / 2.9 s | **97 s / 5.3 s** |
+| time, Li | 4.9 s / 3.2 s | 83 s (2 cores) / 5.7 s |
+| time, YN (KaKs_Calculator) / `engine = "coal"` | | 80 s (2 cores) / 7.0 s |
+
+So with identical alignments COAL reproduces orthologr's Comeron and Li values in every pair, and the batched
+engine differs only through its protein alignments (equally scoring alignments with gaps placed differently;
+the third review found the alignment scores equal in 150 of 150 sampled differing pairs).
+
+**One alignment scoring for every COAL entry point (R15).** `dNdS_clusters(aa_aln_tool = "pairwise")` and
+`dNdS_orthogroups(engine = "coal", aa_aln_tool = "pairwise")` called COAL with its own defaults (gap extension
+0.5, end gaps free), `dNdS(engine = "coal")` with the scoring of `pairwise_aln()` (10 / 4, end gaps penalised):
+the same gene pair got different values depending on the function (E. coli / Yersinia: 63 of 120 pairs equal).
+All four now pass the same preset and have one documented argument **`aa_aln_scoring`** (`"pwalign"`, the
+default, or `"needle"` for COAL's own scoring - the former behaviour of the two functions). **This changes the
+values of `dNdS_clusters()` and `dNdS_orthogroups(engine = "coal")` for pairs that COAL aligns itself**;
+`aa_aln_scoring = "needle"` restores them. A test compares the values of the four entry points on the same pairs.
+
+**One rule for the summaries (R16).** `dNdS_clusters()` took the statistics of dN and dS over the pairs with
+status `"ok"` only (a pair flagged `"saturated"` kept its dN in `pairs` but did not count), `dNdS_orthogroups()`
+over all pairs with a value. Both now use the second rule - every statistic of dN (dS, dN/dS) over all pairs that
+have that value - state it in their help pages, and return the columns `n_dN`, `n_dS`, `n_dNdS` with the numbers of
+pairs behind the statistics. (The statistics of `dNdS_clusters()` change for clusters with saturated pairs: 54 of
+808 clusters in the review's data.)
+
+**`dNdS(engine = "coal")` returns what `dNdS()` returns (R21):** the attribute `dropped_sequences`, the warning
+about several transcripts per gene, and the join with the hit table by both IDs.
+
+**Should `dNdS_orthogroups()` use COAL by default when coalr is installed?** No; the default stays
+`engine = "orthologr"`. A default that depends on which optional package happens to be installed would make the
+same call return different numbers on two machines (the engines differ in about a third of the pairs through
+co-optimal alignments, and COAL's multiple-alignment path supports Clustal Omega and MAFFT only), coalr is not on
+CRAN, and its licence is GPL-3 while this package is declared GPL-2 (see `MAINTAINER_NOTES.md`). The speed-up
+(about 15 to 20 times on 1,000 pairs) is one argument away: `engine = "coal"`.
 
 ### Changes to pairwise alignments that change dN/dS values (methods change)
 
@@ -759,10 +830,16 @@ with this version are not numerically identical to results from `orthologr` <= 0
 |---|---|---|
 | pairs with unchanged dN and dS | 66% (651 of 984) | 71% (699 of 984) |
 | Pearson r of dN, old vs new | 0.971 | 0.967 |
-| Pearson r of dS, old vs new | 0.940 | 0.997 |
+| Pearson r of dS, old vs new | 0.940 | 0.997 (0.985 without two nearly saturated pairs, see below) |
 | Pearson r of dN/dS, old vs new | 0.988 | 0.984 |
 | largest change of dN / dS / dN/dS | 0.19 / 0.41 / 0.31 | 0.19 / 0.48 / 0.44 |
 | pairs whose dN/dS changes by more than 0.01 | 22% | 20% |
+
+(Recomputed for the third review from the stored runs: every cell reproduces. The correlation of dS for YN is
+carried by two nearly saturated gene pairs, AT1G04600.1 and AT1G06490.1, with dS 5.2 and 5.4 in both versions:
+0.997 with them, 0.985 without. Under the bit-score rule that became the default later these two genes have
+other best hits, so on the 982 pairs that 0.4.3 and the final default of 0.5.0 share the numbers are, for
+Comeron / YN: r of dN 0.963 / 0.964, r of dS 0.940 / 0.985, r of dN/dS 0.988 / 0.984; 651 / 699 pairs unchanged.)
 
 So about a third of the gene pairs get other values. For most of them the change is small (median change of dN
 0.002, of dS 0.004-0.005 among the changed pairs), but for single pairs it is large, and rankings or thresholds
