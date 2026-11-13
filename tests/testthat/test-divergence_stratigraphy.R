@@ -133,6 +133,8 @@ test_that("divergence_stratigraphy() works with NG method ...", {
 
 test_that("divergence_stratigraphy() works with comp_cores = 2 ...", {
         skip_if_not(diamond_available, "DIAMOND2 is not installed or not on PATH")
+        # 0.4.3 starts a FORK cluster for comp_cores > 1, which Windows does not have; fixed later in this series
+        skip_on_os("windows")
         # PSOCK workers need an installed package; skip when loaded via load_all()
         skip_if(
                 isTRUE(tryCatch(pkgload::is_dev_package("orthologr"), error = function(e) FALSE)),
