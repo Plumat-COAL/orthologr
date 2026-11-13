@@ -573,6 +573,8 @@ dNdS <- function(query_file,
         joint_subject_tbl <- dplyr::inner_join(tibble::as_tibble(hit.table), tibble::as_tibble(subject_tbl), by = "subject_id")
         final_tbl <- dplyr::inner_join(tibble::as_tibble(joint_query_tbl), tibble::as_tibble(joint_subject_tbl), by = c("query_id","subject_id"))
         
+        sensitivity_hint(hit.table, aligner = aligner, sensitivity_mode = sensitivity_mode)
+        
         if (nrow(hit.table) == 0)
                 orthologr_abort(class = "no_hits", "No orthologs could be found: the ", if (aligner == "diamond") "DIAMOND" else "BLAST",
                      " search of '", basename(query_file), "' against '", basename(subject_file),

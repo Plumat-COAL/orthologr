@@ -107,3 +107,21 @@ dnds_require_programs <- function(aa_aln_tool = "NW", aa_aln_path = NULL, codon_
         }
         invisible(TRUE)
 }
+
+# A hint when DIAMOND ran with sensitivity_mode = "fast" (tuned for hits of > 90 % identity) and the best hits are
+# far below that: "default" finds more reciprocal best hits there. Measured (NCBI RefSeq coding sequences,
+# reciprocal best hits, e-value 1e-5): S. cerevisiae / C. glabrata 4,165 with "fast" against 4,385 with "default"
+# (-5.0 %), S. cerevisiae / K. lactis 3,848 / 4,208 (-8.6 %), Salmonella LT2 / Shigella flexneri 2,820 / 2,863
+# (-1.5 %); "default" took no longer on these genomes (7.8 / 7.8 / 6.0 s against 9.6 / 6.9 / 5.1 s, 2 threads).
+sensitivity_hint <- function(hits, aligner, sensitivity_mode, threshold = 70) {
+        if (!identical(aligner, "diamond") || !identical(sensitivity_mode, "fast") || is.null(hits) || nrow(hits) < 20 ||
+            !is.element("perc_identity", names(hits)))
+                return(invisible(FALSE))
+        med <- stats::median(as.numeric(hits$perc_identity), na.rm = TRUE)
+        if (!is.finite(med) || med >= threshold)
+                return(invisible(FALSE))
+        message("The best hits are ", round(med), " % identical (median). sensitivity_mode = \"fast\" is tuned for ",
+                "closely related species; sensitivity_mode = \"default\" finds about 5 - 9 % more reciprocal best hits ",
+                "between species of this distance (e.g. two yeasts), at about the same run time.")
+        invisible(TRUE)
+}
