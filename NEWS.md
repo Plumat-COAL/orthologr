@@ -180,7 +180,16 @@ Comeron's method (`dnds_est.method = "Comeron"`, the default)
   `NA`, as the documentation always said ("NA when it cannot be computed"). Values of all other gene pairs are
   unchanged. `options(orthologr.legacy_comeron_saturation = TRUE)` reproduces the old numbers. How many pairs
   change (default pipeline of this branch, same codon alignments in both modes):
-@@SATURATION@@
+
+  | gene pairs (reciprocal best hits) | dS: value -> `NA` | dN: value -> `NA` | dN/dS: value -> `NA` | other values |
+  |---|---|---|---|---|
+  | *A. thaliana* / *A. lyrata*, 1,000-gene example of the package: 984 | 0 | 5 | 2 (981 -> 979 with a value) | identical |
+  | human / mouse, the 1,500 pairs of the audit (gene families, long genes, random pairs): 1,500 | 2 (old dS 0.71 and 1.23) | 23 | 15 (1,490 -> 1,475 with a value) | identical |
+
+  (Most of the pairs concerned are flagged on the nonsynonymous side: the term for twofold-transversional sites,
+  of which a gene has few. The general underestimation of large dS by Comeron's method that the audit describes -
+  median 0.87 against 1.96 from PAML yn00 for pairs with yn00 dS > 1.5 - is a property of the method, not of this
+  flag, and is unchanged: use a maximum-likelihood method such as `"YN"` for distant pairs.)
 - **Input that is not a codon alignment is an R error**, in the C++ code and before it is called: a sequence
   shorter than one codon aborted the R session ("irrecoverable exception"; an unsigned `length - 3`), sequences of
   unequal length gave numbers read from beyond the end of the shorter one (dN 0.50, dS 0.26 in the audit's test),
@@ -198,7 +207,8 @@ Comeron's method (`dnds_est.method = "Comeron"`, the default)
 
 Changes of results and row counts in this section
 - `filter_dNdS()`, `divergence_stratigraphy()`: gene pairs with dS = 0 are kept (more rows; `dNdS` / stratum `NA`;
-  `filter_dNdS()` returns the extra column `dS_zero`). *E. coli* K-12 vs Sakai: 1,280 instead of 1,195 rows.
+  `filter_dNdS()` returns the extra column `dS_zero`). *E. coli* K-12 vs Sakai in the audit: the 85 of 1,280 pairs
+  that were dropped are kept.
   Restored by `dS_zero = "drop"` or `options(orthologr.dS_zero = "drop")`.
 - `divergence_map()`, `divergence_stratigraphy()`: tables that stopped with "duplicate threshold" now give
   strata; tables that worked give the same strata (except `n_quantile` 49 / 98, where the `NA` is gone).
