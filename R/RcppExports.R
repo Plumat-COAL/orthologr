@@ -45,7 +45,7 @@ TranslateCodon <- function(codon) {
     .Call(`_orthologr_TranslateCodon`, codon)
 }
 
-gestimator <- function(file, file_out = "", maxHits = 3L, verbose = FALSE, remove_all_gaps = FALSE) {
-    invisible(.Call(`_orthologr_gestimator`, file, file_out, maxHits, verbose, remove_all_gaps))
+gestimator <- function(file, file_out = "", maxHits = 3L, verbose = FALSE, remove_all_gaps = FALSE, legacy_saturation = FALSE) {
+    invisible(.Call(`_orthologr_gestimator`, file, file_out, maxHits, verbose, remove_all_gaps, legacy_saturation))
 }
 

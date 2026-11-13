@@ -25,7 +25,8 @@ test_that("filter_dNdS() removes rows with NA in dS", {
 
 test_that("filter_dNdS() removes rows where dNdS > threshold", {
         result <- filter_dNdS(mock_dnds, dnds.threshold = 0.15)
-        expect_true(all(result[["dNdS"]] <= 0.15))
+        expect_true(all(result[["dNdS"]] <= 0.15, na.rm = TRUE))
+        expect_identical(result[["query_id"]], c("gene1", "gene6"))
 })
 
 test_that("filter_dNdS() retains rows that pass all filters", {
