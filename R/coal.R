@@ -64,17 +64,21 @@ coal_check_methods <- function(methods, what, other = "engine = \"orthologr\"") 
 }
 
 # The versions of COAL in use, for the record of a run.
+# The backend that is used (coal_backend(): "coalr" or "binary", also when options(orthologr.coal_backend) forces
+# the program although coalr is installed) is named in `coal_backend`.
 coal_versions <- function() {
         v <- list()
-        if (requireNamespace("coalr", quietly = TRUE)) {
+        backend <- tryCatch(coal_backend(), error = function(e) NULL)
+        if (is.null(backend))
+                return(v)
+        v$coal_backend <- backend$type
+        if (backend$type == "coalr") {
                 v$coalr <- package_version_text("coalr")
                 engine <- tryCatch(coalr::coal_info()$version, error = function(e) NULL)
                 if (!is.null(engine) && length(engine) == 1)
                         v$coal <- as.character(engine)
         } else {
-                exe <- tryCatch(coal_backend()$path, error = function(e) NULL)
-                if (!is.null(exe))
-                        v$`coal-cpp` <- tool_version_line(exe, "--version")
+                v$`coal-cpp` <- tool_version_line(backend$path, "--version")
         }
         v
 }
