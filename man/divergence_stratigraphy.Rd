@@ -22,7 +22,8 @@ divergence_stratigraphy(
   subject.id = FALSE,
   n_quantile = 10,
   sensitivity_mode = "fast",
-  dS_zero = getOption("orthologr.dS_zero", "drop")
+  dS_zero = getOption("orthologr.dS_zero", "drop"),
+  best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
 )
 }
 \arguments{
@@ -97,6 +98,19 @@ them out of the divergence map, as every released version of orthologr did - now
 \code{attr(result, "left_out")}; \code{"keep"} keeps them as rows with the stratum (or dNdS value) \code{NA}
 (only choose this when the code that uses the map can deal with \code{NA} strata).
 See \code{\link{filter_dNdS}}; \code{options(orthologr.dS_zero = "keep")} sets the default.}
+
+\item{best_hit_rule}{how the best hit of a query is chosen among its hits:
+\itemize{
+\item \code{"bitscore"} (default since orthologr 0.5.0): the hit with the highest bit score; of several, the one
+with the smallest e-value, then the longest alignment, then the highest percent identity, then the alphabetically
+first \code{subject_id}. The choice does not depend on the order of the hit table.
+\item \code{"evalue"}: the rule of orthologr <= 0.4.3 - the hit with the smallest e-value; of several, the one with
+the longest alignment; of several, the alphabetically first \code{subject_id}. The bit score is not used.
+}
+\strong{This default changed in 0.5.0 and changes which orthologs are returned.} DIAMOND and BLAST report an
+e-value of 0 for every strong hit of a long protein, so that under the old rule the alignment length decided
+among them and a paralog could win over the true ortholog. @BHNUM@
+\code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.}
 }
 \value{
 A \code{data.frame} with the divergence stratum (column \code{DS}; or \code{dNdS} with
