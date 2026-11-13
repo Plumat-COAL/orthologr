@@ -378,12 +378,16 @@ test_that("dNdS_orthogroups(): pairwise alignments give the values of dNdS(); re
         expect_error(dNdS_orthogroups(og, engine = "paml"), "engine = 'paml' is not supported")
         expect_error(dNdS_orthogroups(og, dnds_est.method = "XX"), "not supported with engine")
         expect_error(dNdS_orthogroups(og, aa_aln_tool = "NW"), "aa_aln_tool = 'NW' is not supported")
-        expect_error(dNdS_orthogroups(og, groups = "OG9999999"), "no such orthogroup")
-        expect_error(dNdS_orthogroups(og, eval = 1), "Unused argument")
+        # (aa_aln_tool = "pairwise": these checks come after the one for the alignment program, which is not
+        # installed everywhere)
+        expect_error(dNdS_orthogroups(og, groups = "OG9999999", aa_aln_tool = "pairwise"), "no such orthogroup")
+        expect_error(dNdS_orthogroups(og, eval = 1, aa_aln_tool = "pairwise"), "Unused argument")
         ogp <- quiet_og(c(thal = thal_aa(), lyra = lyra_aa()), seq_type = "protein")
-        expect_error(dNdS_orthogroups(ogp), "computed from proteins")
-        expect_error(dNdS_orthogroups(ogp, cds_files = c(thal = thal_cds())), "one file with coding sequences for each")
-        expect_error(dNdS_orthogroups(ogp, cds_files = c(a = thal_cds(), b = lyra_cds())), "must be the species names")
+        expect_error(dNdS_orthogroups(ogp, aa_aln_tool = "pairwise"), "computed from proteins")
+        expect_error(dNdS_orthogroups(ogp, cds_files = c(thal = thal_cds()), aa_aln_tool = "pairwise"),
+                     "one file with coding sequences for each")
+        expect_error(dNdS_orthogroups(ogp, cds_files = c(a = thal_cds(), b = lyra_cds()), aa_aln_tool = "pairwise"),
+                     "must be the species names")
 })
 
 test_that("dNdS_orthogroups(): one codon alignment per group, all between-species pairs, failures are NA rows", {

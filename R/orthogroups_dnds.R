@@ -15,10 +15,8 @@
 #' computed); or a character vector with the IDs of the groups to compute (e.g. \code{c("OG0000000", "OG0000007")}).
 #' @param dnds_est.method the dN/dS estimation method, see \code{\link{dNdS}} and \code{\link{substitutionrate}}.
 #' Default (\code{NULL}) is \code{"Comeron"} with \code{engine = "orthologr"}.
-#' @param engine \code{"orthologr"} (Default): the programs \code{\link{dNdS}} uses - \code{\link{multi_aln}} or
+#' @param engine \code{"orthologr"} (the only one): the programs \code{\link{dNdS}} uses - \code{\link{multi_aln}} or
 #' \code{\link{pairwise_aln}}, PAL2NAL (\code{\link{codon_aln}}) and \code{\link{substitutionrate}}.
-#' \code{"coal"}: COAL (\url{https://github.com/Plumat-COAL/COAL}), which computes all groups in one call and is much
-#' faster; only in versions of orthologr with the COAL integration (\code{dNdS_clusters()}).
 #' @param aa_aln_tool how the proteins of a group are aligned: \code{"clustalo"} (Default), \code{"mafft"},
 #' \code{"muscle"}, \code{"clustalw"} or \code{"t_coffee"} - one multiple alignment per group with that program,
 #' from which the alignment of every pair is taken; or \code{"pairwise"} - every pair is aligned on its own
@@ -71,7 +69,7 @@ dNdS_orthogroups <- function(x,
                              cds_files          = NULL,
                              groups             = c("single_copy", "all"),
                              dnds_est.method    = NULL,
-                             engine             = c("orthologr", "coal"),
+                             engine             = "orthologr",
                              aa_aln_tool        = "clustalo",
                              aa_aln_path        = NULL,
                              aa_aln_params      = NULL,
@@ -83,6 +81,7 @@ dNdS_orthogroups <- function(x,
                              quiet              = TRUE,
                              ...) {
         
+        force_args()
         group_ids <- NULL
         if (is.character(groups) && length(groups) >= 1 && !anyNA(groups) && !is.element(groups[1], c("single_copy", "all"))) {
                 group_ids <- unique(groups)
@@ -90,7 +89,7 @@ dNdS_orthogroups <- function(x,
         } else {
                 groups <- check_choice(groups[1], c("single_copy", "all"), "groups")
         }
-        engine <- check_choice(engine[1], c("orthologr", "coal"), "engine")
+        engine <- check_choice(engine[1], "orthologr", "engine")
         check_count(max_group_size, "max_group_size")
         check_flag(quiet, "quiet")
         if (!is.numeric(dS_saturation) || length(dS_saturation) != 1 || is.na(dS_saturation) || dS_saturation <= 0)
@@ -103,8 +102,9 @@ dNdS_orthogroups <- function(x,
                              "Please choose one of: 'Comeron', 'Li', 'NG', 'LWL', 'LPB', 'MLWL', 'YN', 'MYN', 'GY', 'MA', 'MS', 'GMYN', 'ALL'.",
                              call. = FALSE)
                 check_choice(aa_aln_tool, c("clustalo", "mafft", "muscle", "clustalw", "t_coffee", "pairwise"), "aa_aln_tool")
-        } else {
-                dnds_est.method <- dnds_groups_coal_check(dnds_est.method, aa_aln_tool)
+                # the programs must be there before the search and the alignments start
+                dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = "pal2nal",
+                                      dnds_est.method = dnds_est.method, kaks_calc_path = kaks_calc_path)
         }
         comp_cores <- check_comp_cores(comp_cores)
         
@@ -176,16 +176,11 @@ dNdS_orthogroups <- function(x,
                 rates <- data.table::data.table(orthogroup = character(0), query_id = character(0), subject_id = character(0),
                                                 method = character(0), dN = numeric(0), dS = numeric(0), dNdS = numeric(0),
                                                 note = character(0))
-        } else if (engine == "orthologr") {
+        } else {
                 rates <- dnds_groups_orthologr(
                         pairs = pair_tbl, cds = cds$cds, dnds_est.method = dnds_est.method, aa_aln_tool = aa_aln_tool,
                         aa_aln_path = aa_aln_path, aa_aln_params = aa_aln_params, kaks_calc_path = kaks_calc_path,
                         comp_cores = comp_cores, quiet = quiet
-                )
-        } else {
-                rates <- dnds_groups_coal(
-                        pairs = pair_tbl, cds = cds$cds, dnds_est.method = dnds_est.method, aa_aln_tool = aa_aln_tool,
-                        aa_aln_path = aa_aln_path, comp_cores = comp_cores, quiet = quiet
                 )
         }
         
@@ -289,10 +284,12 @@ dnds_groups_read_cds <- function(x, cds_files, delete_corrupt_cds = TRUE) {
 # dN/dS of the gene pairs `pairs` (data.table: orthogroup, query_id, subject_id) with the programs of dNdS().
 #   cds : named character vector of the coding sequences (names: gene names)
 # Returns a data.table: orthogroup, query_id, subject_id, method, dN, dS, dNdS, note (NA, or why the values are NA).
-# This is the interface of an engine; dnds_groups_coal() has the same one.
+# This is the interface of an engine.
 dnds_groups_orthologr <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_aln_path = NULL, aa_aln_params = NULL,
                                   kaks_calc_path = NULL, comp_cores = 1, quiet = TRUE) {
         
+        # the groups may be computed in other R processes: no argument may travel there unevaluated
+        force_args()
         end_tmpdir <- orthologr_tmpdir_start("orthologr_dNdS_orthogroups_")
         on.exit(end_tmpdir(), add = TRUE)
         
@@ -345,8 +342,10 @@ dnds_groups_orthologr <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_a
         run <- function(expr) if (quiet) suppressMessages(expr) else expr
         if (comp_cores > 1 && length(by_group) > 1) {
                 cl <- dnds_cluster(min(comp_cores, length(by_group)))
-                on.exit(parallel::stopCluster(cl), add = TRUE)
+                finished <- FALSE
+                on.exit(dnds_cluster_stop(cl, finished = finished), add = TRUE, after = FALSE)
                 res <- parallel::parLapply(cl, seq_along(by_group), one_group)
+                finished <- TRUE
         } else {
                 res <- run(lapply(seq_along(by_group), one_group))
         }

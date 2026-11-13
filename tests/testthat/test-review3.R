@@ -78,6 +78,36 @@ test_that("R08: kaks_calc_path and aa_aln_path as global variables on PSOCK work
         skip_if_not(kaks_available || clustalo_available, "neither KaKs_Calculator nor Clustal Omega is installed")
 })
 
+test_that("R08: divergence_stratigraphy() and dNdS_orthogroups() on PSOCK workers with global variables", {
+        skip_on_cran()
+        skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
+        skip_if_not(psock_possible(), "PSOCK workers need the installed package and two cores")
+        old <- options(orthologr.cluster_type = "PSOCK")
+        on.exit(options(old), add = TRUE)
+        ds <- suppressWarnings(suppressMessages(with_globals(
+                list(orthologr_q0 = thal_cds(), orthologr_s0 = lyra_cds(), qt = TRUE),
+                quote(orthologr::divergence_stratigraphy(orthologr_q0, orthologr_s0, comp_cores = 2, quiet = qt)))))
+        tbl <- attr(ds, "dNdS_tbl")
+        expect_equal(nrow(attr(tbl, "failed_pairs")), 0)
+        expect_true(sum(!is.na(tbl$dNdS)) >= 18)
+        
+        og <- suppressMessages(orthogroups(c(a = thal_cds(), b = lyra_cds())))
+        # pairwise: the pipeline of dNdS() on the workers
+        res <- suppressMessages(with_globals(
+                list(orthologr_og = og, tool = "pairwise", qt = TRUE, kp = NULL),
+                quote(orthologr::dNdS_orthogroups(orthologr_og, aa_aln_tool = tool, comp_cores = 2, quiet = qt,
+                                                  kaks_calc_path = kp))))
+        expect_true(all(is.na(res$pairs$note)))
+        expect_true(sum(!is.na(res$pairs$dNdS)) >= 18)
+        skip_if_not(clustalo_available, "Clustal Omega is not installed")
+        res <- suppressMessages(with_globals(
+                list(orthologr_og = og, ap = dirname(Sys.which("clustalo")), apar = NULL),
+                quote(orthologr::dNdS_orthogroups(orthologr_og, aa_aln_tool = "clustalo", aa_aln_path = ap,
+                                                  aa_aln_params = apar, comp_cores = 2))))
+        expect_true(all(is.na(res$pairs$note)))
+        expect_true(sum(!is.na(res$pairs$dNdS)) >= 18)
+})
+
 test_that("R13: the workers of an unfinished parallel run are ended", {
         skip_on_cran()
         skip_on_os("windows")
@@ -298,6 +328,7 @@ test_that("R07: an injection attempt in any parameter string runs no command", {
                 attempt(function(p) diamond_best(thal_aa(), lyra_aa(), seq_type = "protein", diamond_params = p))
                 attempt(function(p) diamond_rec(thal_aa(), lyra_aa(), seq_type = "protein", diamond_params = p))
                 attempt(function(p) deepclust(thal_aa(), direct_input = TRUE, deepclust_params = p))
+                attempt(function(p) orthogroups(c(a = thal_cds(), b = lyra_cds()), diamond_params = p))
                 if (perl_available) {
                         attempt(function(p) dNdS(thal_cds(), lyra_cds(), aligner_params = p, print_citation = FALSE))
                         if (clustalo_available) attempt(function(p) dNdS(
@@ -407,6 +438,7 @@ test_that("R09: a missing program stops dNdS() and dNdS_orthogroups() before the
         searched <- FALSE
         testthat::local_mocked_bindings(
                 diamond_rec = function(...) { searched <<- TRUE; stop("the search was started") },
+                orthogroups = function(...) { searched <<- TRUE; stop("the search was started") },
                 .package = "orthologr")
         expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "YN", print_citation = FALSE)),
                      "KaKs_Calculator.*needed for dnds_est.method = \"YN\"")
@@ -414,6 +446,9 @@ test_that("R09: a missing program stops dNdS() and dNdS_orthogroups() before the
                      "Clustal.Omega")
         expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), aa_aln_type = "multiple", aa_aln_tool = "mafft", print_citation = FALSE)),
                      "MAFFT")
+        expect_error(suppressMessages(dNdS_orthogroups(c(a = thal_cds(), b = lyra_cds()))), "Clustal.Omega")
+        expect_error(suppressMessages(dNdS_orthogroups(c(a = thal_cds(), b = lyra_cds()), aa_aln_tool = "pairwise", dnds_est.method = "NG")),
+                     "KaKs_Calculator")
         expect_error(suppressMessages(divergence_stratigraphy(thal_cds(), lyra_cds(), dnds_est.method = "YN")), "KaKs_Calculator")
         expect_false(searched)
         # no perl: PAL2NAL cannot run

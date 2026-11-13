@@ -2,6 +2,10 @@
 
 ### New
 
+- **`orthogroups()`**: groups of orthologs of 2 to N species from one all-against-all DIAMOND search (reciprocal
+  best hits, connected components) or from DIAMOND DeepClust clusters; `print()`, `summary()`,
+  `write_orthogroups()`. **`dNdS_orthogroups()`**: dN/dS for the gene pairs within the groups, with a summary per
+  group. OrthoFinder is no longer needed for more than two species; `orthofinder2()` is soft-deprecated.
 - `divergence_left_out()`: the gene pairs that are not in a divergence map, with the reason.
 - `attr(result, "failed_pairs")` and `attr(result, "dropped_sequences")` on dN/dS tables: gene pairs that could
   not be processed and input sequences that were left out, each with the reason.
@@ -14,7 +18,7 @@
   leaving them out.
 - MUSCLE 5 is supported; `"MLPB"` is an accepted `dnds_est.method`.
 - `environment.yml` (conda environment with R, the R packages and the external programs); a pkgdown site
-  configuration; an article on the setup on Windows.
+  configuration; articles on orthogroups and on the setup on Windows.
 
 ### Changed defaults (and how to get the old behaviour)
 
@@ -26,6 +30,7 @@
 | KaKs_Calculator methods: `dN = 0` for a pair without nonsynonymous change (was `NA`, with `dNdS = 0`) | 11 of 995 pairs; `filter_dNdS()` keeps them | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
+| `orthogroups()` and `dNdS_orthogroups()` trim coding sequences whose length is not a multiple of 3 (`delete_corrupt_cds = FALSE`, as `dNdS()` does) | - (new functions) | `delete_corrupt_cds = TRUE` |
 
 Further behaviour that differs from 0.4.3 and cannot be switched back:
 

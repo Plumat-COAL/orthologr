@@ -253,6 +253,8 @@ The complete list of functions is in the [reference](https://drostlab.github.io/
 * `map_generator_dnds()`, `read.dnds.tbl()`: dN/dS tables of one query against many subject organisms
 * `divergence_left_out()`: the gene pairs a divergence map does not hold, and why
 * `substitutionrate()`: dN/dS of one codon alignment
+* `orthogroups()`, `write_orthogroups()`, `dNdS_orthogroups()`: orthogroups of 2 to N species with DIAMOND, files in
+  OrthoFinder's layout, dN/dS of all gene pairs within the groups
 
 ### Sequence searches and orthology inference
 

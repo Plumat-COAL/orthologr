@@ -9,7 +9,7 @@ dNdS_orthogroups(
   cds_files = NULL,
   groups = c("single_copy", "all"),
   dnds_est.method = NULL,
-  engine = c("orthologr", "coal"),
+  engine = "orthologr",
   aa_aln_tool = "clustalo",
   aa_aln_path = NULL,
   aa_aln_params = NULL,
@@ -39,10 +39,8 @@ computed); or a character vector with the IDs of the groups to compute (e.g. \co
 \item{dnds_est.method}{the dN/dS estimation method, see \code{\link{dNdS}} and \code{\link{substitutionrate}}.
 Default (\code{NULL}) is \code{"Comeron"} with \code{engine = "orthologr"}.}
 
-\item{engine}{\code{"orthologr"} (Default): the programs \code{\link{dNdS}} uses - \code{\link{multi_aln}} or
-\code{\link{pairwise_aln}}, PAL2NAL (\code{\link{codon_aln}}) and \code{\link{substitutionrate}}.
-\code{"coal"}: COAL (\url{https://github.com/Plumat-COAL/COAL}), which computes all groups in one call and is much
-faster; only in versions of orthologr with the COAL integration (\code{dNdS_clusters()}).}
+\item{engine}{\code{"orthologr"} (the only one): the programs \code{\link{dNdS}} uses - \code{\link{multi_aln}} or
+\code{\link{pairwise_aln}}, PAL2NAL (\code{\link{codon_aln}}) and \code{\link{substitutionrate}}.}
 
 \item{aa_aln_tool}{how the proteins of a group are aligned: \code{"clustalo"} (Default), \code{"mafft"},
 \code{"muscle"}, \code{"clustalw"} or \code{"t_coffee"} - one multiple alignment per group with that program,
