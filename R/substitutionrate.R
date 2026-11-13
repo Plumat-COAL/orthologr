@@ -110,6 +110,18 @@
 #' 
 #' https://code.google.com/archive/p/kaks-calculator
 #' 
+#' @section Saturation (Comeron's method):
+#' The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:
+#' proportions of transitional and transversional differences in a class of sites). When such an argument is not
+#' positive, the observed differences exceed what the model can correct for and the distance is not defined. In
+#' that case \code{dS} (synonymous classes) or \code{dN} (nonsynonymous classes) and \code{dNdS} are returned as
+#' \code{NA}. Up to orthologr 0.4.3 the logarithm was replaced by 0 and a finite, too small value was returned
+#' (e.g. \code{dS = 0} for \code{ATGGCTAAA} / \code{ATGGCCAAA}, which differ by one synonymous substitution);
+#' \code{options(orthologr.legacy_comeron_saturation = TRUE)} reproduces those values. Values of gene pairs
+#' without such a term are the same in both modes.
+#' 
+#' The alignment must be a codon alignment: at least two sequences of the same length, which is a multiple of 3.
+#' Anything else is an error.
 #' @return A data.table storing the query_id, subject_id, dN, dS, and dNdS values or 
 #' a data.table storing the query_id, method, dN, dS, and dNdS values when using KaKs_Calculator.
 #' If the dNdS value cannot be calculated NA is returned. This can happen because of constraints
@@ -178,8 +190,12 @@ substitutionrate <- function(file,
                         # To use gestimator a file in fasta format is required
                         
                         # include this line instead of the following, to use internal gestimator
+                        # the alignment is checked here as well as in the C++ code: at least two sequences of the
+                        # same length, which is a multiple of 3 and not 0
+                        check_codon_alignment_file(file)
                         gestimator(file     = file,
-                                   file_out = file.out)
+                                   file_out = file.out,
+                                   legacy_saturation = comeron_legacy_saturation())
                         
                         #system(paste0("gestimator -i ",file," -o ",file.out))
                         
@@ -295,6 +311,35 @@ substitutionrate <- function(file,
                 
                 return(kaks_result_table(kaks_tbl, pair_ids, context))
         }
+}
+
+# options(orthologr.legacy_comeron_saturation = TRUE): Comeron's method as up to 0.4.3, where an undefined
+# logarithm of the correction (saturation) was replaced by 0 and a finite dS or dN was returned.
+comeron_legacy_saturation <- function() {
+        isTRUE(getOption("orthologr.legacy_comeron_saturation", FALSE))
+}
+
+# Stop unless `file` (FASTA) is a codon alignment: at least two sequences, all of the same length, the length a
+# multiple of 3 and at least 3. Line ends may be LF or CRLF.
+check_codon_alignment_file <- function(file) {
+        if (!file.exists(file))
+                stop("The alignment file '", file, "' does not exist.", call. = FALSE)
+        x <- sub("\r$", "", readLines(file, warn = FALSE))
+        x <- x[nzchar(x)]
+        head_at <- startsWith(x, ">")
+        if (sum(head_at) < 2)
+                stop("the alignment file holds ", sum(head_at), " sequence", if (sum(head_at) != 1) "s",
+                     "; a codon alignment of at least two sequences is needed.", call. = FALSE)
+        len <- as.vector(tapply(nchar(x) * !head_at, cumsum(head_at), sum))
+        if (length(unique(len)) != 1)
+                stop("the aligned sequences have unequal lengths (", paste(utils::head(len, 5), collapse = ", "),
+                     "): this is not a codon alignment.", call. = FALSE)
+        if (len[1] < 3)
+                stop("the aligned sequences are shorter than one codon (length ", len[1], ").", call. = FALSE)
+        if (len[1] %% 3 != 0)
+                stop("the length of the aligned sequences (", len[1], ") is not a multiple of 3: this is not a codon alignment.",
+                     call. = FALSE)
+        invisible(TRUE)
 }
 
 # The table gestimator writes (tab-separated, no header: query id, subject id, dN, dS, dN/dS), with the IDs read

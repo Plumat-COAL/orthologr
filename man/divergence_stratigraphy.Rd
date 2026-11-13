@@ -21,7 +21,8 @@ divergence_stratigraphy(
   ds.values = TRUE,
   subject.id = FALSE,
   n_quantile = 10,
-  sensitivity_mode = "fast"
+  sensitivity_mode = "fast",
+  dS_zero = getOption("orthologr.dS_zero", "keep")
 )
 }
 \arguments{
@@ -74,7 +75,9 @@ by \code{divergence_stratigraphy}. Default is \code{ds.values} = \code{TRUE}.}
 
 \item{subject.id}{a logical value indicating whether \code{query_id} AND \code{subject_id} should be returned.}
 
-\item{n_quantile}{a numeric value specifying the number of quantiles that should be returned.}
+\item{n_quantile}{a numeric value specifying the number of quantiles that should be returned. Many equal dN/dS
+values (e.g. dN/dS = 0 for more than \code{1/n_quantile} of the genes of two closely related genomes) no longer
+stop the function after the run: see the section on ties in \code{\link{divergence_map}}.}
 
 \item{sensitivity_mode}{specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 \itemize{
@@ -88,9 +91,17 @@ by \code{divergence_stratigraphy}. Default is \code{ds.values} = \code{TRUE}.}
 \item \code{sensitivity_mode = "ultra-sensitive"}: most sensitive alignment mode (sensitivity as high as BLASTP).
 }
 Any other value is an error.}
+
+\item{dS_zero}{what to do with gene pairs whose dS is 0 (dN/dS not defined): \code{"keep"} (default) keeps them
+with the stratum (or dNdS value) \code{NA}; \code{"drop"} leaves them out, as orthologr <= 0.4.3 did without
+saying so. See \code{\link{filter_dNdS}}; \code{options(orthologr.dS_zero = "drop")} sets the default.}
 }
 \value{
-A data.table storing the divergence map of the query organism.
+A \code{data.frame} with the divergence stratum (column \code{DS}; or \code{dNdS} with
+\code{ds.values = FALSE}) and the \code{query_id} (and \code{subject_id}) of every gene pair.
+\code{attr(result, "dNdS_tbl")} holds the complete dN/dS table of the run as returned by \code{\link{dNdS}},
+before filtering and binning, so that a finished run can be binned again (\code{\link{divergence_map}}) without
+computing it again.
 }
 \description{
 This function takes a query organism and performs
