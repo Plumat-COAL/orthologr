@@ -1,3 +1,11 @@
+## `orthologr` 0.5.0
+
+### Internal
+
+- GitHub Actions: R CMD check on Linux, macOS and Windows with the external programs installed, one leg without
+  them; triggers for pull requests, the default branch and a manual start. Checked with `--as-cran`.
+- Tests: stored 0.4.3 tables (20-gene example, Comeron and YN) that `dNdS()` must reproduce.
+
 ## `orthologr` version 0.4.3
 
 ### New Function
