@@ -655,7 +655,7 @@ orthogroups_pairs <- function(in_group, hits, rbh, species, counts, group_ids, p
                 return(empty)
         stat_cols <- c("bit_score", "evalue", "perc_identity", "alig_length", "qcov", "scov")
         if (!is.null(hits) && nrow(hits) > 0) {
-                at <- hits[p, on = list(q = idx.q, s = idx.s), which = TRUE, mult = "first"]
+                at <- hits[p, on = c(q = "idx.q", s = "idx.s"), which = TRUE, mult = "first"]
                 for (col in stat_cols)
                         data.table::set(p, j = col, value = hits[[col]][at])
         } else {
