@@ -207,7 +207,7 @@ dNdS_orthogroups <- function(x,
         
         n_bad <- sum(!is.na(res_pairs$note))
         if (n_bad > 0)
-                warning(n_bad, " of ", nrow(res_pairs), " gene pairs could not be processed; their dN, dS and dNdS values are NA ",
+                orthologr_warn(class = "failed_pairs", n_bad, " of ", nrow(res_pairs), " gene pairs could not be processed; their dN, dS and dNdS values are NA ",
                         "and the reason is in the column 'note' of the table 'pairs'. First one: '", res_pairs$query_id[!is.na(res_pairs$note)][1],
                         "' / '", res_pairs$subject_id[!is.na(res_pairs$note)][1], "': ",
                         strsplit(res_pairs$note[!is.na(res_pairs$note)][1], "\n", fixed = TRUE)[[1]][1], call. = FALSE)

@@ -25,12 +25,19 @@ change. Please report the version of orthologr in the methods of analyses based 
 - **`orthologr_legacy_options()`** and `options(orthologr.legacy = TRUE)`: all settings of 0.4.3 at once. A test
   compares the result with tables stored from 0.4.3 (20-gene example, Comeron and YN).
 - **`?orthologr_options`**: every option and environment variable the package reads.
+- **Classed errors and warnings**: the common failures have the class `orthologr_error` plus one for their kind -
+  `orthologr_error_tool_missing`, `_package_missing`, `_tool_failed` (with `_alignment_failed` for an alignment
+  program), `_no_hits`, `_bad_input`, `_bad_argument` - and the warnings about failed gene pairs and isoforms the
+  classes `orthologr_warning_failed_pairs` / `_isoforms`, so that they can be handled with `tryCatch()` without
+  matching message text (`?orthologr_options`, section "Errors and warnings"). Messages are unchanged.
 - `divergence_left_out()`: the gene pairs that are not in a divergence map, with the reason.
 - `attr(result, "failed_pairs")` and `attr(result, "dropped_sequences")` on dN/dS tables: gene pairs that could
   not be processed and input sequences that were left out, each with the reason.
 - A warning when an input file of `dNdS()`, `divergence_stratigraphy()`, `orthologs()` or `orthogroups()` seems
   to hold several transcripts per gene (`options(orthologr.isoform_warning = FALSE)` switches it off).
 - `aa_sub_matrix` (`dNdS()`, `pairwise_aln()`): the substitution matrix of pairwise protein alignments.
+- `options(orthologr.ambiguous_cds = "keep")`: coding sequences with IUPAC ambiguity codes (N, R, Y, ...) are kept
+  (a codon with such a base is translated to X) instead of being left out (default "drop", as in 0.4.3).
 - `best_hit_rule` (`dNdS()`, `orthologs()`, `diamond_best()`, `diamond_rec()`, `blast_best()`, `blast_rec()`,
   `divergence_stratigraphy()`, `select_orthologs()`, `orthogroups()`).
 - `dS_zero` (`filter_dNdS()`, `divergence_stratigraphy()`): `"keep"` returns gene pairs with dS = 0 instead of
@@ -134,7 +141,9 @@ Running programs:
   and parallel runs.
 - Tests: 16 of the 20 empty test files now hold tests; pinned dN/dS values of fixed codon alignments, the 20
   known ortholog pairs end to end, a tie-break fixture for both best-hit rules, IDs end to end, stored 0.4.3
-  tables for the legacy settings. The suite passes without any optional program.
+  tables for the legacy settings, malformed input files (empty, truncated record, lower case, protein instead of
+  CDS, duplicated IDs, Windows line endings, gzip, an N in a sequence). The suite passes without any optional
+  program.
 - GitHub Actions: R CMD check on Linux, macOS and Windows with the external programs installed, one leg without
   them; triggers for pull requests, the default branch and a manual start. Checked with `--as-cran`.
 - Examples that need no external program are run by `R CMD check`; the others are guarded by the programs they

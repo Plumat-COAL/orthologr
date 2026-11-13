@@ -152,7 +152,7 @@ tool_available <- function(program, version_args, pattern, path = NULL, not_foun
         if (identical(as.integer(res$status), 127L) || length(found) == 0) {
                 if (is.null(not_found))
                         not_found <- paste0("The program '", program, "' was not found.")
-                stop(not_found, call. = FALSE)
+                orthologr_abort(not_found, class = "tool_missing")
         }
         .orthologr_state[[key]] <- found[1]
         found[1]
@@ -200,7 +200,7 @@ safe_file_name <- function(x) {
 # available cores is used and a warning says so (this used to be an error).
 check_comp_cores <- function(comp_cores) {
         if (!is.numeric(comp_cores) || length(comp_cores) != 1 || is.na(comp_cores) || comp_cores < 1)
-                stop("comp_cores must be a positive number.", call. = FALSE)
+                orthologr_abort("comp_cores must be a positive number.", class = "bad_argument")
         cores <- parallel::detectCores()
         if (!is.na(cores) && comp_cores > cores) {
                 warning("comp_cores = ", comp_cores, " is more than the ", cores, " core", if (cores != 1) "s",
@@ -224,7 +224,8 @@ save_output_copy <- function(from, save.output, name) {
 need_package <- function(pkg, what, bioc = FALSE) {
         if (requireNamespace(pkg, quietly = TRUE))
                 return(invisible(TRUE))
-        stop(
+        orthologr_abort(
+                class = "package_missing",
                 "The package '", pkg, "' is needed for ", what, " but is not installed. Please install it with ",
                 if (bioc) paste0("BiocManager::install(\"", pkg, "\")") else paste0("install.packages(\"", pkg, "\")"),
                 ".",

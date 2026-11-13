@@ -497,15 +497,17 @@ dNdS <- function(query_file,
         joint_subject_tbl <- dplyr::inner_join(tibble::as_tibble(hit.table), tibble::as_tibble(subject_tbl), by = "subject_id")
         final_tbl <- dplyr::inner_join(tibble::as_tibble(joint_query_tbl), tibble::as_tibble(joint_subject_tbl), by = c("query_id","subject_id"))
         
+        sensitivity_hint(hit.table, aligner = aligner, sensitivity_mode = sensitivity_mode)
+        
         if (nrow(hit.table) == 0)
-                stop("No orthologs could be found: the ", if (aligner == "diamond") "DIAMOND" else "BLAST",
+                orthologr_abort(class = "no_hits", "No orthologs could be found: the ", if (aligner == "diamond") "DIAMOND" else "BLAST",
                      " search of '", basename(query_file), "' against '", basename(subject_file),
                      "' returned no ", if (ortho_detection == "RBH") "reciprocal best hits" else "hits",
                      " at e-value ", eval, ". Please check your input files (are both sets of coding sequences related?) ",
                      "or relax 'eval'.", call. = FALSE)
         
         if (nrow(final_tbl) == 0)
-                stop("No orthologs could be found! Please check your input files!", call. = FALSE)
+                orthologr_abort("No orthologs could be found! Please check your input files!", class = "no_hits")
         
         
         detail_message(quiet, "Orthology Inference Completed: ", nrow(final_tbl), " gene pairs.")

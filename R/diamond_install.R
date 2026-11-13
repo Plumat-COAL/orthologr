@@ -116,7 +116,7 @@ diamond_path <- function() {
         if (nzchar(Sys.which("diamond"))) return(NULL)
         dir <- diamond_cache_dir()
         if (file.exists(file.path(dir, diamond_exe_name()))) return(dir)
-        stop("DIAMOND was not found. Run diamond_install() or install it via conda: ",
+        orthologr_abort(class = "tool_missing", "DIAMOND was not found. Run diamond_install() or install it via conda: ",
              "'conda install -c bioconda diamond'.", call. = FALSE)
 }
 
