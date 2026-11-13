@@ -43,6 +43,9 @@ Results:
   (`007`, `1e5`), IDs of more than 15 characters (MAFFT) and the same ID in both files lost rows, came back
   changed or gave `NA`. The dN/dS rows are joined with the hit table by gene pair (was: by query only).
 - Li's method returned text columns and took small values (`9.95e-05`) for the saturation marker.
+- `retrieve_longest_isoforms()` and `select_orthologs()` work on real NCBI and Ensembl GFF3 / GTF files
+  (proteins were lost without notice, annotation lines of more than 65,000 characters were deleted, GFF3 loci
+  were grouped by name).
 - `substitutionrate(kaks_calc.params = )` is added to the method instead of replacing it.
 
 Running programs:
