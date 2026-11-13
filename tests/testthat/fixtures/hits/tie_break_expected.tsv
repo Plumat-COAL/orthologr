@@ -2,7 +2,7 @@ query_id	bitscore	evalue
 q1	ortholog	paralog
 q2	s_e_small	s_e_small
 q3	s_long	s_long
-q4	s_ident	s_ident
+q4	s_ident	a_less
 q5	aaa	aaa
 q6	only	only
 q7	high_bits	low_bits

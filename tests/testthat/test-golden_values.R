@@ -148,7 +148,7 @@ test_that("pipe, numeric, long and hyphen IDs come through dNdS() unchanged, wit
         qf <- tempfile(fileext = ".fa"); sf <- tempfile(fileext = ".fa")
         Biostrings::writeXStringSet(q, qf); Biostrings::writeXStringSet(s, sf)
         ref <- known_pairs[1:8, ]
-        check <- function(res, label, values = TRUE) {
+        check <- function(res, label, values = TRUE, allow_na = FALSE) {
                 expect_equal(nrow(res), 8, info = label)
                 expect_setequal(res$query_id, qid)
                 res <- res[match(qid, res$query_id), ]
@@ -160,14 +160,17 @@ test_that("pipe, numeric, long and hyphen IDs come through dNdS() unchanged, wit
                         expect_equal(res$dN, ref$dN, tolerance = 1e-12, info = label)
                         expect_equal(res$dS, ref$dS, tolerance = 1e-12, info = label)
                 }
-                expect_false(anyNA(res$dN), info = label)
+                # (KaKs_Calculator prints NA for a dN of 0)
+                if (!allow_na)
+                        expect_false(anyNA(res$dN), info = label)
+                expect_false(anyNA(res$dS), info = label)
         }
         opt <- options(orthologr.legacy_pairwise_aln = TRUE)       # see above: the alignments of the pinned values
         check(suppressMessages(dNdS(qf, sf, print_citation = FALSE)), "Comeron / NW")
         options(opt)
         check(suppressMessages(dNdS(qf, sf, dnds_est.method = "Li", print_citation = FALSE)), "Li / NW", values = FALSE)
         if (kaks_available)
-                check(suppressMessages(dNdS(qf, sf, dnds_est.method = "YN", print_citation = FALSE)), "YN / NW", values = FALSE)
+                check(suppressMessages(dNdS(qf, sf, dnds_est.method = "YN", print_citation = FALSE)), "YN / NW", values = FALSE, allow_na = TRUE)
         for (tool in c("mafft", "clustalo")) {
                 if (has_program(tool))
                         check(suppressMessages(dNdS(qf, sf, aa_aln_type = "multiple", aa_aln_tool = tool, print_citation = FALSE)),
