@@ -127,6 +127,14 @@
 #' (e.g. \code{dS = 0} for \code{ATGGCTAAA} / \code{ATGGCCAAA}, which differ by one synonymous substitution);
 #' \code{options(orthologr.legacy_comeron_saturation = TRUE)} reproduces those values. Values of gene pairs
 #' without such a term are the same in both modes.
+#'
+#' A class of sites that has no sites (weight 0 in the estimate) never makes an estimate \code{NA}.
+#' \strong{Short alignments:} with few codons a class with very few sites (typically the twofold sites whose
+#' synonymous change is a transversion) is easily "saturated" by one or two differences, and \code{dN} is then
+#' \code{NA} although the legacy value was a usable estimate: in a simulation of random sequences without
+#' selection, 4 to 13\% of the pairs of 30 codons lost \code{dN} at 10 to 35\% differing sites, 3 of 600 pairs of
+#' 100 codons, none of 300 codons or more. For short sequences consider the legacy option, or a method with
+#' pooled site classes (\code{"NG"}, \code{"YN"}).
 #' 
 #' The alignment must be a codon alignment: at least two sequences of the same length, which is a multiple of 3.
 #' Anything else is an error.
