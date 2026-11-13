@@ -93,6 +93,23 @@
 #' @return A data.table as returned by the \code{blast} function, storing the geneids
 #' of orthologous genes (best hit) in the first column and the amino acid sequences in the second column.
 #' @seealso \code{\link{blast}}, \code{\link{blast_rec}}, \code{\link{set_blast}}
+#' @param best_hit_rule how the best hit of a query is chosen among its hits:
+#' \itemize{
+#' \item \code{"bitscore"} (default since orthologr 0.5.0): the hit with the highest bit score; of several, the one
+#' with the smallest e-value, then the longest alignment, then the highest percent identity, then the alphabetically
+#' first \code{subject_id}. The choice does not depend on the order of the hit table.
+#' \item \code{"evalue"}: the rule of orthologr <= 0.4.3 - the hit with the smallest e-value; of several, the one with
+#' the longest alignment; of several, the alphabetically first \code{subject_id}. The bit score is not used.
+#' }
+#' \strong{This default changed in 0.5.0 and changes which orthologs are returned.} DIAMOND and BLAST report an
+#' e-value of 0 for every strong hit of a long protein, so that under the old rule the alignment length decided
+#' among them and a paralog could win over the true ortholog. Measured (DIAMOND, reciprocal best
+#' hits): human against mouse, 19,746 x 21,584 genes, compared with the orthologs of Ensembl Compara - old rule
+#' 16,458 pairs, 330 of them (2.0\%) pairing a human gene with another mouse gene than any Compara ortholog, 93.0\% of
+#' the Compara one-to-one orthologs found; bit-score rule 16,827 pairs, 68 (0.4\%), 96.8\%; 3.2\% of the best hits
+#' change. On the 1,000-gene example of the package 12 of 986 best hits change and there are 983 instead of 972
+#' reciprocal best hits (970 in common).
+#' \code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.
 #' @export
 blast_best <- function(query_file, 
                        subject_file, 
@@ -106,7 +123,10 @@ blast_best <- function(query_file,
                        comp_cores      = 1,
                        blast_params    = NULL, 
                        clean_folders   = FALSE,
-                       save.output     = NULL){
+                       save.output     = NULL,
+                       best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")){
+        
+        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
 
         # default parameters for best hit filtering
          default_pars <- "-best_hit_score_edge 0.05 -best_hit_overhang 0.25"
@@ -128,7 +148,7 @@ blast_best <- function(query_file,
                              save.output     = save.output)
         
         query_id <- '.' <- NULL
-        hit_tbl <- best_hits(hit_tbl, "query_id")
+        hit_tbl <- best_hits(hit_tbl, "query_id", rule = best_hit_rule)
         return(hit_tbl)
 }
 

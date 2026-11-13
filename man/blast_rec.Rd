@@ -17,7 +17,8 @@ blast_rec(
   comp_cores = 1,
   blast_params = NULL,
   clean_folders = FALSE,
-  save.output = NULL
+  save.output = NULL,
+  best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
 )
 }
 \arguments{
@@ -53,6 +54,24 @@ shall be removed. Default is \code{clean_folders} = \code{FALSE}.}
 
 \item{save.output}{a path to the location were the BLAST output shall be stored. E.g. \code{save.output} = \code{getwd()}
 to store it in the current working directory, or \code{save.output} = \code{file.path(put,your,path,here)}.}
+
+\item{best_hit_rule}{how the best hit of a query is chosen among its hits:
+\itemize{
+\item \code{"bitscore"} (default since orthologr 0.5.0): the hit with the highest bit score; of several, the one
+with the smallest e-value, then the longest alignment, then the highest percent identity, then the alphabetically
+first \code{subject_id}. The choice does not depend on the order of the hit table.
+\item \code{"evalue"}: the rule of orthologr <= 0.4.3 - the hit with the smallest e-value; of several, the one with
+the longest alignment; of several, the alphabetically first \code{subject_id}. The bit score is not used.
+}
+\strong{This default changed in 0.5.0 and changes which orthologs are returned.} DIAMOND and BLAST report an
+e-value of 0 for every strong hit of a long protein, so that under the old rule the alignment length decided
+among them and a paralog could win over the true ortholog. Measured (DIAMOND, reciprocal best
+hits): human against mouse, 19,746 x 21,584 genes, compared with the orthologs of Ensembl Compara - old rule
+16,458 pairs, 330 of them (2.0\%) pairing a human gene with another mouse gene than any Compara ortholog, 93.0\% of
+the Compara one-to-one orthologs found; bit-score rule 16,827 pairs, 68 (0.4\%), 96.8\%; 3.2\% of the best hits
+change. On the 1,000-gene example of the package 12 of 986 best hits change and there are 983 instead of 972
+reciprocal best hits (970 in common).
+\code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.}
 }
 \value{
 A data.table as returned by the \code{\link{blast}} function, storing the geneids

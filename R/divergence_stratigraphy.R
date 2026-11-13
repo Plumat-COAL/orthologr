@@ -184,6 +184,23 @@
 #'   \code{\link{codon_aln}}, \code{\link{diamond_best}}, \code{\link{diamond_rec}},
 #'   \code{\link{codon_aln}}, \code{\link{blast_best}}, \code{\link{blast_rec}}, 
 #'   \code{\link{map_generator_dnds}}
+#' @param best_hit_rule how the best hit of a query is chosen among its hits:
+#' \itemize{
+#' \item \code{"bitscore"} (default since orthologr 0.5.0): the hit with the highest bit score; of several, the one
+#' with the smallest e-value, then the longest alignment, then the highest percent identity, then the alphabetically
+#' first \code{subject_id}. The choice does not depend on the order of the hit table.
+#' \item \code{"evalue"}: the rule of orthologr <= 0.4.3 - the hit with the smallest e-value; of several, the one with
+#' the longest alignment; of several, the alphabetically first \code{subject_id}. The bit score is not used.
+#' }
+#' \strong{This default changed in 0.5.0 and changes which orthologs are returned.} DIAMOND and BLAST report an
+#' e-value of 0 for every strong hit of a long protein, so that under the old rule the alignment length decided
+#' among them and a paralog could win over the true ortholog. Measured (DIAMOND, reciprocal best
+#' hits): human against mouse, 19,746 x 21,584 genes, compared with the orthologs of Ensembl Compara - old rule
+#' 16,458 pairs, 330 of them (2.0\%) pairing a human gene with another mouse gene than any Compara ortholog, 93.0\% of
+#' the Compara one-to-one orthologs found; bit-score rule 16,827 pairs, 68 (0.4\%), 96.8\%; 3.2\% of the best hits
+#' change. On the 1,000-gene example of the package 12 of 986 best hits change and there are 983 instead of 972
+#' reciprocal best hits (970 in common).
+#' \code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.
 #' @export
 divergence_stratigraphy <- function(query_file, 
                                     subject_file, 
@@ -202,7 +219,10 @@ divergence_stratigraphy <- function(query_file,
                                     subject.id      = FALSE,
                                     n_quantile      = 10,
                                     sensitivity_mode = "fast",
-                                    dS_zero         = getOption("orthologr.dS_zero", "keep")){
+                                    dS_zero         = getOption("orthologr.dS_zero", "keep"),
+                                    best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")){
+        
+        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
         
         if (!is.ortho_detection_method(ortho_detection))
                 stop("Please choose a orthology detection method that is supported by this function.")
@@ -244,7 +264,8 @@ divergence_stratigraphy <- function(query_file,
                            eval            = eval,
                            comp_cores      = comp_cores,
                            store_locally   = store_locally,
-                           quiet           = quiet )
+                           quiet           = quiet,
+                           best_hit_rule   = best_hit_rule )
         
         dNdS_tbl <- filter_dNdS(dNdS_full, dnds.threshold = dnds.threshold, dS_zero = dS_zero)
         

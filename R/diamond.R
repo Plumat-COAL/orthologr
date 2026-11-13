@@ -86,6 +86,13 @@
 #'
 #' @return A data.table storing the DIAMOND2 hit table returned by DIAMOND2. The format is the same as with BLAST.
 #' @seealso \code{\link{diamond_best}}, \code{\link{diamond_rec}}, \code{\link{set_diamond}}, \code{\link{blast}}
+#' @section The columns \code{qcov} and \code{qcovhsp}:
+#' In the tables of the DIAMOND functions (\code{diamond()}, \code{diamond_best()}, \code{diamond_rec()}, and
+#' \code{dNdS()} with \code{aligner = "diamond"}) \code{qcov} always equals \code{qcovhsp}. This is not a parsing
+#' error: BLAST+ reports the query coverage per subject (\code{qcovs}, over all HSPs of a subject), which the BLAST
+#' functions return as \code{qcov}; DIAMOND has no such output field, so the DIAMOND functions ask for
+#' \code{qcovhsp} (query coverage of the reported HSP) twice to keep the 21 columns of both table kinds the same.
+#' With DIAMOND, read \code{qcov} as "query coverage of the best HSP".
 #' @export
 diamond <- function(
                 query_file,

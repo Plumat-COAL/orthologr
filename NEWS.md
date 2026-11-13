@@ -5,6 +5,55 @@ some default results change (see "Changes to pairwise alignments" where that cha
 default mode, `aa_aln_params` being passed on), functions that returned `NULL` or stale results now stop with an
 error, and packages moved from Imports to Suggests.
 
+**Default change that alters which orthologs are returned: best hits are ranked by bit score.** See the next
+section; `options(orthologr.best_hit_rule = "evalue")` restores the rule of 0.4.3.
+
+### Best hits are ranked by bit score (default change)
+
+Decided by the maintainer of this fork for 0.5.0. `diamond_best()`, `blast_best()`, `diamond_rec()`, `blast_rec()`,
+`orthologs()`, `dNdS()`, `divergence_stratigraphy()` (and the choice of the splice variant per locus in
+`select_orthologs()`) share one piece of code that chooses the best hit of a query, and that code has a new
+argument, **`best_hit_rule`**, at the end of each signature:
+
+- `"bitscore"` (**new default**): the hit with the highest bit score; of several, the one with the smallest
+  e-value; then the longest alignment; then the highest percent identity; then the alphabetically first
+  `subject_id`. The choice is deterministic and does not depend on the order of the hit table.
+- `"evalue"`: the rule of orthologr <= 0.4.3 - smallest e-value, then longest alignment, then the first row of
+  the hit table (sorted by `query_id`, `subject_id`). The bit score was never used. This rule reproduces earlier
+  results exactly: the test suite compares it with the per-query reference implementation (`best_hits_do()`) on
+  the 1,000-gene example, for best hits and reciprocal best hits.
+- `options(orthologr.best_hit_rule = "evalue")` sets the old rule for all functions of a session.
+
+Why: DIAMOND and BLAST report an e-value of 0 for every strong hit of a long, conserved protein. Under the old
+rule such ties were decided by alignment length, so a paralog with a longer but worse alignment could be taken
+for the best hit, and a few by alphabetical order.
+
+Measured effect (the default of every function named above changes accordingly):
+
+| | old rule (`"evalue"`) | new default (`"bitscore"`) |
+|---|---|---|
+| human vs mouse (19,746 x 21,584 genes, DIAMOND): reciprocal best hits | 16,458 | 16,827 |
+| ... pairing a human gene with another mouse gene than any Ensembl Compara ortholog | 330 (2.0%) | 68 (0.4%) |
+| ... Compara one-to-one orthologs found (of 16,312 present in both inputs) | 93.0% | 96.8% |
+| ... pairs in common / only under this rule | 16,135 / 323 | 16,135 / 692 |
+| human -> mouse best hits that change | | 596 of 18,676 (3.2%) |
+| 1,000-gene example (`ortho_thal_cds_1000.fasta` vs `ortho_lyra_cds_1000.fasta`): best hits that change | | 12 of 986 (1.2%) |
+| ... reciprocal best hits (`diamond_rec()`) | 972 | 983 (970 in common, 2 only old, 13 only new) |
+| 20-gene example | 20 | 20 (the same pairs) |
+
+The human / mouse numbers were obtained with the best-hit code of this version on the DIAMOND hit tables of the
+second audit; the old rule gives the audit's (and 0.4.3's) best hits exactly, and its numbers are those the audit
+published (16,458; 330; 93.0%). The audit's own bit-score ranking (bit score, e-value, row order) gave 16,828
+pairs; the documented tie-breaks of this version give 16,827, with the same 68 and 96.8%.
+
+Also
+- The column `qcov` of DIAMOND hit tables always equals `qcovhsp`. This is not a parsing error: BLAST+ has a
+  per-subject query coverage (`qcovs`), DIAMOND has not, and `diamond()` asks for `qcovhsp` twice to keep the 21
+  columns of both kinds of table the same. Documented in `?diamond`; the table is unchanged.
+- `blast_best()` / `blast_rec()` add `-best_hit_score_edge 0.05 -best_hit_overhang 0.25` to every BLAST call, as
+  before (BLAST's own culling of hits; N38 of the audit): the BLAST and DIAMOND paths therefore start from
+  slightly different hit lists before the same rule is applied. Not changed here.
+
 ### Sequence IDs, joins, reported drops (second audit)
 
 Fixes for defects found by a second audit of the package on real data (human, mouse, yeast, *E. coli*, plant
