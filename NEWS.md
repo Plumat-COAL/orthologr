@@ -97,8 +97,9 @@ Running programs:
 
 - External programs are started through one helper (`run_tool()`); `compute_dnds()` has one code path for serial
   and parallel runs.
-- Tests: 16 of the 20 empty test files now hold tests; stored 0.4.3 tables (20-gene example, Comeron and YN)
-  that `dNdS()` must reproduce (with the options named in this file where a default changed).
+- Tests: 16 of the 20 empty test files now hold tests; pinned dN/dS values of fixed codon alignments, the 20
+  known ortholog pairs end to end, a tie-break fixture for both best-hit rules, IDs end to end, stored 0.4.3
+  tables for the legacy settings. The suite passes without any optional program.
 - GitHub Actions: R CMD check on Linux, macOS and Windows with the external programs installed, one leg without
   them; triggers for pull requests, the default branch and a manual start. Checked with `--as-cran`.
 - Examples that need no external program are run by `R CMD check`; the others are guarded by the programs they
