@@ -356,11 +356,13 @@ dNdS <- function(query_file,
                 aa_aln_params    = aa_aln_params
         )
         
-        if (!is.codon_aln_tool(codon_aln_tool))
-                stop("Please choose a codon alignment tool that is supported by this function.", call. = FALSE)
+        check_input_files(query_file, subject_file)
         
-        if (!is.dnds_est_method(dnds_est.method))
-                stop("Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+        if (!is.codon_aln_tool(codon_aln_tool))
+                orthologr_abort(class = "bad_argument", "Please choose a codon alignment tool that is supported by this function.", call. = FALSE)
+        
+        if (length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method))
+                orthologr_abort(class = "bad_argument", "Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
         
         for (unused in c("cdd.path", "ortho_path")) {
                 if (!is.null(get(unused)))

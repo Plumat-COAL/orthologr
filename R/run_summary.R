@@ -424,7 +424,7 @@ write_dNdS <- function(x, file) {
 #' @export
 read_dNdS <- function(file) {
         if (!is.character(file) || length(file) != 1 || is.na(file) || !file.exists(file))
-                stop("The file '", paste(file, collapse = "', '"), "' was not found.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file '", paste(file, collapse = "', '"), "' was not found.", call. = FALSE)
         side_file <- paste0(file, ".run.json")
         side <- NULL
         if (file.exists(side_file)) {

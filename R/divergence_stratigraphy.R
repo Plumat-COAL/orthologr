@@ -225,10 +225,10 @@ divergence_stratigraphy <- function(query_file,
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         
         if (!is.ortho_detection_method(ortho_detection))
-                stop("Please choose a orthology detection method that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a orthology detection method that is supported by this function.")
         
         if (!is.element(aligner, c("blast", "diamond")))
-                stop("Please choose an aligner that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose an aligner that is supported by this function.")
         
         message("Proceeding with the aligner: ", aligner)
         
@@ -249,7 +249,7 @@ divergence_stratigraphy <- function(query_file,
         # checked before the long run, not after it
         check_n_quantile(n_quantile)
         if (!is.character(dS_zero) || length(dS_zero) != 1 || !is.element(dS_zero, c("keep", "drop")))
-                stop("dS_zero must be \"keep\" or \"drop\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "dS_zero must be \"keep\" or \"drop\".", call. = FALSE)
         
         dNdS_full <- dNdS( query_file      = query_file,
                            subject_file    = subject_file,

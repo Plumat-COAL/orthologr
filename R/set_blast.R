@@ -58,7 +58,7 @@ set_blast <- function(file,
                 path <- normalizePath(path, mustWork = FALSE)
         
         if (!file.exists(file))
-                stop("The file '", file, "' seems not to exist. Please provide a valid file path." , call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file '", file, "' seems not to exist. Please provide a valid file path." , call. = FALSE)
         
         if(!is.element(seq_type,c("cds","protein","dna")))
                 stop("Please choose either: 'cds', 'protein', or 'dna' as seq_type.", call. = FALSE)

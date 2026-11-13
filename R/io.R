@@ -23,10 +23,10 @@
 read.genome <- function(file, format, ...){
         
         if(!is.element(format,c("fasta","fastq")))
-                stop("Please choose a file format that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a file format that is supported by this function.")
         
         if (!file.exists(file))
-                stop("The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
         
         geneids <- seqs <- NULL
         
@@ -78,10 +78,10 @@ read.genome <- function(file, format, ...){
 read.proteome <- function(file, format, ...){
         
         if(!is.element(format,c("fasta","fastq")))
-                stop("Please choose a file format that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a file format that is supported by this function.")
         
         if (!file.exists(file))
-                stop("The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
         
         geneids <- seqs <- NULL 
         
@@ -133,10 +133,10 @@ read.proteome <- function(file, format, ...){
 
 read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
         if (!is.element(format, c("fasta", "fastq")))
-                stop("Please choose a file format that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a file format that is supported by this function.")
         
         if (!file.exists(file))
-                stop("The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
         
         geneids <- seqs <- NULL
         

@@ -166,14 +166,14 @@ orthogroups <- function(files,
         check_count(pairs_max_group_size, "pairs_max_group_size")
         if (method == "rbh") {
                 if (...length() > 0)
-                        stop("Unused argument", if (...length() > 1) "s", " with method = \"rbh\": ",
+                        orthologr_abort(class = "bad_argument", "Unused argument", if (...length() > 1) "s", " with method = \"rbh\": ",
                              paste(names(list(...)), collapse = ", "),
                              " ('...' is handed to deepclust() with method = \"deepclust\").", call. = FALSE)
                 if (refine || realign)
-                        stop("'refine' and 'realign' belong to method = \"deepclust\".", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "'refine' and 'realign' belong to method = \"deepclust\".", call. = FALSE)
         }
         if (method == "deepclust" && inparalogs && !refine)
-                stop("inparalogs = TRUE needs hits between the genes: with method = \"deepclust\" please set refine = TRUE.",
+                orthologr_abort(class = "bad_argument", "inparalogs = TRUE needs hits between the genes: with method = \"deepclust\" please set refine = TRUE.",
                      call. = FALSE)
 
         input <- orthogroups_input(files)
@@ -287,7 +287,7 @@ check_percent <- function(x, arg) {
         if (is.null(x))
                 return(NULL)
         if (!is.numeric(x) || length(x) != 1 || is.na(x) || x < 0 || x > 100)
-                stop(arg, " must be NULL (no filter) or one number between 0 and 100 (percent).", call. = FALSE)
+                orthologr_abort(class = "bad_argument", arg, " must be NULL (no filter) or one number between 0 and 100 (percent).", call. = FALSE)
         x
 }
 
@@ -303,36 +303,36 @@ check_count <- function(x, arg) {
 orthogroups_input <- function(files) {
         if (is.list(files)) {
                 if (!all(vapply(files, function(f) is.character(f) && length(f) == 1, logical(1))))
-                        stop("'files' must hold one file path per species.", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "'files' must hold one file path per species.", call. = FALSE)
                 files <- unlist(files)
         }
         if (!is.character(files) || length(files) == 0 || anyNA(files))
-                stop("'files' must be a (named) character vector or list of FASTA files, one per species, or the path of a folder.",
+                orthologr_abort(class = "bad_argument", "'files' must be a (named) character vector or list of FASTA files, one per species, or the path of a folder.",
                      call. = FALSE)
         if (length(files) == 1 && dir.exists(files)) {
                 found <- list.files(files, pattern = "\\.(fa|faa|fas|fasta|fna|ffn|pep|cds|aa)(\\.gz)?$",
                                     full.names = TRUE, ignore.case = TRUE)
                 if (length(found) == 0)
-                        stop("The folder '", files, "' holds no FASTA files (*.fa, *.faa, *.fasta, *.fna, *.pep, *.cds, optionally .gz).",
+                        orthologr_abort(class = "bad_input", "The folder '", files, "' holds no FASTA files (*.fa, *.faa, *.fasta, *.fna, *.pep, *.cds, optionally .gz).",
                              call. = FALSE)
                 files <- sort(found, method = "radix")
         }
         missing_files <- files[!file.exists(files) | dir.exists(files)]
         if (length(missing_files) > 0)
-                stop("The following input file(s) were not found:\n", paste(missing_files, collapse = "\n"), call. = FALSE)
+                orthologr_abort(class = "bad_input", "The following input file(s) were not found:\n", paste(missing_files, collapse = "\n"), call. = FALSE)
         species <- names(files)
         from_file <- sub("\\.[^.]*$", "", sub("\\.gz$", "", basename(files), ignore.case = TRUE))
         if (is.null(species))
                 species <- from_file
         species[is.na(species) | !nzchar(species)] <- from_file[is.na(species) | !nzchar(species)]
         if (length(files) < 2)
-                stop("orthogroups() needs the files of at least two species (", length(files), " given).", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "orthogroups() needs the files of at least two species (", length(files), " given).", call. = FALSE)
         if (anyDuplicated(species))
-                stop("The species names must be unique, but '", paste(unique(species[duplicated(species)]), collapse = "', '"),
+                orthologr_abort(class = "bad_argument", "The species names must be unique, but '", paste(unique(species[duplicated(species)]), collapse = "', '"),
                      "' occur", if (sum(duplicated(species)) == 1) "s", " more than once. ",
                      "Please name the files: files = c(species_1 = \"...\", species_2 = \"...\").", call. = FALSE)
         if (any(grepl("[\t\r\n]", species)))
-                stop("Species names must not hold tabs or line breaks.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "Species names must not hold tabs or line breaks.", call. = FALSE)
         data.frame(species = unname(species), file = unname(files), stringsAsFactors = FALSE)
 }
 
@@ -348,7 +348,7 @@ orthogroups_read <- function(input, seq_type, delete_corrupt_cds = TRUE) {
                 dt <- protein_table(file = input$file[i], seq_type = seq_type, delete_corrupt_cds = delete_corrupt_cds)
                 dt <- stats::na.omit(dt[ , list(geneids, aa)])
                 if (nrow(dt) == 0)
-                        stop("No usable sequences were read from '", input$file[i], "' (species '", input$species[i], "').",
+                        orthologr_abort(class = "bad_input", "No usable sequences were read from '", input$file[i], "' (species '", input$species[i], "').",
                              call. = FALSE)
                 data.table::data.table(species = input$species[i], id = as.character(dt$geneids), aa = as.character(dt$aa))
         })

@@ -97,11 +97,11 @@ orthologr_best_hit_rule <- function(rule = NULL) {
         if (is.null(rule))
                 rule <- orthologr_option("orthologr.best_hit_rule", "bitscore")
         if (!is.character(rule) || length(rule) < 1 || is.na(rule[1]))
-                stop("best_hit_rule must be \"bitscore\" or \"evalue\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "best_hit_rule must be \"bitscore\" or \"evalue\".", call. = FALSE)
         # (the default of the exported functions is the vector of both choices)
         rule <- rule[1]
         if (!is.element(rule, c("bitscore", "evalue")))
-                stop("best_hit_rule = '", rule, "' is not supported. Please choose one of: 'bitscore', 'evalue'.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "best_hit_rule = '", rule, "' is not supported. Please choose one of: 'bitscore', 'evalue'.", call. = FALSE)
         rule
 }
 

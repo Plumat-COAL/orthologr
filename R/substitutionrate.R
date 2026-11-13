@@ -169,10 +169,10 @@ substitutionrate <- function(file,
                   "ALL")
         
         if (!is.dnds_est_method(est.method))
-                stop("Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
         
         if (!is.element(format, c("mase", "clustal", "phylip", "fasta" , "msf")))
-                stop("Please choose a format that is supported by seqinr::read.alignment.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "Please choose a format that is supported by seqinr::read.alignment.", call. = FALSE)
         
         # due to the discussion of no visible binding for global variable for
         # data.table objects see:
@@ -336,7 +336,7 @@ comeron_legacy_saturation <- function() {
 # multiple of 3 and at least 3. Line ends may be LF or CRLF.
 check_codon_alignment_file <- function(file) {
         if (!file.exists(file))
-                stop("The alignment file '", file, "' does not exist.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The alignment file '", file, "' does not exist.", call. = FALSE)
         x <- sub("\r$", "", readLines(file, warn = FALSE))
         x <- x[nzchar(x)]
         head_at <- startsWith(x, ">")

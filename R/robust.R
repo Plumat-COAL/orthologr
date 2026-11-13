@@ -142,3 +142,16 @@ cds_protein_table_file <- function(file, delete_corrupt_cds = TRUE) {
         data.table::setkey(res, geneids)
         return(res)
 }
+
+# The input files of a call must be there before any program is started: an orthologr_error_bad_input that names
+# them (not an error of the search program, or a missing program, first).
+check_input_files <- function(...) {
+        files <- unlist(list(...), use.names = FALSE)
+        if (!is.character(files) || anyNA(files))
+                orthologr_abort(class = "bad_argument", "The input files must be given as file paths.")
+        missing_files <- files[!file.exists(files)]
+        if (length(missing_files) > 0)
+                orthologr_abort(class = "bad_input", "The following input file(s) were not found:\n",
+                                paste(missing_files, collapse = "\n"))
+        invisible(files)
+}

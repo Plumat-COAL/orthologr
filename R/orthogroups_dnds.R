@@ -95,12 +95,12 @@ dNdS_orthogroups <- function(x,
         check_count(max_group_size, "max_group_size")
         check_flag(quiet, "quiet")
         if (!is.numeric(dS_saturation) || length(dS_saturation) != 1 || is.na(dS_saturation) || dS_saturation <= 0)
-                stop("dS_saturation must be one positive number.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "dS_saturation must be one positive number.", call. = FALSE)
         if (engine == "orthologr") {
                 if (is.null(dnds_est.method))
                         dnds_est.method <- "Comeron"
                 if (!is.character(dnds_est.method) || length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method))
-                        stop("dnds_est.method = '", paste(dnds_est.method, collapse = "', '"), "' is not supported with engine = \"orthologr\". ",
+                        orthologr_abort(class = "bad_argument", "dnds_est.method = '", paste(dnds_est.method, collapse = "', '"), "' is not supported with engine = \"orthologr\". ",
                              "Please choose one of: 'Comeron', 'Li', 'NG', 'LWL', 'LPB', 'MLWL', 'YN', 'MYN', 'GY', 'MA', 'MS', 'GMYN', 'ALL'.",
                              call. = FALSE)
                 check_choice(aa_aln_tool, c("clustalo", "mafft", "muscle", "clustalw", "t_coffee", "pairwise"), "aa_aln_tool")
@@ -115,11 +115,11 @@ dNdS_orthogroups <- function(x,
         
         if (!inherits(x, "orthogroups")) {
                 if (!is.null(cds_files))
-                        stop("When 'x' holds the files of the coding sequences, 'cds_files' must be NULL.", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "When 'x' holds the files of the coding sequences, 'cds_files' must be NULL.", call. = FALSE)
                 x <- orthogroups(x, seq_type = "cds", comp_cores = comp_cores, quiet = quiet,
                                  delete_corrupt_cds = delete_corrupt_cds, ...)
         } else if (...length() > 0) {
-                stop("Unused argument", if (...length() > 1) "s", ": ", paste(names(list(...)), collapse = ", "),
+                orthologr_abort(class = "bad_argument", "Unused argument", if (...length() > 1) "s", ": ", paste(names(list(...)), collapse = ", "),
                      " ('...' is handed to orthogroups() when 'x' holds files).", call. = FALSE)
         }
         cds_files <- dnds_groups_cds_files(x, cds_files)
@@ -131,7 +131,7 @@ dNdS_orthogroups <- function(x,
         if (!is.null(group_ids)) {
                 unknown <- setdiff(group_ids, members$orthogroup)
                 if (length(unknown) > 0)
-                        stop("groups = '", paste(utils::head(unknown, 5), collapse = "', '"), "'", if (length(unknown) > 5) ", ..." else "",
+                        orthologr_abort(class = "bad_argument", "groups = '", paste(utils::head(unknown, 5), collapse = "', '"), "'", if (length(unknown) > 5) ", ..." else "",
                              ": no such orthogroup in 'x'. Please give \"single_copy\", \"all\" or IDs of x$wide$orthogroup.", call. = FALSE)
                 members <- members[is.element(orthogroup, group_ids)]
         }
@@ -262,17 +262,17 @@ dnds_groups_cds_files <- function(x, cds_files) {
         if (is.list(cds_files))
                 cds_files <- unlist(cds_files)
         if (!is.character(cds_files) || length(cds_files) != length(sp))
-                stop("'cds_files' must name one file with coding sequences for each of the ", length(sp), " species (",
+                orthologr_abort(class = "bad_argument", "'cds_files' must name one file with coding sequences for each of the ", length(sp), " species (",
                      paste(sp, collapse = ", "), ").", call. = FALSE)
         if (is.null(names(cds_files)))
                 names(cds_files) <- sp
         if (!setequal(names(cds_files), sp))
-                stop("The names of 'cds_files' must be the species names: '", paste(sp, collapse = "', '"), "' (given: '",
+                orthologr_abort(class = "bad_argument", "The names of 'cds_files' must be the species names: '", paste(sp, collapse = "', '"), "' (given: '",
                      paste(names(cds_files), collapse = "', '"), "').", call. = FALSE)
         cds_files <- cds_files[sp]
         missing_files <- cds_files[!file.exists(cds_files)]
         if (length(missing_files) > 0)
-                stop("The following input file(s) were not found:\n", paste(missing_files, collapse = "\n"), call. = FALSE)
+                orthologr_abort(class = "bad_input", "The following input file(s) were not found:\n", paste(missing_files, collapse = "\n"), call. = FALSE)
         cds_files
 }
 
