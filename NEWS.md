@@ -89,8 +89,8 @@ Further behaviour that differs from 0.4.3 and cannot be switched back:
   summary at the end (31 messages before); the citation note is a message shown once per session. Input sequences
   that are left out or trimmed to a multiple of 3 are counted in the summary (listed in
   `attr(, "dropped_sequences")` / `attr(, "trimmed_sequences")`) instead of a block of messages about each kind:
-  1,000-gene example, 12 messages before (8 about the 12 trimmed sequences), 2 after; `quiet = FALSE` shows the
-  old messages.
+  1,000-gene example, 12 messages before (8 about the 12 trimmed sequences), 2 after (also with
+  `engine = "coal"`); `quiet = FALSE` shows the old messages.
 - Coding sequences with characters other than A, C, G, T are left out before the search, as before, but no
   longer without a word: they are counted in the summary and listed in `attr(, "dropped_sequences")`.
 - Intermediate files are kept in a folder of the call inside `tempdir()` and removed afterwards
