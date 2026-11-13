@@ -89,6 +89,21 @@ Maximum-Likelihood Methods:
 \item GY: Goldman, N. and Yang, Z. (1994)
 }
 }
+\section{Saturation (Comeron's method)}{
+
+The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:
+proportions of transitional and transversional differences in a class of sites). When such an argument is not
+positive, the observed differences exceed what the model can correct for and the distance is not defined. In
+that case \code{dS} (synonymous classes) or \code{dN} (nonsynonymous classes) and \code{dNdS} are returned as
+\code{NA}. Up to orthologr 0.4.3 the logarithm was replaced by 0 and a finite, too small value was returned
+(e.g. \code{dS = 0} for \code{ATGGCTAAA} / \code{ATGGCCAAA}, which differ by one synonymous substitution);
+\code{options(orthologr.legacy_comeron_saturation = TRUE)} reproduces those values. Values of gene pairs
+without such a term are the same in both modes.
+
+The alignment must be a codon alignment: at least two sequences of the same length, which is a multiple of 3.
+Anything else is an error.
+}
+
 \examples{
 \dontrun{
 

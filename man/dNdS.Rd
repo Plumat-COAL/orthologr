@@ -29,7 +29,8 @@ dNdS(
   comp_cores = 1,
   quiet = TRUE,
   clean_folders = FALSE,
-  print_citation = TRUE
+  print_citation = TRUE,
+  best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
 )
 }
 \arguments{
@@ -133,6 +134,19 @@ Default is \code{quiet} = \code{FALSE}.}
 \code{tempdir()}, which is always removed when the call ends (see Details), so there is nothing left to clean.}
 
 \item{print_citation}{a logical value indicating whether or not the citation message shall be printed.}
+
+\item{best_hit_rule}{how the best hit of a query is chosen among its hits:
+\itemize{
+\item \code{"bitscore"} (default since orthologr 0.5.0): the hit with the highest bit score; of several, the one
+with the smallest e-value, then the longest alignment, then the highest percent identity, then the alphabetically
+first \code{subject_id}. The choice does not depend on the order of the hit table.
+\item \code{"evalue"}: the rule of orthologr <= 0.4.3 - the hit with the smallest e-value; of several, the one with
+the longest alignment; of several, the alphabetically first \code{subject_id}. The bit score is not used.
+}
+\strong{This default changed in 0.5.0 and changes which orthologs are returned.} DIAMOND and BLAST report an
+e-value of 0 for every strong hit of a long protein, so that under the old rule the alignment length decided
+among them and a paralog could win over the true ortholog. @BHNUM@
+\code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.}
 }
 \value{
 A data.table storing the dNdS values of the correspnding genes.

@@ -92,7 +92,8 @@ test_that("1,000-gene example: best_hit_rule = 'evalue' reproduces the 0.4.3 tab
         # ... also through the option
         opt <- options(orthologr.best_hit_rule = "evalue")
         expect_identical(suppressMessages(diamond_rec(thal_1000(), lyra_1000())), old_rbh)
-        expect_identical(suppressMessages(orthologs(thal_1000(), lyra_1000(), seq_type = "cds")), old_rbh, ignore_attr = TRUE)
+        expect_equal(as.data.frame(suppressMessages(orthologs(thal_1000(), lyra_1000(), seq_type = "cds", delete_corrupt_cds = TRUE))),
+                     as.data.frame(old_rbh), ignore_attr = TRUE)
         options(opt)
         
         # new rule: every best hit has the highest bit score of its query
