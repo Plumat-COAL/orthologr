@@ -52,7 +52,10 @@ dNdS_coal(
 \item{dnds_est.method}{the dN/dS estimation method(s) computed by COAL: \code{"YN"} (Default; Yang and Nielsen 2000),
 \code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"} or \code{"MYN"}. The values agree with
 KaKs_Calculator 2.0's for the same codon alignment. Several methods can be given; the result then has one row
-per gene pair and method.}
+per gene pair and method.
+\code{"Comeron"} and \code{"Li"} - the two methods \pkg{orthologr} computes itself - are available when the
+installed \pkg{coalr} lists them in \code{coalr::coal_info()$methods} (coalr >= 0.5.0); otherwise an error
+says so. See Details.}
 
 \item{aa_aln_scoring}{how the pairwise protein alignment is scored:
 \itemize{
@@ -60,7 +63,10 @@ per gene pair and method.}
 extension 4, end gaps penalised), so that the alignments are those \code{dNdS()} computes itself;
 \item \code{"needle"}: the defaults of EMBOSS needle and of COAL (BLOSUM62, gap opening 10, gap extension 0.5,
 end gaps free).
-}}
+}
+\code{dNdS(engine = "coal")}, \code{\link{dNdS_clusters}} and \code{dNdS_orthogroups(engine = "coal")} have the
+same argument with the same default, so that the same gene pair gets the same alignment and values from each
+of them.}
 
 \item{aa_sub_matrix}{the substitution matrix: \code{"BLOSUM62"} (Default), \code{"BLOSUM45"}, \code{"BLOSUM80"} or \code{"PAM250"}.}
 
@@ -92,7 +98,16 @@ The result is the table \code{\link{dNdS}} returns: the same columns and types, 
 \details{
 Differences from \code{dNdS()} with \code{engine = "orthologr"}:
 \itemize{
-\item Comeron's and Li's methods are not available (COAL implements the KaKs_Calculator methods listed above).
+\item \code{"Comeron"} and \code{"Li"} are COAL's ports of the programs \pkg{orthologr} uses (libsequence's
+gestimator, \code{seqinr::kaks()}), asked to read a pair as those programs do (\code{comeron_flavour =
+"gestimator"}, \code{li_flavour = "seqinr"}; the stop codon at the end is not compared, as in the alignments of
+\code{dNdS()} - it is with \code{options(orthologr.legacy_pairwise_aln = TRUE)}). \pkg{orthologr} then applies
+its own rules to the values, so that both engines return the same numbers for the same codon alignment:
+Comeron's saturation rule (\code{NA} where a correction is undefined in a class that has sites; finite values
+with \code{options(orthologr.legacy_comeron_saturation = TRUE)}; see \code{\link{substitutionrate}}), rounding
+to the 4 significant digits gestimator writes (Comeron only), and \code{NA} for negative or saturated values of
+Li's method. \code{attr(result, "coal")} holds COAL's unrounded values and notes. Differences between the
+engines that remain come from the protein alignment (co-optimal alignments; see NEWS).
 \item A dN or dS of exactly 0 is returned as 0 (KaKs_Calculator prints values below 1e-6 as \code{NA}); a
 saturated estimate is \code{NA} (KaKs_Calculator prints a capped value).
 \item Codon columns with a gap, an ambiguous base or an internal stop codon are skipped; a terminal stop codon is

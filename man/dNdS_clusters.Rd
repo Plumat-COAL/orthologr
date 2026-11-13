@@ -17,6 +17,7 @@ dNdS_clusters(
   delete_corrupt_cds = FALSE,
   comp_cores = 1,
   path = NULL,
+  aa_aln_scoring = "pwalign",
   ...
 )
 }
@@ -29,7 +30,8 @@ with these two columns first, or the path to such a tab-separated file. If \code
 \code{\link{deepclust}} is run on \code{cds_file}.}
 
 \item{dnds_est.method}{the dN/dS estimation method(s): \code{"YN"} (Default), \code{"NG"}, \code{"LWL"},
-\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"} or \code{"MYN"}.}
+\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"} or \code{"MYN"}. \code{"Comeron"} and \code{"Li"} with a \pkg{coalr} that
+has them (see \code{\link{dNdS_coal}}; values as \code{\link{substitutionrate}} returns them).}
 
 \item{aa_aln_tool}{how the proteins of clusters with three or more members are aligned:
 \itemize{
@@ -58,6 +60,12 @@ representative against every other member), \code{"sample"} (\code{pair_sample} 
 
 \item{path}{a character string specifying the path to the DIAMOND executable (only used when \code{clusters = NULL}).}
 
+\item{aa_aln_scoring}{how the pairwise protein alignments COAL makes itself are scored (\code{aa_aln_tool =
+"pairwise"}, clusters of two members, large clusters): \code{"pwalign"} (Default; the scoring of
+\code{\link{pairwise_aln}} and of \code{dNdS(engine = "coal")}: gap opening 10, extension 4, end gaps
+penalised) or \code{"needle"} (COAL's own defaults: extension 0.5, end gaps free; the scoring this function
+used before the argument existed). The same argument as in \code{\link{dNdS_coal}}.}
+
 \item{...}{additional arguments passed to \code{\link{deepclust}} when \code{clusters = NULL}
 (e.g. \code{approx_id}, \code{mutual_cover}).}
 }
@@ -69,7 +77,13 @@ A list of three tibbles:
 \code{codons_compared}, \code{prot_aln_length}, \code{prot_identity}, \code{status} and \code{note};
 \item \code{summary}: one row per cluster and method: \code{cluster_id}, \code{n_members}, \code{n_used},
 \code{method}, \code{pair_selection}, \code{aligner}, \code{n_pairs}, \code{n_ok}, \code{n_saturated},
-\code{n_no_data}, \code{n_failed}, and median, mean, quartiles, minimum and maximum of dN, dS and dN/dS;
+\code{n_no_data}, \code{n_failed}, \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
+and a dN/dS value), and median, mean, quartiles, minimum and maximum of dN, dS and dN/dS.
+\strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
+cluster that have a dN (dS, dN/dS) value, whatever their status - a pair with status \code{"saturated"} that
+has a dN counts with it. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the numbers behind the statistics
+(\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule.
+(\pkg{coalr}'s own summary takes the statistics over the pairs with status \code{"ok"} only.)
 \item \code{failed}: genes and clusters that could not be used, and why.
 }
 }

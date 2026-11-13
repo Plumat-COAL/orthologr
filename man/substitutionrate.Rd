@@ -46,7 +46,12 @@ external program KaKs_Calculator) or \code{"coal"} (COAL's implementation of the
 KaKs_Calculator 2.0's values for the same alignment and runs inside R when the package \pkg{coalr} is installed;
 see \code{\link{codon_aln}} for how to install COAL). With \code{"coal"} a dN or dS of exactly 0 is returned as
 0 (KaKs_Calculator prints \code{NA} for values below 1e-6) and a saturated estimate is \code{NA}.
-The methods \code{"MA"}, \code{"MS"}, \code{"GY"}, \code{"GMYN"} and \code{"ALL"} need KaKs_Calculator.}
+The methods \code{"MA"}, \code{"MS"}, \code{"GY"}, \code{"GMYN"} and \code{"ALL"} need KaKs_Calculator.
+With a COAL that computes them (\pkg{coalr} >= 0.5.0 listing them in \code{coalr::coal_info()$methods}),
+\code{kaks_tool = "coal"} also computes \code{est.method = "Comeron"} and \code{"Li"}: COAL's ports of gestimator
+and of \code{seqinr::kaks()}, with the saturation rule of this page, rounded to the 4 significant digits
+gestimator writes (Comeron) - the same table as the built-in code gives for the alignment. With an older COAL
+these two methods are computed by the built-in code.}
 }
 \value{
 A data.table storing the query_id, subject_id, dN, dS, and dNdS values or 

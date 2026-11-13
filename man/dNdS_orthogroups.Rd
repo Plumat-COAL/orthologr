@@ -19,6 +19,7 @@ dNdS_orthogroups(
   delete_corrupt_cds = TRUE,
   comp_cores = 1,
   quiet = TRUE,
+  aa_aln_scoring = "pwalign",
   ...
 )
 }
@@ -37,7 +38,10 @@ genes of \code{x}. Default is \code{NULL}: the files \code{x} was computed from,
 computed); or a character vector with the IDs of the groups to compute (e.g. \code{c("OG0000000", "OG0000007")}).}
 
 \item{dnds_est.method}{the dN/dS estimation method, see \code{\link{dNdS}} and \code{\link{substitutionrate}}.
-Default (\code{NULL}) is \code{"Comeron"} with \code{engine = "orthologr"}.}
+Default (\code{NULL}) is \code{"Comeron"} with \code{engine = "orthologr"}. With \code{engine = "coal"} the default is \code{"YN"};
+\code{"Comeron"} and \code{"Li"} are computed by COAL as well when the installed \pkg{coalr} has them
+(\code{coalr::coal_info()$methods}) and then give the values of \code{engine = "orthologr"} for the same
+alignment.}
 
 \item{engine}{\code{"orthologr"} (Default): the programs \code{\link{dNdS}} uses - \code{\link{multi_aln}} or
 \code{\link{pairwise_aln}}, PAL2NAL (\code{\link{codon_aln}}) and \code{\link{substitutionrate}}.
@@ -70,6 +74,13 @@ Default is \code{TRUE} (such sequences cannot be used in a codon alignment).}
 
 \item{quiet}{a logical value: do not show the messages of the alignment and estimation steps.}
 
+\item{aa_aln_scoring}{with \code{engine = "coal"}: how the pairwise protein alignments COAL makes itself are
+scored (\code{aa_aln_tool = "pairwise"}, and groups of two genes): \code{"pwalign"} (Default) - the scoring of
+\code{\link{pairwise_aln}} (BLOSUM62, gap opening 10, extension 4, end gaps penalised), so that the values are
+those of \code{dNdS(engine = "coal")} for the same pairs - or \code{"needle"} (COAL's own defaults: gap
+extension 0.5, end gaps free). The same argument, with the same default, as in \code{\link{dNdS}},
+\code{\link{dNdS_coal}} and \code{\link{dNdS_clusters}}.}
+
 \item{...}{arguments for \code{\link{orthogroups}} when \code{x} holds files.}
 }
 \value{
@@ -80,8 +91,12 @@ A list of three tibbles:
 \code{dN}, \code{dS}, \code{dNdS}, \code{note}. The query is the gene of the species that comes first in \code{x$species};
 \item \code{summary}: one row per group (and method): \code{orthogroup}, \code{method}, \code{n_genes},
 \code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value), \code{n_na}, \code{n_saturated}
-(dS above \code{dS_saturation}), and median, mean, first and third quartile of dN, dS and dN/dS over the pairs
-with values;
+(dS above \code{dS_saturation}), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
+and a dN/dS value), and median, mean, first and third quartile of dN, dS and dN/dS. \strong{Which pairs enter
+the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the group that have a dN (dS,
+dN/dS) value - a pair without dS (e.g. saturated at synonymous sites) still counts with its dN, and a pair
+above \code{dS_saturation} counts with all its values. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the
+numbers behind the statistics. \code{\link{dNdS_clusters}} uses the same rule;
 \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 }
 }

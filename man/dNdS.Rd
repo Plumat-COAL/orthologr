@@ -33,7 +33,8 @@ dNdS(
   aa_sub_matrix = "BLOSUM62",
   kaks_tool = "kaks_calculator",
   engine = "orthologr",
-  best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
+  best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore"),
+  aa_aln_scoring = "pwalign"
 )
 }
 \arguments{
@@ -146,15 +147,19 @@ reproduce dN/dS values computed with earlier versions.}
 
 \item{kaks_tool}{the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
 \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
-program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).}
+program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).
+With a COAL that computes them, \code{kaks_tool = "coal"} also computes \code{"Comeron"} and \code{"Li"} (same
+values as the built-in code for the same codon alignment).}
 
 \item{engine}{\code{"orthologr"} (Default): each gene pair is processed on its own (protein alignment, codon alignment and
 dN/dS estimation with the tools chosen above, with intermediate files per pair). \code{"coal"}: the batched fast path
 \code{\link{dNdS_coal}}: orthologs are detected as usual, then all gene pairs are aligned and estimated by COAL in one
 call, in memory and on \code{comp_cores} threads. \code{engine = "coal"} needs the package \pkg{coalr}, a
-\code{dnds_est.method} that COAL computes (e.g. \code{"YN"}; not \code{"Comeron"} or \code{"Li"}),
-\code{ortho_detection} \code{"RBH"} or \code{"BH"}, and ignores \code{aa_aln_type}, \code{aa_aln_tool},
-\code{codon_aln_tool}, \code{kaks_tool} and \code{store_locally}. It returns the same table.}
+\code{dnds_est.method} that COAL computes (\code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"},
+\code{"YN"}, \code{"MYN"}; and \code{"Comeron"} - the default method - and \code{"Li"} with a \pkg{coalr} that has
+them, see \code{\link{dNdS_coal}}), \code{ortho_detection} \code{"RBH"} or \code{"BH"}, and ignores
+\code{aa_aln_type}, \code{aa_aln_tool}, \code{codon_aln_tool}, \code{kaks_tool} and \code{store_locally}. It
+returns the same table, with the same attributes.}
 
 \item{best_hit_rule}{how the best hit of a query is chosen among its hits:
 \itemize{
@@ -173,6 +178,11 @@ the Compara one-to-one orthologs found; bit-score rule 16,827 pairs, 68 (0.4\%),
 change. On the 1,000-gene example of the package 12 of 986 best hits change and there are 983 instead of 972
 reciprocal best hits (970 in common).
 \code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.}
+
+\item{aa_aln_scoring}{with \code{engine = "coal"}: how COAL scores the pairwise protein alignments -
+\code{"pwalign"} (Default; the scoring of \code{\link{pairwise_aln}}, so that the alignments are those of
+\code{engine = "orthologr"} up to co-optimal alignments) or \code{"needle"} (COAL's own defaults). The same
+argument as in \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}.}
 }
 \value{
 A data.table storing the dNdS values of the correspnding genes.
