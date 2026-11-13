@@ -569,3 +569,37 @@ test_that("R11: every exported function and every help topic is in the reference
         # and nothing is listed that does not exist
         expect_identical(setdiff(listed, c(names(topics), aliases)), character(0))
 })
+
+# ---------------------------------------------------------------- R17: Comeron saturation and classes without sites
+
+test_that("R17: an undefined logarithm in a class without sites does not make Comeron's estimate NA", {
+        gest <- function(a, b, legacy = FALSE) {
+                f <- tempfile(fileext = ".fa"); o <- tempfile()
+                on.exit(unlink(c(f, o)), add = TRUE)
+                writeLines(c(">a", a, ">b", b), f)
+                gestimator(f, o, 3L, FALSE, FALSE, legacy)
+                v <- as.numeric(scan(o, what = "", sep = "\t", quiet = TRUE)[3:5])
+                v[v == 999] <- NA
+                v
+        }
+        # three pairs of the review's simulation that were NA in dN although the class concerned has no sites:
+        # the values are those of the uncorrected (legacy) computation
+        cases <- list(
+                c("GGTGCCCTAAACGTCGAAAAAGAGTGCGGA", "AAAGCCCTAAATGGGGTCCTAGTGTGCTCA", 0.6615, 0.6216),
+                c("TACTTCCCGACTACCGCAGCTTACTATTTG", "CAGATGCCGTATTCCGAAGCTTTCCTAATG", 0.8430, 0.2085),
+                c("TTGTTGTTGGACGTTGTAGTGTTGCTTTCT", "TTGTTGCTGGACGATATGGTGTTACGTTCC", 0.1814, 0.4013))
+        for (x in cases) {
+                v <- gest(x[1], x[2])
+                expect_equal(v[1:2], as.numeric(x[3:4]), info = x[1])
+                expect_equal(v, gest(x[1], x[2], legacy = TRUE), info = x[1])
+        }
+        # a class WITH sites that is saturated still gives NA (30 codons, 8 differences), and the legacy value on request
+        a <- "ACGCCAAAACTCGTTCTGTGGAAAAGACTAACACATGTCAATTGGCAGACCAGCACCTCCTTTCAGTTACAGGCGGCTTTAGTTCAAAGG"
+        b <- "ACGCCAAAACTCGTTCTGCGGAAAACACAAACACATGTCAAGTGGCAGACCAGCACCTCCTTTCCGTTACAGGCGGCATATGTTCAAAGG"
+        v <- gest(a, b)
+        expect_true(is.na(v[1]) && is.na(v[3]))
+        expect_equal(v[2], 0.06677)
+        expect_equal(gest(a, b, legacy = TRUE), c(0.09579, 0.06677, 1.435))
+        # the documented example of saturation at synonymous sites is unchanged
+        expect_true(is.na(gest("ATGGCTAAA", "ATGGCCAAA")[2]))
+})
