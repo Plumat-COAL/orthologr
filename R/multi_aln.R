@@ -340,15 +340,18 @@ multi_aln <- function(file,
                 # Default: T-Coffee's own default mode, CLUSTAL output only, the guide tree next to the output
                 # (not in the working directory). Until 0.4.3 the default was '-mode accurate', which needs a
                 # BLAST server (network) and fails without one; use params = "-mode accurate" to get it back.
+                # The sequences go in with '-seq': with '-infile', T-Coffee 12 takes a file whose sequences end in
+                # '*' (as the translated coding sequences do) for an alignment that is already made and returns
+                # it unaligned (rows padded at the end, out of register).
                 tree.out <- paste0(tmp.out, ".dnd")
                 on.exit(unlink(tree.out), add = TRUE)
                 run_tool(
                         "t_coffee",
                         args = if (is.null(params))
-                                list("-infile", file, "-output", "clustalw_aln", "-newtree", tree.out, "-quiet",
+                                list("-seq", file, "-output", "clustalw_aln", "-newtree", tree.out, "-quiet",
                                      "-outfile", tmp.out)
                         else
-                                list("-infile", file, I(params), "-outfile", tmp.out),
+                                list("-seq", file, I(params), "-outfile", tmp.out),
                         path = path, tool = "T-Coffee", context = context, output = tmp.out
                 )
         }
