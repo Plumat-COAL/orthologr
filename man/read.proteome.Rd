@@ -29,11 +29,10 @@ It is possible to read in different proteome file standards such as \emph{fasta}
 Proteomes stored in fasta files can be downloaded from https://www.ebi.ac.uk/reference_proteomes, etc.
 }
 \examples{
-\dontrun{
 # reading a proteome stored in a fasta file
 Ath.proteome <- read.proteome(system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
                                format = "fasta")
-}
+head(Ath.proteome, 2)
 
 }
 \author{

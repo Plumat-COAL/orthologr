@@ -75,19 +75,13 @@ The behaviour of \pkg{orthologr} <= 0.4.3 (old scoring, truncated overhangs, sto
 written) can be restored for reproducing earlier results with \code{options(orthologr.legacy_pairwise_aln = TRUE)}.
 }
 \examples{
-\dontrun{        
-                                            
-# Needleman-Wunsch Example:  
-
-# in case Biostrings works properly
+# Needleman-Wunsch alignment of the two proteins of a file
+# (the alignment file is written to tempdir())
 pairwise_aln( file     = system.file('seqs/aa_seqs.fasta', package = 'orthologr'),
-              tool     = "NW", 
-              get_aln  = TRUE, 
-              seq_type = "protein")
-
-                                                   
-                                                                                                                                                         
-}
+              tool     = "NW",
+              get_aln  = TRUE,
+              seq_type = "protein",
+              quiet    = TRUE)
 }
 \author{
 Sarah Scharfenberg and Hajk-Georg Drost

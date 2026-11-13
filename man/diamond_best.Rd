@@ -61,7 +61,7 @@ Please be aware that \code{max.target.seqs} selects best hits based on the datab
 
 \item{comp_cores}{a numeric value specifying the number of cores to be used for multicore DIAMOND2 computations.}
 
-\item{diamond_params}{a character string listing the input paramters that shall be passed to the executing DIAMOND2 program. Default is \code{NULL}, implicating
+\item{diamond_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string listing the input paramters that shall be passed to the executing DIAMOND2 program. Default is \code{NULL}, implicating
 that a set of default parameters is used when running DIAMOND2.}
 
 \item{clean_folders}{a boolean value spefiying whether all internall folders storing the output of used programs
@@ -107,47 +107,36 @@ are used to speed up best hit computations.
 This function gives the same output as \code{\link{blast_best}} while being much much faster.
 }
 \examples{
-\dontrun{
-
+\dontshow{if (nzchar(Sys.which("diamond"))) withAutoprint(\{ # examplesIf}
 # performing gene orthology inference using the best hit (BH) method
 diamond_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
-           
-           
-           
-# performing gene orthology inference using the best hit (BH) method starting with protein sequences
+
+# performing gene orthology inference using the best hit (BH) method
+# starting with protein sequences
 diamond_best(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
            seq_type     = "protein")
 
-
-
-# save the DIAMOND2 output file to the current working directory
+# save the DIAMOND2 output file to the folder tempdir()
 diamond_best(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
            seq_type     = "protein",
-           save.output  = getwd())
-
-
-
-
+           save.output  = tempdir())
 
 # use multicore processing
-diamond_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'), 
+diamond_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
            comp_cores   = 2)
 
-
-
+\dontrun{
 # performing gene orthology inference using the best hit (BH) method and external
 # diamond path
 diamond_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
            path         = "path/to/diamond/")
-           
-           
 }
-
+\dontshow{\}) # examplesIf}
 }
 \references{
 Buchfink, B., Reuter, K., & Drost, H. G. (2021) "Sensitive protein alignments at tree-of-life scale using DIAMOND." Nature methods, 18(4), 366-368.

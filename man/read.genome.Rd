@@ -28,11 +28,10 @@ It is possible to read in different genome file standards such as \emph{fasta} o
 Genomes stored in fasta files can be downloaded from https://ensemblgenomes.org, https://www.ncbi.nlm.nih.gov/genome, or https://www.ebi.ac.uk, etc.
 }
 \examples{
-\dontrun{
 # reading a genome stored in a fasta file
 Ath.genome <- read.genome(system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
                            format = "fasta")
-}
+head(Ath.genome, 2)
 
 }
 \author{

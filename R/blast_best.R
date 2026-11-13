@@ -16,7 +16,7 @@
 #' Please be aware that \code{max.target.seqs} selects best hits based on the database entry and not by the best e-value. See details here: https://academic.oup.com/bioinformatics/advance-article/doi/10.1093/bioinformatics/bty833/5106166 .
 #' @param path a character string specifying the path to the BLAST program (in case you don't use the default path).
 #' @param comp_cores a numeric value specifying the number of cores to be used for multicore BLAST computations.
-#' @param blast_params a character string listing the input paramters that shall be passed to the executing BLAST program. Default is \code{NULL}, implicating
+#' @param blast_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string listing the input paramters that shall be passed to the executing BLAST program. Default is \code{NULL}, implicating
 #' that a set of default parameters is used when running BLAST.
 #' @param clean_folders a boolean value spefiying whether all internall folders storing the output of used programs
 #' shall be removed. Default is \code{clean_folders} = \code{FALSE}.
@@ -49,45 +49,34 @@
 #'
 #' Camacho C., Coulouris G., Avagyan V., Ma N., Papadopoulos J., Bealer K., & Madden T.L. (2008) "BLAST+: architecture and applications." BMC Bioinformatics 10:421.
 #'
-#' @examples \dontrun{
-#' 
+#' @examplesIf all(nzchar(Sys.which(c("blastp", "makeblastdb"))))
 #' # performing gene orthology inference using the best hit (BH) method
 #' blast_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
-#'            
-#'            
-#'            
-#' # performing gene orthology inference using the best hit (BH) method starting with protein sequences
+#'
+#' # performing gene orthology inference using the best hit (BH) method
+#' # starting with protein sequences
 #' blast_best(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'            subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'            seq_type     = "protein")
-#' 
-#' 
-#' 
-#' # save the BLAST output file to the current working directory
+#'
+#' # save the BLAST output file to the folder tempdir()
 #' blast_best(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'            subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'            seq_type     = "protein",
-#'            save.output  = getwd())
-#' 
-#' 
-#' 
-#' 
-#' 
+#'            save.output  = tempdir())
+#'
 #' # use multicore processing
-#' blast_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'), 
+#' blast_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'            comp_cores   = 2)
 #'
-#'
-#'
+#' \dontrun{
 #' # performing gene orthology inference using the best hit (BH) method and external
 #' # blastp path
 #' blast_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'            path         = "path/to/blastp/")
-#'            
-#'            
 #' }
 #'
 #' @return A data.table as returned by the \code{blast} function, storing the geneids
@@ -126,7 +115,7 @@ blast_best <- function(query_file,
                        save.output     = NULL,
                        best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")){
         
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
 
         # default parameters for best hit filtering
          default_pars <- "-best_hit_score_edge 0.05 -best_hit_overhang 0.25"

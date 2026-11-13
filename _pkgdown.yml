@@ -12,6 +12,7 @@ reference:
   - filter_dNdS
   - map_generator_dnds
   - read.dnds.tbl
+  - write_dNdS
 - title: "Divergence stratigraphy"
   contents:
   - divergence_stratigraphy
@@ -102,6 +103,11 @@ reference:
   - filter_core_set_lnc
   - testCoreOrthoParamsGeneLocus
   - testCoreOrthoParamsSpliceVariant
+- title: "Options"
+  desc: "Options and environment variables the package reads; how parameter strings for external programs are handled."
+  contents:
+  - orthologr_options
+  - orthologr_legacy_options
 
 articles:
 - title: Get started
@@ -109,6 +115,7 @@ articles:
   contents:
   - Install
   - setup_windows
+  - upgrading_from_0.4.3
 - title: Workflows
   navbar: Workflows
   contents:

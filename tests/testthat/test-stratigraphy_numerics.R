@@ -266,8 +266,8 @@ test_that("Comeron on the example data: the option reproduces the values of earl
         same <- !is.na(new$dS) & !is.na(new$dN)
         expect_identical(new$dN[same], old$dN[same])
         expect_identical(new$dS[same], old$dS[same])
-        # the 20 example pairs are far from saturation
-        expect_identical(as.data.frame(new), as.data.frame(old))
+        # the 20 example pairs are far from saturation (the record of the run differs: it names the option)
+        expect_identical(as.data.frame(new), as.data.frame(old), ignore_attr = TRUE)
 })
 
 # ---------------------------------------------------------------- promoters (N10)

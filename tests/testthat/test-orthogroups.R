@@ -212,7 +212,8 @@ test_that("orthogroups() with two species returns the reciprocal best hits of di
         q <- system.file("seqs/ortho_thal_cds_1000.fasta", package = "orthologr")
         s <- system.file("seqs/ortho_lyra_cds_1000.fasta", package = "orthologr")
         for (rule in c("bitscore", "evalue")) {
-                rec <- suppressMessages(diamond_rec(q, s, best_hit_rule = rule))
+                # (orthogroups() trims coding sequences whose length is not a multiple of 3, as dNdS() does)
+                rec <- suppressMessages(diamond_rec(q, s, best_hit_rule = rule, delete_corrupt_cds = FALSE))
                 og <- quiet_og(c(thal = q, lyra = s), best_hit_rule = rule)
                 p <- og$pairs[og$pairs$query_species == "thal" & og$pairs$rbh, ]
                 expect_setequal(paste(p$query_id, p$subject_id), paste(rec$query_id, rec$subject_id))
@@ -356,7 +357,7 @@ test_that("dNdS_orthogroups(): pairwise alignments give the values of dNdS(); re
         res <- suppressMessages(dNdS_orthogroups(og, groups = ids, aa_aln_tool = "pairwise"))
         expect_identical(names(res), c("pairs", "summary", "failed"))
         expect_identical(names(res$pairs), c("orthogroup", "query_species", "query_id", "subject_species", "subject_id",
-                                             "method", "dN", "dS", "dNdS", "note"))
+                                             "method", "dN", "dS", "dNdS", "note", "status"))
         expect_identical(res$pairs$orthogroup, ids)
         expect_true(all(res$pairs$query_species == "thal"))
         ref <- suppressMessages(suppressWarnings(utils::capture.output(

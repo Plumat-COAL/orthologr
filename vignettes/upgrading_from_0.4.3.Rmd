@@ -1,0 +1,197 @@
+---
+title: "Upgrading from orthologr 0.4.3"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Upgrading from orthologr 0.4.3}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\usepackage[utf8]{inputenc}
+---
+
+```{r, echo = FALSE, message = FALSE}
+options(width = 750)
+library(orthologr)
+knitr::opts_chunk$set(comment = "#>", collapse = TRUE, error = FALSE, tidy = FALSE)
+```
+
+Version 0.5.0 returns other numbers than 0.4.3 for part of the gene pairs, and in some cases other orthologs.
+This article says what changed by default and by how much, how to get the results of 0.4.3 back, and what is
+new. The complete list of changes is in `NEWS.md`.
+
+## In one line: the results of 0.4.3
+
+```{r, eval = FALSE}
+old <- orthologr_legacy_options()   # the settings of 0.4.3, for this session
+# ... dNdS(), divergence_stratigraphy(), ...
+options(old)                        # back to the defaults of 0.5.0
+```
+
+`options(orthologr.legacy = TRUE)` has the same effect (for instance in an `.Rprofile`). The settings are:
+
+```{r}
+str(orthologr_legacy_options(set = FALSE))
+```
+
+With them, `dNdS()` returns the tables of 0.4.3 for the 20-gene and the 1,000-gene example of the package
+(Comeron and YN; same rows, same order, every column identical). The test suite compares the 20-gene result
+with tables stored from 0.4.3 on every run. Two things are arguments, not options: T-Coffee ran with
+`-mode accurate` in 0.4.3 (`aa_aln_params = "-mode accurate"` restores it), and `aa_aln_params` was ignored for
+every alignment program.
+
+Whether a result was computed with these settings can be read from the result itself:
+`attr(result, "orthologr_run")$options`.
+
+## What changed by default, and by how much
+
+| Change | Restored by |
+|---|---|
+| Best hits are chosen by bit score (was: e-value, then alignment length) | `options(orthologr.best_hit_rule = "evalue")` or `best_hit_rule = "evalue"` |
+| Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | `options(orthologr.legacy_pairwise_aln = TRUE)` |
+| Comeron's method returns `NA` for a saturated dN or dS | `options(orthologr.legacy_comeron_saturation = TRUE)` |
+| KaKs_Calculator methods return `dN = 0` (was `NA`) for a pair without nonsynonymous change | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
+| dN/dS tables end with the column `status` | `options(orthologr.status_column = FALSE)` |
+| T-Coffee runs in its default mode | `aa_aln_params = "-mode accurate"` |
+
+### Best hits by bit score
+
+DIAMOND and BLAST report an e-value of 0 for every strong hit of a long protein. Under the rule of 0.4.3
+(smallest e-value, then longest alignment) the alignment length then decided, and a paralog with a longer but
+worse alignment could win over the ortholog. The best hit is now the hit with the highest bit score (then
+smallest e-value, longest alignment, highest identity, alphabetically first subject).
+
+| DIAMOND, reciprocal best hits | rule of 0.4.3 | bit score |
+|---|---|---|
+| human / mouse (19,746 x 21,584 genes): pairs | 16,458 | 16,827 |
+| ... pairs that contradict the orthologs of Ensembl Compara | 330 (2.0 %) | 68 (0.4 %) |
+| ... Compara one-to-one orthologs found | 93.0 % | 96.8 % |
+| 1,000-gene example of the package: pairs | 972 | 983 (970 in common) |
+
+3.2 % of the human / mouse best hits change; on the 1,000-gene example 12 of 986 best hits.
+
+### Pairwise protein alignments
+
+`dNdS()` aligns the two proteins of a gene pair with `pwalign::pairwiseAlignment(type = "global")`. Up to 0.4.3
+no substitution matrix was used (every mismatch cost the same), the overhanging ends of the longer protein were
+cut off, and the stop codon was aligned and scored. Now the alignment is scored with BLOSUM62
+(`aa_sub_matrix`), written full length, and made without the stop codon.
+
+1,000-gene example (984 reciprocal best hits under the old best-hit rule), 0.4.3 against the new alignments:
+
+| | Comeron (default) | YN (KaKs_Calculator) |
+|---|---|---|
+| pairs with unchanged dN and dS | 66 % (651 of 984) | 71 % (699 of 984) |
+| Pearson r of dN, old vs new | 0.971 | 0.967 |
+| Pearson r of dS, old vs new | 0.940 | 0.997 (0.985 without two nearly saturated pairs) |
+| Pearson r of dN/dS, old vs new | 0.988 | 0.984 |
+| largest change of dN / dS / dN/dS | 0.19 / 0.41 / 0.31 | 0.19 / 0.48 / 0.44 |
+| pairs whose dN/dS changes by more than 0.01 | 22 % | 20 % |
+
+About a third of the gene pairs get other values. For most the change is small (median change of dN 0.002, of
+dS 0.004 to 0.005 among the changed pairs); for single pairs it is large, and rankings or thresholds on dN/dS
+(`filter_dNdS()`, divergence strata) can move.
+
+### Saturation in Comeron's method
+
+When two sequences differ at more sites of a class than the model can correct for, the logarithm of the
+correction has no value. 0.4.3 replaced it by 0 and returned a finite, too small dN or dS (one synonymous
+substitution in three codons gave dS = 0). Such a value, and dN/dS, is now `NA` and the pair has status
+`"saturated"`. All other values are unchanged.
+
+| gene pairs (same codon alignments in both modes) | dS: value -> `NA` | dN: value -> `NA` | dN/dS: value -> `NA` |
+|---|---|---|---|
+| 1,000-gene example, default: 995 pairs | 0 | 1 | 0 |
+| ... with `best_hit_rule = "evalue"`: 984 pairs | 0 | 3 | 0 |
+| human / mouse, 1,500 pairs (gene families, long genes, random pairs) | 1 | 17 | 5 (1,487 -> 1,482 with a value) |
+
+Very short alignments are affected more often (30 codons: several percent of random pairs lose dN).
+
+### dN = 0 with the KaKs_Calculator methods
+
+KaKs_Calculator prints `NA` for every Ka below 1e-6 and still prints `Ka/Ks = 0`. orthologr returned
+`dN = NA`, `dNdS = 0`, and `filter_dNdS()` / `divergence_stratigraphy()` then left out exactly the most conserved
+genes. Now `dN = 0`. 1,000-gene example, YN: 11 of 995 pairs change from `dN = NA` to `dN = 0` (their `dNdS` was
+and is 0); `filter_dNdS()` kept 984 of the 995 pairs and now keeps all 995.
+
+### Not a default change: gene pairs with dS = 0
+
+`filter_dNdS()` and `divergence_stratigraphy()` leave gene pairs with dS = 0 out, as every released version
+did - but they now say so: a message gives the number of pairs left out per reason, and
+`divergence_left_out()` returns them. `dS_zero = "keep"` keeps them with `dNdS = NA`.
+
+## New in the result: status, summary and the record of the run
+
+```{r, eval = FALSE}
+res <- dNdS(query_file   = system.file("seqs/ortho_thal_cds.fasta", package = "orthologr"),
+            subject_file = system.file("seqs/ortho_lyra_cds.fasta", package = "orthologr"))
+#> dNdS(): reciprocal best hits of 'ortho_thal_cds.fasta' against 'ortho_lyra_cds.fasta' (diamond, ...
+#> dNdS(): 20 gene pairs - 20 with dN/dS. Median dS: 0.154.
+
+table(res$status)
+#> ok
+#> 20
+```
+
+* **`status`** is the last column of every dN/dS table: `"ok"`, `"dS_zero"` (dS is 0, no ratio),
+  `"saturated"` (dN or dS not estimable), `"no_data"` (no codons to compare) or `"failed"` (a program failed
+  for the pair; reason in `attr(res, "failed_pairs")`). Code that addresses columns by position from the end,
+  or binds tables of 0.4.3 and 0.5.0, should select columns by name or set
+  `options(orthologr.status_column = FALSE)`.
+* **The summary** at the end of a run counts the gene pairs by status and gives the median dS. When more than a
+  fifth of the pairs is saturated or the median dS is above 1.5 it says that the species are probably too
+  distant for pairwise dN/dS. *S. cerevisiae* against *C. glabrata*: 3,012 of 4,164 pairs (72 %) have no dS,
+  and the median dS of the others is 1.9 - 0.4.3 and earlier development versions returned this table without
+  a word.
+* **`attr(res, "orthologr_run")`** records the package version, the arguments, every `orthologr.*` option, the
+  engine, the versions of the programs, the date, size and MD5 checksum of the input files and the counts by
+  status. Attributes do not survive most table operations or `write.table()`:
+
+```{r, eval = FALSE}
+write_dNdS(res, "thal_lyra_dnds.tsv")     # the table, and thal_lyra_dnds.tsv.run.json next to it
+res <- read_dNdS("thal_lyra_dnds.tsv")    # table and attributes
+attr(res, "orthologr_run")$tools
+```
+
+Messages: `dNdS()` writes nothing to `stdout` any more (the citation was printed there). With `quiet = TRUE`,
+the default, a run gives one line at the start and the summary (before: 31 messages for the 20-gene example);
+`quiet = FALSE` adds the parameters, the messages of the search program and a progress line about every tenth
+of the gene pairs. The citation note is shown once per session.
+
+## Behaviour that changed and has no switch
+
+* One gene pair can no longer end a run: a pair whose alignment or estimation fails is a row of `NA` values
+  with status `"failed"`.
+* A missing program and unsupported argument values are errors before the search starts.
+* Parameter strings (`aa_aln_params`, `aligner_params`, `diamond_params`, `blast_params`, ...) are lists of
+  arguments, not shell text; see `?orthologr_options`.
+* Sequence IDs come back exactly as they are in the input files (IDs with `-`, `|`, digits only, or more than
+  15 characters lost rows or were changed).
+* Li's method returns numbers (it returned text, and took values such as `9.95e-05` for the saturation marker).
+* Intermediate files live in a folder of the call inside `tempdir()`; nothing is written into the working
+  directory unasked.
+* `ggplot2`, `scales`, `ape`, `rtracklayer`, `benchmarkme`, `tidyr`, `biomartr` and `metablastr` are in
+  Suggests: install them when a function asks for them.
+
+## New functions
+
+| Function | What it does |
+|---|---|
+| `orthogroups()`, `write_orthogroups()` | groups of orthologs of 2 to N species with DIAMOND (replaces the OrthoFinder interface) |
+| `dNdS_orthogroups()` | dN/dS for the gene pairs within orthogroups, with a summary per group |
+| `divergence_left_out()` | the gene pairs that are not in a divergence map, and why |
+| `write_dNdS()`, `read_dNdS()` | a dN/dS table with the record of its run |
+| `orthologr_legacy_options()` | the settings of 0.4.3 |
+| `?orthologr_options` | every option and environment variable |
+
+New arguments: `best_hit_rule`, `aa_sub_matrix`, `dS_zero`.
+
+## Soft-deprecated
+
+* `orthofinder2()` warns on every call (it never worked beyond starting the program): use `orthogroups()`.
+* `cdd.path` and `ortho_path` of `dNdS()` (never used) give a warning when set.
+* `ortho_detection = "Orthofinder2"`, `"PO"` and `"DELTA"` are errors that name the alternatives.
+
+## Speed
+
+Default `dNdS()` on the 1,000-gene example (one core, same machine): 744 s with 0.4.3 and 50 s with 0.5.0
+(27 s with two cores); with the legacy settings 0.5.0 takes as long as 0.4.3, because the old alignment
+scoring is the slow part.

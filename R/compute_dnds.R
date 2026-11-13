@@ -25,7 +25,8 @@
 #' (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).
 #' @param store_locally a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.
 #' @param aa_sub_matrix the substitution matrix for pairwise amino acid alignments (\code{aa_aln_type = "pairwise"}); see \code{\link{pairwise_aln}}.
-#' @param quiet a logical value specifying whether a successful interface call shall be printed out.
+#' @param quiet \code{FALSE}: a progress message about every tenth of the gene pairs (the programs called for a
+#' gene pair no longer report every file they write).
 #' @param comp_cores a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.
 #' @param clean_folders a boolean value spefiying whether all internall folders storing the output of used programs
 #' shall be removed. Default is \code{clean_folders} = \code{FALSE}.
@@ -158,7 +159,7 @@ compute_dnds <- function(complete_tbl,
                                 multi_aln_name = aa_aln_name,
                                 path           = aa_aln_path,
                                 params         = aa_aln_params,
-                                quiet          = quiet
+                                quiet          = TRUE
                         )
                         
                         aa_aln_file <-
@@ -179,7 +180,7 @@ compute_dnds <- function(complete_tbl,
                                 get_aln           = FALSE,
                                 pairwise_aln_name = aa_aln_name,
                                 path              = aa_aln_path,
-                                quiet             = quiet,
+                                quiet             = TRUE,
                                 store_locally     = store_locally,
                                 aa_sub_matrix     = aa_sub_matrix
                         )
@@ -201,7 +202,7 @@ compute_dnds <- function(complete_tbl,
                         format         = "fasta",
                         codon_aln_name = aa_aln_name,
                         get_aln        = FALSE,
-                        quiet          = quiet
+                        quiet          = TRUE
                 )
                 
                 # compute kaks
@@ -215,7 +216,7 @@ compute_dnds <- function(complete_tbl,
                         subst_name     = aa_aln_name,
                         kaks_calc_path = kaks_calc_path,
                         est.method     = dnds_est.method,
-                        quiet          = quiet
+                        quiet          = TRUE
                 )
                 
                 # The IDs of the pair are those of the pair table - not what came back from the programs.
@@ -252,10 +253,20 @@ compute_dnds <- function(complete_tbl,
         
         .reason <- NULL
         
+        # Progress (only when not quiet): a message about every tenth of the gene pairs. With several R processes
+        # the pairs are handed out in pieces of that size, so that there is something to report in between; the
+        # result does not depend on it.
+        n_pairs <- nrow(complete_tbl)
+        step <- progress_step(n_pairs)
+        t_start <- proc.time()[["elapsed"]]
+        
         if (!multicore) {
-                dNdS_values <- vector(mode = "list", length = nrow(complete_tbl))
-                for (i in seq_len(nrow(complete_tbl)))
+                dNdS_values <- vector(mode = "list", length = n_pairs)
+                for (i in seq_len(n_pairs)) {
                         dNdS_values[[i]] <- safe_pair(i)
+                        if (!quiet && i %% step == 0 && i < n_pairs)
+                                progress_message(i, n_pairs, t_start)
+                }
         }
         
         if (multicore) {
@@ -266,7 +277,17 @@ compute_dnds <- function(complete_tbl,
                 finished <- FALSE
                 on.exit(dnds_cluster_stop(par_cores, finished = finished), add = TRUE)
                 
-                dNdS_values <- parallel::parLapply(par_cores, seq_len(nrow(complete_tbl)), safe_pair)
+                if (quiet || n_pairs <= step) {
+                        dNdS_values <- parallel::parLapply(par_cores, seq_len(n_pairs), safe_pair)
+                } else {
+                        pieces <- split(seq_len(n_pairs), ceiling(seq_len(n_pairs) / step))
+                        dNdS_values <- list()
+                        for (piece in pieces) {
+                                dNdS_values <- c(dNdS_values, parallel::parLapply(par_cores, piece, safe_pair))
+                                if (length(dNdS_values) < n_pairs)
+                                        progress_message(length(dNdS_values), n_pairs, t_start)
+                        }
+                }
                 finished <- TRUE
         }
         

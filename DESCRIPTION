@@ -38,7 +38,8 @@ Suggests:
     benchmarkme,
     tidyr,
     biomartr,
-    metablastr
+    metablastr,
+    jsonlite
 Remotes:
     drostlab/metablastr
 LinkingTo: Rcpp

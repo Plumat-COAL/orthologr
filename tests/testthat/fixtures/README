@@ -63,5 +63,5 @@ comeron_20.rds, yn_20.rds
     the package (inst/seqs/ortho_thal_cds.fasta against ortho_lyra_cds.fasta) with its defaults and
     dnds_est.method = "Comeron" / "YN", as plain data.frames, with the versions that made them. Made on
     2026-11-13 by make_fixture.R (same folder) with DIAMOND 2.2.8, KaKs_Calculator 2.0 and R 4.5.3.
-    test-legacy.R compares them with what this version returns with the options that restore the defaults of
-    0.4.3 (see NEWS.md).
+    test-legacy.R compares them with what this version returns under orthologr_legacy_options() and under
+    options(orthologr.legacy = TRUE).

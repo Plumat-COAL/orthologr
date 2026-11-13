@@ -104,47 +104,41 @@
 #'  
 #'  Drost HG et al. (2015). Evidence for Active Maintenance of Phylotranscriptomic Hourglass Patterns in Animal and Plant Embryogenesis. Mol Biol Evol. 32 (5): 1221-1231 doi:10.1093/molbev/msv012
 #'  
-#' @examples \dontrun{
+#' @examplesIf all(nzchar(Sys.which(c("diamond", "perl"))))
 #'  # performing standard divergence stratigraphy
 #'  divergence_stratigraphy(
 #'       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'       eval            = "1E-5",
-#'       ortho_detection = "RBH", 
-#'       comp_cores      = 1, 
-#'       quiet           = TRUE, 
+#'       ortho_detection = "RBH",
+#'       comp_cores      = 1,
+#'       quiet           = TRUE,
 #'       clean_folders   = TRUE)
-#'       
-#'       
-#'       
+#'
+#' \dontrun{
 #'  # performing standard divergence stratigraphy using the aligner_path argument to specify
 #'  # the path to diamond
 #'  divergence_stratigraphy(
 #'       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'       eval            = "1E-5", 
+#'       eval            = "1E-5",
 #'       ortho_detection = "RBH",
 #'       aligner_path    = "path/to/diamond",
-#'       comp_cores      = 1, 
-#'       quiet           = TRUE, 
+#'       comp_cores      = 1,
+#'       quiet           = TRUE,
 #'       clean_folders   = TRUE)
-#'  
-#'  
-#'  
-#'  # Divergence Stratigraphy can also be performed in parallel 
+#'
+#'  # Divergence Stratigraphy can also be performed in parallel
 #'  # (on a multicore machine) using the 'comp_cores' argument
 #'  divergence_stratigraphy(
 #'       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'       eval            = "1E-5", 
-#'       ortho_detection = "RBH", 
-#'       comp_cores      = 2, 
-#'       quiet           = TRUE, 
+#'       eval            = "1E-5",
+#'       ortho_detection = "RBH",
+#'       comp_cores      = 2,
+#'       quiet           = TRUE,
 #'       clean_folders   = TRUE)
-#'  
-#'  
-#'  
-#'  
+#'
 #'  # in case you want a divergence map with DS values and query_id and subject_id
 #'  # you can specify subject.id = TRUE
 #'  # performing standard divergence stratigraphy
@@ -152,15 +146,12 @@
 #'       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'       eval            = "1E-5",
-#'       ortho_detection = "RBH", 
-#'       comp_cores      = 1, 
-#'       quiet           = TRUE, 
+#'       ortho_detection = "RBH",
+#'       comp_cores      = 1,
+#'       quiet           = TRUE,
 #'       clean_folders   = TRUE,
 #'       subject.id      = TRUE)
-#'       
-#'       
-#'       
-#'       
+#'
 #'  # in case you want a divergence map with KaKs values and query_id and subject_id
 #'  # you can specify ds.values = FALSE and subject.id = TRUE
 #'  # performing standard divergence stratigraphy
@@ -168,28 +159,25 @@
 #'       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'       eval            = "1E-5",
-#'       ortho_detection = "RBH", 
-#'       comp_cores      = 1, 
-#'       quiet           = TRUE, 
+#'       ortho_detection = "RBH",
+#'       comp_cores      = 1,
+#'       quiet           = TRUE,
 #'       clean_folders   = TRUE,
 #'       subject.id      = TRUE)
-#'  
-#'       
-#'       
-#'  # in case you want a divergence map with divergence stratum as quintile (5-quantile) values 
+#'
+#'  # in case you want a divergence map with divergence stratum as quintile (5-quantile) values
 #'  # or any other N-quantile values rather than the default decile (10-quantile) values,
 #'  # you can specify this with n_quantile.
 #'  divergence_stratigraphy(
 #'       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'       eval            = "1E-5",
-#'       ortho_detection = "RBH", 
-#'       comp_cores      = 1, 
-#'       quiet           = TRUE, 
+#'       ortho_detection = "RBH",
+#'       comp_cores      = 1,
+#'       quiet           = TRUE,
 #'       clean_folders   = TRUE,
 #'       n_quantile      = 5)
-#'       
-#'  }
+#' }
 #'  
 #' @seealso 
 #' \code{\link{dNdS}}, \code{\link{divergence_map}},\code{\link{substitutionrate}}, \code{\link{multi_aln}},
@@ -234,7 +222,7 @@ divergence_stratigraphy <- function(query_file,
                                     dS_zero         = getOption("orthologr.dS_zero", "drop"),
                                     best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")){
         
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         
         if (!is.ortho_detection_method(ortho_detection))
                 stop("Please choose a orthology detection method that is supported by this function.")
@@ -254,6 +242,9 @@ divergence_stratigraphy <- function(query_file,
         # data.table objects see:
         # http://stackoverflow.com/questions/8096313/no-visible-binding-for-global-variable-note-in-r-cmd-check?lq=1
         query_id <- subject_id <- dNdS <- NULL
+        
+        # the arguments of this call, for the record of the run (attr(<result>, "orthologr_run"))
+        run_args <- run_arguments()
         
         # checked before the long run, not after it
         check_n_quantile(n_quantile)
@@ -329,6 +320,15 @@ divergence_stratigraphy <- function(query_file,
         # the complete dN/dS table of the run (before filtering and binning) comes with the result
         attr(DivergenceMap.DF, "dNdS_tbl") <- dNdS_full
         attr(DivergenceMap.DF, "left_out") <- left_out
+        # the record of the run: that of the dNdS() call, with this function and its arguments
+        run <- attr(dNdS_full, "orthologr_run")
+        if (!is.null(run)) {
+                run[["function"]] <- "divergence_stratigraphy"
+                run$arguments <- run_args
+                run$gene_pairs_in_map <- nrow(DivergenceMap.DF)
+                run$gene_pairs_left_out <- nrow(left_out)
+        }
+        attr(DivergenceMap.DF, "orthologr_run") <- run
         
         message("Divergence Stratigraphy completed successfully.")
         return( DivergenceMap.DF )
@@ -360,12 +360,11 @@ divergence_left_out_table <- function(full, kept, dnds.threshold) {
 #' comparison. They are not in the map because their dN/dS is 0/0. To give them a stratum anyway - for example the
 #' lowest one - take them from this table and add them to the map; \code{divergence_stratigraphy(dS_zero = "keep")}
 #' keeps them in the map with the stratum \code{NA}.
-#' @examples \dontrun{
+#' @examplesIf all(nzchar(Sys.which(c("diamond", "perl"))))
 #' dm <- divergence_stratigraphy(
 #'   query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'   subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
 #' divergence_left_out(dm)
-#' }
 #' @seealso \code{\link{divergence_stratigraphy}}, \code{\link{filter_dNdS}}
 #' @export
 divergence_left_out <- function(x) {

@@ -92,10 +92,10 @@ best_hits <- function(hit_tbl, group_col = "query_id", rule = NULL) {
 }
 
 # The rule by which best hits are chosen: the argument when given, else options(orthologr.best_hit_rule = ),
-# else "bitscore".
+# else "evalue" with options(orthologr.legacy = TRUE), else "bitscore".
 orthologr_best_hit_rule <- function(rule = NULL) {
         if (is.null(rule))
-                rule <- getOption("orthologr.best_hit_rule", "bitscore")
+                rule <- orthologr_option("orthologr.best_hit_rule", "bitscore")
         if (!is.character(rule) || length(rule) < 1 || is.na(rule[1]))
                 stop("best_hit_rule must be \"bitscore\" or \"evalue\".", call. = FALSE)
         # (the default of the exported functions is the vector of both choices)

@@ -21,9 +21,11 @@
 #' not verified against a checksum (the DIAMOND2 releases do not publish one); it is fetched over HTTPS from the
 #' GitHub releases of \url{https://github.com/bbuchfink/diamond}.
 #' @examples
+#' # NULL when DIAMOND is on the PATH, the folder of a copy installed by diamond_install(), an error otherwise
+#' tryCatch(diamond_path(), error = conditionMessage)
 #' \dontrun{
+#' # download DIAMOND into that folder (needs an internet connection)
 #' diamond_install()
-#' diamond_path()
 #' }
 #' @seealso \code{\link{diamond_path}}, \code{\link{diamond}}
 #' @export

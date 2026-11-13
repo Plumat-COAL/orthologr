@@ -19,8 +19,7 @@ is.ortho_detection_method <- function(method = NULL){
         provided <- c("BH","RBH")
         
         if(is.null(method)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -33,8 +32,7 @@ is.multiple_aln_tool <- function(tool = NULL){
         provided <- c("clustalw", "clustalo","muscle", "t_coffee", "mafft")
         
         if(is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -46,8 +44,7 @@ is.pairwise_aln_tool <- function(tool = NULL){
         provided <- c("NW")
         
         if(is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -59,8 +56,7 @@ is.codon_aln_tool <- function(tool = NULL){
         provided <-  c("pal2nal")
         
         if(is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -70,13 +66,12 @@ is.codon_aln_tool <- function(tool = NULL){
 is.dnds_est_method <- function(method = NULL){
         
         # dNdS estimation methods provided by the KaKs_Calculator 1.2 program
-        kaks_calc_methods <- c("MA","MS","NG","LWL","LPB","MLWL","YN","MYN","GY","GMYN","ALL","kaks_calc")
+        kaks_calc_methods <- c("MA","MS","NG","LWL","LPB","MLWL","MLPB","YN","MYN","GY","GMYN","ALL","kaks_calc")
         
         provided <- c("Comeron","Li",kaks_calc_methods)
         
         if (is.null(method)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -88,8 +83,7 @@ is.alignment_search_tool <- function(tool = NULL){
         provided <-  c("ggsearch","ssearch")
         
         if (is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         

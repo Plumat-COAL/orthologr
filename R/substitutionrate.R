@@ -58,46 +58,43 @@
 #' \item GY: Goldman, N. and Yang, Z. (1994)
 #' }
 #' 
-#' @examples \dontrun{
-#' 
+#' @examples
 #' # estimate the dNdS rate using Li's method
 #' substitutionrate(
 #'    file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
-#'    est.method = "Li", 
+#'    est.method = "Li",
 #'    format     = "fasta")
-#'  
+#'
 #' # estimate the dNdS rate using Comeron's method
 #' substitutionrate(
 #'    file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
-#'    est.method = "Comeron", 
+#'    est.method = "Comeron",
 #'    format     = "fasta")
-#'                  
+#'
+#' @examplesIf nzchar(Sys.which("KaKs_Calculator"))
 #' # estimate the dNdS rate using model averaging provided by
 #' # the KaKs_Calculator 1.2 program
 #'  substitutionrate(
-#'     file       = system.file("seqs/pal2nal.aln", package = "orthologr"), 
-#'     est.method = "MA", 
-#'     format     = "fasta") 
-#'                   
-#'  # estimate the dNdS rate using Nei and Gojobori's method provided by the 
+#'     file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
+#'     est.method = "MA",
+#'     format     = "fasta")
+#'
+#'  # estimate the dNdS rate using Nei and Gojobori's method provided by the
 #'  # KaKs_Calculator 1.2 program
 #'  substitutionrate(
-#'     file       = system.file("seqs/pal2nal.aln", package = "orthologr"), 
-#'     est.method = "NG", 
-#'     format     = "fasta")     
-#'   
-#'   # estimate the dNdS rate using Nei and Gojobori's method AND Yang and Nielsen's 
-#'   # method provided by the KaKs_Calculator 1.2 program 
-#'   # for this purpose we choose: 
-#'   # est.method = "kaks_calc" and kaks_calc.params = "-m NG -m YN"                 
+#'     file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
+#'     est.method = "NG",
+#'     format     = "fasta")
+#'
+#'   # estimate the dNdS rate using Nei and Gojobori's method AND Yang and Nielsen's
+#'   # method provided by the KaKs_Calculator 1.2 program
+#'   # for this purpose we choose:
+#'   # est.method = "kaks_calc" and kaks_calc.params = "-m NG -m YN"
 #'  substitutionrate(
 #'    file             = system.file("seqs/pal2nal.aln", package = "orthologr"),
-#'    est.method       = "kaks_calc", 
+#'    est.method       = "kaks_calc",
 #'    format           = "fasta",
 #'    kaks_calc.params = "-m NG -m YN")
-#'                   
-#'                                           
-#' }
 #' @references 
 #' Li, W.-H. (1993) Unbiased estimation of the rates of synonymous and nonsynonymous substitution. J. Mol. Evol., 36:96-99.
 #' 
@@ -274,7 +271,7 @@ substitutionrate <- function(file,
                 data.table::setkey(res, query_id)
                 
                 if (!quiet) {
-                        print("Substitutionrate successfully calculated using Li's method.")
+                        message("Substitutionrate successfully calculated using Li's method.")
                 }
                 
                 return(res)
@@ -332,7 +329,7 @@ substitutionrate <- function(file,
 # options(orthologr.legacy_comeron_saturation = TRUE): Comeron's method as up to 0.4.3, where an undefined
 # logarithm of the correction (saturation) was replaced by 0 and a finite dS or dN was returned.
 comeron_legacy_saturation <- function() {
-        isTRUE(getOption("orthologr.legacy_comeron_saturation", FALSE))
+        isTRUE(orthologr_option("orthologr.legacy_comeron_saturation", FALSE))
 }
 
 # Stop unless `file` (FASTA) is a codon alignment: at least two sequences, all of the same length, the length a
@@ -417,7 +414,7 @@ kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair") {
 # options(orthologr.legacy_kaks_zero_dn = TRUE): the table of KaKs_Calculator as up to 0.4.3, where a gene pair
 # without nonsynonymous change has dN = NA and dNdS = 0.
 kaks_legacy_zero_dn <- function() {
-        isTRUE(getOption("orthologr.legacy_kaks_zero_dn", FALSE))
+        isTRUE(orthologr_option("orthologr.legacy_kaks_zero_dn", FALSE))
 }
 
 # dN of gene pairs for which KaKs_Calculator printed 'NA' although the value is known.

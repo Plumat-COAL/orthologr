@@ -353,6 +353,32 @@ test_that("R07: ordinary parameter strings still reach the program", {
         expect_true(all(b$perc_identity >= 99.5))
 })
 
+# ---------------------------------------------------------------- R22: every option is documented
+
+test_that("R22: ?orthologr_options lists every option and environment variable the package reads", {
+        rd <- system.file("help", "aliases.rds", package = "orthologr")
+        skip_if_not(nzchar(rd), "installed help is not available")
+        expect_true(is.element("orthologr_options", names(readRDS(rd))))
+        txt <- paste(utils::capture.output(tools::Rd2txt(utils:::.getHelpFile(utils::help("orthologr_options", package = "orthologr")),
+                                                        options = list(underline_titles = FALSE))), collapse = "\n")
+        txt <- gsub("[^A-Za-z0-9._]", " ", txt)
+        ns <- asNamespace("orthologr")
+        code <- unlist(lapply(ls(ns, all.names = TRUE), function(f) {
+                x <- get(f, envir = ns)
+                if (is.function(x)) deparse(x) else character(0)
+        }))
+        code <- paste(code, collapse = "\n")
+        opts <- unique(unlist(regmatches(code, gregexpr("orthologr\\.[A-Za-z_]+", code))))
+        opts <- setdiff(opts, c("orthologr.R"))
+        read <- unique(unlist(regmatches(code, gregexpr("getOption\\(\"[^\"]+\"", code))))
+        read <- sub("\"$", "", sub("getOption\\(\"", "", read))
+        env <- unique(unlist(regmatches(code, gregexpr("Sys\\.getenv\\(\"[^\"]+\"", code))))
+        env <- sub("\"$", "", sub("Sys\\.getenv\\(\"", "", env))
+        expect_true(length(read) >= 8)
+        for (o in unique(c(read, grep("^orthologr\\.(legacy|best|dS|keep|tmpdir|cluster|corrupted|isoform|coal)", opts, value = TRUE), env)))
+                expect_true(grepl(paste0(" ", o, " "), txt, fixed = TRUE), info = paste("not documented:", o))
+})
+
 # ---------------------------------------------------------------- R06: the same sequence ID in query and subject
 
 test_that("R06: dNdS() works when query and subject sequences have the same IDs, on every tool path", {

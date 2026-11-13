@@ -42,19 +42,14 @@
 #' The behaviour of \pkg{orthologr} <= 0.4.3 (old scoring, truncated overhangs, stop codon aligned, score file always
 #' written) can be restored for reproducing earlier results with \code{options(orthologr.legacy_pairwise_aln = TRUE)}.
 #' 
-#' @examples \dontrun{        
-#'                                             
-#' # Needleman-Wunsch Example:  
-#' 
-#' # in case Biostrings works properly
+#' @examples
+#' # Needleman-Wunsch alignment of the two proteins of a file
+#' # (the alignment file is written to tempdir())
 #' pairwise_aln( file     = system.file('seqs/aa_seqs.fasta', package = 'orthologr'),
-#'               tool     = "NW", 
-#'               get_aln  = TRUE, 
-#'               seq_type = "protein")
-#' 
-#'                                                    
-#'                                                                                                                                                          
-#' }
+#'               tool     = "NW",
+#'               get_aln  = TRUE,
+#'               seq_type = "protein",
+#'               quiet    = TRUE)
 #' @return In case the argument \code{get_aln} is set \code{TRUE}, an object of class alignment of the seqinr package is returned.
 #' @export
 pairwise_aln <- function(file, 
@@ -81,7 +76,7 @@ pairwise_aln <- function(file,
                 seqtype <- "AA"
         
         # options(orthologr.legacy_pairwise_aln = TRUE): the behaviour of orthologr <= 0.4.3
-        legacy <- isTRUE(getOption("orthologr.legacy_pairwise_aln", FALSE))
+        legacy <- isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))
         
         if (legacy)
                 aa_sub_matrix <- NULL
@@ -207,7 +202,7 @@ pairwise_aln <- function(file,
                 }
                 
                 if (!quiet) {
-                        print(paste0("File successfully written to ", file.out, "."))
+                        message("File successfully written to ", file.out, ".")
                 }
                 
                 if (get_aln)
