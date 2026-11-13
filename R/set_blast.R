@@ -5,9 +5,9 @@
 #'  as data.table object for further BLAST searches.  
 #' @param file a character string specifying the path to the file storing the sequences of interest.
 #' @param seq_type a character string specifying the sequence type stored in the input file.
-#' Options are are: "cds", "protein", or "dna". In case of "cds", sequence are translated to protein sequences,
-#' in case of "dna", cds prediction is performed on the corresponding sequences which subsequently are
-#' translated to protein sequences. Default is \code{seq_type} = "cds".
+#' Options are: "cds" (Default; the sequences are translated to protein sequences), "protein", or "dna".
+#' "dna" sequences are read as they are (no gene prediction): they can be used for a nucleotide database
+#' (\code{makedb_type = "nucleotide"}), not for a protein database.
 #' @param format a character string specifying the file format used to store the genome, e.g. "fasta", "gbk".
 #' @param makedb TRUE or FALSE whether a database should be created or not (BLAST parameter 'makeblastdb').
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet.
@@ -66,6 +66,14 @@ set_blast <- function(file,
         if(!is.element(makedb_type,c("protein","nucleotide")))
                 stop("Please choose either: 'protein' or 'nucleotide' as BLAST database type (makedb_type).", call. = FALSE)
         
+        if (makedb && makedb_type == "protein" && seq_type == "dna")
+                stop("seq_type = 'dna' cannot be used to build a protein database: genes are not predicted from DNA ",
+                     "sequences. Please provide coding sequences (seq_type = 'cds') or proteins (seq_type = 'protein'), ",
+                     "or build a nucleotide database (makedb_type = 'nucleotide').", call. = FALSE)
+        
+        if (makedb && makedb_type == "nucleotide" && seq_type == "protein")
+                stop("A nucleotide database (makedb_type = 'nucleotide') cannot be built from protein sequences.", call. = FALSE)
+        
         dt <- protein_table(file = file, seq_type = seq_type, delete_corrupt_cds = delete_corrupt_cds, ...)
         
         dbname <- vector(mode = "character", length = 1)
@@ -78,6 +86,8 @@ set_blast <- function(file,
                 # the database keeps its documented place and name; characters that makeblastdb cannot handle
                 # in a file name (spaces, ...) are replaced
                 dbname <- paste0("blastdb_", safe_file_name(basename(file)), "_protein.fasta")
+                if (makedb_type == "nucleotide")
+                        dbname <- paste0("blastdb_", safe_file_name(basename(file)), "_nucleotide.fasta")
                 make_blast_db(dt, db_file = file.path(db_dir, dbname), makedb_type = makedb_type, path = path)
         }
         

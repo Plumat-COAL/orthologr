@@ -65,8 +65,7 @@ compute_dnds <- function(complete_tbl,
                          clean_folders   = FALSE,
                          aa_sub_matrix   = "BLOSUM62"){
         
-        if (comp_cores > parallel::detectCores())
-                stop("You assigned more cores to the comp_cores argument than are availible on your machine.")
+        comp_cores <- check_comp_cores(comp_cores)
         
         
         # due to the discussion of no visible binding for global variable for
@@ -140,6 +139,7 @@ compute_dnds <- function(complete_tbl,
                                 get_aln        = FALSE,
                                 multi_aln_name = aa_aln_name,
                                 path           = aa_aln_path,
+                                params         = aa_aln_params,
                                 quiet          = quiet
                         )
                         

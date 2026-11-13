@@ -5,9 +5,9 @@
 #'  as data.table object for further DIAMOND2 searches.  
 #' @param file a character string specifying the path to the file storing the sequences of interest.
 #' @param seq_type a character string specifying the sequence type stored in the input file.
-#' Options are are: "cds", "protein", or "dna". In case of "cds", sequence are translated to protein sequences,
-#' in case of "dna", cds prediction is performed on the corresponding sequences which subsequently are
-#' translated to protein sequences. Default is \code{seq_type} = "cds".
+#' Options are: "cds" (Default; the sequences are translated to protein sequences), "protein", or "dna".
+#' "dna" sequences are read as they are (no gene prediction) and cannot be used to build a DIAMOND database
+#' (\code{makedb = TRUE} is an error).
 #' @param format a character string specifying the file format used to store the genome, e.g. "fasta", "gbk".
 #' @param makedb TRUE or FALSE whether a database should be created or not (\code{diamond makedb}).
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet.
@@ -62,6 +62,11 @@ set_diamond <- function(
         if(!is.element(makedb_type,"protein"))
                 stop("Please choose a valid DIAMOND database type. Only 'protein' is available for this function.",
                      "For users who want to use nucleotide, use the function set_blast()", call. = FALSE)
+        
+        if (makedb && seq_type == "dna")
+                stop("seq_type = 'dna' cannot be used to build a DIAMOND database: DIAMOND databases hold proteins and ",
+                     "genes are not predicted from DNA sequences. Please provide coding sequences (seq_type = 'cds') ",
+                     "or proteins (seq_type = 'protein').", call. = FALSE)
         
         dt <- protein_table(file = file, seq_type = seq_type, delete_corrupt_cds = delete_corrupt_cds, ...)
         

@@ -46,59 +46,64 @@ dNdS(
 The option diamond uses DIAMOND2 which is up to 10 000X folds faster than BLASTP while retaining the sensitivity of BLASTP.}
 
 \item{sensitivity_mode}{specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
-- sensitivity_mode = "faster" : fastest alignment mode, but least sensitive (default). Designed for finding hits of >70
-- sensitivity_mode = "default" : Default mode. Designed for finding hits of >70
-- sensitivity_mode = "fast" : fast alignment mode, but least sensitive (default). Designed for finding hits of >70
-- sensitivity_mode = "mid-sensitive" : fast alignments between the fast mode and the sensitive mode in sensitivity.
-- sensitivity_mode = "sensitive" : fast alignments, but full sensitivity for hits >40
-- sensitivity_mode = "more-sensitive" : more sensitive than the sensitive mode.
-- sensitivity_mode = "very-sensitive" : sensitive alignment mode.
-- sensitivity_mode = "ultra-sensitive" : most sensitive alignment mode (sensitivity as high as BLASTP).}
+\itemize{
+\item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+\item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
+\item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+\item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
+\item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
+\item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
+\item \code{sensitivity_mode = "very-sensitive"}: sensitive alignment mode.
+\item \code{sensitivity_mode = "ultra-sensitive"}: most sensitive alignment mode (sensitivity as high as BLASTP).
+}
+Any other value is an error.}
 
 \item{aligner_path}{a character string specifying the path to the DIAMOND or BLAST program (in case you don't use the default path).}
 
-\item{seq_type}{a character string specifying the sequence type stored in the input file. Options are: 
-\itemize{
-\item \code{seq_type = "cds"} (Default): sequence are translated to protein sequences
-\item \code{seq_type = "protein"}: orthology inference is performed using protein sequences directly.
-}}
+\item{seq_type}{the sequence type stored in the input files. Only \code{seq_type = "cds"} (Default) is possible:
+dN/dS is computed from codon alignments, so both files must hold coding sequences. Any other value is an error.}
 
-\item{format}{a character string specifying the file format of the sequence file, e.g. \code{format = "fasta"}, \code{format = "gbk"}. See \code{\link{read.cds}},
-\code{\link{read.genome}}, \code{\link{read.proteome}} for more details.}
+\item{format}{the file format of the sequence files. Only \code{format = "fasta"} (Default) is supported.}
 
 \item{ortho_detection}{a character string specifying the orthology inference method that shall be performed to detect orthologous genes. Options are:
 \itemize{
-\item \code{ortho_detection ="BH"}: DIAMOND or BLAST unidirectional best hit.
 \item \code{ortho_detection = "RBH"}: DIAMOND or BLAST reciprocal/bidirectional best hit (Default).
-\item \code{ortho_detection = "Orthofinder2"}: single copy core orthologs between multiple species proteome comparisons.
-}}
+\item \code{ortho_detection = "BH"}: DIAMOND or BLAST unidirectional best hit.
+}
+Any other value is an error (\code{"Orthofinder2"}, \code{"PO"} and \code{"DELTA"} are not available).}
 
 \item{delete_corrupt_cds}{a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet.}
 
 \item{store_locally}{a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.}
 
-\item{cdd.path}{path to the cdd database folder (specify when using \code{ortho_detection} = \code{"DELTA"}).}
+\item{cdd.path}{deprecated and not used (a warning is given when it is set).}
 
 \item{aligner_params}{a character string specifying additional parameters that shall be passed to DIAMOND or BLAST. Default is \code{aligner_params} = \code{NULL}.}
 
 \item{eval}{a numeric value specifying the E-Value cutoff for DIAMOND or BLAST hit detection.}
 
-\item{ortho_path}{a character string specifying the path to the orthology inference program such as \code{Orthofinder2}, etc. (in case you don't use the default path).}
+\item{ortho_path}{deprecated and not used (a warning is given when it is set).}
 
 \item{aa_aln_type}{a character string specifying the amino acid alignment type:
 \itemize{ 
-\item \code{aa_aln_type} = "multiple" (Default)
-\item \code{aa_aln_type} = "pairwise"
+\item \code{aa_aln_type = "pairwise"} (Default)
+\item \code{aa_aln_type = "multiple"}
 }.}
 
-\item{aa_aln_tool}{a character string specifying the program that should be used e.g. "clustalw".}
+\item{aa_aln_tool}{a character string specifying the program that aligns the two proteins of a gene pair:
+\code{"NW"} (Default; Needleman-Wunsch in R, with \code{aa_aln_type = "pairwise"}), or with
+\code{aa_aln_type = "multiple"} one of \code{"clustalw"}, \code{"clustalo"}, \code{"mafft"}, \code{"muscle"},
+\code{"t_coffee"} (see \code{\link{multi_aln}}).}
 
 \item{aa_aln_path}{a character string specifying the path to the multiple alignment program (in case you don't use the default path).}
 
-\item{aa_aln_params}{a character string specifying additional command-line parameters to pass to the amino acid alignment tool
-selected via \code{aa_aln_tool} (e.g. \code{"clustalw"} for multiple alignment or \code{"NW"} for pairwise alignment).
+\item{aa_aln_params}{a character string with command-line parameters for the multiple alignment program selected via
+\code{aa_aln_tool}. It is handed to \code{\link{multi_aln}} as \code{params} and \emph{replaces} the default parameters
+of that program (see there; the alignment must still be written in CLUSTAL or FASTA format, e.g.
+\code{aa_aln_tool = "mafft", aa_aln_params = "--maxiterate 1 --clustalout"}). It is not used (with a warning)
+with \code{aa_aln_type = "pairwise"}. Until version 0.4.3 the argument was accepted but never passed on.
 Note: this controls the amino acid alignment step only, not the initial DIAMOND or BLAST homology search
-(use \code{aligner_params} for that). Default is \code{aa_aln_params} = \code{NULL} (no additional parameters are forwarded).}
+(use \code{aligner_params} for that). Default is \code{aa_aln_params} = \code{NULL} (the default parameters).}
 
 \item{codon_aln_tool}{a character string specifying the codon alignment tool that shall be used. Default is \code{codon_aln_tool} = \code{"pal2nal"}.
 Right now only "pal2nal" can be selected as codon alignment tool.}
@@ -119,13 +124,14 @@ Options are:
 \item \code{dnds_est.method ="MYN"} (Modified YN): Zhang, Z., et al. (2006)
 }}
 
-\item{comp_cores}{a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.}
+\item{comp_cores}{a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.
+When it is larger than the number of available cores, the number of available cores is used and a warning is given.}
 
 \item{quiet}{a logical value specifying whether the output of the corresponding alignment tool shall be printed out to the console.
 Default is \code{quiet} = \code{FALSE}.}
 
-\item{clean_folders}{a boolean value spefiying whether all internall folders storing the output of used programs
-shall be removed. Default is \code{clean_folders} = \code{FALSE}.}
+\item{clean_folders}{kept for compatibility. All intermediate files of a call are written to a folder of its own inside
+\code{tempdir()}, which is always removed when the call ends (see Details), so there is nothing left to clean.}
 
 \item{print_citation}{a logical value indicating whether or not the citation message shall be printed.}
 
@@ -246,8 +252,8 @@ dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'ortho
 dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
      subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
      ortho_detection = "RBH", 
-     aa_aln_type     = "pairwise",
-     aa_aln_tool     = "NW", 
+     aa_aln_type     = "multiple",
+     aa_aln_tool     = "clustalw", 
      aa_aln_path     = "/path/to/clustalw/",
      codon_aln_tool  = "pal2nal", 
      dnds_est.method = "Comeron", 
@@ -259,10 +265,9 @@ dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'ortho
      ortho_detection = "RBH", 
      aa_aln_type     = "pairwise",
      aa_aln_tool     = "NW", 
-     aa_aln_path     = "/path/to/clustalw/",
      codon_aln_tool  = "pal2nal", 
      dnds_est.method = "Comeron", 
-     comp_cores      = 1 )
+     comp_cores      = 2 )
 
 }
 }

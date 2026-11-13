@@ -10,6 +10,9 @@
 #' @param params a character string listing the input paramters that shall be passed to corresponding alignment tool specified in the \code{tool} argument. 
 #' Default is \code{NULL}, implicating that a set of default parameters is used when running the correponding tool, e.g. clustalw. 
 #' Example: \code{params} = "-PWMATRIX=BLOSUM -TYPE=PROTEIN" for \code{tool} = "clustalw.
+#' For \code{tool} = "t_coffee" the default is T-Coffee's own default mode with CLUSTAL output. Until version 0.4.3
+#' the default was \code{-mode accurate}, which needs access to a BLAST server and fails without network; use
+#' \code{params = "-mode accurate"} to get it back.
 #' @param quiet a logical value specifying whether the output of the corresponding multiple alignment tool shall be printed out to the console.
 #' Default is \code{quiet} = \code{FALSE}.
 #' @param clean_folders a boolean value spefiying whether all internall folders storing the output of used programs
@@ -27,7 +30,7 @@
 #' 
 #' \itemize{
 #' \item MacOS: 'clustalw2' 
-#' \item Linux: 'clustalw'
+#' \item Linux: 'clustalw2'
 #' \item  Windows: 'clustalw2.exe'
 #' }
 #' 
@@ -36,7 +39,7 @@
 #' 
 #' \itemize{
 #' \item MacOS: \code{system("clustalw2 -help")}
-#' \item Linux: \code{system("clustalw -help")}
+#' \item Linux: \code{system("clustalw2 -help")}
 #' \item Windows: \code{system("clustalw2.exe -help")}
 #' 
 #' }
@@ -46,7 +49,7 @@
 #' 
 #' \itemize{
 #' \item MacOS: \code{system("path/to/clustalw/clustalw2 -help")}
-#' \item Linux: \code{system("path/to/clustalw/clustalw -help")}
+#' \item Linux: \code{system("path/to/clustalw/clustalw2 -help")}
 #' \item Windows: \code{system("path/to/clustalw/clustalw2.exe -help")}
 #' 
 #' }
@@ -76,6 +79,13 @@
 #' to specify the 'muscle' execution path on your system:
 #' 
 #' \code{system("path/to/muscle/muscle -help")}
+#' 
+#' Both MUSCLE 3.8 and MUSCLE 5 are supported; the version is detected from \code{muscle -version}.
+#' MUSCLE 3.8 is run as \code{muscle -in <file> -out <aln> -clwstrict -quiet} (CLUSTAL output). MUSCLE 5 has
+#' another command line and no CLUSTAL output: it is run as \code{muscle -align <file> -output <aln>}, the
+#' alignment is written in aligned FASTA format and the sequences are put back into the order of the input
+#' file. With MUSCLE 5, \code{params} must hold MUSCLE 5 options (the MUSCLE 3.8 options \code{-diags},
+#' \code{-clwstrict}, ... are not accepted by it).
 #' 
 #' 
 #' \item CLUSTALO : 
@@ -169,7 +179,7 @@
 #' multi_aln(file    = system.file('seqs/aa_seqs.fasta', package = 'orthologr'),
 #'           tool    = "muscle", 
 #'           get_aln = TRUE,
-#'           params  = "-diags -clwstrict") 
+#'           params  = "-diags -clwstrict")   # MUSCLE 3.8 options
 #'           
 #' 
 #' # CLUSTALO Example:  
@@ -320,27 +330,48 @@ multi_aln <- function(file,
                 )
         }
         
+        # the format the alignment file is written in
+        aln_format <- "clustal"
+        
         if (tool == "t_coffee") {
                 is_installed_tcoffee(path = path)
+                # Default: T-Coffee's own default mode, CLUSTAL output only, the guide tree next to the output
+                # (not in the working directory). Until 0.4.3 the default was '-mode accurate', which needs a
+                # BLAST server (network) and fails without one; use params = "-mode accurate" to get it back.
+                tree.out <- paste0(tmp.out, ".dnd")
+                on.exit(unlink(tree.out), add = TRUE)
                 run_tool(
                         "t_coffee",
-                        args = list("-infile", file,
-                                    if (is.null(params)) I("-mode accurate") else I(params),
-                                    "-outfile", tmp.out),
+                        args = if (is.null(params))
+                                list("-infile", file, "-output", "clustalw_aln", "-newtree", tree.out, "-quiet",
+                                     "-outfile", tmp.out)
+                        else
+                                list("-infile", file, I(params), "-outfile", tmp.out),
                         path = path, tool = "T-Coffee", context = context, output = tmp.out
                 )
         }
         
         if (tool == "muscle") {
                 is_installed_muscle(path = path)
-                run_tool(
-                        "muscle",
-                        args = if (is.null(params))
-                                list("-in", file, "-out", tmp.out, "-clwstrict", "-quiet")
-                        else
-                                list("-in", file, I(params), "-out", tmp.out),
-                        path = path, tool = "MUSCLE", context = context, output = tmp.out
-                )
+                if (muscle_major_version(path = path) >= 5) {
+                        # MUSCLE 5: -align / -output, aligned FASTA only, sequences in an order of its own
+                        run_tool(
+                                "muscle",
+                                args = list("-align", file, if (!is.null(params)) I(params), "-output", tmp.out),
+                                path = path, tool = "MUSCLE", context = context, output = tmp.out
+                        )
+                        reorder_fasta(tmp.out, fasta_ids(file))
+                        aln_format <- "fasta"
+                } else {
+                        run_tool(
+                                "muscle",
+                                args = if (is.null(params))
+                                        list("-in", file, "-out", tmp.out, "-clwstrict", "-quiet")
+                                else
+                                        list("-in", file, I(params), "-out", tmp.out),
+                                path = path, tool = "MUSCLE", context = context, output = tmp.out
+                        )
+                }
         }
         
         if (tool == "clustalo") {
@@ -385,7 +416,11 @@ multi_aln <- function(file,
         
         if (get_aln) {
                 aln <- tryCatch({
-                        Biostrings::readAAMultipleAlignment(file.out, format = "clustal")
+                        tryCatch(
+                                Biostrings::readAAMultipleAlignment(file.out, format = aln_format),
+                                # e.g. the CLUSTAL format written by T-Coffee
+                                error = function(e) Biostrings::AAMultipleAlignment(read_clustal(file.out))
+                        )
                 }, error = function(e) {
                         stop(
                                 "Something went wront with ",
