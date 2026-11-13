@@ -19,8 +19,8 @@ change. Please report the version of orthologr in the methods of analyses based 
   pairwise dN/dS). With `quiet = FALSE`, a progress message about every tenth of the gene pairs.
 - **Record of the run**: `attr(result, "orthologr_run")` on results of `dNdS()`, `dNdS_coal()`,
   `dNdS_clusters()`, `dNdS_orthogroups()` and `divergence_stratigraphy()`: package version, arguments, every
-  `orthologr.*` option in force, engine, program versions, date, size and MD5 of the input files, counts by
-  status. **`write_dNdS()`** writes a table as TSV with this record in `<file>.run.json`; **`read_dNdS()`** reads
+  `orthologr.*` option in force (with its default when it is not set, `orthologr.ambiguous_cds` included), engine,
+  program versions, date, size and MD5 of the input files, counts by status. **`write_dNdS()`** writes a table as TSV with this record in `<file>.run.json`; **`read_dNdS()`** reads
   both back (needs `jsonlite`). `orthogroups()$params` holds the package version.
 - **`orthologr_legacy_options()`** and `options(orthologr.legacy = TRUE)`: all settings of 0.4.3 at once. A test
   compares the result with tables stored from 0.4.3 (20-gene example, Comeron and YN).
