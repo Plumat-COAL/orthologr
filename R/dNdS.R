@@ -433,42 +433,11 @@ dNdS <- function(query_file,
         # choosing the aligner between diamond and blast
         # (aligner and ortho_detection were checked above)
         {
-                if (aligner == "diamond" & ortho_detection == "BH")
-                        align <- function(...) 
-                                diamond_best(...,
-                                             diamond_params = aligner_params,
-                                             sensitivity_mode = sensitivity_mode)
-                if (aligner == "diamond" & ortho_detection == "RBH")
-                        align <- function(...) 
-                                diamond_rec(...,
-                                            diamond_params = aligner_params,
-                                            sensitivity_mode = sensitivity_mode)
-                if (aligner == "blast" & ortho_detection == "BH")
-                        align <- function(...) 
-                                blast_best(...,
-                                           blast_params = aligner_params)
-                if (aligner == "blast" & ortho_detection == "RBH")
-                        align <- function(...) 
-                                blast_rec(...,
-                                          blast_params = aligner_params)
-                
-                # run orthology inference.
-                # (when quiet, the banners and timings of the search program are not shown)
-                hit.table <- quiet_search(
-                        align(
-                                query_file   = query_file,
-                                subject_file = subject_file,
-                                delete_corrupt_cds = delete_corrupt_cds,
-                                path         = aligner_path,
-                                comp_cores   = comp_cores,
-                                seq_type     = seq_type,
-                                eval         = eval,
-                                format       = format,
-                                best_hit_rule = best_hit_rule
-                        ), quiet = quiet)
-                
-                data.table::setDT(hit.table)
-                data.table::setkeyv(hit.table, c("query_id","subject_id"))
+                hit.table <- dnds_search(query_file, subject_file, aligner = aligner, ortho_detection = ortho_detection,
+                                         aligner_params = aligner_params, sensitivity_mode = sensitivity_mode,
+                                         aligner_path = aligner_path, delete_corrupt_cds = delete_corrupt_cds,
+                                         comp_cores = comp_cores, seq_type = seq_type, eval = eval, format = format,
+                                         best_hit_rule = best_hit_rule, quiet = quiet)
                 
                 # (both files were read and translated for the search: they are not read again)
                 q_cds <- read_cds_once(query_file, delete_corrupt_cds = delete_corrupt_cds)
@@ -554,8 +523,31 @@ dNdS <- function(query_file,
            return(res)   
 }
 
-
-
-
-
-
+# The search step shared by dNdS() and dNdS_coal(): best hits (ortho_detection = "BH") or reciprocal best hits
+# ("RBH") with DIAMOND or BLAST+, as a keyed data.table. (When quiet, the banners and timings of the search program
+# are not shown.)
+dnds_search <- function(query_file, subject_file, aligner, ortho_detection, aligner_params, sensitivity_mode,
+                        aligner_path, delete_corrupt_cds, comp_cores, seq_type, eval, format, best_hit_rule, quiet) {
+        align <- switch(paste(aligner, ortho_detection),
+                "diamond BH"  = function(...) diamond_best(..., diamond_params = aligner_params, sensitivity_mode = sensitivity_mode),
+                "diamond RBH" = function(...) diamond_rec(..., diamond_params = aligner_params, sensitivity_mode = sensitivity_mode),
+                "blast BH"    = function(...) blast_best(..., blast_params = aligner_params),
+                "blast RBH"   = function(...) blast_rec(..., blast_params = aligner_params),
+                orthologr_abort("aligner = '", aligner, "' with ortho_detection = '", ortho_detection, "' is not supported.",
+                                class = "bad_argument"))
+        hit.table <- quiet_search(
+                align(
+                        query_file         = query_file,
+                        subject_file       = subject_file,
+                        delete_corrupt_cds = delete_corrupt_cds,
+                        path               = aligner_path,
+                        comp_cores         = comp_cores,
+                        seq_type           = seq_type,
+                        eval               = eval,
+                        format             = format,
+                        best_hit_rule      = best_hit_rule
+                ), quiet = quiet)
+        data.table::setDT(hit.table)
+        data.table::setkeyv(hit.table, c("query_id", "subject_id"))
+        hit.table
+}
