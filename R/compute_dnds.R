@@ -362,7 +362,7 @@ dnds_na_row <- function(query_id, subject_id, est.method, reason) {
 dnds_cluster <- function(n) {
         type <- getOption("orthologr.cluster_type", if (.Platform$OS.type == "windows") "PSOCK" else "FORK")
         if (!is.element(type, c("FORK", "PSOCK")))
-                stop("options(orthologr.cluster_type = ) must be \"FORK\" or \"PSOCK\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "options(orthologr.cluster_type = ) must be \"FORK\" or \"PSOCK\".", call. = FALSE)
         if (type == "FORK" && .Platform$OS.type == "windows")
                 type <- "PSOCK"
         if (type == "FORK") {

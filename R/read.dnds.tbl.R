@@ -23,7 +23,7 @@
 read.dnds.tbl <- function(file) {
         
         if (!file.exists(file))
-                stop("The file '",file,"' does not seem to exist. Please specify a valid path to your dnds table.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file '",file,"' does not seem to exist. Please specify a valid path to your dnds table.", call. = FALSE)
         
         res <- tibble::as_tibble(readr::read_delim(
                 file,

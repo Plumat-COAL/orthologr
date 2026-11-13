@@ -301,10 +301,10 @@ multi_aln <- function(file,
                 path <- normalizePath(path, mustWork = FALSE)
         
         if(!is.multiple_aln_tool(tool))
-                stop("Please choose a tool that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a tool that is supported by this function.")
         
         if (!file.exists(file))
-                stop("The file you specified in 'file' does not seem to exist: ", file, ".", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file you specified in 'file' does not seem to exist: ", file, ".", call. = FALSE)
         
         out_dir <- file.path(orthologr_tmpdir(), "_alignment", "multi_aln")
         if (!file.exists(out_dir))

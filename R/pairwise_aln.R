@@ -64,10 +64,10 @@ pairwise_aln <- function(file,
         
         
         if (!is.pairwise_aln_tool(tool))
-                stop("Please choose a tool that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a tool that is supported by this function.")
         
         if (!is.element(seq_type, c("dna", "cds", "protein")))
-                stop("Please choose a seq_type that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a seq_type that is supported by this function.")
         
         if (is.element(seq_type, c("dna", "cds")))
                 seqtype <- "DNA"

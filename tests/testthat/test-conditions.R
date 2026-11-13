@@ -84,3 +84,38 @@ test_that("sensitivity_hint(): a message for distant species with sensitivity_mo
         expect_silent(sensitivity_hint(data.frame(perc_identity = rep(95, 30)), "diamond", "fast"))
         expect_silent(sensitivity_hint(hits[1:5, , drop = FALSE], "diamond", "fast"))
 })
+
+# One row per documented kind of error (?orthologr_options, "Errors and warnings"): the argument and input-file
+# checks of the main functions. All of them fail before any external program is needed.
+test_that("argument and input-file errors of the main functions have the documented class", {
+        q <- thal_cds()
+        s <- lyra_cds()
+        nope <- file.path(new_test_dir("cond_nope_"), "no_such_file.fasta")
+        probes <- list(
+                list("dNdS codon_aln_tool",         quote(dNdS(q, s, codon_aln_tool = "x")),                  "bad_argument"),
+                list("dNdS dnds_est.method",        quote(dNdS(q, s, dnds_est.method = "x")),                 "bad_argument"),
+                list("dNdS two methods",            quote(dNdS(q, s, dnds_est.method = c("YN", "NG"))),       "bad_argument"),
+                list("dNdS best_hit_rule",          quote(dNdS(q, s, best_hit_rule = "x")),                   "bad_argument"),
+                list("dNdS comp_cores",             quote(dNdS(q, s, comp_cores = 0)),                        "bad_argument"),
+                list("dNdS aa_sub_matrix",          quote(dNdS(q, s, aa_sub_matrix = "FOO")),                 "bad_argument"),
+                list("dNdS aligner",                quote(dNdS(q, s, aligner = "x")),                         "bad_argument"),
+                list("dNdS missing query file",     quote(dNdS(nope, s)),                                     "bad_input"),
+                list("dNdS missing subject file",   quote(dNdS(q, nope)),                                     "bad_input"),
+                list("read.cds missing file",       quote(read.cds(nope, format = "fasta")),                  "bad_input"),
+                list("read.cds format",             quote(read.cds(q, format = "x")),                         "bad_argument"),
+                list("read.proteome missing file",  quote(read.proteome(nope, format = "fasta")),             "bad_input"),
+                list("multi_aln tool",              quote(multi_aln(nope, tool = "x")),                       "bad_argument"),
+                list("pairwise_aln tool",           quote(pairwise_aln(nope, tool = "x")),                    "bad_argument"),
+                list("filter_dNdS dS_zero",         quote(filter_dNdS(data.frame(), dS_zero = "x")),          "bad_argument"),
+                list("orthogroups one file",        quote(orthogroups(c(a = q))),                             "bad_argument"),
+                list("orthogroups missing file",    quote(orthogroups(c(a = q, b = nope))),                   "bad_input"),
+                list("read_dNdS missing file",      quote(read_dNdS(nope)),                                   "bad_input")
+        )
+        for (p in probes) {
+                e <- tryCatch(suppressMessages(eval(p[[2]])), error = function(e) e)
+                expect_s3_class(e, paste0("orthologr_error_", p[[3]]))
+                if (!inherits(e, paste0("orthologr_error_", p[[3]])))
+                        fail(paste0(p[[1]], ": ", paste(class(e), collapse = ", "), ": ", conditionMessage(e)))
+        }
+        expect_true(all(vapply(probes, `[[`, "", 3) %in% orthologr_condition_classes()$error))
+})

@@ -62,7 +62,7 @@
 filter_dNdS <- function(dNdS_tbl, dnds.threshold = 2, dS_zero = getOption("orthologr.dS_zero", "drop")){
         dN <- dS <- NULL
         if (!is.character(dS_zero) || length(dS_zero) != 1 || !is.element(dS_zero, c("keep", "drop")))
-                stop("dS_zero must be \"keep\" or \"drop\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "dS_zero must be \"keep\" or \"drop\".", call. = FALSE)
         message("Filtering out NA values in dN or dS and all values with dNdS > ", dnds.threshold, " ...")
         message("Initial input contains ", nrow(dNdS_tbl), " rows.")
         
