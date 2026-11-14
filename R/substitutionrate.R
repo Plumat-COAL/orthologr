@@ -331,7 +331,7 @@ substitutionrate <- function(file,
                              conditionMessage(e), call. = FALSE)
                 })
                 
-                return(kaks_result_table(kaks_tbl, pair_ids, context))
+                return(kaks_result_table(kaks_tbl, pair_ids, paste0(context, " (method ", est.method, ")")))
         }
         
         # every method accepted above is handled by one of the branches; a method that is not must never give NULL
