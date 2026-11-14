@@ -117,3 +117,22 @@ test_that("dNdS() works with Li estimation method ...", {
         expect_true(is.data.frame(result))
         expect_gt(nrow(result), 0L)
 })
+
+test_that("dNdS() computes every documented KaKs_Calculator method end to end (MLPB crashed after the search) ...", {
+        skip_if_not(diamond_available, "DIAMOND2 is not installed or not on PATH")
+        skip_if_not(nzchar(Sys.which("KaKs_Calculator")), "KaKs_Calculator is not installed")
+        skip_if_not(nzchar(Sys.which("perl")), "perl is not installed")
+        for (m in c("NG", "LWL", "MLWL", "LPB", "MLPB", "YN", "MYN")) {
+                msgs <- character()
+                result <- withCallingHandlers(
+                        dNdS(query_file = query_cds, subject_file = subject_cds, dnds_est.method = m,
+                             quiet = TRUE, print_citation = FALSE),
+                        message = function(x) {
+                                msgs <<- c(msgs, conditionMessage(x))
+                                invokeRestart("muffleMessage")
+                        })
+                expect_equal(nrow(result), 20L, info = m)
+                expect_true(is.numeric(result$dS) && sum(is.finite(result$dNdS)) >= 15, info = m)
+                expect_true(any(grepl("dNdS\\(\\): 20 gene pairs", msgs)), info = m)
+        }
+})
