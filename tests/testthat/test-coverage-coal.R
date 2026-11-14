@@ -5,35 +5,34 @@
 
 cov_coalr <- requireNamespace("coalr", quietly = TRUE)
 
-# Options and environment variables for the rest of the calling test.
-cov_local_options <- function(..., .env = parent.frame()) {
-        old <- options(...)
-        testthat::defer(options(old), envir = .env)
-        invisible(old)
-}
-cov_local_envvar <- function(..., .env = parent.frame()) {
-        new <- c(...)
-        old <- Sys.getenv(names(new), unset = NA, names = TRUE)
-        do.call(Sys.setenv, as.list(new))
-        testthat::defer({
-                for (n in names(old)) {
-                        if (is.na(old[[n]])) Sys.unsetenv(n) else do.call(Sys.setenv, stats::setNames(list(old[[n]]), n))
+# The orthologr options and the environment variables these tests change, restored by the function returned:
+#     restore <- cov_state(); on.exit(restore(), add = TRUE)
+cov_state <- function(vars = c("COAL_CPP", "FAKE_COAL_MODE")) {
+        ours <- function() grep("^orthologr\\.", names(options()), value = TRUE)
+        opt <- options()[ours()]
+        env <- Sys.getenv(vars, unset = NA, names = TRUE)
+        function() {
+                added <- setdiff(ours(), names(opt))
+                if (length(added) > 0)
+                        options(stats::setNames(rep(list(NULL), length(added)), added))
+                options(opt)
+                for (n in names(env)) {
+                        if (is.na(env[[n]])) Sys.unsetenv(n) else do.call(Sys.setenv, stats::setNames(list(env[[n]]), n))
                 }
-        }, envir = .env)
-        invisible(old)
+        }
 }
 
 # A copy of the fake coal-cpp in a folder of its own (each test gets a fresh path, so the answers orthologr
-# remembers per program path never leak between tests), chosen as the COAL backend for the calling test.
-local_fake_coal <- function(mode = "ok", .env = parent.frame()) {
+# remembers per program path never leak between tests), chosen as the COAL backend. Use after cov_state().
+local_fake_coal <- function(mode = "ok") {
         testthat::skip_on_os("windows")
         testthat::skip_if_not(nzchar(Sys.which("sh")), "no POSIX shell")
         dir <- new_test_dir("fake_coal_")
         exe <- file.path(dir, "coal-cpp")
         file.copy(testthat::test_path("fixtures", "coverage", "fake-coal-cpp.sh"), exe)
         Sys.chmod(exe, "0755")
-        cov_local_options(orthologr.coal_backend = "binary", orthologr.coal_path = exe, .env = .env)
-        cov_local_envvar(FAKE_COAL_MODE = mode, .env = .env)
+        options(orthologr.coal_backend = "binary", orthologr.coal_path = exe)
+        Sys.setenv(FAKE_COAL_MODE = mode)
         normalizePath(exe)
 }
 
@@ -49,13 +48,15 @@ cov_cds_b <- "ATGAAGACCGCCTATATTGCGAAACAACGTCTGGATGGTGATCTGAAGGCGTGGTTGACC"
 # choosing the backend
 
 test_that("coal_backend() checks options(orthologr.coal_backend) and says how to install COAL", {
-        cov_local_options(orthologr.coal_backend = "fortran")
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
+        options(orthologr.coal_backend = "fortran")
         expect_error(coal_backend(), class = "orthologr_error_bad_argument")
         expect_false(is_installed_coal())
         expect_false(coal_has_native_methods())
         expect_identical(coal_versions(), list())
 
-        cov_local_options(orthologr.coal_backend = "none")
+        options(orthologr.coal_backend = "none")
         err <- expect_error(coal_backend(), class = "orthologr_error_package_missing")
         expect_s3_class(err, "orthologr_error_tool_missing")
         expect_match(conditionMessage(err), "pip install coal-align", fixed = TRUE)
@@ -65,8 +66,10 @@ test_that("coal_backend() checks options(orthologr.coal_backend) and says how to
 })
 
 test_that("coal_backend(): the binary backend is used when forced, and 'coalr' is asked for by name", {
-        cov_local_options(orthologr.coal_backend = "binary", orthologr.coal_path = "")
-        cov_local_envvar(COAL_CPP = "")
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
+        options(orthologr.coal_backend = "binary", orthologr.coal_path = "")
+        Sys.setenv(COAL_CPP = "")
         # (a coal-cpp on the PATH would be found: only then is there a binary)
         if (!nzchar(Sys.which("coal-cpp"))) {
                 expect_null(coal_binary())
@@ -77,28 +80,32 @@ test_that("coal_backend(): the binary backend is used when forced, and 'coalr' i
 })
 
 test_that("coal_binary(): options(orthologr.coal_path), then COAL_CPP; folders and missing files are not taken", {
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
         dir <- new_test_dir("coal_bin_")
         exe <- file.path(dir, "coal-cpp")
         writeLines("#!/bin/sh", exe)
-        cov_local_envvar(COAL_CPP = "")
-        cov_local_options(orthologr.coal_path = exe)
+        Sys.setenv(COAL_CPP = "")
+        options(orthologr.coal_path = exe)
         expect_identical(coal_binary(), normalizePath(exe))
         # a folder is not a program
-        cov_local_options(orthologr.coal_path = dir)
+        options(orthologr.coal_path = dir)
         if (!nzchar(Sys.which("coal-cpp")))
                 expect_null(coal_binary())
         # the environment variable when the option names nothing
-        cov_local_options(orthologr.coal_path = file.path(dir, "not-there"))
-        cov_local_envvar(COAL_CPP = exe)
+        options(orthologr.coal_path = file.path(dir, "not-there"))
+        Sys.setenv(COAL_CPP = exe)
         expect_identical(coal_binary(), normalizePath(exe))
         # a malformed option is passed over
-        cov_local_options(orthologr.coal_path = c("a", "b"))
+        options(orthologr.coal_path = c("a", "b"))
         expect_identical(coal_binary(), normalizePath(exe))
 })
 
 test_that("coal_backend(forced = 'coalr') without coalr asks for the package", {
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
         skip_if(cov_coalr, "coalr is installed (the error is only given without it)")
-        cov_local_options(orthologr.coal_backend = "coalr")
+        options(orthologr.coal_backend = "coalr")
         expect_error(coal_backend(), "needs the R package 'coalr'", class = "orthologr_error_package_missing")
 })
 
@@ -106,6 +113,8 @@ test_that("coal_backend(forced = 'coalr') without coalr asks for the package", {
 # the binary backend (fake coal-cpp)
 
 test_that("the binary backend: version, native methods (from the help text) and the record of a run", {
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
         exe <- local_fake_coal("ok")
         expect_true(is_installed_coal())
         expect_identical(coal_backend(), list(type = "binary", path = exe))
@@ -120,6 +129,8 @@ test_that("the binary backend: version, native methods (from the help text) and 
 })
 
 test_that("the binary backend: a coal-cpp without Comeron and Li says what is needed", {
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
         local_fake_coal("nonative")
         expect_false(coal_has_native_methods())
         expect_identical(coal_methods(), coal_kaks_calculator_methods())
@@ -137,6 +148,8 @@ test_that("coal_check_methods() checks the methods it is given", {
 })
 
 test_that("the binary backend: substitutionrate's Ka/Ks of one codon alignment (coal_kaks_file)", {
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
         local_fake_coal("ok")
         f <- cov_write_fasta(c(cov_cds_a, cov_cds_b), c("q-1", "s-1"))
         res <- coal_kaks_file(f, "YN", subst_name = "p1")
@@ -154,35 +167,41 @@ test_that("the binary backend: substitutionrate's Ka/Ks of one codon alignment (
 })
 
 test_that("the binary backend: Comeron's undefined correction is NA unless the legacy option is set", {
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
         local_fake_coal("undefined")
         f <- cov_write_fasta(c(cov_cds_a, cov_cds_b), c("q", "s"))
         res <- coal_kaks_file(f, "Comeron")
         expect_equal(res$dN, 0.1235)
         expect_true(is.na(res$dS) && is.na(res$dNdS))
-        cov_local_options(orthologr.legacy_comeron_saturation = TRUE)
+        options(orthologr.legacy_comeron_saturation = TRUE)
         res <- coal_kaks_file(f, "Comeron")
         expect_equal(c(res$dN, res$dS, res$dNdS), c(0.1235, 1.5, 0.0823))
 })
 
 test_that("the binary backend: errors of coal-cpp name the gene pair", {
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
         f <- cov_write_fasta(c(cov_cds_a, cov_cds_b), c("qq", "ss"))
         local_fake_coal("error")
         expect_error(coal_kaks_file(f, "YN"), "COAL could not estimate dN/dS for gene pair 'qq' / 'ss': sequences of unequal length")
-        cov_local_envvar(FAKE_COAL_MODE = "empty")
+        Sys.setenv(FAKE_COAL_MODE = "empty")
         expect_error(coal_kaks_file(f, "YN"), "COAL returned no result for gene pair 'qq' / 'ss'")
-        cov_local_envvar(FAKE_COAL_MODE = "fail")
+        Sys.setenv(FAKE_COAL_MODE = "fail")
         expect_error(coal_kaks_file(f, "YN"), "failed on purpose", class = "orthologr_error_tool_failed")
-        cov_local_envvar(FAKE_COAL_MODE = "nooutput")
+        Sys.setenv(FAKE_COAL_MODE = "nooutput")
         expect_error(coal_kaks_file(f, "YN"), "wrote no output", class = "orthologr_error_alignment_failed")
         # a file that does not hold two sequences
         three <- cov_write_fasta(c(cov_cds_a, cov_cds_b, cov_cds_a), c("a", "b", "c"))
-        cov_local_envvar(FAKE_COAL_MODE = "ok")
+        Sys.setenv(FAKE_COAL_MODE = "ok")
         expect_error(coal_kaks_file(three, "YN"), "must hold two sequences")
         # an unknown method is refused before COAL is started
         expect_error(coal_kaks_file(f, "GY"), "kaks_tool = \"kaks_calculator\"", class = "orthologr_error_bad_argument")
 })
 
 test_that("the binary backend: codon alignments with PAL2NAL's command line (coal_codon_aln_file)", {
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
         local_fake_coal("ok")
         aln <- cov_write_fasta(c("MKTAYIAKQRLEGDLKAWLT", "MKTAYIAKQRLDGDLKAWLT"), c("a", "b"))
         nuc <- cov_write_fasta(c(cov_cds_a, cov_cds_b), c("a", "b"))
@@ -192,7 +211,7 @@ test_that("the binary backend: codon alignments with PAL2NAL's command line (coa
         expect_identical(readLines(out), readLines(nuc))
         # the temporary file is gone
         expect_identical(list.files(dirname(out)), "pair.aln")
-        cov_local_envvar(FAKE_COAL_MODE = "fail")
+        Sys.setenv(FAKE_COAL_MODE = "fail")
         expect_error(coal_codon_aln_file(aln, nuc, out, context = "the test pair"), "for the test pair",
                      class = "orthologr_error_alignment_failed")
         # the old result was removed, not left behind as if it were the new one
@@ -200,6 +219,8 @@ test_that("the binary backend: codon alignments with PAL2NAL's command line (coa
 })
 
 test_that("codon_aln(tool = \"coal\") runs the binary backend", {
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
         local_fake_coal("ok")
         aln <- cov_write_fasta(c("MKTAYIAKQRLEGDLKAWLT", "MKTAYIAKQRLDGDLKAWLT"), c("a", "b"))
         nuc <- cov_write_fasta(c(cov_cds_a, cov_cds_b), c("a", "b"))
@@ -249,9 +270,11 @@ test_that("check_aa_aln_scoring() and the matrices of the COAL engine", {
 })
 
 test_that("coal_legacy_warning() warns only with the 0.4.3 alignments", {
-        cov_local_options(orthologr.legacy_pairwise_aln = FALSE)
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
+        options(orthologr.legacy_pairwise_aln = FALSE)
         expect_silent(coal_legacy_warning("x()"))
-        cov_local_options(orthologr.legacy_pairwise_aln = TRUE)
+        options(orthologr.legacy_pairwise_aln = TRUE)
         expect_warning(coal_legacy_warning("x()"), "x\\(\\): the COAL engine cannot reproduce",
                        class = "orthologr_warning_legacy_engine")
 })
@@ -376,6 +399,8 @@ test_that("dnds_value_stats() computes every statistic it knows, NA for groups w
 # argument checks and error paths of the entry points (before any search)
 
 test_that("dNdS_coal() checks its arguments before the search", {
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
         q <- thal_cds()
         s <- lyra_cds()
         run <- function(...) dNdS_coal(query_file = q, subject_file = s, print_citation = FALSE, ...)
@@ -385,18 +410,20 @@ test_that("dNdS_coal() checks its arguments before the search", {
         expect_error(run(format = "gbk"), "format")
         expect_error(run(aa_aln_scoring = "x"), "aa_aln_scoring")
         expect_error(run(aa_sub_matrix = "BLOSUM50"), "aa_sub_matrix")
-        cov_local_options(orthologr.coal_backend = "none")
+        options(orthologr.coal_backend = "none")
         expect_error(run(), "COAL is not available")
 })
 
 test_that("dNdS_clusters() checks its arguments", {
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
         cds <- thal_cds()
         expect_error(dNdS_clusters(c(cds, file.path(tempdir(), "no-such.fasta"))), "no-such.fasta",
                      class = "orthologr_error_bad_input")
         expect_error(dNdS_clusters(cds, aa_aln_tool = "muscle"), "aa_aln_tool", class = "orthologr_error_bad_argument")
         expect_error(dNdS_clusters(cds, large_clusters = "all"), "large_clusters", class = "orthologr_error_bad_argument")
         expect_error(dNdS_clusters(cds, aa_aln_scoring = "x"), "aa_aln_scoring")
-        cov_local_options(orthologr.coal_backend = "none")
+        options(orthologr.coal_backend = "none")
         expect_error(dNdS_clusters(cds, clusters = data.frame(a = 1, b = 2)), "COAL is not available")
 })
 
