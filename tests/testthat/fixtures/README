@@ -46,6 +46,12 @@ golden_values.tsv
     (seqinr::kaks) as computed by orthologr 0.5.0, and MLPB as computed by KaKs_Calculator 2.0 (bioconda build)
     for the cross-check. Comeron and Li agree with MLPB within 12% for dN and dS on these pairs; the test states
     a tolerance of 15% (or 0.005).
+lwl_exact_zero_scer_cgla.fa, lwl_exact_zero_scer_klac.fa
+    Two codon alignments (as dNdS() builds them, default settings) of reciprocal-best-hit pairs of NCBI RefSeq
+    coding sequences: S. cerevisiae NP_012431.1 / C. glabrata XP_446556.1 and S. cerevisiae NP_013326.1 /
+    K. lactis XP_455674.1. In both, the 4-fold class of the LWL family has 1 - 2P - Q = 0 exactly, so that the
+    printed counts of KaKs_Calculator cannot tell whether it computed the class (test-kaks_values.R). Source:
+    https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/ (NCBI RefSeq; no restrictions on use, see above).
 known_pairs.tsv
     The 20 reciprocal best hit pairs of the example data with their Comeron dN, dS and dN/dS (same alignments).
     Written by /home/claude/tools-h/scripts/mk_golden.R on the machine of the second audit round.
