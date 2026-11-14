@@ -309,7 +309,8 @@ pairwise_aln_rows <- function(aa1, aa2, aa_sub_matrix = "BLOSUM62") {
         }
         a <- strip_stop(as.character(aa1))
         b <- strip_stop(as.character(aa2))
-        use <- !is.na(a) & !is.na(b) & grepl("^[A-Z*]+$", a) & grepl("^[A-Z*]+$", b)
+        use <- !is.na(a) & !is.na(b) & grepl("^[A-Z*]+\\z", a, perl = TRUE, useBytes = TRUE) &
+                grepl("^[A-Z*]+\\z", b, perl = TRUE, useBytes = TRUE)
         use[use] <- !(is.finite(limit) & as.numeric(nchar(a[use])) * as.numeric(nchar(b[use])) > limit)
         idx <- which(use)
         if (length(idx) == 0)

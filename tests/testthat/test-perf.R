@@ -187,3 +187,16 @@ test_that("compute_dnds(): progress messages after the same numbers of pairs as 
         done <- as.integer(sub("^\\D*(\\d+) of 20.*$", "\\1", grep(" of 20 ", msgs, value = TRUE)))
         expect_identical(done, c(6L, 12L, 18L))
 })
+
+test_that("the sequence checks with PCRE on bytes answer as the default regular expressions did", {
+        set.seed(1)
+        al <- c("A", "C", "G", "T", "a", "c", "g", "t", "N", "n", "R", "y", "X", "-", "*", "\n", " ", "ü", "(", "|")
+        x <- c(vapply(1:5000, function(i) paste(sample(al, sample(0:12, 1), TRUE, prob = c(rep(10, 8), rep(1, 12))),
+                                                collapse = ""), ""), NA, "", "ACGT\n", "\nACGT")
+        expect_identical(is.dnaSequence(x), !grepl("[^ACGTacgt]", x))
+        expect_identical(vapply(x, is.dnaSequence, TRUE, USE.NAMES = FALSE), is.dnaSequence(x))
+        old_fuzzy <- grepl("^[ACGTNRYKMSWBDHVacgtnrykmswbdhv]*$", x)
+        expect_identical(grepl("^[ACGTNRYKMSWBDHVacgtnrykmswbdhv]*\\z", x, perl = TRUE, useBytes = TRUE), old_fuzzy)
+        dna <- x[!is.na(x) & nchar(x) %% 3 == 0 & nchar(x) > 0 & !grepl("[\n ()|ü]", x)]
+        expect_identical(translate_cds(dna), vapply(dna, function(s) translate_cds(s), "", USE.NAMES = FALSE))
+})

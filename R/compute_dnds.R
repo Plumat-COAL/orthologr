@@ -414,7 +414,7 @@ write_pair_fasta <- function(seqs, names, file) {
 # Are the sequences 'x' such that writing them with write_pair_fasta() and reading them back with seqinr::read.fasta()
 # gives them unchanged (letters, '*' and '-' only; not NA, not empty)?
 plain_seqs <- function(x) {
-        !anyNA(x) && all(grepl("^[A-Za-z*-]+$", x))
+        !anyNA(x) && all(grepl("^[A-Za-z*-]+\\z", x, perl = TRUE, useBytes = TRUE))
 }
 
 # The names of the two sequences in the files of a gene pair.
