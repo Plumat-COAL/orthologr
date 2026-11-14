@@ -41,6 +41,17 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - `stringr` (and with it `stringi`) is no longer imported: its 27 calls were splitting and matching of file names
   and are base R now.
 
+### Changed results
+
+- Comeron's method (both engines; COAL #76): the rule of 0.5.0 that a site class with fewer than
+  `options(orthologr.comeron_min_sites)` (3) sites cannot make dN or dS `NA` now applies only where the value that
+  results is greater than 0. Setting such a class's undefined logarithm to 0 could leave dS (in principle dN) at
+  exactly 0 although a change was seen (`ATGGCTAAA` / `ATGGCCAAA`, one synonymous change: dS 0), which reads as "no
+  synonymous change" (status `"dS_zero"`, left out by `filter_dNdS()`). Such a value is `NA` again (status
+  `"saturated"`), as with `options(orthologr.comeron_min_sites = 0)`. No value greater than 0 changes, and nothing
+  changes under `orthologr_legacy_options()` (0.4.3's saturation rule). Seeded short pairs of 5 - 20 codons (the test
+  `test-substitutionrate.R`, 160 pairs): 2 dS of 0 -> `NA`, the 9 other values the rule gives in place of `NA` unchanged.
+
 ### Internal
 
 - Tests (`test-perf.R`): the batched code paths against the per-pair code (alignments, codon alignments, tables of
@@ -69,7 +80,7 @@ example (Comeron, YN) are reproduced exactly with it. Measurements: the table "C
 | coding sequences with IUPAC ambiguity codes (N, ...) are kept, codons with them not compared | left out | `options(orthologr.ambiguous_cds = "drop")` | yes |
 | Comeron: `NA` for a saturated dN / dS | a finite, too small value | `options(orthologr.legacy_comeron_saturation = TRUE)` | yes |
 | Comeron: codons that differ at two positions counted along Comeron's two pathways | libsequence's branches (the estimate depended on which sequence is first) | `options(orthologr.comeron_twosubs = "libsequence")` | yes |
-| Comeron: a site class with fewer than 3 sites cannot make dN / dS `NA` | (0.4.3 had no `NA` for saturation at all) | `options(orthologr.comeron_min_sites = 0)` | (not needed: covered by the saturation switch) |
+| Comeron: a site class with fewer than 3 sites cannot make dN / dS `NA` (0.6.0: unless the value would be 0) | (0.4.3 had no `NA` for saturation at all) | `options(orthologr.comeron_min_sites = 0)` | (not needed: covered by the saturation switch) |
 | KaKs_Calculator methods: dN and dS of 0 are 0 | `NA` | `options(orthologr.legacy_kaks_zero_dn = TRUE)` | yes |
 | KaKs_Calculator methods: capped values (99, JC69's cap, empty LWL classes) and `nan` are `NA` (`"saturated"` / `"failed"`) | returned as estimates | `options(orthologr.legacy_kaks_saturation = TRUE)` | yes |
 | `filter_dNdS()` / `divergence_stratigraphy()`: pairs with dS = 0 left out | the same | `dS_zero = "keep"` keeps them | (unchanged) |
@@ -163,7 +174,7 @@ example (Comeron, YN) are reproduced exactly with it. Measurements: the table "C
 | `divergence_stratigraphy(quiet = TRUE)`, as `dNdS()` (was `FALSE`); in an interactive session it still shows a progress line about every tenth of the gene pairs (stratigraphy runs are long) | 1,000-gene example: 10 messages instead of 45 (in scripts); same result | `quiet = FALSE` |
 | Coding sequences with IUPAC ambiguity codes (N, R, Y, ...) are kept (`options(orthologr.ambiguous_cds = "keep")`): a codon with such a base is translated to X and not compared (was: the sequence was left out); `dNdS()` lists them in `attr(, "ambiguous_sequences")` with the number of such codons and counts their rows in the summary, `dNdS_orthogroups()` (which left them out whatever the option) adds a note to their pairs | Ensembl, one transcript per gene: 87 of 19,746 human and 75 of 21,584 mouse coding sequences contain such characters (median share of ambiguous codons 0.4 %); one N in about 1 % of the codons of every human gene: Comeron's dS within 5 % of the N-free value for 99.1 % of 946 human / mouse pairs (YN 95.3 %); 1,000-gene example: 2 more pairs (with `sensitivity_mode = "default"` 999 pairs instead of 995) | `options(orthologr.ambiguous_cds = "drop")` |
 | Comeron's method counts codons that differ at two positions along Comeron's two pathways (libsequence's `TwoSubs`, and so 0.4.3, passes its arguments in another order and counts codon1 - int1, int1 - int2, codon1 - codon2 and codon2 - int2, with which the estimate depends on which sequence is first; libsequence's repository is archived). The COAL engine does the same (`coalr` with `comeron_twosubs`) | swapping the two sequences of 300 random 150-codon pairs changed Ka in 279 and Ks in 190 of them; now in none. dS of the same alignments (COAL's gestimator flavour = this code): 1,000-gene example 474 of 995 pairs change, median 0 %, p95 2.9 %, max 12 %, no status changes; human / mouse 813 of 946, median 1.0 %, p95 5.0 %, 4 status changes; S. cerevisiae / C. glabrata (mostly saturated) median 8.8 %, p95 56 %, 493 status changes. The corrected dS is slightly closer to YN's (median difference 7.68 -> 7.53 % on the 1,000-gene example) | `options(orthologr.comeron_twosubs = "libsequence")` |
-| Comeron's method: a site class with fewer than 3 sites (the 2-fold transversional class of short alignments) cannot make dN or dS `NA`; its undefined logarithm is 0, as in 0.4.3 | simulated 30-codon pairs: dN `NA` 3.7 % -> 0 %, the recovered values' mean absolute error 8.8 % (all 30-codon pairs 11.2 %); real data: 1,000-gene example 0 pairs, human / mouse 3, yeasts 14. Never changes a value that is not `NA` otherwise | `options(orthologr.comeron_min_sites = 0)` |
+| Comeron's method: a site class with fewer than 3 sites (the 2-fold transversional class of short alignments) cannot make dN or dS `NA`; its undefined logarithm is 0, as in 0.4.3 | simulated 30-codon pairs: dN `NA` 3.7 % -> 0 %, the recovered values' mean absolute error 8.8 % (all 30-codon pairs 11.2 %); real data: 1,000-gene example 0 pairs, human / mouse 3, yeasts 14. Never changes a value that is not `NA` otherwise. (0.6.0: only where the value is > 0; see 0.6.0, "Changed results") | `options(orthologr.comeron_min_sites = 0)` |
 | `orthogroups()` and `dNdS_orthogroups()` trim coding sequences whose length is not a multiple of 3 (`delete_corrupt_cds = FALSE`, as `dNdS()` does) | - (new functions) | `delete_corrupt_cds = TRUE` |
 
 All of these except the T-Coffee mode, `aa_aln_params`, `divergence_stratigraphy(quiet)`, the minimum class size of
