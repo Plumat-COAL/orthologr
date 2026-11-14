@@ -1,3 +1,41 @@
+## `orthologr` 0.6.0 (in development)
+
+### Performance (results unchanged)
+
+The dN/dS step of `dNdS()` no longer spends most of its time on work around the estimates. Every result table was
+compared with that of 0.5.0 (all columns, the attributes and the record of the run): identical for the 20-gene
+example, the 1,000-gene example and S. cerevisiae / C. glabrata, with the default settings, `engine = "coal"`,
+`codon_aln_tool = "pal2nal"`, the methods Comeron, Li and YN (KaKs_Calculator and `kaks_tool = "coal"`), 1 and 2
+cores, and under `orthologr_legacy_options()` (which still reproduces the stored 0.4.3 tables).
+
+- Pairwise protein alignments (`aa_aln_type = "pairwise"`, the default): the proteins of up to 100 gene pairs are
+  aligned with one `pwalign::pairwiseAlignment()` call (pwalign aligns the i-th pattern with the i-th subject:
+  the same alignments, scores and tie-breaks as one call per pair) instead of building an `AAString` object and
+  reading a FASTA file per pair. Not used with `store_locally = TRUE`, `aa_sub_matrix = NULL` and the legacy
+  pairwise alignment (`options(orthologr.legacy_pairwise_aln = TRUE)`): those pairs are aligned one by one as before,
+  and so is a pair the joint call cannot handle (above `options(orthologr.max_aln_cells)`, unusual characters).
+- With COAL as codon aligner (the default when `coalr` is installed) the codon alignment is built from these rows
+  in memory instead of reading the two files of the pair back.
+- Comeron's method (`gestimator()`, C++): the redundancy tables of the genetic code and the Grantham distances
+  are built once per R process instead of once per gene pair and once per pair of codons that differ at two or
+  three positions: about 10 times faster on divergent genes, with the same arithmetic.
+- Per gene pair: no `data.table` sub-assignments (`:=`), the working files written with one `writeLines()` (the
+  same bytes as `seqinr::write.fasta()`); the checks of coding sequences for non-ACGT characters use PCRE (the
+  same answers, about 50 times faster on long sequences).
+- Measured (median of 3 runs, `dNdS()` with default settings, the whole call including DIAMOND):
+  TIMING_TABLE
+- `stringr` (and with it `stringi`) is no longer imported: its 27 calls were splitting and matching of file names
+  and are base R now.
+
+### Internal
+
+- Removed unused internal functions: `ws_wrap()`, `set_path()`, `check_ram()`, `get_filename()`,
+  `is.alignment_search_tool()`, `read.ortholog.table()`, `OF2Orthologs()` and the deprecated, unexported
+  `filter_core_set_lnc()`.
+- Tests (`test-perf.R`): the batched code paths against the per-pair code (alignments, codon alignments, tables of
+  `compute_dnds()` for Comeron, Li and YN with COAL and PAL2NAL), independence of the chunk size and of the number
+  of processes, progress messages.
+
 ## `orthologr` 0.5.0
 
 Results change in this version: defaults were changed and several errors that changed numbers were fixed.
