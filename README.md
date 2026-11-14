@@ -32,7 +32,7 @@ to infer orthologous relationships between genes of entire genomes are available
 - [__BLAST reciprocal best hit__](https://drostlab.github.io/orthologr/articles/blast.html#the-blast_rec-function)
 - [__BLAST best hit__](https://drostlab.github.io/orthologr/articles/blast.html#the-blast_best-function)
 - __DIAMOND DeepClust__ protein clustering: [`deepclust()`](https://drostlab.github.io/orthologr/articles/deepclust.html)
-- __Orthogroups of two or more species__ with DIAMOND alone: [`orthogroups()`](https://drostlab.github.io/orthologr/articles/orthogroups.html)
+- __Orthogroups of two or more species__ with DIAMOND alone: [`orthogroups()`](vignettes/orthogroups.Rmd)
 
 (`orthofinder2()`, a thin wrapper that starts OrthoFinder, is soft-deprecated: use `orthogroups()`.)
 
@@ -61,7 +61,7 @@ res$summary                                    # median, mean, quartiles of dN, 
   best hits (`refine = TRUE`).
 
 Accuracy, run time and limits measured on human / mouse (against Ensembl Compara) and on four yeasts (against
-OrthoFinder) are in the [vignette](https://drostlab.github.io/orthologr/articles/orthogroups.html).
+OrthoFinder) are in the [vignette](vignettes/orthogroups.Rmd) (`vignette("orthogroups", package = "orthologr")`).
 
 The most useful implementation in `orthologr` is the ability to compute synonymous versus non-synonymous substitution rates (dN/dS)
 for all orthologous genes between two __entire genomes__.
@@ -104,8 +104,8 @@ remotes::install_github("Plumat-COAL/orthologr@integration/all")
 ```
 
 **Coming from orthologr 0.4.3?** Version 0.5.0 changes some defaults and results; the article
-[Upgrading from 0.4.3](https://drostlab.github.io/orthologr/articles/upgrading_from_0.4.3.html)
-(`vignette("upgrading_from_0.4.3")`) lists them with their measured effect, and `orthologr_legacy_options()`
+[Upgrading from 0.4.3](vignettes/upgrading_from_0.4.3.Rmd)
+(after installing: `vignette("upgrading_from_0.4.3", package = "orthologr")`) lists them with their measured effect, and `orthologr_legacy_options()`
 restores the old behaviour in one line.
 
 Optional packages, needed by some functions only (a message tells you when one is missing):
@@ -304,7 +304,7 @@ The complete list of functions is in the [reference](https://drostlab.github.io/
 
 Options that change results or behaviour (best-hit rule, the switches that restore numbers of 0.4.3, working
 folders, kind of parallel processes) and the way parameter strings for external programs are handled are listed in
-one place: [`?orthologr_options`](https://drostlab.github.io/orthologr/reference/orthologr_options.html).
+one place: `?orthologr_options` (source: [R/orthologr_options.R](R/orthologr_options.R)).
 
 ### Sequence searches and orthology inference
 
