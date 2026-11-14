@@ -75,9 +75,11 @@ check_evalue <- function(eval) {
         eval
 }
 
-# The dN/dS methods that are computed by KaKs_Calculator.
+# The dN/dS methods that are computed by KaKs_Calculator: the one list used by is.dnds_est_method(), the argument
+# checks and substitutionrate(). ("MLPB" was missing from the list of substitutionrate(), which then returned NULL
+# for it, and dNdS() ended after the whole search with an error about a missing column.)
 kaks_calculator_methods <- function() {
-        c("MA", "MS", "NG", "LWL", "LPB", "MLWL", "YN", "MYN", "GY", "GMYN", "kaks_calc", "ALL")
+        c("MA", "MS", "NG", "LWL", "LPB", "MLWL", "MLPB", "YN", "MYN", "GY", "GMYN", "kaks_calc", "ALL")
 }
 
 # Stop now when a program the chosen pipeline needs is not there: perl (PAL2NAL), the alignment program, and
