@@ -127,7 +127,9 @@
 #' number of cores is used);}
 #' \item{\code{orthologr_warning_legacy_engine}}{the settings of 0.4.3 are in force
 #' (\code{orthologr.legacy_pairwise_aln}, \code{\link{orthologr_legacy_options}}) but the COAL engine was asked for,
-#' which cannot reproduce the numbers of 0.4.3.}
+#' which cannot reproduce the numbers of 0.4.3;}
+#' \item{\code{orthologr_warning_coal_version}}{the installed \pkg{coalr} predates the options
+#' \code{comeron_twosubs} / \code{comeron_min_sites}, so its Comeron can differ from \code{engine = "orthologr"}.}
 #' }
 #' These classes are given by the checks of the arguments and input files of \code{\link{dNdS}},
 #' \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}}, \code{\link{orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{divergence_stratigraphy}},
