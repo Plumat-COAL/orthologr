@@ -120,12 +120,33 @@
 #' https://code.google.com/archive/p/kaks-calculator
 #' 
 #' @section Gene pairs without nonsynonymous change (KaKs_Calculator methods):
-#' KaKs_Calculator prints \code{NA} for every Ka below 1e-6, also when the estimate is exactly 0, and still prints
-#' \code{Ka/Ks = 0}. Up to orthologr 0.4.3 such a pair was returned with \code{dN = NA} and \code{dNdS = 0}, and
-#' \code{\link{filter_dNdS}} / \code{\link{divergence_stratigraphy}} then removed it - the most conserved genes of
-#' a comparison. Since 0.5.0 \code{dN = 0} is returned when Ka is \code{NA}, Ks is a positive number and Ka/Ks is
-#' 0. When Ka/Ks is \code{NA} as well (identical sequences, a model that failed) \code{dN} stays \code{NA}.
+#' KaKs_Calculator prints \code{NA} for every Ka or Ks below 1e-6, also when the estimate is exactly 0. Up to
+#' orthologr 0.4.3 these \code{NA} were returned as they are: a pair without nonsynonymous change had
+#' \code{dN = NA} and \code{dNdS = 0} (and \code{\link{filter_dNdS}} / \code{\link{divergence_stratigraphy}}
+#' removed it - the most conserved genes of a comparison), and a pair of identical sequences had \code{NA} for dN,
+#' dS and dNdS (status \code{"saturated"}). Since 0.5.0:
+#' \itemize{
+#' \item \code{dN = 0} when Ka is \code{NA}, Ks is a positive number and Ka/Ks is 0;
+#' \item \code{dN = 0} and \code{dS = 0} (\code{dNdS = NA}, status \code{"dS_zero"}) when no nucleotide differs
+#' (column "Substitutions" of KaKs_Calculator 0);
+#' \item \code{dS = 0} (\code{dNdS = NA}, status \code{"dS_zero"}) when Ks is \code{NA}, Ka is a number and no
+#' difference is synonymous (methods NG, YN, MYN: "S-Substitutions"; LWL, MLWL, LPB, MLPB: no transition at
+#' 2-fold and no difference at 4-fold sites).
+#' }
+#' When Ka/Ks is \code{NA} for another reason (a model that failed) the values stay \code{NA}.
 #' \code{options(orthologr.legacy_kaks_zero_dn = TRUE)} restores the old table.
+#'
+#' @section Saturation (KaKs_Calculator methods):
+#' Where the correction for multiple substitutions is not defined, KaKs_Calculator prints a capped number instead
+#' of \code{NA}: Ka or Ks = 99 (YN family, when the proportion of differences P + Q exceeds 1); for YN and MYN
+#' JC69's distance at P = 0.75 (n - 1) / n, i.e. 0.75 log(n) for n synonymous or nonsynonymous sites (Ks of 3 - 5
+#' for typical genes); for LWL, MLWL, LPB and MLPB 0 substitutions for a class of sites whose correction is not
+#' defined (an underestimate). Since 0.5.0 these estimates are \code{NA} (and \code{dNdS} with them; status
+#' \code{"saturated"}); they are recognised in the columns KaKs_Calculator prints (sites
+#' and differences by class), so the other values are unchanged. The methods GY, MA, MS and GMYN are not checked.
+#' Up to 0.4.3 such a value was returned as an estimate: e.g. dS = 99, which makes dN/dS look like strong
+#' purifying selection, put the pair into the most conserved stratum of \code{\link{divergence_map}} and passed
+#' \code{\link{filter_dNdS}}. \code{options(orthologr.legacy_kaks_saturation = TRUE)} restores the old values.
 #'
 #' @section Saturation (Comeron's method):
 #' The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:
@@ -168,19 +189,7 @@ substitutionrate <- function(file,
         if (!is.null(kaks_calc_path))
                 kaks_calc_path <- normalizePath(kaks_calc_path, mustWork = FALSE)
         
-        kaks_calc_methods <-
-                c("MA",
-                  "MS",
-                  "NG",
-                  "LWL",
-                  "LPB",
-                  "MLWL",
-                  "YN",
-                  "MYN",
-                  "GY",
-                  "GMYN",
-                  "kaks_calc",
-                  "ALL")
+        kaks_calc_methods <- kaks_calculator_methods()
         
         if (!is.dnds_est_method(est.method))
                 orthologr_abort(class = "bad_argument", "Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
@@ -355,6 +364,9 @@ substitutionrate <- function(file,
                 
                 return(kaks_result_table(kaks_tbl, pair_ids, context))
         }
+        
+        # every method accepted above is handled by one of the branches; a method that is not must never give NULL
+        orthologr_abort(class = "bad_argument", "est.method = \"", est.method, "\" is not handled by substitutionrate().", call. = FALSE)
 }
 
 # options(orthologr.legacy_comeron_saturation = TRUE): Comeron's method as up to 0.4.3, where an undefined
@@ -436,10 +448,135 @@ kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair") {
                 fixed <- kaks_zero_dn(kaks_tbl_res$dN, kaks_tbl_res$dS, kaks_tbl_res$dNdS)
                 kaks_tbl_res$dN <- fixed$dN
                 kaks_tbl_res$dNdS <- fixed$dNdS
+                zero <- kaks_zero_ds(kaks_tbl)
+                if (!is.null(zero)) {
+                        kaks_tbl_res$dN[zero$identical | zero$no_nonsynonymous] <- 0
+                        kaks_tbl_res$dS[zero$identical | zero$no_synonymous] <- 0
+                        kaks_tbl_res$dNdS[zero$identical | zero$no_synonymous] <- NA_real_
+                        # (Ka/Ks * Ks of kaks_zero_dn() can be a rounding residue such as 2.5e-12 there)
+                        no_non <- zero$no_nonsynonymous & is.finite(kaks_tbl_res$dS) & kaks_tbl_res$dS > 0
+                        kaks_tbl_res$dNdS[no_non] <- 0
+                }
+        }
+        if (!kaks_legacy_saturation()) {
+                sat <- kaks_saturated(kaks_tbl)
+                if (!is.null(sat)) {
+                        kaks_tbl_res$dS[sat$Ks] <- NA_real_
+                        kaks_tbl_res$dN[sat$Ka] <- NA_real_
+                        kaks_tbl_res$dNdS[sat$Ks | sat$Ka] <- NA_real_
+                }
         }
         kaks_tbl_res <- data.table::as.data.table(kaks_tbl_res)
         data.table::setkey(kaks_tbl_res, query_id)
         return(kaks_tbl_res)
+}
+
+# The columns of a KaKs_Calculator table by position (1.2 and 2.0 write the same 21 columns; the names are read by
+# read.csv() with 'check.names', so they are not used): NULL when the table does not have them.
+kaks_columns <- function(kaks_tbl) {
+        if (ncol(kaks_tbl) < 15)
+                return(NULL)
+        num <- function(x) suppressWarnings(as.numeric(as.character(x)))
+        # "a:b:c" (the three fold classes 0, 2, 4) -> a matrix of three columns; "NA" means all three are 0
+        fold <- function(x, na_is_zero) {
+                x <- as.character(x)
+                m <- matrix(if (na_is_zero) 0 else NA_real_, length(x), 3)
+                has <- !is.na(x) & grepl(":", x, fixed = TRUE)
+                if (any(has))
+                        m[has, ] <- matrix(num(unlist(strsplit(x[has], ":", fixed = TRUE))), ncol = 3, byrow = TRUE)
+                m
+        }
+        list(
+                method = as.character(kaks_tbl[, 2]),
+                Ka     = num(kaks_tbl[, 3]),
+                Ks     = num(kaks_tbl[, 4]),
+                S      = num(kaks_tbl[, 8]),
+                N      = num(kaks_tbl[, 9]),
+                L      = fold(kaks_tbl[, 10], na_is_zero = FALSE),
+                snp    = num(kaks_tbl[, 11]),
+                Sd     = num(kaks_tbl[, 12]),
+                Nd     = num(kaks_tbl[, 13]),
+                Si     = fold(kaks_tbl[, 14], na_is_zero = TRUE),
+                Vi     = fold(kaks_tbl[, 15], na_is_zero = TRUE)
+        )
+}
+
+# The methods of the LWL family (Li, Wu and Luo 1985; Li 1993; Tzeng et al. 2004) and of Yang and Nielsen (2000).
+kaks_lwl_methods <- function() c("LWL", "MLWL", "LPB", "MLPB")
+kaks_yn_methods <- function() c("YN", "MYN")
+
+# Gene pairs for which KaKs_Calculator printed 'NA' for a dS that is 0 (it prints NA for every value below 1e-6):
+#   identical     : no nucleotide differs ("Substitutions" 0) - dN = dS = 0 (KaKs_Calculator: NA NA NA)
+#   no_synonymous : Ks NA, Ka a number, and no synonymous difference - dS = 0 (all differences are
+#                   nonsynonymous). A synonymous difference is counted in "S-Substitutions" (NG, YN, MYN) or, for
+#                   the LWL family, as a transition at 2-fold sites or any difference at 4-fold sites (columns
+#                   "Fold-S-Substitutions" / "Fold-N-Substitutions": transitions / transversions per class). The
+#                   other methods (GY, MA, MS, ...) are left as they are.
+#   no_nonsynonymous : Ka NA and no nonsynonymous difference ("N-Substitutions"; LWL family: differences at 0-fold
+#                   sites and transversions at 2-fold sites) - dN = 0 (also when Ks is saturated, where
+#                   kaks_zero_dn() cannot use Ka/Ks).
+# The COAL engine reports the same pairs with dS = 0 (status "dS_zero").
+kaks_zero_ds <- function(kaks_tbl) {
+        k <- kaks_columns(kaks_tbl)
+        if (is.null(k))
+                return(NULL)
+        identical <- is.na(k$Ka) & is.na(k$Ks) & !is.na(k$snp) & k$snp == 0
+        no_syn <- rep(FALSE, length(k$Ka))
+        counted <- is.element(k$method, c("NG", kaks_yn_methods()))
+        no_syn[counted] <- is.na(k$Sd[counted]) | k$Sd[counted] <= 1e-6
+        lwl <- is.element(k$method, kaks_lwl_methods())
+        no_syn[lwl] <- (k$Si[lwl, 2, drop = FALSE] + k$Si[lwl, 3, drop = FALSE] + k$Vi[lwl, 3, drop = FALSE]) == 0
+        no_syn <- !identical & no_syn & is.na(k$Ks) & is.finite(k$Ka) & k$Ka > 0 & !is.na(k$snp) & k$snp > 0
+        # the same for dN when Ks is not a number either (kaks_zero_dn() needs Ka/Ks): no nonsynonymous difference
+        no_non <- rep(FALSE, length(k$Ka))
+        no_non[counted] <- is.na(k$Nd[counted]) | k$Nd[counted] <= 1e-6
+        no_non[lwl] <- (k$Si[lwl, 1, drop = FALSE] + k$Vi[lwl, 1, drop = FALSE] + k$Vi[lwl, 2, drop = FALSE]) == 0
+        no_non <- !identical & no_non & is.na(k$Ka) & !is.na(k$snp) & k$snp > 0
+        list(identical = identical, no_synonymous = no_syn %in% TRUE, no_nonsynonymous = no_non %in% TRUE)
+}
+
+# options(orthologr.legacy_kaks_saturation = TRUE): KaKs_Calculator's values for saturated estimates are returned as
+# printed, as up to 0.4.3.
+kaks_legacy_saturation <- function() {
+        isTRUE(orthologr_option("orthologr.legacy_kaks_saturation", FALSE))
+}
+
+# Estimates that KaKs_Calculator replaced with a capped value because the correction for multiple substitutions is
+# not defined (saturation); they are NA, as with the COAL engine (status "saturated"). Returns list(Ks, Ka) of
+# logicals, or NULL for a table without the columns needed.
+#   - every method: Ka or Ks of exactly 99, the largest distance of the YN family ('maxt = 99' when P + Q > 1);
+#   - YN, MYN: JC69's distance at its cap. When F84 and K80 fail and the proportion of differences P is at least
+#     0.75, KaKs_Calculator (as PAML yn00) sets P to 0.75 (n - 1) / n, which gives t = 0.75 log(n) for n sites:
+#     Ks = 0.75 log(S-Sites) or Ka = 0.75 log(N-Sites) to the printed precision;
+#   - LWL, MLWL, LPB, MLPB: a class of sites (0-, 2-, 4-fold) with 1 - 2P - Q <= 0 or 1 - 2Q <= 0 (P, Q:
+#     transitions and transversions per site of the class, from the printed counts); KaKs_Calculator then counts
+#     0 substitutions for that class. 2- or 4-fold classes saturate Ks, 0- or 2-fold classes saturate Ka (the
+#     rule of COAL's LWL family).
+kaks_saturated <- function(kaks_tbl) {
+        k <- kaks_columns(kaks_tbl)
+        if (is.null(k))
+                return(NULL)
+        n <- length(k$Ka)
+        ks <- k$Ks %in% 99
+        ka <- k$Ka %in% 99
+        yn <- is.element(k$method, kaks_yn_methods())
+        at_cap <- function(d, sites) yn & is.finite(d) & is.finite(sites) & sites > 1 & abs(d - 0.75 * log(sites)) <= 1e-5 * d
+        ks <- ks | at_cap(k$Ks, k$S)
+        ka <- ka | at_cap(k$Ka, k$N)
+        lwl <- which(is.element(k$method, kaks_lwl_methods()))
+        if (length(lwl) > 0) {
+                L <- k$L[lwl, , drop = FALSE]
+                P <- k$Si[lwl, , drop = FALSE] / L
+                Q <- k$Vi[lwl, , drop = FALSE] / L
+                # (P and Q come from numbers printed with 6 significant digits: for an argument within about 1e-5 of
+                # 0 the sign can come out either way - 1 or 2 of 150 S. cerevisiae / C. glabrata pairs differ from
+                # COAL for that reason)
+                sat <- !is.na(L) & L > 0 & !((1 - 2 * P - Q) > 0 & (1 - 2 * Q) > 0)
+                sat[is.na(sat)] <- FALSE
+                ks[lwl] <- ks[lwl] | sat[, 2] | sat[, 3]
+                ka[lwl] <- ka[lwl] | sat[, 1] | sat[, 2]
+        }
+        list(Ks = ks, Ka = ka)
 }
 
 # options(orthologr.legacy_kaks_zero_dn = TRUE): the table of KaKs_Calculator as up to 0.4.3, where a gene pair
