@@ -241,9 +241,10 @@ test_that("an invalid options(orthologr.max_aln_cells) is an error before the se
         expect_identical(max_aln_cells(), Inf)
 })
 
-test_that("dNdS(): a gene pair above options(orthologr.max_aln_cells) is a failed pair with the reason (O12)", {
+test_that("dNdS(): without COAL a gene pair above options(orthologr.max_aln_cells) is a failed pair with the reason (O12)", {
         skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
-        rlang::local_options(orthologr.max_aln_cells = 1e5)
+        # (options(orthologr.large_pair_aligner = "none"): as without coalr - with it, the next test)
+        rlang::local_options(orthologr.max_aln_cells = 1e5, orthologr.large_pair_aligner = "none")
         expect_warning(res <- suppressMessages(dNdS(thal_cds(), lyra_cds(), quiet = TRUE, print_citation = FALSE)),
                        class = "orthologr_warning_failed_pairs")
         failed <- attr(res, "failed_pairs")

@@ -302,7 +302,7 @@ large_pair_coal_rows <- function(seqs, names, aa_sub_matrix) {
                 orthologr_abort(class = "bad_argument", "options(orthologr.large_pair_aligner = ) must be \"coal\" or \"none\".",
                                 call. = FALSE)
         backend <- getOption("orthologr.coal_backend", NULL)
-        if (aligner == "none" || is.element(backend, c("none", "binary")) || !identical(aa_sub_matrix, "BLOSUM62") ||
+        if (aligner == "none" || isTRUE(backend %in% c("none", "binary")) || !identical(aa_sub_matrix, "BLOSUM62") ||
             !requireNamespace("coalr", quietly = TRUE))
                 return(NULL)
         matrix <- coal_matrix_arg(aa_sub_matrix, "pwalign")
