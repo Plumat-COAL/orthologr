@@ -46,9 +46,9 @@ generate_ortholog_tables <-
                 message("Generating orthologs table for ", basename(annotation_file_query), " vs ", basename(annotation_file_subject), " ...")
                 
                 qry_species_name <-
-                        unlist(stringr::str_split(basename(annotation_file_query), "[.]"))[1]
+                        first_field(basename(annotation_file_query), ".")
                 sbj_species_name <-
-                        unlist(stringr::str_split(basename(annotation_file_subject), "[.]"))[1]
+                        first_field(basename(annotation_file_subject), ".")
                 
                 select_orthologs_by_gene_locus_output_name <-
                         paste0("orthologs_by_gene_",
@@ -97,8 +97,8 @@ generate_ortholog_tables <-
                 if (!file.exists(output_folder))
                         dir.create(output_folder)
                 
-                by_gene_output_folder <- file.path(output_folder, paste0("orthologs_by_gene_locus_qry_", stringr::str_to_lower(qry_species_name)))
-                by_splice_variant_output_folder <- file.path(output_folder, paste0("orthologs_by_splice_variant_qry_", stringr::str_to_lower(qry_species_name)))
+                by_gene_output_folder <- file.path(output_folder, paste0("orthologs_by_gene_locus_qry_", tolower(qry_species_name)))
+                by_splice_variant_output_folder <- file.path(output_folder, paste0("orthologs_by_splice_variant_qry_", tolower(qry_species_name)))
                 
                 message("\n")
                 message(

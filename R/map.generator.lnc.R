@@ -134,7 +134,7 @@ map_generator_lnc <- function(query_file,
                         ...
                 )
                 
-                species_name_i <- as.character(unlist(stringr::str_split(subj.files[i], "[.]"))[1])
+                species_name_i <- as.character(first_field(subj.files[i], "."))
                 if(!is.null(min_alig_length)){
                         
                         alig_length <- NULL

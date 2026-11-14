@@ -40,7 +40,7 @@ translate_cds_to_protein_all <-
                 
                 file_list <- list.files(input_folder)
                 
-                found_documentation <- stringr::str_detect(file_list, "documentation")
+                found_documentation <- grepl("documentation", file_list, fixed = TRUE)
                 if (length(found_documentation) > 0)
                         file_list <- file_list[!found_documentation]
                 

@@ -76,17 +76,6 @@ is.dnds_est_method <- function(method = NULL){
         return(is.element(method, provided))
 }
 
-is.alignment_search_tool <- function(tool = NULL){
-        
-        provided <-  c("ggsearch","ssearch")
-        
-        if (is.null(tool)){
-                message("The following methods are provided: ", paste(provided, collapse = ", "))
-                return(FALSE)
-        }
-        
-        return(is.element(tool, provided))
-}
 
 #' @title Translate CDS file to Amino Acids file
 #' @description This function takes a \code{data.table} object as input and
@@ -372,4 +361,23 @@ ambiguous_cds_mode <- function() {
         if (!is.character(m) || length(m) != 1 || !is.element(m, c("drop", "keep")))
                 orthologr_abort("options(orthologr.ambiguous_cds = ) must be \"drop\" or \"keep\".", class = "bad_argument")
         m
+}
+
+is.alignment_search_tool <- function(tool = NULL){
+        
+        provided <-  c("ggsearch","ssearch")
+        
+        if (is.null(tool)){
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
+                return(FALSE)
+        }
+        
+        return(is.element(tool, provided))
+}
+
+# The part of each string in 'x' before the first 'sep' (a single character, taken literally); the whole string when
+# it holds no 'sep'. What unlist(stringr::str_split(x, sep))[1] returned for one string, also "" for "" and NA for
+# NA (strsplit() gives character(0) for "").
+first_field <- function(x, sep) {
+        sub(paste0("\\Q", sep, "\\E.*$"), "", x, perl = TRUE)
 }

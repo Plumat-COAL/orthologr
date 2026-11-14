@@ -50,8 +50,8 @@ promotor_divergence_estimation <-
                 dir.create(tmp_dir, recursive = TRUE)
                 on.exit(unlink(tmp_dir, recursive = TRUE, force = TRUE), add = TRUE)
                 
-                tmp_file_name_qry <- unlist(stringr::str_split(basename(query), "[.]"))[1]
-                tmp_file_name_sbj <- unlist(stringr::str_split(basename(subject), "[.]"))[1]
+                tmp_file_name_qry <- first_field(basename(query), ".")
+                tmp_file_name_sbj <- first_field(basename(subject), ".")
                 
                 # compute global pairwise alignments between query and subject promotor sequences
                 Alignments <-

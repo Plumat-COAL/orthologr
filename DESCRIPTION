@@ -23,7 +23,6 @@ Imports:
     Rcpp (>= 0.11.3),
     Biostrings (>= 2.72.0),
     pwalign,
-    stringr (>= 0.6.2),
     tibble,
     readr,
     rlang

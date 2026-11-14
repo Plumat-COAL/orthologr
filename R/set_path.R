@@ -5,12 +5,7 @@ set_path <- function(file, add.folder = NULL) {
         curr_wd <- unlist(strsplit(getwd(), f_sep))
         wdir <- grepl(" ", curr_wd)
         
-        curr_wd[wdir] <-
-                stringr::str_replace(
-                        string      = curr_wd[wdir],
-                        replacement = paste0("'", curr_wd[wdir], "'"),
-                        pattern     = curr_wd[wdir]
-                )
+        curr_wd[wdir] <- paste0("'", curr_wd[wdir], "'")
         
         curr_wd <- paste0(curr_wd, collapse = f_sep)
         
