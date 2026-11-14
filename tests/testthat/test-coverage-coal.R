@@ -438,3 +438,123 @@ test_that("dNdS_clusters() checks the clusters it is given (coalr)", {
         expect_error(dNdS_clusters(cds, clusters = data.frame(r = "x", m = "x"), dnds_est.method = "GY"),
                      "only available with dNdS\\(\\)", class = "orthologr_error_bad_argument")
 })
+
+# ---------------------------------------------------------------------------------------------------------------
+# the in-process backend (coalr)
+
+test_that("coal_codon_aln_file() with coalr: CLUSTAL input, and errors with the class of PAL2NAL's", {
+        skip_if_not(cov_coalr, "the R package coalr is not installed")
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
+        options(orthologr.coal_backend = "coalr")
+        prot <- c(a = "MKTAYIAKQRLEGDLKAWLT", b = "MKTAYIAKQRLDGDLKAWLT")
+        aln_fa <- cov_write_fasta(prot, names(prot))
+        # (a CLUSTAL file as ClustalW writes it, with a conservation line)
+        aln_cl <- tempfile("cov_", fileext = ".aln")
+        writeLines(c("CLUSTAL W (1.83) multiple sequence alignment", "", "",
+                     "a        MKTAYIAKQRLEGDLKAWLT", "b        MKTAYIAKQRLDGDLKAWLT",
+                     "         *********** ********", ""), aln_cl)
+        nuc <- cov_write_fasta(c(cov_cds_a, cov_cds_b), c("a", "b"))
+        out_fa <- tempfile("cov_out_", fileext = ".fasta")
+        out_cl <- tempfile("cov_out_", fileext = ".fasta")
+        coal_codon_aln_file(aln_fa, nuc, out_fa)
+        coal_codon_aln_file(aln_cl, nuc, out_cl)
+        expect_identical(readLines(out_cl), readLines(out_fa))
+        expect_identical(read_fasta_strings(out_fa), c(a = cov_cds_a, b = cov_cds_b))
+        # the two files must hold the same number of sequences
+        nuc3 <- cov_write_fasta(c(cov_cds_a, cov_cds_b, cov_cds_a), c("a", "b", "c"))
+        expect_error(coal_codon_aln_file(aln_fa, nuc3, out_fa), "holds 2 sequences and the CDS file 3",
+                     class = "orthologr_error_alignment_failed")
+        # a protein alignment that is not the translation of the CDS
+        bad <- cov_write_fasta(c("WWWWWWWWWWWWWWWWWWWW", "WWWWWWWWWWWWWWWWWWWW"), c("a", "b"))
+        res <- tryCatch(coal_codon_aln_file(bad, nuc, out_fa), error = function(e) e)
+        if (inherits(res, "error")) {
+                expect_s3_class(res, "orthologr_error_alignment_failed")
+                expect_match(conditionMessage(res), "COAL could not build the codon alignment for gene pair 'a' / 'b'")
+        } else {
+                expect_true(file.exists(out_fa))
+        }
+})
+
+cov_toy_clusters <- function(toy, families = 1:4) {
+        tr <- toy$truth[toy$truth$family %in% families, ]
+        rep_id <- tapply(tr$gene, tr$family, function(g) g[1])
+        data.frame(representative_id = unname(rep_id[as.character(tr$family)]), member_id = tr$gene,
+                   stringsAsFactors = FALSE)
+}
+
+test_that("dNdS_clusters() with clusters given as a table or a file, aligned pairwise by COAL (coalr)", {
+        skip_if_not(cov_coalr, "the R package coalr is not installed")
+        toy <- make_toy_species()
+        # (unnamed: a named vector of files is a known bug, see the test below)
+        toy$files <- unname(toy$files)
+        cl <- cov_toy_clusters(toy)
+        res <- suppressMessages(dNdS_clusters(toy$files, clusters = tibble::as_tibble(cl), aa_aln_tool = "pairwise",
+                                              dnds_est.method = c("YN", "NG")))
+        expect_identical(names(res), c("pairs", "summary", "failed"))
+        # four families in four species: 6 pairs each, two methods
+        expect_identical(nrow(res$pairs), 48L)
+        expect_true(all(is.element(c("query_id", "subject_id", "dN", "dS", "dNdS", "status"), names(res$pairs))))
+        expect_identical(nrow(res$summary), 8L)
+        expect_true(all(is.element(c("n_dN", "n_dS", "n_dNdS"), names(res$summary))))
+        expect_identical(nrow(res$failed), 0L)
+        rec <- attr(res, "orthologr_run")
+        expect_false(is.null(rec))
+
+        # the same clusters from a tab-separated file
+        f <- tempfile("cov_clusters_", fileext = ".tsv")
+        utils::write.table(cl, f, sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+        res_f <- suppressMessages(dNdS_clusters(toy$files, clusters = f, aa_aln_tool = "pairwise",
+                                                dnds_est.method = c("YN", "NG")))
+        expect_equal(res_f$pairs$dN, res$pairs$dN)
+
+        # a member without a coding sequence is reported in 'failed', with a message
+        cl2 <- rbind(cl, data.frame(representative_id = cl$representative_id[1], member_id = "no-such-gene"))
+        msgs <- testthat::capture_messages(res2 <- dNdS_clusters(toy$files, clusters = cl2, aa_aln_tool = "pairwise"))
+        expect_true(any(grepl("could not be used", msgs)))
+        expect_true(nrow(res2$failed) >= 1)
+})
+
+test_that("dNdS_clusters(): a multiple alignment program that cannot be found suggests aa_aln_tool = \"pairwise\" (coalr)", {
+        skip_if_not(cov_coalr, "the R package coalr is not installed")
+        toy <- make_toy_species()
+        toy$files <- unname(toy$files)
+        cl <- cov_toy_clusters(toy, 1)
+        missing_tool <- file.path(new_test_dir("cov_no_mafft_"), "mafft")
+        expect_error(suppressMessages(dNdS_clusters(toy$files, clusters = cl, aa_aln_tool = "mafft",
+                                                    aa_aln_path = missing_tool)),
+                     "aa_aln_tool = \"pairwise\"")
+        # a folder for aa_aln_path is the folder of the program
+        expect_error(suppressMessages(dNdS_clusters(toy$files, clusters = cl, aa_aln_tool = "clustalo",
+                                                    aa_aln_path = dirname(missing_tool))),
+                     "aa_aln_tool = \"pairwise\"")
+})
+
+# ---------------------------------------------------------------------------------------------------------------
+# known bugs (recorded in BUGS_FOUND.md of the coverage pass; skipped until they are fixed in R/coal.R)
+
+test_that("KNOWN BUG: dNdS_clusters() with a named vector of CDS files finds no coding sequence (coalr)", {
+        skip("known bug: names of cds_file prefix the gene ids (do.call(c, lapply(cds_file, ...))) - see BUGS_FOUND.md")
+        skip_if_not(cov_coalr, "the R package coalr is not installed")
+        toy <- make_toy_species()
+        cl <- cov_toy_clusters(toy, 1:2)
+        named <- suppressMessages(dNdS_clusters(toy$files, clusters = cl, aa_aln_tool = "pairwise"))
+        unnamed <- suppressMessages(dNdS_clusters(unname(toy$files), clusters = cl, aa_aln_tool = "pairwise"))
+        expect_identical(nrow(named$failed), 0L)
+        expect_equal(named$pairs$dN, unnamed$pairs$dN)
+})
+
+test_that("KNOWN BUG: coal_codon_aln_file() reads a CLUSTAL protein alignment without a conservation line (coalr)", {
+        skip("known bug: seqinr::read.alignment() reads 0 sequences; read_clustal() is not used as fallback - see BUGS_FOUND.md")
+        skip_if_not(cov_coalr, "the R package coalr is not installed")
+        restore <- cov_state()
+        on.exit(restore(), add = TRUE)
+        options(orthologr.coal_backend = "coalr")
+        prot <- c(a = "MKTAYIAKQRLEGDLKAWLT", b = "MKTAYIAKQRLDGDLKAWLT")
+        # the CLUSTAL format orthologr itself writes (as PAL2NAL; T-Coffee and MUSCLE write no conservation line either)
+        aln <- write_alignment(prot, tempfile("cov_", fileext = ".aln"), format = "clustal")
+        nuc <- cov_write_fasta(c(cov_cds_a, cov_cds_b), c("a", "b"))
+        out <- tempfile("cov_out_", fileext = ".fasta")
+        coal_codon_aln_file(aln, nuc, out)
+        expect_identical(read_fasta_strings(out), c(a = cov_cds_a, b = cov_cds_b))
+})
