@@ -34,7 +34,7 @@ dnds_groups_coal <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_aln_pa
                         methods     = dnds_est.method,
                         threads     = comp_cores,
                         preset      = aa_aln_scoring
-                ), coal_flavour_args(coalr::coal_dnds_pairs)))
+                ), coal_flavour_args(coalr::coal_dnds_pairs, dnds_est.method)))
         } else {
                 exe <- if (is.null(aa_aln_path)) NULL else {
                         if (dir.exists(aa_aln_path)) file.path(aa_aln_path, aa_aln_tool) else aa_aln_path
@@ -60,7 +60,7 @@ dnds_groups_coal <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_aln_pa
                         large_clusters   = "skip",
                         # groups of two genes are aligned pairwise by COAL
                         preset           = aa_aln_scoring
-                ), coal_flavour_args(coalr::coal_dnds_clusters)))
+                ), coal_flavour_args(coalr::coal_dnds_clusters, dnds_est.method)))
                 res <- out$pairs
         }
         # Comeron and Li as orthologr's own methods return them (saturation rule, 4 digits, Li's markers)

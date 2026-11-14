@@ -89,13 +89,25 @@ coal_versions <- function() {
 #   terminal_stops = "drop"    : orthologr 0.5.0 translates and aligns without the stop codon;
 #                    "compare" : with options(orthologr.legacy_pairwise_aln = TRUE), i.e. the alignments of 0.4.3,
 #                                in which the two stop codons are an aligned column that gestimator compares
-coal_flavour_args <- function(fun) {
+#   comeron_twosubs, comeron_min_sites : Comeron's pathways for codons that differ at two positions and the
+#                    smallest site class that can make dN or dS NA, as the native engine computes them
+#                    (options(orthologr.comeron_twosubs), options(orthologr.comeron_min_sites))
+coal_flavour_args <- function(fun, methods = NULL) {
         args <- list(
-                comeron_flavour = "gestimator",
-                li_flavour      = "seqinr",
-                terminal_stops  = if (isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))) "compare" else "drop"
+                comeron_flavour   = "gestimator",
+                comeron_twosubs   = comeron_twosubs(),
+                comeron_min_sites = comeron_min_sites(),
+                li_flavour        = "seqinr",
+                terminal_stops    = if (isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))) "compare" else "drop"
         )
-        args[intersect(names(args), names(formals(fun)))]
+        have <- names(formals(fun))
+        if (is.element("Comeron", methods) && !is.element("comeron_twosubs", have))
+                orthologr_warn(class = "coal_version",
+                               "This version of coalr predates the options comeron_twosubs and comeron_min_sites: its ",
+                               "Comeron counts codons that differ at two positions along libsequence's branches and ",
+                               "makes dN / dS NA for small site classes, so it can differ from engine = \"orthologr\". ",
+                               "Install a current coalr.", call. = FALSE)
+        args[intersect(names(args), have)]
 }
 
 # The matrix to give COAL: with aa_aln_scoring = "pwalign" and BLOSUM62, pwalign's copy of BLOSUM62 (it scores B, Z
@@ -364,7 +376,7 @@ coal_kaks_file <- function(file, est.method, subst_name = NULL) {
 
         if (backend$type == "coalr") {
                 k <- do.call(coalr::coal_kaks, c(list(seqs[[1]], seqs[[2]], method = est.method),
-                                                 coal_flavour_args(coalr::coal_kaks)))
+                                                 coal_flavour_args(coalr::coal_kaks, est.method)))
                 if (identical(k$status[1], "error"))
                         stop("COAL could not estimate dN/dS for ", context, ": ", k$note[1], call. = FALSE)
                 k <- coal_orthologr_values(k)
@@ -621,7 +633,7 @@ dNdS_coal <- function(query_file,
                 threads     = comp_cores,
                 matrix      = coal_matrix_arg(aa_sub_matrix, aa_aln_scoring),
                 preset      = aa_aln_scoring
-        ), coal_flavour_args(coalr::coal_dnds_pairs)))
+        ), coal_flavour_args(coalr::coal_dnds_pairs, dnds_est.method)))
         # (the attribute "coal" keeps COAL's own values; the result holds them as orthologr's methods define them)
         coal_raw <- coal_tbl
         coal_tbl <- coal_orthologr_values(coal_tbl)
@@ -841,7 +853,7 @@ dNdS_clusters <- function(cds_file,
                 seed             = seed,
                 # pairs that COAL aligns itself (aa_aln_tool = "pairwise", clusters of two, large clusters)
                 preset           = aa_aln_scoring
-        ), coal_flavour_args(coalr::coal_dnds_clusters)))
+        ), coal_flavour_args(coalr::coal_dnds_clusters, dnds_est.method)))
 
         pairs <- coal_orthologr_values(res$pairs)
         names(pairs)[names(pairs) == "seq1"] <- "query_id"

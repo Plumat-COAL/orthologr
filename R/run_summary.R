@@ -308,6 +308,8 @@ orthologr_options_in_force <- function() {
                 orthologr.best_hit_rule             = "bitscore",
                 orthologr.legacy_pairwise_aln       = FALSE,
                 orthologr.legacy_comeron_saturation = FALSE,
+                orthologr.comeron_twosubs           = "comeron",
+                orthologr.comeron_min_sites         = 3,
                 orthologr.legacy_kaks_zero_dn       = FALSE,
                 orthologr.legacy_kaks_saturation    = FALSE,
                 orthologr.max_aln_cells             = 5e8,
@@ -716,6 +718,7 @@ orthologr_legacy_values <- function() {
                 orthologr.best_hit_rule             = "evalue",
                 orthologr.legacy_pairwise_aln       = TRUE,
                 orthologr.legacy_comeron_saturation = TRUE,
+                orthologr.comeron_twosubs           = "libsequence",
                 orthologr.legacy_kaks_zero_dn       = TRUE,
                 orthologr.legacy_kaks_saturation    = TRUE,
                 orthologr.max_aln_cells             = Inf,
@@ -750,6 +753,7 @@ orthologr_option <- function(name, default = NULL) {
 #' \code{orthologr.best_hit_rule = "evalue"} \tab best hits by e-value, then alignment length \cr
 #' \code{orthologr.legacy_pairwise_aln = TRUE} \tab pairwise protein alignments without substitution matrix, cut to the aligned range, stop codon aligned \cr
 #' \code{orthologr.legacy_comeron_saturation = TRUE} \tab Comeron's method returns a finite value for saturated pairs \cr
+#' \code{orthologr.comeron_twosubs = "libsequence"} \tab Comeron's method counts codons that differ at two positions along libsequence's branches \cr
 #' \code{orthologr.legacy_kaks_zero_dn = TRUE} \tab KaKs_Calculator methods: \code{NA} for a dN or dS that is 0 (pairs without nonsynonymous or without any change) \cr
 #' \code{orthologr.legacy_kaks_saturation = TRUE} \tab KaKs_Calculator methods: its capped values (e.g. dS = 99) for saturated estimates, and \code{nan} as \code{NaN} (status \code{"saturated"}, not \code{"failed"}) \cr
 #' \code{orthologr.max_aln_cells = Inf} \tab pairwise alignments of any size (default: pairs above 5e8 cells are not aligned) \cr

@@ -120,7 +120,7 @@ class TwoSubs{
     
      void operator()(const RedundancyCom95 * sitesObj,
                      const std::string & codon1, const std::string & codon2,
-                     GranthamWeights2 *weights2)
+                     GranthamWeights2 *weights2, bool libsequence_order = false)
   /*
     \param sitesObj an initialized object of type RedundancyCom95
     \param code genetic code, see GeneticCodes for valid values
@@ -142,7 +142,18 @@ class TwoSubs{
     double weights[2];
     weights2->Calculate(weights,codon1,codon2);
 
-    Calculate (sitesObj, codon1, intermediates[0], codon2, intermediates[1], weights[0], weights[1]); 
+    // orthologr: libsequence calls Calculate() with (codon1, intermediate 1, codon2, intermediate 2) where its
+    // parameters are (codon1, int_1, int_2, codon2), so the branches counted were codon1 - int1, int1 - codon2 ...
+    // in name only: codon1 - int1, int1 - int2, codon1 - codon2 and codon2 - int2. With them the estimate depends
+    // on which sequence is first (Ka changed in 279 of 300 random pairs when the two were swapped). By default the
+    // two pathways of Comeron (1995), codon1 - int1 - codon2 and codon1 - int2 - codon2, are counted;
+    // libsequence_order = true (options(orthologr.comeron_twosubs = "libsequence"), set by
+    // orthologr_legacy_options()) keeps libsequence's call and the numbers of orthologr 0.4.3. COAL
+    // (cpp/src/kaks_comeron.cpp, --comeron-twosubs) does the same.
+    if (libsequence_order)
+      Calculate (sitesObj, codon1, intermediates[0], codon2, intermediates[1], weights[0], weights[1]);
+    else
+      Calculate (sitesObj, codon1, intermediates[0], intermediates[1], codon2, weights[0], weights[1]);
  }
 
   double P0 (void) const
