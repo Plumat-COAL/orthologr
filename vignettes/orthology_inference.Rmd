@@ -190,7 +190,8 @@ orthologs(query_file      = system.file('seqs/ortho_thal_aa.fasta', package = 'o
 ```
 
 You can also adjust the DIAMOND2 sensitivity level using the `sensitivity_mode` argument. The default
-is `"fast"`, but for more distant species comparisons you may want `"sensitive"` or `"ultra-sensitive"`:
+is `"default"` (DIAMOND's own default mode; `"fast"` up to orthologr 0.4.3), but for more distant species
+comparisons you may want `"sensitive"` or `"ultra-sensitive"`:
 
 ```{r,eval=has_diamond}
 library(orthologr)
@@ -209,8 +210,9 @@ The full set of sensitivity modes available in DIAMOND2 is:
 
 | `sensitivity_mode` | Speed | Use case |
 |---|---|---|
-| `"faster"` | Fastest | Hits >70% identity |
-| `"fast"` | Fast (default) | Hits >70% identity |
+| `"faster"` | Fastest | Hits >90% identity |
+| `"fast"` | Fast (the default up to 0.4.3) | Hits >90% identity |
+| `"default"` | DIAMOND's default (the default) | Hits >60% identity |
 | `"mid-sensitive"` | Moderate | Between fast and sensitive |
 | `"sensitive"` | Sensitive | Full sensitivity for hits >40% identity |
 | `"more-sensitive"` | More sensitive | — |

@@ -262,9 +262,10 @@ compute_dnds <- function(complete_tbl,
         
         .reason <- NULL
         
-        # Progress (only when not quiet): a message about every tenth of the gene pairs. With several R processes
-        # the pairs are handed out in pieces of that size, so that there is something to report in between; the
-        # result does not depend on it.
+        # Progress (only when not quiet, or when divergence_stratigraphy() asks for it in an interactive session):
+        # a message about every tenth of the gene pairs. With several R processes the pairs are handed out in pieces
+        # of that size, so that there is something to report in between; the result does not depend on it.
+        show_progress <- !quiet || isTRUE(.orthologr_state$progress)
         n_pairs <- nrow(complete_tbl)
         step <- progress_step(n_pairs)
         t_start <- proc.time()[["elapsed"]]
@@ -273,7 +274,7 @@ compute_dnds <- function(complete_tbl,
                 dNdS_values <- vector(mode = "list", length = n_pairs)
                 for (i in seq_len(n_pairs)) {
                         dNdS_values[[i]] <- safe_pair(i)
-                        if (!quiet && i %% step == 0 && i < n_pairs)
+                        if (show_progress && i %% step == 0 && i < n_pairs)
                                 progress_message(i, n_pairs, t_start)
                 }
         }
@@ -286,7 +287,7 @@ compute_dnds <- function(complete_tbl,
                 finished <- FALSE
                 on.exit(dnds_cluster_stop(par_cores, finished = finished), add = TRUE)
                 
-                if (quiet || n_pairs <= step) {
+                if (!show_progress || n_pairs <= step) {
                         dNdS_values <- parallel::parLapply(par_cores, seq_len(n_pairs), safe_pair)
                 } else {
                         pieces <- split(seq_len(n_pairs), ceiling(seq_len(n_pairs) / step))

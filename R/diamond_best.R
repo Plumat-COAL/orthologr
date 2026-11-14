@@ -11,9 +11,9 @@
 #' @param diamond_algorithm a character string specifying the DIAMOND2 algorithm that shall be used, option is currently limited to: \code{diamond_algorithm} = \code{"blastp"}
 #' @param sensitivity_mode specify the level of alignment sensitivity. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 #' \itemize{
-#' \item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+#' \item \code{sensitivity_mode = "fast"}: fast alignment mode, designed for finding hits of >90\% identity (the default up to orthologr 0.4.3).
 #' \item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
-#' \item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+#' \item \code{sensitivity_mode = "default"} (Default; \code{options(orthologr.sensitivity_mode = )} sets another): the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >60\% identity.
 #' \item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
 #' \item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
 #' \item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
@@ -107,7 +107,7 @@ diamond_best <- function(
                 seq_type        = "cds",
                 format          = "fasta", 
                 diamond_algorithm = "blastp",
-                sensitivity_mode = "fast",
+                sensitivity_mode = getOption("orthologr.sensitivity_mode", "default"),
                 delete_corrupt_cds = TRUE,
                 eval            = "1E-5",
                 max.target.seqs = 10000,
@@ -117,6 +117,7 @@ diamond_best <- function(
                 clean_folders   = FALSE,
                 save.output     = NULL,
                 best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")){
+        sensitivity_mode <- orthologr_sensitivity_mode(if (missing(sensitivity_mode)) NULL else sensitivity_mode)
         
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         

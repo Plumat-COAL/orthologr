@@ -25,6 +25,18 @@
 #' estimates, as in 0.4.3 (default: \code{NA}, status \code{"saturated"}, as with the COAL engine; see
 #' \code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)"), and an estimate printed as
 #' \code{nan} as \code{NaN} with status \code{"saturated"} (default: \code{NA}, status \code{"failed"}).}
+#' \item{\code{orthologr.sensitivity_mode}}{\code{"default"} (default since 0.5.0): DIAMOND's own default mode, the
+#' default of the argument \code{sensitivity_mode} of \code{\link{dNdS}}, \code{\link{orthologs}},
+#' \code{\link{orthogroups}}, \code{\link{divergence_stratigraphy}}, \code{\link{diamond}}, \code{\link{diamond_best}}
+#' and \code{\link{diamond_rec}}. \code{"fast"} is the mode of 0.4.3 (DIAMOND designs it for hits of
+#' more than 90 \% identity; it finds 5 - 9 \% fewer reciprocal best hits between two yeasts).}
+#' \item{\code{orthologr.comeron_twosubs}}{\code{"comeron"} (default since 0.5.0): Comeron's method counts codons that
+#' differ at two positions along Comeron's two pathways. \code{"libsequence"}: along the branches libsequence's
+#' \code{TwoSubs} counts, as 0.4.3 did (the estimate then depends on which sequence is first; see
+#' \code{\link{substitutionrate}}).}
+#' \item{\code{orthologr.comeron_min_sites}}{\code{3} (default since 0.5.0): a site class of Comeron's method with fewer
+#' sites cannot make dN or dS \code{NA} (its undefined logarithm is 0). \code{0}: every class with sites can. Not set
+#' by \code{\link{orthologr_legacy_options}}: with \code{orthologr.legacy_comeron_saturation = TRUE} nothing is \code{NA} anyway.}
 #' \item{\code{orthologr.dS_zero}}{\code{"drop"} (default, as in 0.4.3) or \code{"keep"}: the default of the
 #' argument \code{dS_zero} of \code{\link{filter_dNdS}} and \code{\link{divergence_stratigraphy}}.}
 #' \item{\code{orthologr.status_column}}{\code{TRUE} (default): the dN/dS tables end with the column \code{status}
@@ -64,11 +76,17 @@
 #' length is not a multiple of 3 is written. A message names the file.}
 #' \item{\code{orthologr.isoform_warning}}{\code{TRUE} (default). \code{FALSE}: \code{dNdS()} and
 #' \code{orthologs()} and \code{orthogroups()} do not check whether the input files hold several isoforms per gene.}
-#' \item{\code{orthologr.ambiguous_cds}}{\code{"drop"} (default, as 0.4.3): coding sequences with characters other
-#' than A, C, G, T are left out before the search (they are counted in the summary and listed in
-#' \code{attr(result, "dropped_sequences")}). \code{"keep"}: sequences whose other letters are IUPAC ambiguity codes
-#' (N, R, Y, K, M, S, W, B, D, H, V) are kept; a codon with such a base is translated to \code{X}, and the
-#' alignment and estimation programs treat it as a codon of unknown identity.}
+#' \item{\code{orthologr.ambiguous_cds}}{\code{"keep"} (default since 0.5.0): coding sequences whose characters other
+#' than A, C, G, T are IUPAC ambiguity codes (N, R, Y, K, M, S, W, B, D, H, V) are kept; a codon with such a base is
+#' translated to \code{X}, and the alignment and estimation programs do not compare it. \code{dNdS()} lists
+#' these sequences in \code{attr(result, "ambiguous_sequences")} (with the number of such
+#' codons) and count the rows they are part of in the summary; \code{dNdS_orthogroups()} adds a note to those pairs.
+#' Sequences with other characters are left out (counted in the summary and listed in
+#' \code{attr(result, "dropped_sequences")}). \code{"drop"} (0.4.3; set by \code{\link{orthologr_legacy_options}}):
+#' every coding sequence with characters other than A, C, G, T is left out. Measured: 87 of 19,746 human and 75 of
+#' 21,584 mouse coding sequences (Ensembl, one transcript per gene) contain such characters; with one N in about 1
+#' \% of the codons of every human gene, Comeron's dS stays within 5 \% of the value without N for 99.1 \% of 946
+#' human / mouse pairs (YN: 95.3 \%).}
 #' }
 #' The option \code{timeout} of R is raised to at least 600 seconds while \code{diamond_install()} downloads DIAMOND.
 #' @section Environment variables:

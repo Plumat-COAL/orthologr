@@ -49,8 +49,12 @@ Whether a result was computed with these settings can be read from the result it
 | Change | Restored by |
 |---|---|
 | Best hits are chosen by bit score (was: e-value, then alignment length) | `options(orthologr.best_hit_rule = "evalue")` or `best_hit_rule = "evalue"` |
+| DIAMOND searches in its default mode (was `"fast"`, designed for hits of more than 90 % identity): 5 - 9 % more reciprocal best hits between yeasts, 0.9 % human / mouse, same precision | `options(orthologr.sensitivity_mode = "fast")` or `sensitivity_mode = "fast"` |
+| Coding sequences with ambiguous bases (N, R, Y, ...) are kept; codons with them are not compared (was: the sequence was left out) | `options(orthologr.ambiguous_cds = "drop")` |
 | Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | `options(orthologr.legacy_pairwise_aln = TRUE)` |
 | Comeron's method returns `NA` for a saturated dN or dS | `options(orthologr.legacy_comeron_saturation = TRUE)` |
+| Comeron's method counts codons that differ at two positions along Comeron's two pathways (libsequence's order made the estimate depend on which sequence is first; human / mouse dS: median change 1 %) | `options(orthologr.comeron_twosubs = "libsequence")` |
+| Comeron's method: a site class with fewer than 3 sites cannot make dN or dS `NA` | `options(orthologr.comeron_min_sites = 0)` (not part of the switch: with the saturation rule of 0.4.3 nothing is `NA`) |
 | KaKs_Calculator methods return `dN = 0` (was `NA`) for a pair without nonsynonymous change, and dN = dS = 0 for identical sequences | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
 | KaKs_Calculator methods return `NA` (status `"saturated"`) where KaKs_Calculator prints a capped value (e.g. dS = 99), and `NA` with status `"failed"` where it prints `nan` | `options(orthologr.legacy_kaks_saturation = TRUE)` |
 | dN/dS tables end with the column `status` | `options(orthologr.status_column = FALSE)` |

@@ -12,7 +12,7 @@ orthologs(
   eval = "1E-5",
   format = "fasta",
   ortho_detection = "DIAMOND_RBH",
-  sensitivity_mode = "fast",
+  sensitivity_mode = getOption("orthologr.sensitivity_mode", "default"),
   max.target.seqs = 10000,
   delete_corrupt_cds = FALSE,
   cdd.path = NULL,
@@ -55,7 +55,9 @@ Available methods:
 \code{orthologs()} compares one query with one subject; \code{\link{orthogroups}} infers groups of orthologs for
 any number of species (reciprocal best hits of all pairs of species, or DIAMOND DeepClust clusters).}
 
-\item{sensitivity_mode}{a character string specifying the DIAMOND2 sensitivity level.
+\item{sensitivity_mode}{a character string specifying the DIAMOND2 sensitivity level (default \code{"default"},
+DIAMOND's own default mode; \code{"fast"} up to 0.4.3; \code{options(orthologr.sensitivity_mode = )} sets
+another); see \code{\link{dNdS}}.
 Only used when \code{ortho_detection} is \code{"DIAMOND_RBH"} or \code{"DIAMOND_BH"}.
 Options: \code{"faster"}, \code{"fast"} (default), \code{"mid-sensitive"},
 \code{"sensitive"}, \code{"more-sensitive"}, \code{"very-sensitive"}, \code{"ultra-sensitive"}.}

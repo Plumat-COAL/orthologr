@@ -192,11 +192,24 @@
 #' A class of sites that has no sites (weight 0 in the estimate) never makes an estimate \code{NA}; this is also
 #' the rule of COAL's Comeron method, so \code{engine = "coal"} gives the same \code{NA} pattern.
 #' \strong{Short alignments:} with few codons a class with very few sites (typically the twofold sites whose
-#' synonymous change is a transversion) is easily "saturated" by one or two differences, and \code{dN} is then
-#' \code{NA} although the legacy value was a usable estimate: in a simulation of random sequences without
-#' selection, 4 to 13\% of the pairs of 30 codons lost \code{dN} at 10 to 35\% differing sites, 3 of 600 pairs of
-#' 100 codons, none of 300 codons or more. For short sequences consider the legacy option, or a method with
-#' pooled site classes (\code{"NG"}, \code{"YN"}).
+#' synonymous change is a transversion: a median of 1.75 sites in 30-codon alignments) is easily "saturated" by one
+#' or two differences. Since 0.5.0 a class with fewer than \code{options(orthologr.comeron_min_sites)} sites
+#' (default 3) cannot make \code{dN} or \code{dS} \code{NA}: its undefined logarithm is 0, as in 0.4.3. A value
+#' that is not \code{NA} otherwise never changes. In a simulation without selection this keeps \code{dN} for the
+#' 3.7 \% of 30-codon pairs that lost it (their mean absolute error 8.8 \%, against 11.2 \% for all 30-codon pairs);
+#' \code{options(orthologr.comeron_min_sites = 0)} gives \code{NA} for them again. Comeron's method (like the
+#' others) is unreliable below about 50 - 100 codons.
+#'
+#' @section Codons that differ at two positions (Comeron's method):
+#' For such codons Comeron (1995) counts the changes along the two pathways codon 1 - intermediate 1 - codon 2 and
+#' codon 1 - intermediate 2 - codon 2. libsequence's \code{TwoSubs}, from which this code comes, passes its
+#' arguments in another order and counts codon 1 - intermediate 1, intermediate 1 - intermediate 2, codon 1 -
+#' codon 2 and codon 2 - intermediate 2 instead, with which the estimate depends on which sequence is first
+#' (swapping the two sequences of 300 random pairs changed Ka in 279 of them). Since 0.5.0 the two pathways are
+#' counted (\code{options(orthologr.comeron_twosubs = "comeron")}, the default); \code{"libsequence"} gives the
+#' numbers of 0.4.3 (set by \code{\link{orthologr_legacy_options}}).
+#' Effect on dS (same alignments): 1,000-gene example median 0 \%, 95th percentile 2.9 \%; human / mouse median
+#' 1.0 \%, 95th percentile 5.0 \%.
 #' 
 #' The alignment must be a codon alignment: at least two sequences of the same length, which is a multiple of 3.
 #' Anything else is an error.
@@ -260,6 +273,10 @@ substitutionrate <- function(file,
                 if (format != "fasta")
                         stop("To use gestimator an alignment file in fasta format is required.")
                 
+                # the options are checked here, so that a wrong value is an error of its own (not a failed pair)
+                twosubs_libsequence <- identical(comeron_twosubs(), "libsequence")
+                min_sites <- comeron_min_sites()
+                
                 tryCatch({
                         # To use gestimator a file in fasta format is required
                         
@@ -269,7 +286,9 @@ substitutionrate <- function(file,
                         check_codon_alignment_file(file)
                         gestimator(file     = file,
                                    file_out = file.out,
-                                   legacy_saturation = comeron_legacy_saturation())
+                                   legacy_saturation = comeron_legacy_saturation(),
+                                   twosubs_libsequence = twosubs_libsequence,
+                                   min_sites = min_sites)
                         
                         #system(paste0("gestimator -i ",file," -o ",file.out))
                         
@@ -406,6 +425,29 @@ substitutionrate <- function(file,
 # logarithm of the correction (saturation) was replaced by 0 and a finite dS or dN was returned.
 comeron_legacy_saturation <- function() {
         isTRUE(orthologr_option("orthologr.legacy_comeron_saturation", FALSE))
+}
+
+# options(orthologr.comeron_twosubs): how Comeron's method counts codons that differ at two positions. "comeron"
+# (default): the two pathways of Comeron (1995). "libsequence": the branches libsequence's TwoSubs counts
+# (codon1 - int1, int1 - int2, codon1 - codon2, codon2 - int2), with which the estimate depends on which sequence
+# is first; the numbers of orthologr 0.4.3 (set by orthologr_legacy_options()).
+comeron_twosubs <- function() {
+        v <- orthologr_option("orthologr.comeron_twosubs", "comeron")
+        if (!is.character(v) || length(v) != 1 || !is.element(v, c("comeron", "libsequence")))
+                orthologr_abort(class = "bad_argument",
+                                "options(orthologr.comeron_twosubs = ) must be \"comeron\" or \"libsequence\".",
+                                call. = FALSE)
+        v
+}
+
+# options(orthologr.comeron_min_sites): a site class of Comeron's method with fewer sites than this cannot make dN or
+# dS NA (its undefined logarithm is 0, as in 0.4.3); default 3; 0: every class with sites can.
+comeron_min_sites <- function() {
+        v <- orthologr_option("orthologr.comeron_min_sites", 3)
+        if (!is.numeric(v) || length(v) != 1 || is.na(v) || !is.finite(v) || v < 0)
+                orthologr_abort(class = "bad_argument",
+                                "options(orthologr.comeron_min_sites = ) must be one number, 0 or more.", call. = FALSE)
+        as.numeric(v)
 }
 
 # Stop unless `file` (FASTA) is a codon alignment: at least two sequences, all of the same length, the length a
