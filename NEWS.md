@@ -36,6 +36,11 @@ Results:
 
 - `dNdS()` mixed up the two species when query and subject file had the same file name in different folders.
 - Li's method returned text columns and took small values (`9.95e-05`) for the saturation marker.
+- `dnds_est.method = "MLPB"` (default engine, KaKs_Calculator) works: `substitutionrate()` returned `NULL` for it
+  and `dNdS()` ended after the whole search with an error about a missing column (20-gene example: before an
+  error after 4 s; after 20 pairs, the values KaKs_Calculator gives for `-m MLPB`). There is one list of the
+  KaKs_Calculator methods for the whole package, and a method that `substitutionrate()` does not handle is an
+  error instead of `NULL`.
 
 Running programs:
 
