@@ -176,8 +176,10 @@ the trimmed ones. `options(orthologr.ambiguous_cds = "keep")` keeps sequences wh
 ambiguity codes (`N`, `R`, `Y`, ...): a codon with such a base is translated to `X`, and the alignment and
 estimation programs treat it as a codon of unknown identity.
 
-**Sensitivity of the search.** The default `sensitivity_mode = "fast"` is tuned for closely related species
-(DIAMOND: hits of more than 90 % identity). For distant species it misses orthologs and saves almost no time:
+**Sensitivity of the search.** The default is `sensitivity_mode = "default"`, DIAMOND's own default mode (hits
+of more than 60 % identity). Up to orthologr 0.4.3 it was `"fast"`, which DIAMOND tunes for hits of more than
+90 % identity; for distant species it misses orthologs and saves little time (`sensitivity_mode = "fast"` or
+`orthologr_legacy_options()` restore it):
 
 | reciprocal best hits (DIAMOND, 2 cores) | `"fast"` | `"default"` | `"sensitive"` |
 |---|---|---|---|
@@ -185,8 +187,9 @@ estimation programs treat it as a codon of unknown identity.
 | *S. cerevisiae* / *C. glabrata* | 4,164 (7 s) | 4,384 (8 s) | 4,502 (24 s) |
 
 The pairs found only with `"default"` have a median identity of 37 % and a median length of 298 amino acids.
-Use `sensitivity_mode = "default"` or `"sensitive"` when the proteins of the two species are less than about
-70 % identical.
+Against OrthoFinder's 1:1 orthologs of the yeasts, `"default"` finds 93 - 94 % (`"fast"`: 85 - 89 %) at the same
+precision (99.4 - 99.8 %); human / mouse: 98.14 % against 97.45 %. Use `sensitivity_mode = "sensitive"` when the
+proteins of the two species are much less identical than 60 % (dNdS() suggests it then).
 
 **Best hits.** `best_hit_rule = "bitscore"` (default) chooses the hit with the highest bit score;
 `"evalue"` is the rule of 0.4.3, under which a paralog with a longer alignment could win when several hits have

@@ -190,7 +190,7 @@
 #' codon 2 and codon 2 - intermediate 2 instead, with which the estimate depends on which sequence is first
 #' (swapping the two sequences of 300 random pairs changed Ka in 279 of them). Since 0.5.0 the two pathways are
 #' counted (\code{options(orthologr.comeron_twosubs = "comeron")}, the default); \code{"libsequence"} gives the
-#' numbers of 0.4.3.
+#' numbers of 0.4.3 (set by \code{\link{orthologr_legacy_options}}).
 #' Effect on dS (same alignments): 1,000-gene example median 0 \%, 95th percentile 2.9 \%; human / mouse median
 #' 1.0 \%, 95th percentile 5.0 \%.
 #' 
@@ -395,20 +395,23 @@ comeron_legacy_saturation <- function() {
 # options(orthologr.comeron_twosubs): how Comeron's method counts codons that differ at two positions. "comeron"
 # (default): the two pathways of Comeron (1995). "libsequence": the branches libsequence's TwoSubs counts
 # (codon1 - int1, int1 - int2, codon1 - codon2, codon2 - int2), with which the estimate depends on which sequence
-# is first; the numbers of orthologr 0.4.3.
+# is first; the numbers of orthologr 0.4.3 (set by orthologr_legacy_options()).
 comeron_twosubs <- function() {
-        v <- getOption("orthologr.comeron_twosubs", "comeron")
+        v <- orthologr_option("orthologr.comeron_twosubs", "comeron")
         if (!is.character(v) || length(v) != 1 || !is.element(v, c("comeron", "libsequence")))
-                stop("options(orthologr.comeron_twosubs = ) must be \"comeron\" or \"libsequence\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument",
+                                "options(orthologr.comeron_twosubs = ) must be \"comeron\" or \"libsequence\".",
+                                call. = FALSE)
         v
 }
 
 # options(orthologr.comeron_min_sites): a site class of Comeron's method with fewer sites than this cannot make dN or
 # dS NA (its undefined logarithm is 0, as in 0.4.3); default 3; 0: every class with sites can.
 comeron_min_sites <- function() {
-        v <- getOption("orthologr.comeron_min_sites", 3)
+        v <- orthologr_option("orthologr.comeron_min_sites", 3)
         if (!is.numeric(v) || length(v) != 1 || is.na(v) || !is.finite(v) || v < 0)
-                stop("options(orthologr.comeron_min_sites = ) must be one number, 0 or more.", call. = FALSE)
+                orthologr_abort(class = "bad_argument",
+                                "options(orthologr.comeron_min_sites = ) must be one number, 0 or more.", call. = FALSE)
         as.numeric(v)
 }
 

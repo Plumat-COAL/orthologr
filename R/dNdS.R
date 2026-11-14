@@ -25,9 +25,9 @@
 #' @param aligner_path a character string specifying the path to the DIAMOND or BLAST program (in case you don't use the default path).
 #' @param sensitivity_mode specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 #' \itemize{
-#' \item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+#' \item \code{sensitivity_mode = "fast"}: fast alignment mode, designed for finding hits of >90\% identity (the default up to orthologr 0.4.3).
 #' \item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
-#' \item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+#' \item \code{sensitivity_mode = "default"} (Default; \code{options(orthologr.sensitivity_mode = )} sets another): the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >60\% identity.
 #' \item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
 #' \item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
 #' \item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
@@ -35,13 +35,17 @@
 #' \item \code{sensitivity_mode = "ultra-sensitive"}: most sensitive alignment mode (sensitivity as high as BLASTP).
 #' }
 #' Any other value is an error.
-#' \strong{Choosing the mode.} \code{"fast"} is tuned for closely related species. For distant species it misses
-#' orthologs at almost no gain in time: \emph{S. cerevisiae} against \emph{C. glabrata} (reciprocal best hits, 2
-#' cores) gives 4,164 pairs with \code{"fast"} (7 s), 4,384 with \code{"default"} (+5.3 \%, 8 s) and 4,502 with
-#' \code{"sensitive"} (+8.1 \%, 24 s); the pairs found only by \code{"default"} have a median identity of 37 \%
-#' and a median length of 298 amino acids. On the 1,000-gene \emph{A. thaliana} / \emph{A. lyrata} example the
-#' three modes give 983, 985 and 985 pairs. Use \code{"default"} or \code{"sensitive"} when the proteins of the
-#' two species are less than about 70 \% identical.
+#' \strong{Choosing the mode.} The default is \code{"default"} since 0.5.0 (0.4.3: \code{"fast"}, which DIAMOND
+#' designs for hits of more than 90 \% identity; \code{sensitivity_mode = "fast"},
+#' \code{options(orthologr.sensitivity_mode = "fast")} or \code{\link{orthologr_legacy_options}} restore it). Measured
+#' with the search \code{dNdS()} makes (reciprocal best hits, e-value 1e-5, 2 threads; references: OrthoFinder's
+#' orthologs of four yeasts, Ensembl Compara human / mouse): \emph{S. cerevisiae} against \emph{C. glabrata},
+#' \emph{K. lactis} and \emph{A. gossypii} gives 5.3 - 9.4 \% more pairs with \code{"default"} than with
+#' \code{"fast"} (recall of the 1:1 orthologs 85 - 89 \% -> 93 - 94 \%, precision unchanged at 99.4 - 99.8 \%),
+#' human / mouse 0.9 \% more (recall 97.45 -> 98.14 \%), at 1.3 - 1.6 times the search's CPU time (seconds to a
+#' few minutes, a small part of a \code{dNdS()} run). \code{"sensitive"} adds another 2.7 - 5.2 \% in yeast at about
+#' 3 times the search time of \code{"default"}: use it for distant species (\code{dNdS()} suggests it when the best
+#' hits are much less identical than the mode is designed for).
 #' @param eval a numeric value specifying the E-Value cutoff for DIAMOND or BLAST hit detection.
 #' @param ortho_path deprecated and not used (a warning is given when it is set).
 #' @param aa_aln_type a character string specifying the amino acid alignment type:
@@ -338,7 +342,7 @@
 dNdS <- function(query_file, 
                  subject_file, 
                  aligner         = "diamond",
-                 sensitivity_mode = "fast",
+                 sensitivity_mode = getOption("orthologr.sensitivity_mode", "default"),
                  aligner_path    = NULL, 
                  seq_type        = "cds",
                  format          = "fasta", 
@@ -363,6 +367,7 @@ dNdS <- function(query_file,
                  aa_sub_matrix   = "BLOSUM62",
                  best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")
                  ){
+        sensitivity_mode <- orthologr_sensitivity_mode(if (missing(sensitivity_mode)) NULL else sensitivity_mode)
         
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         
@@ -538,8 +543,9 @@ dNdS <- function(query_file,
         # (attr "failed_pairs"), the record of the run (attr "orthologr_run") and one summary message.
         kaks_used <- is.element(dnds_est.method, kaks_calculator_methods())
         trimmed <- trimmed_table()
+        ambiguous <- ambiguous_table()
         res <- dnds_finish(
-                res, failed_pairs = attr(dNdS_tbl, "failed_pairs"), dropped = end_dropped(), trimmed = trimmed,
+                res, failed_pairs = attr(dNdS_tbl, "failed_pairs"), dropped = end_dropped(), ambiguous = ambiguous, trimmed = trimmed,
                 record = list(fun = "dNdS", args = run_args, engine = "orthologr",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path,
                                                           aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path,

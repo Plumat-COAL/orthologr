@@ -14,6 +14,15 @@ check_sensitivity_mode <- function(sensitivity_mode) {
         invisible(sensitivity_mode)
 }
 
+# The DIAMOND sensitivity mode: the argument when given, else options(orthologr.sensitivity_mode = ), else "fast"
+# with options(orthologr.legacy = TRUE) (the default of 0.4.3), else "default" (DIAMOND's own default mode).
+orthologr_sensitivity_mode <- function(mode = NULL) {
+        if (is.null(mode))
+                mode <- orthologr_option("orthologr.sensitivity_mode", "default")
+        check_sensitivity_mode(mode)
+        mode
+}
+
 # One value out of a fixed set, with an error in the style of match.arg() that also names the argument.
 check_choice <- function(value, choices, arg, hint = NULL) {
         if (!is.character(value) || length(value) != 1 || is.na(value) || !is.element(value, choices))
@@ -51,8 +60,12 @@ dnds_check_args <- function(aligner, sensitivity_mode, seq_type, format, ortho_d
         check_choice(aa_aln_type, c("pairwise", "multiple"), "aa_aln_type")
         
         # options(orthologr.max_aln_cells) is checked now: an invalid value (-1, "5e8") ran the search and then
-        # failed every gene pair with the message about the option
+        # failed every gene pair with the message about the option; the same for the options of Comeron's method and
+        # options(orthologr.ambiguous_cds)
         max_aln_cells()
+        comeron_twosubs()
+        comeron_min_sites()
+        ambiguous_cds_mode()
         
         if (aa_aln_type == "pairwise") {
                 check_choice(aa_aln_tool, "NW", "aa_aln_tool",
@@ -114,20 +127,23 @@ dnds_require_programs <- function(aa_aln_tool = "NW", aa_aln_path = NULL, codon_
         invisible(TRUE)
 }
 
-# A hint when DIAMOND ran with sensitivity_mode = "fast" (tuned for hits of > 90 % identity) and the best hits are
-# far below that: "default" finds more reciprocal best hits there. Measured (NCBI RefSeq coding sequences,
-# reciprocal best hits, e-value 1e-5): S. cerevisiae / C. glabrata 4,165 with "fast" against 4,385 with "default"
-# (-5.0 %), S. cerevisiae / K. lactis 3,848 / 4,208 (-8.6 %), Salmonella LT2 / Shigella flexneri 2,820 / 2,863
-# (-1.5 %); "default" took no longer on these genomes (7.8 / 7.8 / 6.0 s against 9.6 / 6.9 / 5.1 s, 2 threads).
-sensitivity_hint <- function(hits, aligner, sensitivity_mode, threshold = 70) {
-        if (!identical(aligner, "diamond") || !identical(sensitivity_mode, "fast") || is.null(hits) || nrow(hits) < 20 ||
-            !is.element("perc_identity", names(hits)))
+# A hint when the best hits are far below the identity the DIAMOND mode is designed for (DIAMOND's documentation:
+# "fast" > 90 %, "default" > 60 %, "sensitive" > 40 %): "sensitive" finds more reciprocal best hits there.
+# Measured (reciprocal best hits as dNdS() makes them, e-value 1e-5; DECISIONS of 2026-11-14, item 1): S. cerevisiae
+# against C. glabrata / K. lactis / A. gossypii 4,165 / 3,846 / 3,695 pairs with "fast", 4,385 / 4,206 / 4,044 with
+# "default", 4,503 / 4,366 / 4,253 with "sensitive" (+2.7 / +3.8 / +5.2 % over "default"; recall of OrthoFinder's
+# 1:1 orthologs 93.8 / 94.3 / 93.2 % -> 96.7 / 98.1 / 98.1 %), at about 3 times the search time of "default".
+sensitivity_hint <- function(hits, aligner, sensitivity_mode) {
+        threshold <- c(faster = 70, fast = 70, default = 60, `mid-sensitive` = 60)[sensitivity_mode]
+        if (!identical(aligner, "diamond") || length(threshold) != 1 || is.na(threshold) || is.null(hits) ||
+            nrow(hits) < 20 || !is.element("perc_identity", names(hits)))
                 return(invisible(FALSE))
         med <- stats::median(as.numeric(hits$perc_identity), na.rm = TRUE)
         if (!is.finite(med) || med >= threshold)
                 return(invisible(FALSE))
-        message("The best hits are ", round(med), " % identical (median). sensitivity_mode = \"fast\" is tuned for ",
-                "closely related species; sensitivity_mode = \"default\" finds about 5 - 9 % more reciprocal best hits ",
-                "between species of this distance (e.g. two yeasts), at about the same run time.")
+        message("The best hits are ", round(med), " % identical (median). sensitivity_mode = \"", sensitivity_mode,
+                "\" is designed for hits of more than ", if (threshold == 70) 90 else 60, " % identity; ",
+                "sensitivity_mode = \"sensitive\" finds about 3 - 5 % more reciprocal best hits than \"default\" ",
+                "between species of this distance (e.g. two yeasts), at about 3 times the search time.")
         invisible(TRUE)
 }

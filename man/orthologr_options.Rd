@@ -72,11 +72,17 @@ directory): the folder in which the file \code{<name>_corrupted_cds_seqs.fasta} 
 length is not a multiple of 3 is written. A message names the file.}
 \item{\code{orthologr.isoform_warning}}{\code{TRUE} (default). \code{FALSE}: \code{dNdS()} and
 \code{orthologs()} and \code{orthogroups()} do not check whether the input files hold several isoforms per gene.}
-\item{\code{orthologr.ambiguous_cds}}{\code{"drop"} (default, as 0.4.3): coding sequences with characters other
-than A, C, G, T are left out before the search (they are counted in the summary and listed in
-\code{attr(result, "dropped_sequences")}). \code{"keep"}: sequences whose other letters are IUPAC ambiguity codes
-(N, R, Y, K, M, S, W, B, D, H, V) are kept; a codon with such a base is translated to \code{X}, and the
-alignment and estimation programs treat it as a codon of unknown identity.}
+\item{\code{orthologr.ambiguous_cds}}{\code{"keep"} (default since 0.5.0): coding sequences whose characters other
+than A, C, G, T are IUPAC ambiguity codes (N, R, Y, K, M, S, W, B, D, H, V) are kept; a codon with such a base is
+translated to \code{X}, and the alignment and estimation programs do not compare it. \code{dNdS()} lists
+these sequences in \code{attr(result, "ambiguous_sequences")} (with the number of such
+codons) and count the rows they are part of in the summary; \code{dNdS_orthogroups()} adds a note to those pairs.
+Sequences with other characters are left out (counted in the summary and listed in
+\code{attr(result, "dropped_sequences")}). \code{"drop"} (0.4.3; set by \code{\link{orthologr_legacy_options}}):
+every coding sequence with characters other than A, C, G, T is left out. Measured: 87 of 19,746 human and 75 of
+21,584 mouse coding sequences (Ensembl, one transcript per gene) contain such characters; with one N in about 1
+\% of the codons of every human gene, Comeron's dS stays within 5 \% of the value without N for 99.1 \% of 946
+human / mouse pairs (YN: 95.3 \%).}
 }
 The option \code{timeout} of R is raised to at least 600 seconds while \code{diamond_install()} downloads DIAMOND.
 }

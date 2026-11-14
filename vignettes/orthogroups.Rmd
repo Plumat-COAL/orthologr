@@ -152,8 +152,9 @@ Reading these numbers:
 - Reciprocal best hits find almost all one-to-one orthologs and few false pairs, but by construction only one
   partner per species; most one-to-many orthologs are missed. `inparalogs = TRUE` finds more of them at the
   price of more pairs that Compara does not list.
-- The default sensitivity mode (`"fast"`) is that of `diamond_rec()`. For species as distant as the yeasts
-  above, `sensitivity_mode = "sensitive"` (or higher) finds more groups.
+- The default sensitivity mode (`"default"`, DIAMOND's own; `"fast"` up to orthologr 0.4.3) is that of
+  `diamond_rec()`. For species as distant as the yeasts above, `sensitivity_mode = "sensitive"` (or higher)
+  finds more groups.
 - OrthoFinder builds gene trees and reports hierarchical orthogroups; `orthogroups()` does neither. Its groups
   are smaller and it leaves more genes unassigned (species-specific groups are not reported at all).
 - DeepClust clusters without `refine = TRUE` are families rather than orthogroups: see the limits below.

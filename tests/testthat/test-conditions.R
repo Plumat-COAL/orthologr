@@ -76,10 +76,17 @@ test_that("a gene pair that fails gives orthologr_warning_failed_pairs", {
                        class = "orthologr_warning_failed_pairs")
 })
 
-test_that("sensitivity_hint(): a message for distant species with sensitivity_mode = 'fast' only", {
+test_that("sensitivity_hint(): a message for distant species, pointing to sensitivity_mode = 'sensitive'", {
         hits <- data.frame(perc_identity = rep(c(50, 60), 15))
-        expect_message(sensitivity_hint(hits, "diamond", "fast"), "sensitivity_mode = \"default\"")
-        expect_silent(sensitivity_hint(hits, "diamond", "default"))
+        expect_message(sensitivity_hint(hits, "diamond", "fast"), "sensitivity_mode = \"sensitive\"")
+        expect_message(sensitivity_hint(hits, "diamond", "default"), "sensitivity_mode = \"sensitive\"")
+        # "default" is designed for hits above 60 %: no hint at 65 %, which is below 70 % for "fast"
+        mid <- data.frame(perc_identity = rep(65, 30))
+        expect_silent(sensitivity_hint(mid, "diamond", "default"))
+        expect_message(sensitivity_hint(mid, "diamond", "fast"), "more than 90 % identity")
+        # the sensitive modes get no hint
+        expect_silent(sensitivity_hint(hits, "diamond", "sensitive"))
+        expect_silent(sensitivity_hint(hits, "diamond", "ultra-sensitive"))
         expect_silent(sensitivity_hint(hits, "blast", "fast"))
         expect_silent(sensitivity_hint(data.frame(perc_identity = rep(95, 30)), "diamond", "fast"))
         expect_silent(sensitivity_hint(hits[1:5, , drop = FALSE], "diamond", "fast"))

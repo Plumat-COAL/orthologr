@@ -24,7 +24,9 @@
 #' }
 #' \code{orthologs()} compares one query with one subject; \code{\link{orthogroups}} infers groups of orthologs for
 #' any number of species (reciprocal best hits of all pairs of species, or DIAMOND DeepClust clusters).
-#' @param sensitivity_mode a character string specifying the DIAMOND2 sensitivity level.
+#' @param sensitivity_mode a character string specifying the DIAMOND2 sensitivity level (default \code{"default"},
+#' DIAMOND's own default mode; \code{"fast"} up to 0.4.3; \code{options(orthologr.sensitivity_mode = )} sets
+#' another); see \code{\link{dNdS}}.
 #' Only used when \code{ortho_detection} is \code{"DIAMOND_RBH"} or \code{"DIAMOND_BH"}.
 #' Options: \code{"faster"}, \code{"fast"} (default), \code{"mid-sensitive"},
 #' \code{"sensitive"}, \code{"more-sensitive"}, \code{"very-sensitive"}, \code{"ultra-sensitive"}.
@@ -115,7 +117,7 @@ orthologs <- function(query_file,
                       eval               = "1E-5",
                       format             = "fasta",
                       ortho_detection    = "DIAMOND_RBH",
-                      sensitivity_mode   = "fast",
+                      sensitivity_mode   = getOption("orthologr.sensitivity_mode", "default"),
                       max.target.seqs    = 10000,
                       delete_corrupt_cds = FALSE,
                       cdd.path           = NULL,
@@ -126,6 +128,7 @@ orthologs <- function(query_file,
                       quiet              = FALSE,
                       clean_folders      = FALSE,
                       best_hit_rule      = getOption("orthologr.best_hit_rule", "bitscore")) {
+        sensitivity_mode <- orthologr_sensitivity_mode(if (missing(sensitivity_mode)) NULL else sensitivity_mode)
         
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
 

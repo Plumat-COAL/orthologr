@@ -2,10 +2,10 @@
 # The tables in fixtures/dnds_0.4.3 were computed with orthologr 0.4.3 (see fixtures/README and make_fixture.R
 # there); with the legacy settings this version must return them unchanged.
 
-<<<<<<< HEAD
-legacy_names <- c("orthologr.best_hit_rule", "orthologr.legacy_pairwise_aln", "orthologr.legacy_comeron_saturation",
-                  "orthologr.legacy_kaks_zero_dn", "orthologr.legacy_kaks_saturation", "orthologr.max_aln_cells",
-                  "orthologr.dS_zero", "orthologr.status_column")
+legacy_names <- c("orthologr.best_hit_rule", "orthologr.sensitivity_mode", "orthologr.legacy_pairwise_aln",
+                  "orthologr.legacy_comeron_saturation", "orthologr.comeron_twosubs", "orthologr.legacy_kaks_zero_dn",
+                  "orthologr.legacy_kaks_saturation", "orthologr.max_aln_cells", "orthologr.dS_zero",
+                  "orthologr.ambiguous_cds", "orthologr.status_column")
 
 # No orthologr option is set inside the calling test; what was set before, and what the test sets, is undone when
 # the test ends.
@@ -14,14 +14,6 @@ without_orthologr_options <- function(env = parent.frame()) {
         nm <- unique(c(nm[startsWith(nm, "orthologr.")], legacy_names, "orthologr.legacy"))
         nm <- setdiff(nm, "orthologr.tmpdir")
         rlang::local_options(!!!stats::setNames(vector("list", length(nm)), nm), .frame = env)
-=======
-# The options that restore the defaults of 0.4.3, set in the calling test and undone when it ends.
-with_0.4.3_defaults <- function(env = parent.frame()) {
-        rlang::local_options(orthologr.legacy_pairwise_aln = TRUE, orthologr.legacy_comeron_saturation = TRUE,
-                             orthologr.comeron_twosubs = "libsequence",
-                             orthologr.legacy_kaks_zero_dn = TRUE, orthologr.legacy_kaks_saturation = TRUE,
-                             orthologr.best_hit_rule = "evalue", .frame = env)
->>>>>>> i12-13
 }
 
 # The tables are compared with a tolerance of 1e-12: e-values such as 2.27e-158 are read with a difference in the
@@ -42,6 +34,10 @@ test_that("orthologr_legacy_options(set = FALSE) lists the options and sets noth
         expect_identical(names(l), legacy_names)
         expect_identical(l$orthologr.best_hit_rule, "evalue")
         expect_identical(l$orthologr.status_column, FALSE)
+        # the defaults changed by the decisions of 2026-11-14 (D1, D7a, D8)
+        expect_identical(l$orthologr.sensitivity_mode, "fast")
+        expect_identical(l$orthologr.ambiguous_cds, "drop")
+        expect_identical(l$orthologr.comeron_twosubs, "libsequence")
         expect_null(getOption("orthologr.best_hit_rule"))
         expect_error(orthologr_legacy_options(set = NA), "set")
 })
@@ -73,6 +69,9 @@ test_that("options(orthologr.legacy = TRUE) is a shorthand, and an option that i
         expect_true(orthologr:::kaks_legacy_zero_dn())
         expect_false(orthologr:::dnds_status_column())
         expect_identical(orthologr:::orthologr_option("orthologr.legacy_pairwise_aln", FALSE), TRUE)
+        expect_identical(orthologr:::orthologr_sensitivity_mode(NULL), "fast")
+        expect_identical(orthologr:::ambiguous_cds_mode(), "drop")
+        expect_identical(orthologr:::comeron_twosubs(), "libsequence")
         inforce <- orthologr:::orthologr_options_in_force()
         expect_identical(inforce$orthologr.best_hit_rule, "evalue")
         expect_identical(inforce$orthologr.legacy, TRUE)
@@ -94,6 +93,9 @@ test_that("the default of best_hit_rule follows the legacy shorthand in the expo
         expect_identical(attr(old, "orthologr_run")$arguments$best_hit_rule, "evalue")
         expect_identical(attr(old, "orthologr_run")$options$orthologr.legacy_pairwise_aln, TRUE)
         expect_false(is.element("status", names(old)))
+        # the DIAMOND mode of 0.4.3 as well (the argument's default follows the shorthand)
+        expect_identical(attr(new, "orthologr_run")$arguments$sensitivity_mode, "default")
+        expect_identical(attr(old, "orthologr_run")$arguments$sensitivity_mode, "fast")
 })
 
 for (how in c("orthologr_legacy_options()", "options(orthologr.legacy = TRUE)")) {

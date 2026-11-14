@@ -233,11 +233,16 @@ dNdS_orthogroups <- function(x,
                         strsplit(res_pairs$note[bad], "\n", fixed = TRUE)[[1]][1], call. = FALSE)
         }
         summary_tbl <- dnds_groups_summary(res_pairs, m, dS_saturation = dS_saturation, status = status)
+        # pairs with a coding sequence kept with ambiguous bases (options(orthologr.ambiguous_cds = "keep")): a note
+        # (after the status, which a note of a failed pair decides)
+        amb_rows <- dnds_ambiguous_note(res_pairs, cds$ambiguous)
+        res_pairs[["note"]] <- amb_rows$note
         if (dnds_status_column())
                 res_pairs[["status"]] <- status
         message(dnds_summary_text(status, dS = res_pairs$dS, fun = "dNdS_orthogroups()",
                                   what = paste0("gene pairs in ", length(unique(res_pairs$orthogroup)), " groups"),
-                                  failed_where = "the column 'note' of the table 'pairs'"))
+                                  failed_where = "the column 'note' of the table 'pairs'", ambiguous_rows = amb_rows$n,
+                                  ambiguous_where = "the column 'note' of the table 'pairs'"))
         
         out <- list(
                 pairs   = tibble::as_tibble(res_pairs),
@@ -294,6 +299,8 @@ dnds_groups_read_cds <- function(x, cds_files, delete_corrupt_cds = TRUE) {
         genes <- x$genes
         all <- list()
         unusable <- list()
+        ambiguous <- list()
+        keep_ambiguous <- identical(ambiguous_cds_mode(), "keep")
         first_id <- NA_character_
         for (k in x$species) {
                 dt <- read.cds(file = cds_files[[k]], format = "fasta", delete_corrupt_cds = delete_corrupt_cds)
@@ -308,15 +315,45 @@ dnds_groups_read_cds <- function(x, cds_files, delete_corrupt_cds = TRUE) {
                 names(seq) <- gk$gene
                 seq <- seq[!is.na(at)]
                 bad_len <- nchar(seq) %% 3 != 0 | nchar(seq) == 0
-                bad_chr <- grepl("[^ACGT]", seq)
+                # options(orthologr.ambiguous_cds = "keep") (the default): IUPAC ambiguity codes are kept, as in dNdS()
+                amb <- grepl("[^ACGT]", seq) & !grepl("[^ACGTNRYKMSWBDHV]", seq)
+                bad_chr <- grepl("[^ACGT]", seq) & !(keep_ambiguous & amb)
+                if (keep_ambiguous && any(amb & !bad_len)) {
+                        a <- seq[amb & !bad_len]
+                        ambiguous[[k]] <- stats::setNames(vapply(a, function(x) {
+                                cod <- substring(x, seq(1, nchar(x) - 2, by = 3), seq(3, nchar(x), by = 3))
+                                sum(grepl("[^ACGT]", cod))
+                        }, integer(1), USE.NAMES = FALSE), names(a))
+                }
                 unusable[[k]] <- c(
                         stats::setNames(rep("the length of the coding sequence is not a multiple of 3", sum(bad_len)), names(seq)[bad_len]),
-                        stats::setNames(rep("the coding sequence has characters other than A, C, G, T", sum(bad_chr & !bad_len)),
+                        stats::setNames(rep(if (keep_ambiguous) "the coding sequence has characters that are not bases (A, C, G, T or IUPAC ambiguity codes)"
+                                            else "the coding sequence has characters other than A, C, G, T (options(orthologr.ambiguous_cds = \"drop\"))",
+                                            sum(bad_chr & !bad_len)),
                                         names(seq)[bad_chr & !bad_len])
                 )
                 all[[k]] <- seq[!bad_len & !bad_chr]
         }
-        list(cds = unlist(unname(all)), unusable = unlist(unname(unusable)), first_id = first_id)
+        list(cds = unlist(unname(all)), unusable = unlist(unname(unusable)), first_id = first_id,
+             ambiguous = unlist(unname(ambiguous)))
+}
+
+# The column 'note' of the pair table with a note for every pair one of whose coding sequences was kept with
+# ambiguous bases (`ambiguous`: named integer, gene -> number of codons with such a base). Returns list(note, n).
+dnds_ambiguous_note <- function(tbl, ambiguous) {
+        note <- as.character(tbl$note)
+        if (length(ambiguous) == 0 || nrow(tbl) == 0)
+                return(list(note = note, n = 0L))
+        txt <- function(id) ifelse(is.element(id, names(ambiguous)),
+                                   paste0(id, " ", ambiguous[id], " codon", ifelse(ambiguous[id] == 1, "", "s")), NA_character_)
+        q <- txt(as.character(tbl$query_id))
+        s <- txt(as.character(tbl$subject_id))
+        hit <- !is.na(q) | !is.na(s)
+        add <- paste0("ambiguous bases in the coding sequence (",
+                      ifelse(is.na(q), "", q), ifelse(!is.na(q) & !is.na(s), ", ", ""), ifelse(is.na(s), "", s),
+                      " with such a base, not compared)")
+        note[hit] <- ifelse(is.na(note[hit]), add[hit], paste0(note[hit], "; ", add[hit]))
+        list(note = note, n = sum(hit))
 }
 
 # ---- engine "orthologr" ---------------------------------------------------------------------------------------
