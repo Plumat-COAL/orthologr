@@ -158,7 +158,7 @@ retrieve_longest_isoforms_do <- function(proteome_file, annotation_file, new_fil
         message("Importing proteome file ", basename(proteome_file), " ...")
         pep_file <- Biostrings::readAAStringSet(proteome_file)
         new_names <- unlist(lapply(pep_file@ranges@NAMES, function(x) {
-                unlist(stringr::str_split(x," "))[1]
+                first_field(x, " ")
         }))
         names(pep_file) <- new_names
         

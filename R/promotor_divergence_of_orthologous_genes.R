@@ -64,7 +64,7 @@ promotor_divergence_of_orthologous_genes <-
                         file.path(promotor_folder, list.files(promotor_folder))
                 organism_names <-
                         as.character(sapply(basename(promotor_files), function(x)
-                                unlist(stringr::str_split(x, "_"))[1]))
+                                first_field(x, "_")))
                 
                 ortholog_tables <-
                         suppressMessages(orthologr::import_ortholog_tables_all(ortholog_tables_folder))
@@ -133,7 +133,7 @@ promotor_divergence_of_orthologous_genes <-
                                 dplyr::filter(ortholog_tables,
                                               subject_species == subject_species_names[i])
                         
-                        if (!stringr::str_detect(promotor_files_no_qry[i], subject_species_names[i]))
+                        if (!grepl(subject_species_names[i], promotor_files_no_qry[i], perl = TRUE))
                                 stop(
                                         "The 'promotor_file' '",
                                         promotor_files_no_qry[i],
