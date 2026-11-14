@@ -202,8 +202,8 @@ codon 2 and codon 2 - intermediate 2 instead, with which the estimate depends on
 counted (\code{options(orthologr.comeron_twosubs = "comeron")}, the default); \code{"libsequence"} gives the
 numbers of 0.4.3 (set by \code{\link{orthologr_legacy_options}}). The COAL engine
 (\code{engine = "coal"}, \code{kaks_tool = "coal"}) follows both options.
-Effect on dS (same alignments): 1,000-gene example median 0 \%, 95th percentile 2.9 \%; human / mouse median
-1.0 \%, 95th percentile 5.0 \%.
+Effect on dS (same alignments): 1,000-gene example median 0 \%, 95th percentile 2.9 \% (\code{dNdS()}); human / mouse
+median 1.0 \%, 95th percentile 5.0 \% (measured with the saturation rule of 0.4.3).
 
 The alignment must be a codon alignment: at least two sequences of the same length, which is a multiple of 3.
 Anything else is an error.
