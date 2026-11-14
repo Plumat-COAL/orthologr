@@ -61,6 +61,11 @@ Results:
   were grouped by name).
 - `promotor_divergence_of_orthologous_genes()` pairs promoters by ortholog pair.
 - `substitutionrate(kaks_calc.params = )` is added to the method instead of replacing it.
+- `dnds_est.method = "MLPB"` (default engine, KaKs_Calculator) works: `substitutionrate()` returned `NULL` for it
+  and `dNdS()` ended after the whole search with an error about a missing column (20-gene example: before an
+  error after 4 s; after 20 pairs, the values KaKs_Calculator gives for `-m MLPB`). There is one list of the
+  KaKs_Calculator methods for the whole package, and a method that `substitutionrate()` does not handle is an
+  error instead of `NULL`.
 
 Running programs:
 

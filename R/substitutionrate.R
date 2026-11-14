@@ -157,19 +157,7 @@ substitutionrate <- function(file,
         if (!is.null(kaks_calc_path))
                 kaks_calc_path <- normalizePath(kaks_calc_path, mustWork = FALSE)
         
-        kaks_calc_methods <-
-                c("MA",
-                  "MS",
-                  "NG",
-                  "LWL",
-                  "LPB",
-                  "MLWL",
-                  "YN",
-                  "MYN",
-                  "GY",
-                  "GMYN",
-                  "kaks_calc",
-                  "ALL")
+        kaks_calc_methods <- kaks_calculator_methods()
         
         if (!is.dnds_est_method(est.method))
                 stop("Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
@@ -327,6 +315,9 @@ substitutionrate <- function(file,
                 
                 return(kaks_result_table(kaks_tbl, pair_ids, context))
         }
+        
+        # every method accepted above is handled by one of the branches; a method that is not must never give NULL
+        stop("est.method = \"", est.method, "\" is not handled by substitutionrate().", call. = FALSE)
 }
 
 # options(orthologr.legacy_comeron_saturation = TRUE): Comeron's method as up to 0.4.3, where an undefined
