@@ -43,7 +43,8 @@
 #' Hence all genes having a dNdS value <= \code{dnds.threshold} are retained. Default is \code{dnds.threshold} = 2.
 #' @param store_locally a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.
 #' @param quiet \code{TRUE} (default since 0.5.0, as in \code{\link{dNdS}}): the messages of the dN/dS run are one
-#' line at the start and one summary at the end. \code{FALSE} (the default of 0.4.3): the messages of
+#' line at the start and one summary at the end, and, in an interactive R session, a progress line about every
+#' tenth of the gene pairs (stratigraphy runs are long). \code{FALSE} (the default of 0.4.3): the messages of
 #' \code{\link{dNdS}} in detail.
 #' @param clean_folders a logical value specifying whether the internal folder structure shall be deleted (cleaned) after
 #'  processing this function. Default is \code{clean_folders} = \code{FALSE}.
@@ -241,6 +242,14 @@ divergence_stratigraphy <- function(query_file,
         
         message("Running Divergence Stratigraphy ...")
         
+        # quiet = TRUE in an interactive session: progress about every tenth of the gene pairs all the same (in a
+        # script or batch job the summary alone)
+        if (stratigraphy_progress_wanted(quiet)) {
+                old_progress <- .orthologr_state$progress
+                .orthologr_state$progress <- TRUE
+                on.exit(.orthologr_state$progress <- old_progress, add = TRUE)
+        }
+        
         # due to the discussion of no visible binding for global variable for
         # data.table objects see:
         # http://stackoverflow.com/questions/8096313/no-visible-binding-for-global-variable-note-in-r-cmd-check?lq=1
@@ -376,4 +385,15 @@ divergence_left_out <- function(x) {
                 stop("'x' has no attribute \"left_out\": it must be a divergence map returned by divergence_stratigraphy() ",
                      "of orthologr >= 0.5.0.", call. = FALSE)
         res
+}
+
+
+# divergence_stratigraphy(quiet = TRUE) shows the progress of the dN/dS run in an interactive session only.
+stratigraphy_progress_wanted <- function(quiet) {
+        isTRUE(quiet) && is_interactive()
+}
+
+# interactive(), in a function of the package so that tests can replace it.
+is_interactive <- function() {
+        interactive()
 }
