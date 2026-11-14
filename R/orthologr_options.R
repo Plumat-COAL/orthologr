@@ -42,7 +42,7 @@
 #' engine - computes. \pkg{pwalign} needs about 3 bytes per cell (5e8 cells: about 1.5 GB, e.g. two proteins of
 #' 22,000 residues; a titin pair of 36,000 x 35,400 residues needs 3.9 GB), and with \code{comp_cores > 1} every
 #' pair that is aligned at the same time needs its own. A larger pair is aligned by COAL when the R package
-#' \pkg{coalr} is installed (its \code{"pwalign"} preset: pwalign's alignment, in about 3 \% of the memory; a message
+#' \pkg{coalr} is installed (its \code{"pwalign"} preset: pwalign's alignment, in a fraction of the memory; a message
 #' names the pair); otherwise it is not aligned: \code{dNdS()} returns it with status \code{"failed"} and the reason
 #' in \code{attr(result, "failed_pairs")}. \code{Inf}: no limit, \pkg{pwalign} aligns every pair (as in 0.4.3, and
 #' under \code{\link{orthologr_legacy_options}}). The COAL engine has its own limit (\pkg{coalr}'s
