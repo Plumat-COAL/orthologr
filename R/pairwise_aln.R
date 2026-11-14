@@ -257,6 +257,13 @@ pairwise_aln <- function(file,
 #   pattern_seq : the complete (unaligned) pattern sequence, one string
 #   subject_seq : the complete (unaligned) subject sequence, one string
 aligned_rows <- function(aln, pattern_seq, subject_seq) {
+        rows <- aligned_rows_list(aln, pattern_seq, subject_seq)
+        c(rows[[1]], rows[[2]])
+}
+
+# aligned_rows() for a PairwiseAlignments object of any length (alignment i of pattern_seq[i] and subject_seq[i]):
+# list(<pattern rows>, <subject rows>), two character vectors of length(aln).
+aligned_rows_list <- function(aln, pattern_seq, subject_seq) {
         p_range <- pwalign::pattern(aln)
         s_range <- pwalign::subject(aln)
         p_start <- pwalign::start(p_range)
@@ -265,11 +272,59 @@ aligned_rows <- function(aln, pattern_seq, subject_seq) {
         s_end   <- pwalign::end(s_range)
         n_p <- nchar(pattern_seq)
         n_s <- nchar(subject_seq)
-        gaps <- function(n) strrep("-", max(n, 0))
-        c(paste0(gaps(s_start - 1), substr(pattern_seq, 1, p_start - 1), as.character(p_range),
-                 substr(pattern_seq, p_end + 1, n_p), gaps(n_s - s_end)),
-          paste0(substr(subject_seq, 1, s_start - 1), gaps(p_start - 1), as.character(s_range),
-                 gaps(n_p - p_end), substr(subject_seq, s_end + 1, n_s)))
+        gaps <- function(n) strrep("-", pmax(n, 0))
+        list(paste0(gaps(s_start - 1), substr(pattern_seq, 1, p_start - 1), as.character(p_range),
+                    substr(pattern_seq, p_end + 1, n_p), gaps(n_s - s_end)),
+             paste0(substr(subject_seq, 1, s_start - 1), gaps(p_start - 1), as.character(s_range),
+                    gaps(n_p - p_end), substr(subject_seq, s_end + 1, n_s)))
+}
+
+# The full-length alignment rows of many protein pairs (proteins aa1[i] and aa2[i]), with one call of
+# pwalign::pairwiseAlignment() for all of them: the rows pairwise_aln() writes for each pair (BLOSUM62 or the
+# matrix given, stop codon symbol at the end removed, overhangs against gaps), without building an AAString object
+# and reading and writing a file per pair (about a third of the run time of dNdS() went into that). pwalign aligns
+# the i-th pattern with the i-th subject, each pair on its own (the same alignment and tie-break as a call for the
+# pair alone; checked on every pair of the 20- and 1,000-gene examples and of S. cerevisiae / C. glabrata).
+# Returns a list with one element per pair: c(<row 1>, <row 2>), or NULL where the pair is left to pairwise_aln()
+# itself: no substitution matrix (the scoring of 0.4.3), a sequence that is empty, NA or holds a character other
+# than A - Z and '*', a pair above options(orthologr.max_aln_cells) (aligned by COAL or refused there), or when
+# anything in the joint call fails (the pairs are then aligned one by one, and a pair that fails does so with its
+# own error message).
+pairwise_aln_rows <- function(aa1, aa2, aa_sub_matrix = "BLOSUM62") {
+        n <- length(aa1)
+        out <- vector("list", n)
+        if (n == 0 || is.null(aa_sub_matrix))
+                return(out)
+        limit <- tryCatch({
+                check_aa_sub_matrix(aa_sub_matrix)
+                max_aln_cells()
+        }, error = function(e) NULL)
+        if (is.null(limit))
+                return(out)
+        strip_stop <- function(x) {
+                k <- nchar(x)
+                cut <- !is.na(x) & k > 1 & substr(x, k, k) == "*"
+                x[cut] <- substr(x[cut], 1, k[cut] - 1)
+                x
+        }
+        a <- strip_stop(as.character(aa1))
+        b <- strip_stop(as.character(aa2))
+        use <- !is.na(a) & !is.na(b) & grepl("^[A-Z*]+$", a) & grepl("^[A-Z*]+$", b)
+        use[use] <- !(is.finite(limit) & as.numeric(nchar(a[use])) * as.numeric(nchar(b[use])) > limit)
+        idx <- which(use)
+        if (length(idx) == 0)
+                return(out)
+        rows <- tryCatch({
+                aln <- pwalign::pairwiseAlignment(pattern = Biostrings::AAStringSet(a[idx]),
+                                                  subject = Biostrings::AAStringSet(b[idx]),
+                                                  type    = "global",
+                                                  substitutionMatrix = aa_sub_matrix)
+                aligned_rows_list(aln, a[idx], b[idx])
+        }, error = function(e) NULL)
+        if (is.null(rows) || length(rows[[1]]) != length(idx))
+                return(out)
+        out[idx] <- mapply(c, rows[[1]], rows[[2]], SIMPLIFY = FALSE, USE.NAMES = FALSE)
+        out
 }
 
 # The largest pairwise alignment (n x m cells) that pairwise_aln() computes: options(orthologr.max_aln_cells), by
