@@ -67,6 +67,10 @@ argument \code{dS_zero} of \code{\link{filter_dNdS}} and \code{\link{divergence_
 (see \code{\link{dNdS}}, section "Status of a gene pair"). \code{FALSE}: no such column, as in 0.4.3.}
 \item{\code{orthologr.legacy}}{\code{FALSE} (default). \code{TRUE}: every option of this section that is not set
 itself has the value that gives the results of 0.4.3. \code{\link{orthologr_legacy_options}} sets them all.}
+\item{\code{orthologr.quiet_upgrade}}{\code{FALSE} (default): \code{library(orthologr)} shows a note that defaults
+that change results differ from those of 0.4.3 (once per session, when the package is attached; not while
+\pkg{knitr} runs, and not when any \code{orthologr.*} option is already set). \code{TRUE} (e.g. in
+\code{.Rprofile}) hides it; so does \code{suppressPackageStartupMessages(library(orthologr))}.}
 }
 }
 

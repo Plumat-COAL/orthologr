@@ -62,6 +62,11 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   or one character off: `"comeron"` -> `"Comeron"`, `"YNN"` -> `"YN"`); method names stay case-sensitive. The COAL
   engine says that a method "is only available with engine = \"orthologr\"" only for a method the native engine
   has (it said so for any name, `"YNN"` included); `"comeron"` got a generic message without the list.
+- `library(orthologr)` notes (once per session, as a package startup message) that some defaults that change dN/dS
+  values and orthologs are not those of 0.4.3, and points to `vignette("upgrading_from_0.4.3")` and
+  `orthologr_legacy_options()`: a 0.4.3 script ran unchanged without any sign that its numbers changed. Not shown
+  while knitr runs, when any `orthologr.*` option is set, or with `options(orthologr.quiet_upgrade = TRUE)` (or
+  `suppressPackageStartupMessages()`); the option is not part of the record of a run.
 
 ### Internal
 
