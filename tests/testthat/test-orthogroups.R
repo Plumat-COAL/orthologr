@@ -456,7 +456,17 @@ test_that("dNdS_orthogroups(): one codon alignment per group, all between-specie
                 writeLines(as.vector(rbind(paste0(">", names(cds[[k]])), cds[[k]])), f)
                 f
         }, character(1))
+        # by default (ambiguous_cds = "keep") the gene with NNN is kept, and its pairs get a note
+        keep <- suppressMessages(dNdS_orthogroups(og, cds_files = cds_files, groups = ids[1], aa_aln_tool = "clustalo"))
+        expect_identical(nrow(keep$pairs), 3L)
+        amb <- keep$pairs$query_id == bad_b | keep$pairs$subject_id == bad_b
+        expect_true(all(grepl("ambiguous bases in the coding sequence", keep$pairs$note[amb])))
+        expect_true(all(is.na(keep$pairs$note[!amb])))
+        expect_true(all(keep$pairs$status[amb] == "ok"))
+        # options(orthologr.ambiguous_cds = "drop"): left out, as before
+        old_amb <- options(orthologr.ambiguous_cds = "drop")
         part <- suppressMessages(dNdS_orthogroups(og, cds_files = cds_files, groups = ids[1], aa_aln_tool = "clustalo"))
+        options(old_amb)
         expect_identical(nrow(part$pairs), 1L)
         expect_identical(c(part$pairs$query_species, part$pairs$subject_species), c("A", "C"))
         expect_setequal(part$failed$gene, c(bad_b, g1$gene[g1$species == "D"]))

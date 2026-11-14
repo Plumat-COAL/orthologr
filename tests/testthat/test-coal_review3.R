@@ -81,7 +81,10 @@ test_that("substitutionrate(kaks_tool = \"coal\") returns the table of the built
                 }
                 options(old)
         }
-        # the NA pattern that is expected with the default rule
+        # the NA pattern of the saturation rule alone (libsequence's two-position branches, no minimum class size:
+        # the values pinned before the decisions D8 / D9 of 2026-11-14)
+        old <- options(orthologr.comeron_twosubs = "libsequence", orthologr.comeron_min_sites = 0)
+        on.exit(options(old), add = TRUE)
         expect_true(is.na(substitutionrate(files[["tiny"]], est.method = "Comeron", quiet = TRUE, kaks_tool = "coal")$dS))
         expect_true(is.na(substitutionrate(files[["short"]], est.method = "Comeron", quiet = TRUE, kaks_tool = "coal")$dN))
         expect_equal(substitutionrate(files[["nosites"]], est.method = "Comeron", quiet = TRUE, kaks_tool = "coal")$dN, 0.6615)
