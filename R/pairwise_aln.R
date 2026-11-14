@@ -41,6 +41,13 @@
 #' All three change the alignments and therefore, slightly, the dN/dS values computed from them.
 #' The behaviour of \pkg{orthologr} <= 0.4.3 (old scoring, truncated overhangs, stop codon aligned, score file always
 #' written) can be restored for reproducing earlier results with \code{options(orthologr.legacy_pairwise_aln = TRUE)}.
+#'
+#' \strong{Memory.} \code{\link[pwalign]{pairwiseAlignment}} keeps the whole dynamic-programming matrix: about 3 bytes
+#' per cell, i.e. per pair of residues (two proteins of 10,000 residues: 0.3 GB; a titin pair of 36,000 x 35,400
+#' residues: 3.9 GB). An alignment of more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
+#' 1.5 GB) is not computed: \code{pairwise_aln()} stops with an error of class
+#' \code{orthologr_error_alignment_too_large}, and \code{\link{dNdS}} returns the pair with status \code{"failed"}.
+#' \code{options(orthologr.max_aln_cells = Inf)} removes the limit (see \code{\link{orthologr_options}}).
 #' 
 #' @examples
 #' # Needleman-Wunsch alignment of the two proteins of a file
@@ -155,6 +162,12 @@ pairwise_aln <- function(file,
                         })
                 }
                 
+                # The dynamic programming of pwalign::pairwiseAlignment() needs about 3 bytes per cell of the
+                # n x m matrix (measured: 1e8 cells 0.31 GB; a titin pair of 36,000 x 35,400 residues 3.9 GB), with
+                # comp_cores > 1 once per running pair. Above options(orthologr.max_aln_cells) the pair is not
+                # aligned (an error, which dNdS() reports as a failed pair).
+                check_aln_cells(length(seqs[[1]]), length(seqs[[2]]))
+                
                 # align
                 if (seq_type == "protein" && !is.null(aa_sub_matrix)) {
                         aln  <-
@@ -236,4 +249,29 @@ aligned_rows <- function(aln, pattern_seq, subject_seq) {
                  substr(pattern_seq, p_end + 1, n_p), gaps(n_s - s_end)),
           paste0(substr(subject_seq, 1, s_start - 1), gaps(p_start - 1), as.character(s_range),
                  gaps(n_p - p_end), substr(subject_seq, s_end + 1, n_s)))
+}
+
+# The largest pairwise alignment (n x m cells) that pairwise_aln() computes: options(orthologr.max_aln_cells), by
+# default 5e8 cells (about 1.5 GB of memory in pwalign::pairwiseAlignment(), e.g. two proteins of 22,000 residues).
+# Inf (the value of 0.4.3, also under the legacy switch) has no limit.
+max_aln_cells <- function() {
+        v <- orthologr_option("orthologr.max_aln_cells", 5e8)
+        if (!is.numeric(v) || length(v) != 1 || is.na(v) || v <= 0)
+                orthologr_abort(class = "bad_argument", "options(orthologr.max_aln_cells) must be one positive number (Inf: no limit).", call. = FALSE)
+        v
+}
+
+# Stop when the alignment of two sequences of n and m residues has more cells than max_aln_cells() allows.
+check_aln_cells <- function(n, m) {
+        limit <- max_aln_cells()
+        cells <- as.numeric(n) * as.numeric(m)
+        if (is.finite(limit) && cells > limit)
+                orthologr_abort(class = "alignment_too_large",
+                     "the pairwise alignment of two sequences of ", n, " and ", m, " residues has ",
+                     format(cells, big.mark = ",", scientific = FALSE), " cells and would need about ",
+                     signif(3 * cells / 1e9, 2), " GB of memory; options(orthologr.max_aln_cells) is ",
+                     format(limit, big.mark = ",", scientific = FALSE), ". The pair is not aligned; ",
+                     "options(orthologr.max_aln_cells = Inf) aligns it anyway (about 3 bytes per cell, with comp_cores > 1 for every pair aligned at the same time).",
+                     call. = FALSE)
+        invisible(cells)
 }

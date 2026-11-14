@@ -62,6 +62,14 @@ itself has the value that gives the results of 0.4.3. \code{\link{orthologr_lega
 \item{\code{orthologr.cluster_type}}{\code{"FORK"} (default on Linux and macOS) or \code{"PSOCK"} (default and only
 choice on Windows): the kind of R processes used with \code{comp_cores > 1} in \code{dNdS()} and
 \code{dNdS_orthogroups()}.}
+\item{\code{orthologr.max_aln_cells}}{\code{5e8} (default): the largest pairwise protein alignment (length of
+one sequence times length of the other) that \code{\link{pairwise_aln}} - and so \code{dNdS()} with the default
+engine - computes. \pkg{pwalign} needs about 3 bytes per cell (5e8 cells: about 1.5 GB, e.g. two proteins of
+22,000 residues; a titin pair of 36,000 x 35,400 residues needs 3.9 GB), and with \code{comp_cores > 1} every
+pair that is aligned at the same time needs its own. A larger pair is not aligned: \code{dNdS()} returns it with
+status \code{"failed"} and the reason in \code{attr(result, "failed_pairs")}. \code{Inf}: no limit (as in 0.4.3,
+and under \code{\link{orthologr_legacy_options}}). The COAL engine has its own limit (\pkg{coalr}'s
+\code{max_cells}, 4e9 cells at about 0.5 bytes per cell).}
 \item{\code{orthologr.keep_tmp}}{\code{FALSE} (default). \code{TRUE}: the folder with the intermediate files of
 a call (FASTA files of the pairs, alignments, program output) is not removed, and a message names it.}
 \item{\code{orthologr.tmpdir}}{\code{NULL} (default: \code{tempdir()}): the folder in which functions called on
@@ -123,6 +131,9 @@ T-Coffee, COAL);}
 \item{\code{orthologr_error_bad_input}}{an input file cannot be used (it does not exist, it is empty, a protein file
 given as coding sequences, duplicated sequence IDs);}
 \item{\code{orthologr_error_bad_argument}}{an argument value is not supported;}
+\item{\code{orthologr_error_alignment_too_large}}{\code{\link{pairwise_aln}} was asked to align two sequences
+whose alignment has more cells than \code{options(orthologr.max_aln_cells)} allows (in \code{dNdS()} the pair is
+a failed pair with this reason);}
 \item{\code{orthologr_warning_failed_pairs}}{some gene pairs could not be processed (their values are \code{NA},
 the reasons are in \code{attr(result, "failed_pairs")});}
 \item{\code{orthologr_warning_isoforms}}{an input file seems to hold several transcripts per gene;}

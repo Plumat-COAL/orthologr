@@ -73,6 +73,13 @@ stop codon is not part of the alignment (and of the codon alignment and dN/dS es
 All three change the alignments and therefore, slightly, the dN/dS values computed from them.
 The behaviour of \pkg{orthologr} <= 0.4.3 (old scoring, truncated overhangs, stop codon aligned, score file always
 written) can be restored for reproducing earlier results with \code{options(orthologr.legacy_pairwise_aln = TRUE)}.
+
+\strong{Memory.} \code{\link[pwalign]{pairwiseAlignment}} keeps the whole dynamic-programming matrix: about 3 bytes
+per cell, i.e. per pair of residues (two proteins of 10,000 residues: 0.3 GB; a titin pair of 36,000 x 35,400
+residues: 3.9 GB). An alignment of more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
+1.5 GB) is not computed: \code{pairwise_aln()} stops with an error of class
+\code{orthologr_error_alignment_too_large}, and \code{\link{dNdS}} returns the pair with status \code{"failed"}.
+\code{options(orthologr.max_aln_cells = Inf)} removes the limit (see \code{\link{orthologr_options}}).
 }
 \examples{
 # Needleman-Wunsch alignment of the two proteins of a file

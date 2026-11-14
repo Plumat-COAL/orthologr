@@ -230,6 +230,7 @@ orthologr_options_in_force <- function() {
                 orthologr.legacy_comeron_saturation = FALSE,
                 orthologr.legacy_kaks_zero_dn       = FALSE,
                 orthologr.legacy_kaks_saturation    = FALSE,
+                orthologr.max_aln_cells             = 5e8,
                 orthologr.dS_zero                   = "drop",
                 orthologr.ambiguous_cds             = "drop",
                 orthologr.status_column             = TRUE,
@@ -497,6 +498,7 @@ orthologr_legacy_values <- function() {
                 orthologr.legacy_comeron_saturation = TRUE,
                 orthologr.legacy_kaks_zero_dn       = TRUE,
                 orthologr.legacy_kaks_saturation    = TRUE,
+                orthologr.max_aln_cells             = Inf,
                 orthologr.dS_zero                   = "drop",
                 orthologr.status_column             = FALSE
         )
@@ -530,6 +532,7 @@ orthologr_option <- function(name, default = NULL) {
 #' \code{orthologr.legacy_comeron_saturation = TRUE} \tab Comeron's method returns a finite value for saturated pairs \cr
 #' \code{orthologr.legacy_kaks_zero_dn = TRUE} \tab KaKs_Calculator methods: \code{NA} for a dN or dS that is 0 (pairs without nonsynonymous or without any change) \cr
 #' \code{orthologr.legacy_kaks_saturation = TRUE} \tab KaKs_Calculator methods: its capped values (e.g. dS = 99) for saturated estimates \cr
+#' \code{orthologr.max_aln_cells = Inf} \tab pairwise alignments of any size (default: pairs above 5e8 cells are not aligned) \cr
 #' \code{orthologr.dS_zero = "drop"} \tab \code{filter_dNdS()} / \code{divergence_stratigraphy()} leave pairs with dS = 0 out (also the default of 0.5.0) \cr
 #' \code{orthologr.status_column = FALSE} \tab the dN/dS tables have no column \code{status}
 #' }
