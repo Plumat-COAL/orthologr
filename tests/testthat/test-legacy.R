@@ -3,7 +3,8 @@
 # there); with the legacy settings this version must return them unchanged.
 
 legacy_names <- c("orthologr.best_hit_rule", "orthologr.legacy_pairwise_aln", "orthologr.legacy_comeron_saturation",
-                  "orthologr.legacy_kaks_zero_dn", "orthologr.dS_zero", "orthologr.status_column")
+                  "orthologr.legacy_kaks_zero_dn", "orthologr.legacy_kaks_saturation", "orthologr.dS_zero",
+                  "orthologr.status_column")
 
 # No orthologr option is set inside the calling test; what was set before, and what the test sets, is undone when
 # the test ends.
@@ -44,6 +45,7 @@ test_that("orthologr_legacy_options() sets every option and returns the previous
         expect_true(getOption("orthologr.legacy_pairwise_aln"))
         expect_true(getOption("orthologr.legacy_comeron_saturation"))
         expect_true(getOption("orthologr.legacy_kaks_zero_dn"))
+        expect_true(getOption("orthologr.legacy_kaks_saturation"))
         expect_false(getOption("orthologr.status_column"))
         expect_identical(old$orthologr.best_hit_rule, "bitscore")
         options(old)

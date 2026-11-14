@@ -65,10 +65,8 @@ is.codon_aln_tool <- function(tool = NULL){
 
 is.dnds_est_method <- function(method = NULL){
         
-        # dNdS estimation methods provided by the KaKs_Calculator 1.2 program
-        kaks_calc_methods <- c("MA","MS","NG","LWL","LPB","MLWL","MLPB","YN","MYN","GY","GMYN","ALL","kaks_calc")
-        
-        provided <- c("Comeron","Li",kaks_calc_methods)
+        # dNdS estimation methods provided by the KaKs_Calculator program (one list for the whole package)
+        provided <- c("Comeron", "Li", kaks_calculator_methods())
         
         if (is.null(method)){
                 message("The following methods are provided: ", paste(provided, collapse = ", "))

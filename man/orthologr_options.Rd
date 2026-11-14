@@ -22,9 +22,16 @@ the default of their argument \code{best_hit_rule}). \code{"evalue"} is the rule
 (only in versions with the faster pairwise alignment; see NEWS, "Changes to pairwise alignments").}
 \item{\code{orthologr.legacy_comeron_saturation}}{\code{FALSE} (default). \code{TRUE}: Comeron's method returns a
 finite dN / dS for saturated gene pairs as 0.4.3 did (see \code{\link{substitutionrate}}).}
-\item{\code{orthologr.legacy_kaks_zero_dn}}{\code{FALSE} (default). \code{TRUE}: a gene pair without
-nonsynonymous change is returned with \code{dN = NA}, \code{dNdS = 0} by the KaKs_Calculator methods, as in 0.4.3
-(default: \code{dN = 0}; see \code{\link{substitutionrate}}).}
+\item{\code{orthologr.legacy_kaks_zero_dn}}{\code{FALSE} (default). \code{TRUE}: the KaKs_Calculator methods return
+the \code{NA} that KaKs_Calculator prints for a value of 0, as in 0.4.3: a gene pair without nonsynonymous change
+has \code{dN = NA}, \code{dNdS = 0}; identical sequences have \code{NA} for dN, dS and dNdS (status
+\code{"saturated"}); a pair with nonsynonymous changes only has \code{dS = NA} (default: these values are 0,
+status \code{"dS_zero"} where dS is 0; see \code{\link{substitutionrate}}).}
+\item{\code{orthologr.legacy_kaks_saturation}}{\code{FALSE} (default). \code{TRUE}: the KaKs_Calculator methods
+return the capped values KaKs_Calculator prints for saturated estimates (Ka or Ks = 99; for YN and MYN JC69's
+distance at its cap, 0.75 log(sites); for the LWL family a class of sites counted with 0 substitutions) as
+estimates, as in 0.4.3 (default: \code{NA}, status \code{"saturated"}; see
+\code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)").}
 \item{\code{orthologr.dS_zero}}{\code{"drop"} (default, as in 0.4.3) or \code{"keep"}: the default of the
 argument \code{dS_zero} of \code{\link{filter_dNdS}} and \code{\link{divergence_stratigraphy}}.}
 \item{\code{orthologr.status_column}}{\code{TRUE} (default): the dN/dS tables end with the column \code{status}

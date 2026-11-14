@@ -91,12 +91,35 @@ Maximum-Likelihood Methods:
 }
 \section{Gene pairs without nonsynonymous change (KaKs_Calculator methods)}{
 
-KaKs_Calculator prints \code{NA} for every Ka below 1e-6, also when the estimate is exactly 0, and still prints
-\code{Ka/Ks = 0}. Up to orthologr 0.4.3 such a pair was returned with \code{dN = NA} and \code{dNdS = 0}, and
-\code{\link{filter_dNdS}} / \code{\link{divergence_stratigraphy}} then removed it - the most conserved genes of
-a comparison. Since 0.5.0 \code{dN = 0} is returned when Ka is \code{NA}, Ks is a positive number and Ka/Ks is
-0. When Ka/Ks is \code{NA} as well (identical sequences, a model that failed) \code{dN} stays \code{NA}.
+KaKs_Calculator prints \code{NA} for every Ka or Ks below 1e-6, also when the estimate is exactly 0. Up to
+orthologr 0.4.3 these \code{NA} were returned as they are: a pair without nonsynonymous change had
+\code{dN = NA} and \code{dNdS = 0} (and \code{\link{filter_dNdS}} / \code{\link{divergence_stratigraphy}}
+removed it - the most conserved genes of a comparison), and a pair of identical sequences had \code{NA} for dN,
+dS and dNdS (status \code{"saturated"}). Since 0.5.0:
+\itemize{
+\item \code{dN = 0} when Ka is \code{NA}, Ks is a positive number and Ka/Ks is 0;
+\item \code{dN = 0} and \code{dS = 0} (\code{dNdS = NA}, status \code{"dS_zero"}) when no nucleotide differs
+(column "Substitutions" of KaKs_Calculator 0);
+\item \code{dS = 0} (\code{dNdS = NA}, status \code{"dS_zero"}) when Ks is \code{NA}, Ka is a number and no
+difference is synonymous (methods NG, YN, MYN: "S-Substitutions"; LWL, MLWL, LPB, MLPB: no transition at
+2-fold and no difference at 4-fold sites).
+}
+When Ka/Ks is \code{NA} for another reason (a model that failed) the values stay \code{NA}.
 \code{options(orthologr.legacy_kaks_zero_dn = TRUE)} restores the old table.
+}
+
+\section{Saturation (KaKs_Calculator methods)}{
+
+Where the correction for multiple substitutions is not defined, KaKs_Calculator prints a capped number instead
+of \code{NA}: Ka or Ks = 99 (YN family, when the proportion of differences P + Q exceeds 1); for YN and MYN
+JC69's distance at P = 0.75 (n - 1) / n, i.e. 0.75 log(n) for n synonymous or nonsynonymous sites (Ks of 3 - 5
+for typical genes); for LWL, MLWL, LPB and MLPB 0 substitutions for a class of sites whose correction is not
+defined (an underestimate). Since 0.5.0 these estimates are \code{NA} (and \code{dNdS} with them; status
+\code{"saturated"}); they are recognised in the columns KaKs_Calculator prints (sites
+and differences by class), so the other values are unchanged. The methods GY, MA, MS and GMYN are not checked.
+Up to 0.4.3 such a value was returned as an estimate: e.g. dS = 99, which makes dN/dS look like strong
+purifying selection, put the pair into the most conserved stratum of \code{\link{divergence_map}} and passed
+\code{\link{filter_dNdS}}. \code{options(orthologr.legacy_kaks_saturation = TRUE)} restores the old values.
 }
 
 \section{Saturation (Comeron's method)}{
