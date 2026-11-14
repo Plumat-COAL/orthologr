@@ -314,6 +314,13 @@ COAL main 009bdd5), before / after (dS where both engines give one, equal to 6 s
 | S. cerevisiae / C. glabrata | Comeron | 4,164 | 563 / 1,120 -> 1,155 / 1,155 | 363 -> 0 | 4,097 -> 4,164 |
 | S. cerevisiae / C. glabrata | LWL | 4,164 | 821 / 2,166 -> 2,239 / 2,239 | 873 -> 0 | 4,021 -> 4,164 |
 
+Re-measured with the defaults of the decisions of 2026-11-14 (`sensitivity_mode = "default"`, `ambiguous_cds =
+"keep"`, Comeron's two-position pathways and minimum class size in both engines; `coalr` from COAL main 956a458,
+pull request #65): A. thaliana / A. lyrata 999 pairs, YN, Comeron and LWL: dS equal 998 / 998, dN equal 999 / 999
+(Comeron 998 / 998), same status 999 / 999; S. cerevisiae / C. glabrata 4,384 pairs: Comeron dS 862 / 862, dN
+1,246 / 1,246, same status 4,384; LWL dS 2,301 / 2,301, same status 4,384; YN dS 619 / 619, dN 4,351 / 4,352, same
+status 4,361 (the 23 others are YN iterations that do not converge, as below); no dS more than 1 % apart.
+
 dN agrees in the same way (one yeast YN pair: dN 2.5e-12 from COAL, 0 from KaKs_Calculator, which prints values
 below 1e-6 as 0). The 18 yeast YN pairs with another status are iterations that do not converge: COAL gives no
 estimate (`"saturated"`), KaKs_Calculator its last round (`"ok"`). The yeast pairs are saturated at synonymous sites (median dS above 2): there COAL returns `NA` (status "saturated")
