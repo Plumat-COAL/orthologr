@@ -79,6 +79,11 @@ test_that("identical sequences and nonsynonymous-only pairs with KaKs_Calculator
                 expect_identical(dnds_status(i$dN, i$dS, i$dNdS), "dS_zero")
                 n <- substitutionrate(h, est.method = m, quiet = TRUE)
                 expect_true(n$dN > 0 && n$dS == 0 && is.na(n$dNdS), info = m)
+                if (requireNamespace("coalr", quietly = TRUE) && is.element("kaks_tool", names(formals(substitutionrate)))) {
+                        cn <- substitutionrate(h, est.method = m, quiet = TRUE, kaks_tool = "coal")
+                        expect_equal(cn$dS, 0, info = m)
+                        expect_equal(n$dN, cn$dN, tolerance = 1e-5, info = m)
+                }
         }
         old <- options(orthologr.legacy_kaks_zero_dn = TRUE)
         on.exit(options(old), add = TRUE)
