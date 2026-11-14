@@ -189,3 +189,16 @@ codon_aln <- function(file_aln,
         
         invisible(file.out)
 }
+
+# The codon alignment tool of dNdS() when none is given: options(orthologr.codon_aln_tool), otherwise "coal" when the
+# R package coalr is installed (in process, no Perl; the same codon alignments as PAL2NAL) and "pal2nal" otherwise.
+default_codon_aln_tool <- function(codon_aln_tool = NULL) {
+        if (!is.null(codon_aln_tool))
+                return(codon_aln_tool)
+        opt <- getOption("orthologr.codon_aln_tool", NULL)
+        if (!is.null(opt))
+                return(opt)
+        if (!identical(getOption("orthologr.coal_backend", NULL), "none") && requireNamespace("coalr", quietly = TRUE))
+                return("coal")
+        "pal2nal"
+}

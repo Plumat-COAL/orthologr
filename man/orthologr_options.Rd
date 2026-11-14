@@ -70,6 +70,9 @@ pair that is aligned at the same time needs its own. A larger pair is not aligne
 status \code{"failed"} and the reason in \code{attr(result, "failed_pairs")}. \code{Inf}: no limit (as in 0.4.3,
 and under \code{\link{orthologr_legacy_options}}). The COAL engine has its own limit (\pkg{coalr}'s
 \code{max_cells}, 4e9 cells at about 0.5 bytes per cell).}
+\item{\code{orthologr.codon_aln_tool}}{\code{NULL} (default): \code{dNdS()} and \code{divergence_stratigraphy()}
+build codon alignments with COAL when \pkg{coalr} is installed and with PAL2NAL otherwise (identical alignments).
+\code{"pal2nal"} or \code{"coal"}: that tool, when the argument \code{codon_aln_tool} is not given.}
 \item{\code{orthologr.keep_tmp}}{\code{FALSE} (default): the folder with the intermediate files of a call (FASTA
 files of the pairs, alignments, program output) is removed when the call ends. \code{TRUE}: it is kept, and a
 message names it; it is inside \code{tempdir()}, which R removes when the session ends (so after

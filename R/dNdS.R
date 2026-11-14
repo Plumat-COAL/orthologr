@@ -65,9 +65,14 @@
 #' the name of a matrix shipped with \pkg{pwalign}, e.g. \code{"BLOSUM62"} (Default), a numeric substitution matrix, or \code{NULL}
 #' for the scoring of \pkg{orthologr} <= 0.4.3 (no substitution matrix). See \code{\link{pairwise_aln}} for details and for how to
 #' reproduce dN/dS values computed with earlier versions.
-#' @param codon_aln_tool a character string specifying the codon alignment tool that shall be used: \code{"pal2nal"} (Default;
-#' the PAL2NAL Perl script shipped with this package) or \code{"coal"} (COAL: the same codon alignments without Perl, computed
-#' inside R when the package \pkg{coalr} is installed; see \code{\link{codon_aln}}).
+#' @param codon_aln_tool a character string specifying the codon alignment tool that shall be used: \code{"pal2nal"}
+#' (the PAL2NAL Perl script shipped with this package) or \code{"coal"} (COAL: the same codon alignments without Perl,
+#' computed inside R by the package \pkg{coalr}; see \code{\link{codon_aln}}). Default \code{NULL}:
+#' \code{getOption("orthologr.codon_aln_tool")} if it is set, otherwise \code{"coal"} when \pkg{coalr} is installed and
+#' \code{"pal2nal"} when it is not. The two give byte-identical codon alignments (checked on 12,605 gene pairs of five
+#' species pairs and with every method, see NEWS), so the results do not depend on whether \pkg{coalr} is installed;
+#' COAL saves the start of a Perl process per gene pair (about half of the run time of a default run). The tool used is
+#' in \code{attr(result, "orthologr_run")$arguments$codon_aln_tool}.
 #' @param kaks_tool the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
 #' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
 #' program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).
@@ -370,7 +375,7 @@ dNdS <- function(query_file,
                  aa_aln_tool     = "NW", 
                  aa_aln_path     = NULL, 
                  aa_aln_params   = NULL, 
-                 codon_aln_tool  = "pal2nal", 
+                 codon_aln_tool  = NULL, 
                  kaks_calc_path  = NULL, 
                  dnds_est.method = "Comeron", 
                  comp_cores      = 1, 
@@ -385,6 +390,7 @@ dNdS <- function(query_file,
                  ){
         
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
+        codon_aln_tool <- default_codon_aln_tool(codon_aln_tool)
         
         if (!is.element(engine, c("orthologr", "coal")))
                 orthologr_abort(class = "bad_argument", "Please choose engine = \"orthologr\" or engine = \"coal\".", call. = FALSE)

@@ -23,7 +23,7 @@ dNdS(
   aa_aln_tool = "NW",
   aa_aln_path = NULL,
   aa_aln_params = NULL,
-  codon_aln_tool = "pal2nal",
+  codon_aln_tool = NULL,
   kaks_calc_path = NULL,
   dnds_est.method = "Comeron",
   comp_cores = 1,
@@ -116,9 +116,14 @@ with \code{aa_aln_type = "pairwise"}. Until version 0.4.3 the argument was accep
 Note: this controls the amino acid alignment step only, not the initial DIAMOND or BLAST homology search
 (use \code{aligner_params} for that). Default is \code{aa_aln_params} = \code{NULL} (the default parameters).}
 
-\item{codon_aln_tool}{a character string specifying the codon alignment tool that shall be used: \code{"pal2nal"} (Default;
-the PAL2NAL Perl script shipped with this package) or \code{"coal"} (COAL: the same codon alignments without Perl, computed
-inside R when the package \pkg{coalr} is installed; see \code{\link{codon_aln}}).}
+\item{codon_aln_tool}{a character string specifying the codon alignment tool that shall be used: \code{"pal2nal"}
+(the PAL2NAL Perl script shipped with this package) or \code{"coal"} (COAL: the same codon alignments without Perl,
+computed inside R by the package \pkg{coalr}; see \code{\link{codon_aln}}). Default \code{NULL}:
+\code{getOption("orthologr.codon_aln_tool")} if it is set, otherwise \code{"coal"} when \pkg{coalr} is installed and
+\code{"pal2nal"} when it is not. The two give byte-identical codon alignments (checked on 12,605 gene pairs of five
+species pairs and with every method, see NEWS), so the results do not depend on whether \pkg{coalr} is installed;
+COAL saves the start of a Perl process per gene pair (about half of the run time of a default run). The tool used is
+in \code{attr(result, "orthologr_run")$arguments$codon_aln_tool}.}
 
 \item{kaks_calc_path}{a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).}
