@@ -44,7 +44,10 @@ Default (\code{NULL}) is \code{"Comeron"} with \code{engine = "orthologr"}. With
 alignment.}
 
 \item{engine}{\code{"orthologr"} (Default): the programs \code{\link{dNdS}} uses - \code{\link{multi_aln}} or
-\code{\link{pairwise_aln}}, PAL2NAL (\code{\link{codon_aln}}) and \code{\link{substitutionrate}}.
+\code{\link{pairwise_aln}}, PAL2NAL (\code{\link{codon_aln}}) and \code{\link{substitutionrate}}. The codon
+alignments are always built by PAL2NAL (it needs Perl; one start per gene pair), also when \pkg{coalr} is
+installed, where \code{dNdS()} uses COAL for them by default: the alignments of the two are byte-identical, so
+the results are the same.
 \code{"coal"}: COAL (\url{https://github.com/Plumat-COAL/COAL}) through the R package \pkg{coalr}, as
 \code{\link{dNdS_clusters}} does: all groups are computed in one call on \code{comp_cores} threads, which is much
 faster. It computes the methods \code{"YN"} (its default), \code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"},
