@@ -25,6 +25,18 @@
 #' estimates, as in 0.4.3 (default: \code{NA}, status \code{"saturated"}, as with the COAL engine; see
 #' \code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)"), and an estimate printed as
 #' \code{nan} as \code{NaN} with status \code{"saturated"} (default: \code{NA}, status \code{"failed"}).}
+#' \item{\code{orthologr.sensitivity_mode}}{\code{"default"} (default since 0.5.0): DIAMOND's own default mode, the
+#' default of the argument \code{sensitivity_mode} of \code{\link{dNdS}}, \code{\link{orthologs}},
+#' \code{\link{orthogroups}}, \code{\link{divergence_stratigraphy}}, \code{\link{diamond}}, \code{\link{diamond_best}}
+#' and \code{\link{diamond_rec}} (and \code{\link{dNdS_coal}}). \code{"fast"} is the mode of 0.4.3 (DIAMOND designs it for hits of
+#' more than 90 \% identity; it finds 5 - 9 \% fewer reciprocal best hits between two yeasts).}
+#' \item{\code{orthologr.comeron_twosubs}}{\code{"comeron"} (default since 0.5.0): Comeron's method counts codons that
+#' differ at two positions along Comeron's two pathways. \code{"libsequence"}: along the branches libsequence's
+#' \code{TwoSubs} counts, as 0.4.3 did (the estimate then depends on which sequence is first; see
+#' \code{\link{substitutionrate}}). The COAL engine follows it.}
+#' \item{\code{orthologr.comeron_min_sites}}{\code{3} (default since 0.5.0): a site class of Comeron's method with fewer
+#' sites cannot make dN or dS \code{NA} (its undefined logarithm is 0). \code{0}: every class with sites can. Not set
+#' by \code{\link{orthologr_legacy_options}}: with \code{orthologr.legacy_comeron_saturation = TRUE} nothing is \code{NA} anyway.}
 #' \item{\code{orthologr.dS_zero}}{\code{"drop"} (default, as in 0.4.3) or \code{"keep"}: the default of the
 #' argument \code{dS_zero} of \code{\link{filter_dNdS}} and \code{\link{divergence_stratigraphy}}.}
 #' \item{\code{orthologr.status_column}}{\code{TRUE} (default): the dN/dS tables end with the column \code{status}
