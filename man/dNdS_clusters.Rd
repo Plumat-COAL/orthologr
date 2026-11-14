@@ -85,6 +85,10 @@ has a dN counts with it. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the numb
 (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule, but
 names the quartiles \code{_q1} / \code{_q3} and has no minimum and maximum (the names here are those of
 \pkg{coalr}'s summary).
+The column \code{status} of the summary: \code{"ok"} (at least one pair has an estimate), \code{"failed"} (no
+estimate, and a pair failed or the cluster could not be aligned), \code{"saturated"} / \code{"no_data"} /
+\code{"not_converged"} (no estimate because the pairs are saturated, have no codons to compare or did not
+converge; \code{note} gives the numbers), or \code{"skipped"} (a cluster above \code{max_cluster_size}).
 (\pkg{coalr}'s own summary takes the statistics over the pairs with status \code{"ok"} only.)
 \item \code{failed}: genes and clusters that could not be used, and why.
 }

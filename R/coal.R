@@ -670,6 +670,10 @@ dNdS_coal <- function(query_file,
 #' (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule, but
 #' names the quartiles \code{_q1} / \code{_q3} and has no minimum and maximum (the names here are those of
 #' \pkg{coalr}'s summary).
+#' The column \code{status} of the summary: \code{"ok"} (at least one pair has an estimate), \code{"failed"} (no
+#' estimate, and a pair failed or the cluster could not be aligned), \code{"saturated"} / \code{"no_data"} /
+#' \code{"not_converged"} (no estimate because the pairs are saturated, have no codons to compare or did not
+#' converge; \code{note} gives the numbers), or \code{"skipped"} (a cluster above \code{max_cluster_size}).
 #' (\pkg{coalr}'s own summary takes the statistics over the pairs with status \code{"ok"} only.)
 #' \item \code{failed}: genes and clusters that could not be used, and why.
 #' }
@@ -771,6 +775,7 @@ dNdS_clusters <- function(cds_file,
         names(pairs)[names(pairs) == "seq2"] <- "subject_id"
         # the statistics of the summary by the rule of dNdS_orthogroups(): over all pairs that have the value
         res$summary <- dnds_cluster_summary_stats(res$summary, pairs)
+        res$summary <- dnds_cluster_status(res$summary)
 
         if (nrow(res$failed) > 0)
                 message(nrow(res$failed), " gene(s) or cluster(s) could not be used; see the 'failed' table of the result.")
@@ -802,6 +807,39 @@ dNdS_clusters <- function(cds_file,
                           coal_versions()),
                 files = cds_file, status = status)
         out
+}
+
+# The status of a cluster in the summary of dNdS_clusters(), from the numbers of its pairs. COAL calls a cluster
+# "failed" when none of its pairs has an estimate, also when every pair is only saturated (E. coli K-12 + O157: 37
+# clusters "failed" with an empty note and n_failed = 0). Here "failed" means that a pair failed or the cluster
+# could not be aligned; a cluster whose pairs are saturated (or have no codons to compare) without any estimate is
+# "saturated" ("no_data"), and the note says so. Clusters with an estimate, without pairs, or skipped keep their status.
+dnds_cluster_status <- function(summary) {
+        need <- c("status", "n_pairs", "n_ok", "n_saturated", "n_no_data", "n_failed")
+        if (!is.data.frame(summary) || nrow(summary) == 0 || !all(is.element(need, names(summary))))
+                return(summary)
+        if (!is.element("note", names(summary)))
+                summary$note <- NA_character_
+        n0 <- function(x) { x <- suppressWarnings(as.integer(x)); x[is.na(x)] <- 0L; x }
+        n_pairs <- n0(summary$n_pairs); n_ok <- n0(summary$n_ok); n_sat <- n0(summary$n_saturated)
+        n_nd <- n0(summary$n_no_data); n_fail <- n0(summary$n_failed)
+        n_nc <- if (is.element("n_not_converged", names(summary))) n0(summary$n_not_converged) else integer(nrow(summary))
+        none <- n_pairs > 0 & n_ok == 0 & summary$status %in% "failed"
+        empty_note <- is.na(summary$note) | !nzchar(trimws(summary$note))
+        words <- function(i) {
+                parts <- c(if (n_sat[i] > 0) paste(n_sat[i], "saturated"), if (n_nd[i] > 0) paste(n_nd[i], "without codons to compare"),
+                           if (n_nc[i] > 0) paste(n_nc[i], "not converged"), if (n_fail[i] > 0) paste(n_fail[i], "failed"))
+                paste0("no pair has an estimate (", n_pairs[i], " pair", if (n_pairs[i] != 1) "s", ": ",
+                       paste(parts, collapse = ", "), ")")
+        }
+        for (i in which(none)) {
+                if (n_fail[i] == 0) {
+                        summary$status[i] <- if (n_sat[i] > 0) "saturated" else if (n_nd[i] > 0) "no_data" else "not_converged"
+                }
+                if (empty_note[i])
+                        summary$note[i] <- words(i)
+        }
+        summary
 }
 
 # The rule by which dNdS_clusters() and dNdS_orthogroups() summarise a group, in one place:

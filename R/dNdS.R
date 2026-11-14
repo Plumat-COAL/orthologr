@@ -99,7 +99,15 @@
 #' \item \code{dnds_est.method = "MLWL"}: (Modified LWL), MLPB (Modified LPB): Tzeng, Y.H., et al. (2004)
 #' \item \code{dnds_est.method = "YN"}: Yang, Z. and Nielsen, R. (2000)
 #' \item \code{dnds_est.method ="MYN"} (Modified YN): Zhang, Z., et al. (2006)
+#' \item \code{dnds_est.method = "GY"} (Goldman and Yang 1994, maximum likelihood), \code{"GMYN"} (MYN with a gamma
+#' distribution of rates), \code{"MS"} (model selection) and \code{"MA"} (model averaging), computed by KaKs_Calculator
+#' only: they are much slower (MA and MS: about 6.5 s per gene pair of typical length) and their capped values are
+#' not checked (\code{\link{substitutionrate}}, section "Saturation")
+#' \item \code{dnds_est.method = "ALL"}: every method of KaKs_Calculator (17 rows per gene pair, column
+#' \code{method}); the summary counts gene pairs and methods
 #' }
+#' \code{"kaks_calc"} (methods given as KaKs_Calculator parameters) is only available in
+#' \code{\link{substitutionrate}}, which has the argument \code{kaks_calc.params}.
 #' @param comp_cores a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.
 #' When it is larger than the number of available cores, the number of available cores is used and a warning is given.
 #' @param quiet \code{TRUE} (default): one line at the start and one summary at the end of the run (as messages,
@@ -211,8 +219,16 @@
 #' \code{attr(result, "failed_pairs")} is a \code{data.frame} (\code{query_id}, \code{subject_id}, \code{reason})
 #' naming the pair, the program and its message.
 #' 
+#' \strong{Memory} (default engine): the pairwise protein alignment of a gene pair needs about 3 bytes per pair of
+#' residues (\code{\link{pairwise_aln}}), with \code{comp_cores > 1} once for every pair aligned at the same time.
+#' A pair whose alignment would have more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
+#' 1.5 GB; e.g. a titin pair of 36,000 residues each would need about 4 GB) is not aligned and is returned with
+#' status \code{"failed"} and the reason in \code{attr(result, "failed_pairs")}.
+#'
 #' Each call keeps its intermediate files (search database, alignments, KaKs_Calculator files) in a folder of its own
-#' inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it.
+#' inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it until
+#' the end of the R session, \code{options(orthologr.keep_tmp = "<folder>")} keeps it in that folder
+#' (\code{\link{orthologr_options}}).
 #' 
 #' \code{attr(result, "dropped_sequences")} is a \code{data.frame} (\code{file}, \code{id}, \code{reason}) with the
 #' input sequences that were left out before the search: coding sequences with characters other than A, C, G, T (they
@@ -395,6 +411,12 @@ dNdS <- function(query_file,
                 
                 if (length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method))
                         orthologr_abort(class = "bad_argument", "Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+                # "kaks_calc" means "the methods are in kaks_calc.params", an argument of substitutionrate() only:
+                # here it ran the whole search and then failed every gene pair
+                if (identical(dnds_est.method, "kaks_calc"))
+                        orthologr_abort(class = "bad_argument", "dnds_est.method = \"kaks_calc\" needs the methods as KaKs_Calculator parameters ",
+                             "(kaks_calc.params), which only substitutionrate() has. Please choose a method, e.g. ",
+                             "dnds_est.method = \"YN\", or dnds_est.method = \"ALL\" for every method of KaKs_Calculator.", call. = FALSE)
         }
         
         for (unused in c("cdd.path", "ortho_path")) {

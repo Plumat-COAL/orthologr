@@ -74,10 +74,12 @@ change. Please report the version of orthologr in the methods of analyses based 
 | dN/dS tables end with the column `status` | one more column | `options(orthologr.status_column = FALSE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
+| A pairwise protein alignment of more than 5e8 cells (length x length; pwalign needs about 3 bytes per cell, so about 1.5 GB) is not computed: the gene pair is returned with status `"failed"` and the reason (was: aligned whatever the memory; `options(orthologr.max_aln_cells)`, `?pairwise_aln`) | human 1,000 transcripts / all mouse CDS, 2 cores: 1 of 946 pairs (titin, 35,991 x 35,390 residues, 1.27e9 cells) failed instead of dS 0.50; peak memory 4.3 GB -> 0.79 GB, run time 87 s -> 42 s; 1,000-gene example: 0 pairs | `options(orthologr.max_aln_cells = Inf)` |
 | `divergence_stratigraphy(quiet = TRUE)`, as `dNdS()` (was `FALSE`) | 1,000-gene example: 10 messages instead of 45; same result | `quiet = FALSE` |
 | `orthogroups()` and `dNdS_orthogroups()` trim coding sequences whose length is not a multiple of 3 (`delete_corrupt_cds = FALSE`, as `dNdS()` does) | - (new functions) | `delete_corrupt_cds = TRUE` |
 
-All of the first seven at once: `orthologr_legacy_options()`.
+All of these except the T-Coffee mode, `aa_aln_params`, `divergence_stratigraphy(quiet)` and `delete_corrupt_cds`
+at once: `orthologr_legacy_options()`.
 
 Further behaviour that differs from 0.4.3 and cannot be switched back:
 
@@ -97,8 +99,10 @@ Further behaviour that differs from 0.4.3 and cannot be switched back:
 - Coding sequences with characters other than A, C, G, T are left out before the search, as before, but no
   longer without a word: they are counted in the summary and listed in `attr(, "dropped_sequences")`.
 - Intermediate files are kept in a folder of the call inside `tempdir()` and removed afterwards
-  (`options(orthologr.keep_tmp = TRUE)` keeps them); no function changes the working directory or writes into it
-  unasked (`read.cds()` wrote `<file>_corrupted_cds_seqs.fasta` there).
+  (`options(orthologr.keep_tmp = TRUE)` keeps them until the end of the R session, which removes `tempdir()`;
+  `options(orthologr.keep_tmp = "<folder>")` keeps them in that folder, also after `Rscript` or a batch job, and
+  the message says which applies); no function changes the working directory or writes into it unasked
+  (`read.cds()` wrote `<file>_corrupted_cds_seqs.fasta` there; the summary says when that file is in `tempdir()`).
 - `ggplot2`, `scales`, `ape`, `rtracklayer`, `benchmarkme`, `tidyr`, `biomartr`, `metablastr` moved from Imports
   to Suggests (Imports: 21 -> 11 packages); R >= 4.4 is enough.
 - `cdd.path` and `ortho_path` of `dNdS()` are deprecated (never used); `ortho_detection = "Orthofinder2"`, `"PO"`
@@ -162,6 +166,32 @@ Running programs:
   memory).
 - `orthogroups()` runs the check for several transcripts per gene; the check no longer warns for a bacterial
   genome with a handful of genes that have two coding sequences.
+- FASTA files with a UTF-8 byte-order mark were rejected ("could not be read properly"), and files with old-Mac
+  line ends (CR only) reached DIAMOND as one sequence and failed after about 10 s with a memory error. Both are now
+  read like the plain file (same result as for the file without the mark / with LF line ends; also gzipped), as
+  COAL reads them.
+- `dnds_est.method = "kaks_calc"` in `dNdS()` / `dNdS_orthogroups()` is an error before the search (it ran the
+  search and failed every gene pair: `kaks_calc.params` exists only in `substitutionrate()`); `"GY"`, `"GMYN"`,
+  `"MS"`, `"MA"` and `"ALL"` are documented in `?dNdS` (MA and MS take about 6.5 s per gene pair); with `"ALL"`
+  the summary counts gene pairs x methods (20-gene example: "340 rows (20 gene pairs x 17 methods)", was "340 gene
+  pairs").
+- `dNdS_orthogroups(engine = "coal")` no longer warns that saturated pairs "could not be processed" (4 yeasts, 60
+  groups: a warning for 322 of 360 pairs, none of which failed): the warning (`orthologr_warning_failed_pairs`)
+  counts pairs with status `"failed"` only; saturated pairs are counted in the summary message, as in `dNdS()`.
+- `dNdS_orthogroups()` summary: `n_saturated` counted pairs with dS above `dS_saturation`, while the status
+  `"saturated"` means that dN or dS could not be estimated (60 yeast groups: 296 pairs with status "saturated",
+  `sum(n_saturated)` 30). `n_saturated` now counts status `"saturated"`, as in `dNdS_clusters()`; the new columns
+  `n_dS_zero`, `n_no_data` and `n_failed` count the other statuses, and `n_dS_above` is the old count.
+- `dNdS_clusters()` summary: a cluster none of whose pairs has an estimate because they are saturated (or have no
+  codons to compare) has the status `"saturated"` (`"no_data"`) and a note with the numbers; it was `"failed"` with
+  an empty note and `n_failed = 0` (E. coli K-12 + O157: 37 clusters).
+- `read_dNdS()` returns IDs with a double quote as written (`d"q` came back as `d""q`) and marks text as UTF-8.
+- A DIAMOND older than 2.1.0 is used with a warning (`orthologr_warning_tool_version`; it was used without a word);
+  a program that is there but crashes when asked for its version is `orthologr_error_tool_failed` ("could not be
+  started ... exit status 139"), no longer "not installed"; a failed DIAMOND search is `orthologr_error_tool_failed`
+  and `comp_cores` above the number of cores `orthologr_warning_comp_cores` (both were unclassed). The column `qcov`
+  of DIAMOND hit tables equals `qcovhsp` (DIAMOND has no per-subject coverage; documented in `?diamond`, kept for
+  the column layout of BLAST tables and of 0.4.3).
 
 ### Speed (results unchanged)
 

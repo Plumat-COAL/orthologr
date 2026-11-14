@@ -233,7 +233,8 @@ species are not computed. A gene, pair or group that cannot be used never ends t
 As a guide to the run time: 200 single-copy groups of four yeasts (1,200 gene pairs) took 70 seconds with
 `comp_cores = 2` (Clustal Omega, Comeron's method); with `aa_aln_tool = "pairwise"` a pair took 0.45 seconds.
 Species as distant as these yeasts are saturated at synonymous sites: only 183 of the 1,200 pairs had a dN/dS
-value (`n_na` and `n_saturated` in the summary count the others).
+value (`n_na` in the summary counts the others, `n_saturated` those of them whose dN or dS could not be estimated,
+`n_dS_above` the pairs whose dS is above `dS_saturation`).
 
 ```{r, eval = FALSE}
 # all species at once, all groups, 4 processes

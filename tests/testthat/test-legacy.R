@@ -3,8 +3,8 @@
 # there); with the legacy settings this version must return them unchanged.
 
 legacy_names <- c("orthologr.best_hit_rule", "orthologr.legacy_pairwise_aln", "orthologr.legacy_comeron_saturation",
-                  "orthologr.legacy_kaks_zero_dn", "orthologr.legacy_kaks_saturation", "orthologr.dS_zero",
-                  "orthologr.status_column")
+                  "orthologr.legacy_kaks_zero_dn", "orthologr.legacy_kaks_saturation", "orthologr.max_aln_cells",
+                  "orthologr.dS_zero", "orthologr.status_column")
 
 # No orthologr option is set inside the calling test; what was set before, and what the test sets, is undone when
 # the test ends.

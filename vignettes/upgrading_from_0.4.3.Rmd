@@ -54,6 +54,7 @@ Whether a result was computed with these settings can be read from the result it
 | KaKs_Calculator methods return `dN = 0` (was `NA`) for a pair without nonsynonymous change, and dN = dS = 0 for identical sequences | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
 | KaKs_Calculator methods return `NA` (status `"saturated"`) where KaKs_Calculator prints a capped value (e.g. dS = 99) | `options(orthologr.legacy_kaks_saturation = TRUE)` |
 | dN/dS tables end with the column `status` | `options(orthologr.status_column = FALSE)` |
+| A pairwise protein alignment of more than 5e8 cells (about 1.5 GB) is not computed; the pair is `"failed"` | `options(orthologr.max_aln_cells = Inf)` |
 | T-Coffee runs in its default mode | `aa_aln_params = "-mode accurate"` |
 
 ### Best hits by bit score

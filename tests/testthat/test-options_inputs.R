@@ -313,3 +313,28 @@ test_that("the file with corrupted coding sequences is not written to the workin
 test_that("orthologs(ortho_detection = 'Orthofinder2') is an error instead of NULL", {
         expect_error(orthologs(thal_aa(), lyra_aa(), ortho_detection = "Orthofinder2"), "not implemented in orthologs\\(\\)")
 })
+
+test_that("FASTA files with a UTF-8 byte-order mark or old-Mac line ends (CR) are read like the plain file (O05)", {
+        d <- new_test_dir("bom_cr_")
+        plain <- readLines(thal_cds())
+        bom <- file.path(d, "bom.fa")
+        con <- file(bom, "wb"); writeBin(as.raw(c(0xef, 0xbb, 0xbf)), con); writeBin(charToRaw(paste0(paste(plain, collapse = "\n"), "\n")), con); close(con)
+        cr <- file.path(d, "cr.fa")
+        writeBin(charToRaw(paste0(paste(plain, collapse = "\r"), "\r")), cr)
+        crgz <- file.path(d, "cr.fa.gz")
+        con <- gzfile(crgz, "wb"); writeBin(charToRaw(paste(plain, collapse = "\r")), con); close(con)
+        ref <- read.cds(thal_cds(), format = "fasta")
+        for (f in c(bom, cr, crgz)) {
+                expect_identical(as.data.frame(read.cds(f, format = "fasta")), as.data.frame(ref), info = basename(f))
+                # the normalised copy is removed again
+                expect_identical(readable_seq_file(thal_cds()), thal_cds())
+        }
+        expect_false(any(grepl("^input_.*\\.txt$", list.files(tempdir()))))
+        skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
+        r0 <- suppressMessages(dNdS(thal_cds(), lyra_cds(), quiet = TRUE, print_citation = FALSE))
+        for (f in c(bom, cr)) {
+                r <- suppressMessages(dNdS(f, lyra_cds(), quiet = TRUE, print_citation = FALSE))
+                expect_identical(as.data.frame(r)[, c("query_id", "subject_id", "dN", "dS", "dNdS")],
+                                 as.data.frame(r0)[, c("query_id", "subject_id", "dN", "dS", "dNdS")], info = basename(f))
+        }
+})

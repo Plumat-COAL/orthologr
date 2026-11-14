@@ -33,7 +33,7 @@
 #' @param aa_aln_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) parameters for the alignment program (see \code{\link{multi_aln}}).
 #' @param max_group_size groups with more genes than this are not computed (\code{groups = "all"}); they are listed
 #' in \code{failed}. Default is \code{50}.
-#' @param dS_saturation pairs with a dS above this value are counted as saturated in the summary. Default is \code{2}.
+#' @param dS_saturation pairs with a dS above this value are counted in the column \code{n_dS_above} of the summary. Default is \code{2}.
 #' @param kaks_calc_path the folder that holds KaKs_Calculator (for its methods, see \code{\link{substitutionrate}}).
 #' @param delete_corrupt_cds a logical value: what happens to coding sequences whose length is not a multiple
 #' of 3. \code{FALSE} (default, as in \code{\link{dNdS}} and \code{\link{orthogroups}}): the incomplete codon at the
@@ -60,9 +60,12 @@
 #' \code{orthogroup}, \code{query_species}, \code{query_id}, \code{subject_species}, \code{subject_id}, \code{method},
 #' \code{dN}, \code{dS}, \code{dNdS}, \code{note}. The query is the gene of the species that comes first in \code{x$species};
 #' \item \code{summary}: one row per group (and method): \code{orthogroup}, \code{method}, \code{n_genes},
-#' \code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value), \code{n_na}, \code{n_saturated}
-#' (dS above \code{dS_saturation}), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
-#' and a dN/dS value), and median, mean, first and third quartile of dN, dS and dN/dS. \strong{Which pairs enter
+#' \code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value, i.e. status \code{"ok"}), \code{n_na}
+#' (the others), \code{n_dS_zero}, \code{n_saturated}, \code{n_no_data}, \code{n_failed} (pairs by status, see
+#' \code{\link{dNdS}}, section "Status of a gene pair"; the same columns as in \code{\link{dNdS_clusters}}),
+#' \code{n_dS_above} (pairs with dS above \code{dS_saturation}: estimated, but hardly informative; this column was
+#' called \code{n_saturated} in development versions of 0.5.0), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the
+#' numbers of pairs with a dN, a dS and a dN/dS value), and median, mean, first and third quartile of dN, dS and dN/dS. \strong{Which pairs enter
 #' the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the group that have a dN (dS,
 #' dN/dS) value - a pair without dS (e.g. saturated at synonymous sites) still counts with its dN, and a pair
 #' above \code{dS_saturation} counts with all its values. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the
@@ -119,9 +122,10 @@ dNdS_orthogroups <- function(x,
         if (engine == "orthologr") {
                 if (is.null(dnds_est.method))
                         dnds_est.method <- "Comeron"
-                if (!is.character(dnds_est.method) || length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method))
+                if (!is.character(dnds_est.method) || length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method) ||
+                    identical(dnds_est.method, "kaks_calc"))
                         orthologr_abort(class = "bad_argument", "dnds_est.method = '", paste(dnds_est.method, collapse = "', '"), "' is not supported with engine = \"orthologr\". ",
-                             "Please choose one of: 'Comeron', 'Li', 'NG', 'LWL', 'LPB', 'MLWL', 'YN', 'MYN', 'GY', 'MA', 'MS', 'GMYN', 'ALL'.",
+                             "Please choose one of: 'Comeron', 'Li', 'NG', 'LWL', 'LPB', 'MLWL', 'MLPB', 'YN', 'MYN', 'GY', 'MA', 'MS', 'GMYN', 'ALL'.",
                              call. = FALSE)
                 check_choice(aa_aln_tool, c("clustalo", "mafft", "muscle", "clustalw", "t_coffee", "pairwise"), "aa_aln_tool")
                 # the programs must be there before the search and the alignments start
@@ -236,13 +240,6 @@ dNdS_orthogroups <- function(x,
         )
         data.table::setorder(res_pairs, orthogroup, query_species, query_id, subject_species, subject_id, method)
         
-        n_bad <- sum(!is.na(res_pairs$note))
-        if (n_bad > 0)
-                orthologr_warn(class = "failed_pairs", n_bad, " of ", nrow(res_pairs), " gene pairs could not be processed; their dN, dS and dNdS values are NA ",
-                        "and the reason is in the column 'note' of the table 'pairs'. First one: '", res_pairs$query_id[!is.na(res_pairs$note)][1],
-                        "' / '", res_pairs$subject_id[!is.na(res_pairs$note)][1], "': ",
-                        strsplit(res_pairs$note[!is.na(res_pairs$note)][1], "\n", fixed = TRUE)[[1]][1], call. = FALSE)
-        
         failed <- if (length(failed) > 0) data.table::rbindlist(failed) else
                 data.table::data.table(orthogroup = character(0), gene = character(0), reason = character(0))
         if (nrow(failed) > 0)
@@ -254,7 +251,18 @@ dNdS_orthogroups <- function(x,
         pair_failed <- if (engine == "orthologr") !is.na(res_pairs$note) else
                 !is.na(res_pairs$note) & (is.element(engine_status, c("error", "failed")) | startsWith(res_pairs$note, "COAL returned no result"))
         status <- dnds_status(res_pairs$dN, res_pairs$dS, res_pairs$dNdS, failed = pair_failed, engine_status = engine_status)
-        summary_tbl <- dnds_groups_summary(res_pairs, m, dS_saturation = dS_saturation)
+        # the warning is about pairs that could not be processed (status "failed"); a pair that the engine reports as
+        # saturated or without codons to compare has a note too, but is a result - it is counted in the summary
+        # message (engine = "coal" warned for them as well: 322 of 360 pairs of four yeasts, none of them failed)
+        n_bad <- sum(status == "failed")
+        if (n_bad > 0) {
+                bad <- which(status == "failed")[1]
+                orthologr_warn(class = "failed_pairs", n_bad, " of ", nrow(res_pairs), " gene pairs could not be processed; their dN, dS and dNdS values are NA ",
+                        "and the reason is in the column 'note' of the table 'pairs'. First one: '", res_pairs$query_id[bad],
+                        "' / '", res_pairs$subject_id[bad], "': ",
+                        strsplit(res_pairs$note[bad], "\n", fixed = TRUE)[[1]][1], call. = FALSE)
+        }
+        summary_tbl <- dnds_groups_summary(res_pairs, m, dS_saturation = dS_saturation, status = status)
         if (dnds_status_column())
                 res_pairs[["status"]] <- status
         message(dnds_summary_text(status, dS = res_pairs$dS, fun = "dNdS_orthogroups()",
@@ -490,11 +498,15 @@ read_fasta_vector <- function(file) {
 
 # ---- summary --------------------------------------------------------------------------------------------------
 
-# One row per group and method.
-dnds_groups_summary <- function(pairs, members, dS_saturation = 2) {
-        orthogroup <- method <- dN <- dS <- dNdS <- species <- NULL
+# One row per group and method. `status`: the status of every row of `pairs` (dnds_status()); the counts by status
+# use the words of the column 'status' (n_saturated: status "saturated", as in dNdS_clusters()); n_dS_above counts
+# the pairs with dS above dS_saturation (up to this fix that count was called n_saturated).
+dnds_groups_summary <- function(pairs, members, dS_saturation = 2, status = NULL) {
+        orthogroup <- method <- dN <- dS <- dNdS <- species <- .status <- NULL
         if (nrow(pairs) == 0)
                 return(data.table::data.table(orthogroup = character(0), method = character(0)))
+        pairs <- data.table::copy(pairs)
+        pairs[[".status"]] <- if (is.null(status)) dnds_status(pairs$dN, pairs$dS, pairs$dNdS) else status
         q <- function(v, p) if (all(is.na(v))) NA_real_ else unname(stats::quantile(v, p, na.rm = TRUE, names = FALSE))
         mn <- function(v) if (all(is.na(v))) NA_real_ else mean(v, na.rm = TRUE)
         size <- members[ , list(n_genes = .N, n_species = data.table::uniqueN(species)), by = orthogroup]
@@ -502,7 +514,11 @@ dnds_groups_summary <- function(pairs, members, dS_saturation = 2) {
                 n_pairs     = .N,
                 n_ok        = sum(!is.na(dNdS)),
                 n_na        = sum(is.na(dNdS)),
-                n_saturated = sum(!is.na(dS) & dS > dS_saturation),
+                n_dS_zero   = sum(.status == "dS_zero"),
+                n_saturated = sum(.status == "saturated"),
+                n_no_data   = sum(.status == "no_data"),
+                n_failed    = sum(.status == "failed"),
+                n_dS_above  = sum(!is.na(dS) & dS > dS_saturation),
                 n_dN        = sum(!is.na(dN)),
                 n_dS        = sum(!is.na(dS)),
                 n_dNdS      = sum(!is.na(dNdS)),
