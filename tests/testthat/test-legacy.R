@@ -5,7 +5,7 @@
 # The options that restore the defaults of 0.4.3, set in the calling test and undone when it ends.
 with_0.4.3_defaults <- function(env = parent.frame()) {
         rlang::local_options(orthologr.legacy_pairwise_aln = TRUE, orthologr.legacy_comeron_saturation = TRUE,
-                             orthologr.legacy_kaks_zero_dn = TRUE,
+                             orthologr.legacy_kaks_zero_dn = TRUE, orthologr.legacy_kaks_saturation = TRUE,
                              orthologr.best_hit_rule = "evalue", .frame = env)
 }
 
