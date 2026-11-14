@@ -57,6 +57,11 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - `dNdS_orthogroups()`: the summary has the minimum and maximum of dN, dS and dN/dS per group (`dN_min`, `dN_max`,
   ...), as `dNdS_clusters()`, `coalr` and COAL's command line (the statistics median, mean, `_q25`, `_q75`,
   `_min`, `_max`, in that order).
+- A `dnds_est.method` that is not a method (`dNdS()`, `substitutionrate()`, `dNdS_orthogroups()`, the COAL engine):
+  the error lists the methods of each engine and names the method a mistyped name probably meant (ignoring case,
+  or one character off: `"comeron"` -> `"Comeron"`, `"YNN"` -> `"YN"`); method names stay case-sensitive. The COAL
+  engine says that a method "is only available with engine = \"orthologr\"" only for a method the native engine
+  has (it said so for any name, `"YNN"` included); `"comeron"` got a generic message without the list.
 
 ### Internal
 

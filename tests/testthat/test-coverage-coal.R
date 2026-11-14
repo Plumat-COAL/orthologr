@@ -143,7 +143,7 @@ test_that("coal_check_methods() checks the methods it is given", {
         expect_error(coal_check_methods(character(0), "x"), class = "orthologr_error_bad_argument")
         expect_error(coal_check_methods(NA_character_, "x"), class = "orthologr_error_bad_argument")
         expect_error(coal_check_methods(c("YN", "GY", "ML"), "engine = \"coal\"", other = "the other engine"),
-                     "\"GY\", \"ML\" is only available with the other engine", class = "orthologr_error_bad_argument")
+                     "\"GY\" is only available with the other engine. \"ML\" is not a method of either", class = "orthologr_error_bad_argument")
         expect_invisible(coal_check_methods(coal_kaks_calculator_methods(), "x"))
 })
 
