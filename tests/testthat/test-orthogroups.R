@@ -372,7 +372,7 @@ test_that("dNdS_orthogroups(): pairwise alignments give the values of dNdS(); re
         expect_identical(s$orthogroup, ids)
         expect_true(all(s$n_genes == 2 & s$n_species == 2 & s$n_pairs == 1 & s$n_ok == 1 & s$n_na == 0))
         expect_equal(s$dNdS_median, res$pairs$dNdS)
-        expect_equal(s$dS_q1, res$pairs$dS)
+        expect_equal(s$dS_q25, res$pairs$dS)
         expect_identical(nrow(res$failed), 0L)
         
         # argument checks
@@ -414,7 +414,10 @@ test_that("dNdS_orthogroups(): one codon alignment per group, all between-specie
         expect_true(all(p$dN > 0 & p$dN < 0.2))
         expect_equal(s$dN_median[1], stats::median(p$dN[p$orthogroup == ids[1]]))
         expect_equal(s$dNdS_mean[2], mean(p$dNdS[p$orthogroup == ids[2]], na.rm = TRUE))
-        expect_equal(s$dS_q3[1], unname(stats::quantile(p$dS[p$orthogroup == ids[1]], 0.75, na.rm = TRUE)))
+        expect_equal(s$dS_q75[1], unname(stats::quantile(p$dS[p$orthogroup == ids[1]], 0.75, na.rm = TRUE)))
+        # the quartile columns are named _q25 / _q75, not _q1 / _q3
+        expect_true(all(c("dN_q25", "dN_q75", "dS_q25", "dS_q75", "dNdS_q25", "dNdS_q75") %in% names(s)))
+        expect_false(any(grepl("_q[13]$", names(s))))
         expect_identical(s$n_ok + s$n_na, s$n_pairs)
         # the IDs are those of the input, whatever their form
         expect_true(all(is.element(c(p$query_id, p$subject_id), toy$truth$gene)))

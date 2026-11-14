@@ -58,6 +58,12 @@ private:
       bool legacy_saturation;
       bool saturated_s;
       bool saturated_a;
+      // orthologr: codons that differ at two positions are counted along libsequence's branches (true; 0.4.3) or
+      // along Comeron's two pathways (false, the default; TwoSubs.h)
+      bool twosubs_libsequence;
+      // orthologr: a site class with fewer than min_sites sites cannot make dN or dS NA: its undefined logarithm
+      // stays 0, as in libsequence (options(orthologr.comeron_min_sites); 0 = every class with sites can)
+      double min_sites;
 
 // log(x) as used in omega(): a NaN argument (0/0: no sites of a class) gives 0 as before; an argument <= 0
 // sets the saturation flag (and gives 0, so that the legacy value can still be computed)
@@ -143,7 +149,7 @@ void diverge(const pair<string,string> *seq1,
                           {	//if codons differ at 2 sites,
                             //use rules of class TwoSubstitutions
                             TwoSubs Double;
-                            Double(sitesObj, codon1, codon2, _weights2);
+                            Double(sitesObj, codon1, codon2, _weights2, twosubs_libsequence);
                             p0 += Double.P0();
                             p2S += Double.P2S ();
                             p2V += Double.P2V ();
@@ -258,27 +264,35 @@ void omega(const pair<string,string> *seq1,
     // the estimate and is not a saturation ('none' takes the flag). (Differences can be counted in a class
     // without sites because the sites of a column are the mean of the two codons, while a change on a pathway
     // between codons that differ at several positions is classified by an intermediate codon.)
-    bool none = false;
-    log1 = checked_log (1.0 - (2.0 * P2S_site) - Qa, sites->L2S() > 0 ? saturated_s : none);
-    log2 = checked_log (1.0 - (2.0 * Qa), sites->L2S() > 0 ? saturated_s : none);
+    // A class with fewer than min_sites sites (options(orthologr.comeron_min_sites), default 3) does not make the
+    // estimate NA either: its undefined logarithm stays 0, as in libsequence ('small' takes the flag). The
+    // 2-fold transversional class has 1 - 2 sites in a 30-codon alignment, and one change there made the
+    // whole dN NA (3.7 % of simulated 30-codon pairs).
+    bool none = false, small = false;
+    bool &s2S = sites->L2S() > 0 ? (sites->L2S() < min_sites ? small : saturated_s) : none;
+    bool &s4 = sites->L4() > 0 ? (sites->L4() < min_sites ? small : saturated_s) : none;
+    bool &a2V = sites->L2V() > 0 ? (sites->L2V() < min_sites ? small : saturated_a) : none;
+    bool &a0 = sites->L0() > 0 ? (sites->L0() < min_sites ? small : saturated_a) : none;
+    log1 = checked_log (1.0 - (2.0 * P2S_site) - Qa, s2S);
+    log2 = checked_log (1.0 - (2.0 * Qa), s2S);
 
     A2S = (-0.5) * log1 + (0.25) * log2;
 
-    log1 = checked_log (1.0 - (2.0 * P4_site) - Q4_site, sites->L4() > 0 ? saturated_s : none);
-    log2 = checked_log (1.0 - (2.0 * Q4_site), sites->L4() > 0 ? saturated_s : none);
+    log1 = checked_log (1.0 - (2.0 * P4_site) - Q4_site, s4);
+    log2 = checked_log (1.0 - (2.0 * Q4_site), s4);
 
     A4 = (-0.5) * log1 + (0.25) * log2;
 
     As = (sites->L2S() * A2S + sites->L4() * A4) / (sites->L2S() +
          sites->L4());
 
-    log1 = checked_log (1.0 - (2.0 * P2V_site) - Qs, sites->L2V() > 0 ? saturated_a : none);
-    log2 = checked_log (1.0 - (2.0 * Qs), sites->L2V() > 0 ? saturated_a : none);
+    log1 = checked_log (1.0 - (2.0 * P2V_site) - Qs, a2V);
+    log2 = checked_log (1.0 - (2.0 * Qs), a2V);
 
     A2V = (-0.5) * log1 + (0.25) * log2;
 
-    log1 = checked_log (1.0 - (2.0 * P0_site) - Q0_site, sites->L0() > 0 ? saturated_a : none);
-    log2 = checked_log (1.0 - (2.0 * Q0_site), sites->L0() > 0 ? saturated_a : none);
+    log1 = checked_log (1.0 - (2.0 * P0_site) - Q0_site, a0);
+    log2 = checked_log (1.0 - (2.0 * Q0_site), a0);
 
     A0 = (-0.5) * log1 + (0.25) * log2;
 
@@ -325,12 +339,14 @@ public:
 Comeron95(const pair<string,string> *seq1, 
 	const pair<string,string> *seq2, int max, 
 	const RedundancyCom95 *genetic_code_redundancy,
-	bool legacy_saturation_ = false){
+	bool legacy_saturation_ = false, bool twosubs_libsequence_ = false, double min_sites_ = 3.0){
                 
 	sites = NULL;
 	sitesObj = NULL;
 	owns_sitesObj = false;
 	legacy_saturation = legacy_saturation_;
+	twosubs_libsequence = twosubs_libsequence_;
+	min_sites = min_sites_ > 0.0 ? min_sites_ : 0.0;
 	saturated_s = false;
 	saturated_a = false;
 	Qs = Bs = Qa = Ba = A2S = A4 = As = A2V = A0 = Aa = 0.0;

@@ -2,6 +2,7 @@
 # The tables in fixtures/dnds_0.4.3 were computed with orthologr 0.4.3 (see fixtures/README and make_fixture.R
 # there); with the legacy settings this version must return them unchanged.
 
+<<<<<<< HEAD
 legacy_names <- c("orthologr.best_hit_rule", "orthologr.legacy_pairwise_aln", "orthologr.legacy_comeron_saturation",
                   "orthologr.legacy_kaks_zero_dn", "orthologr.legacy_kaks_saturation", "orthologr.max_aln_cells",
                   "orthologr.dS_zero", "orthologr.status_column")
@@ -13,6 +14,14 @@ without_orthologr_options <- function(env = parent.frame()) {
         nm <- unique(c(nm[startsWith(nm, "orthologr.")], legacy_names, "orthologr.legacy"))
         nm <- setdiff(nm, "orthologr.tmpdir")
         rlang::local_options(!!!stats::setNames(vector("list", length(nm)), nm), .frame = env)
+=======
+# The options that restore the defaults of 0.4.3, set in the calling test and undone when it ends.
+with_0.4.3_defaults <- function(env = parent.frame()) {
+        rlang::local_options(orthologr.legacy_pairwise_aln = TRUE, orthologr.legacy_comeron_saturation = TRUE,
+                             orthologr.comeron_twosubs = "libsequence",
+                             orthologr.legacy_kaks_zero_dn = TRUE, orthologr.legacy_kaks_saturation = TRUE,
+                             orthologr.best_hit_rule = "evalue", .frame = env)
+>>>>>>> i12-13
 }
 
 # The tables are compared with a tolerance of 1e-12: e-values such as 2.27e-158 are read with a difference in the

@@ -72,3 +72,64 @@ test_that("every method that is.dnds_est_method() accepts gives a table in subst
                 expect_true(nrow(res) >= 1 && all(c("dN", "dS", "dNdS") %in% names(res)), info = m)
         }
 })
+
+# Comeron, decisions D8 / D9 of 2026-11-14: codons that differ at two positions are counted along Comeron's two
+# pathways by default (libsequence's branches made the estimate depend on which sequence is first;
+# options(orthologr.comeron_twosubs = "libsequence") keeps them), and a site class with fewer than
+# options(orthologr.comeron_min_sites) (3) sites cannot make dN or dS NA.
+comeron_random_pairs <- function(n, codons, seed) {
+        set.seed(seed)
+        bases <- c("T", "C", "A", "G")
+        stops <- c("TAA", "TAG", "TGA")
+        sense <- setdiff(apply(expand.grid(bases, bases, bases)[, 3:1], 1, paste0, collapse = ""), stops)
+        mut2 <- function(c) repeat {
+                d <- strsplit(c, "")[[1]]
+                for (p in sample(3, 2)) d[p] <- sample(setdiff(bases, d[p]), 1)
+                d <- paste0(d, collapse = "")
+                if (!is.element(d, stops)) return(d)
+        }
+        replicate(n, {
+                x <- sample(sense, codons, TRUE)
+                y <- vapply(x, function(c) if (stats::runif(1) < 0.3) mut2(c) else c, "")
+                c(paste0(x, collapse = ""), paste0(y, collapse = ""))
+        })
+}
+
+comeron_native <- function(a, b) {
+        f <- tempfile(fileext = ".fasta")
+        on.exit(unlink(f))
+        writeLines(c(">a", a, ">b", b), f)
+        r <- substitutionrate(f, est.method = "Comeron", quiet = TRUE, format = "fasta")
+        c(dN = r$dN, dS = r$dS)
+}
+
+test_that("Comeron: the estimate does not depend on which sequence is first; libsequence's branches as an option (D8)", {
+        p <- comeron_random_pairs(40, 150, 20261114)
+        ab <- t(apply(p, 2, function(x) comeron_native(x[1], x[2])))
+        ba <- t(apply(p, 2, function(x) comeron_native(x[2], x[1])))
+        expect_identical(ab, ba)
+        old <- options(orthologr.comeron_twosubs = "libsequence")
+        on.exit(options(old), add = TRUE)
+        lab <- t(apply(p, 2, function(x) comeron_native(x[1], x[2])))
+        lba <- t(apply(p, 2, function(x) comeron_native(x[2], x[1])))
+        expect_gt(sum(lab[, "dN"] != lba[, "dN"]), 20)
+        expect_false(identical(lab, ab))
+        options(orthologr.comeron_twosubs = "both")
+        expect_error(comeron_native(p[1, 1], p[2, 1]), "comeron_twosubs")
+})
+
+test_that("Comeron: a site class with fewer than 3 sites cannot make dN NA; options(orthologr.comeron_min_sites = 0) restores it (D9)", {
+        one <- comeron_native("GCT", "GAT")                 # one codon, nonsynonymous: the 2V class has < 1 site
+        expect_false(is.na(one[["dN"]]))
+        old <- options(orthologr.comeron_min_sites = 0)
+        on.exit(options(old), add = TRUE)
+        expect_true(is.na(comeron_native("GCT", "GAT")[["dN"]]))
+        # never changes a value that is not NA otherwise
+        p <- comeron_random_pairs(30, 30, 11)
+        v0 <- t(apply(p, 2, function(x) comeron_native(x[1], x[2])))
+        options(orthologr.comeron_min_sites = 3)
+        v3 <- t(apply(p, 2, function(x) comeron_native(x[1], x[2])))
+        expect_identical(v3[!is.na(v0)], v0[!is.na(v0)])
+        options(orthologr.comeron_min_sites = -1)
+        expect_error(comeron_native("GCT", "GAT"), "comeron_min_sites")
+})

@@ -44,7 +44,8 @@ using namespace std;
 // @export
 // [[Rcpp::export]]
 void gestimator(std::string file, std::string file_out = "", int maxHits = 3, 
-                bool verbose = false, bool remove_all_gaps = false, bool legacy_saturation = false) {
+                bool verbose = false, bool remove_all_gaps = false, bool legacy_saturation = false,
+                bool twosubs_libsequence = false, double min_sites = 3.0) {
 
    if (maxHits < 1 || maxHits > 3)
             Rcpp::stop("maxHits must be 1, 2 or 3.");
@@ -198,7 +199,8 @@ void gestimator(std::string file, std::string file_out = "", int maxHits = 3,
 
                    // an object on the stack: it is freed at the end of every round (it was allocated with new
                    // and never deleted: about 1.5 kB lost per gene pair)
-                   Comeron95 comeron(&data[i], &data[j], maxHits, &code_degeneracy, legacy_saturation);
+                   Comeron95 comeron(&data[i], &data[j], maxHits, &code_degeneracy, legacy_saturation,
+                                     twosubs_libsequence, min_sites);
                    Comeron95 *C = &comeron;
                    if (file_out == "")
                         {

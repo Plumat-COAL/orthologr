@@ -79,7 +79,7 @@ A list of three tibbles:
 (the others), \code{n_dS_zero}, \code{n_saturated}, \code{n_no_data}, \code{n_failed} (pairs by status, see
 \code{\link{dNdS}}, section "Status of a gene pair"), \code{n_dS_above} (pairs with dS above \code{dS_saturation}:
 estimated, but hardly informative; this column was called \code{n_saturated} in development versions of 0.5.0),
-and median, mean, first and third quartile of dN, dS and dN/dS over the pairs
+and median, mean, first and third quartile (_q25, _q75) of dN, dS and dN/dS over the pairs
 with values;
 \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 }
