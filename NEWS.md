@@ -69,13 +69,15 @@ change. Please report the version of orthologr in the methods of analyses based 
 | Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | 1,000-gene example: dN or dS changes for a third of the gene pairs, mostly slightly (r of dN/dS old vs new 0.988) | `options(orthologr.legacy_pairwise_aln = TRUE)` |
 | Comeron's method: `NA` for a saturated dN or dS (was: a finite, too small value) | 1 dN of 995 pairs (example); 17 dN and 1 dS of 1,500 pairs (human / mouse) | `options(orthologr.legacy_comeron_saturation = TRUE)` |
 | KaKs_Calculator methods: `dN = 0` for a pair without nonsynonymous change (was `NA`, with `dNdS = 0`) | 11 of 995 pairs; `filter_dNdS()` keeps them | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
+| KaKs_Calculator methods: dN and dS that are 0 are 0 (KaKs_Calculator prints `NA` below 1e-6): identical sequences have dN = dS = 0 and status `"dS_zero"` (was `NA` and `"saturated"`), a pair with nonsynonymous differences only has dS = 0 - the values and status of the COAL engine | E. coli K-12 / O157, YN (3,663 pairs): 230 pairs `"saturated"` -> `"dS_zero"` (the summary no longer counts them as saturated), 12 dN of about 1e-12 -> 0; a file against itself (20 genes): "20 saturated" and the note that the species are probably too distant -> "20 with dS = 0"; 1,000-gene example: 0 pairs | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
+| KaKs_Calculator methods: an estimate that KaKs_Calculator replaced with a capped value because the correction for multiple substitutions is not defined is `NA`, status `"saturated"` (was returned as an estimate, status `"ok"`): Ka or Ks = 99, JC69's cap 0.75 log(sites) of YN / MYN, a class of sites counted with 0 substitutions in LWL / MLWL / LPB / MLPB (`?substitutionrate`) | S. cerevisiae / C. glabrata, YN (4,164 pairs): `"ok"` 4,164 -> 605, `"saturated"` 0 -> 3,559 (172 with dS = 99, whose median dN/dS was 0.0028 against 0.081 overall, and 3,387 at JC69's cap, dS 2.56 - 5.99); `filter_dNdS(dnds.threshold = 2)` kept 4,164 rows (the 172 with dS = 99 included) -> 605; E. coli K-12 / O157, YN: 21 of 3,663 pairs (divergent pairs of 35 - 88 % identity, dS 2.8 - 4.8); 1,000-gene example: YN 1 of 995, NG 0 | `options(orthologr.legacy_kaks_saturation = TRUE)` |
 | dN/dS tables end with the column `status` | one more column | `options(orthologr.status_column = FALSE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
 | `divergence_stratigraphy(quiet = TRUE)`, as `dNdS()` (was `FALSE`) | 1,000-gene example: 10 messages instead of 45; same result | `quiet = FALSE` |
 | `orthogroups()` and `dNdS_orthogroups()` trim coding sequences whose length is not a multiple of 3 (`delete_corrupt_cds = FALSE`, as `dNdS()` does) | - (new functions) | `delete_corrupt_cds = TRUE` |
 
-All of the first five at once: `orthologr_legacy_options()`.
+All of the first seven at once: `orthologr_legacy_options()`.
 
 Further behaviour that differs from 0.4.3 and cannot be switched back:
 
@@ -191,7 +193,12 @@ For the close pair the engines agree (median difference 0, r >= 0.97). The remai
 protein alignments (the two engines may place a gap differently where several alignments score the same). The
 yeast pairs are saturated at synonymous sites (median dS above 2): there COAL returns `NA` (status "saturated")
 for most YN estimates for which KaKs_Calculator still prints a number (dS 4 - 5); where both give a value they
-agree. DIAMOND `sensitivity_mode`: "fast" (default) finds 5.0 % (S. cerevisiae / C. glabrata), 8.6 %
+agree. (This table was measured before the default engine returned `NA` for KaKs_Calculator's capped values as
+well - see "Changed defaults". Since then, on the same codon alignments, the status of `kaks_tool =
+"kaks_calculator"` and of `kaks_tool = "coal"` agrees for 150 of 150 E. coli K-12 / O157 pairs with each of NG,
+LWL, MLWL, LPB, MLPB, YN and MYN (before 140 - 141), and for S. cerevisiae / C. glabrata in 150 (YN, before 20),
+148 (MYN, before 10; 2 pairs for which KaKs_Calculator prints `nan`), 149 (LWL / LPB, before 105; MLWL / MLPB,
+before 101) and 150 (NG) of 150.) DIAMOND `sensitivity_mode`: "fast" (default) finds 5.0 % (S. cerevisiae / C. glabrata), 8.6 %
 (S. cerevisiae / K. lactis) and 1.5 % (Salmonella / Shigella) fewer reciprocal best hits than "default", at about
 the same run time on these genomes; the default is unchanged, and `dNdS()` suggests "default" when the median
 identity of the best hits is below 70 %.

@@ -454,6 +454,9 @@ kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair") {
                         kaks_tbl_res$dN[zero$identical | zero$no_nonsynonymous] <- 0
                         kaks_tbl_res$dS[zero$identical | zero$no_synonymous] <- 0
                         kaks_tbl_res$dNdS[zero$identical | zero$no_synonymous] <- NA_real_
+                        # (Ka/Ks * Ks of kaks_zero_dn() can be a rounding residue such as 2.5e-12 there)
+                        no_non <- zero$no_nonsynonymous & is.finite(kaks_tbl_res$dS) & kaks_tbl_res$dS > 0
+                        kaks_tbl_res$dNdS[no_non] <- 0
                 }
         }
         if (!kaks_legacy_saturation()) {
@@ -548,7 +551,8 @@ kaks_legacy_saturation <- function() {
 #     Ks = 0.75 log(S-Sites) or Ka = 0.75 log(N-Sites) to the printed precision;
 #   - LWL, MLWL, LPB, MLPB: a class of sites (0-, 2-, 4-fold) with 1 - 2P - Q <= 0 or 1 - 2Q <= 0 (P, Q:
 #     transitions and transversions per site of the class, from the printed counts); KaKs_Calculator then counts
-#     0 substitutions for that class. 2- or 4-fold classes saturate Ks, 0- or 2-fold classes saturate Ka (the rule of COAL's LWL family).
+#     0 substitutions for that class. 2- or 4-fold classes saturate Ks, 0- or 2-fold classes saturate Ka (the
+#     rule of COAL's LWL family).
 kaks_saturated <- function(kaks_tbl) {
         k <- kaks_columns(kaks_tbl)
         if (is.null(k))
