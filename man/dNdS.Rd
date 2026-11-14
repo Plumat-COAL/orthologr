@@ -167,6 +167,12 @@ the run: it is returned with \code{NA} for dN, dS and dNdS, a warning reports ho
 \code{attr(result, "failed_pairs")} is a \code{data.frame} (\code{query_id}, \code{subject_id}, \code{reason})
 naming the pair, the program and its message.
 
+\strong{Memory} (default engine): the pairwise protein alignment of a gene pair needs about 3 bytes per pair of
+residues (\code{\link{pairwise_aln}}), with \code{comp_cores > 1} once for every pair aligned at the same time.
+A pair whose alignment would have more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
+1.5 GB; e.g. a titin pair of 36,000 residues each would need about 4 GB) is not aligned and is returned with
+\code{NA} values and the reason in \code{attr(result, "failed_pairs")}.
+
 Each call keeps its intermediate files (search database, alignments, KaKs_Calculator files) in a folder of its own
 inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it.
 
