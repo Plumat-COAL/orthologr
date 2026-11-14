@@ -22,8 +22,22 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - Per gene pair: no `data.table` sub-assignments (`:=`), the working files written with one `writeLines()` (the
   same bytes as `seqinr::write.fasta()`); the checks of coding sequences for non-ACGT characters use PCRE (the
   same answers, about 50 times faster on long sequences).
-- Measured (median of 3 runs, `dNdS()` with default settings, the whole call including DIAMOND):
-  TIMING_TABLE
+- Measured: the whole `dNdS()` call including DIAMOND, CPU seconds (user + system, with child processes; the
+  machine was shared, so elapsed times varied by a factor of 2), 0.5.0 -> 0.6.0:
+
+  | data, settings | 1 core | 2 cores |
+  |---|---|---|
+  | 1,000-gene example, default (Comeron, COAL codon step) | 29.2 -> 12.1 | 32.5 -> 15.0 |
+  | 1,000-gene example, `codon_aln_tool = "pal2nal"` | 43.1 -> 33.9 | |
+  | 1,000-gene example, Li | 26.6 -> 14.6 | |
+  | 1,000-gene example, YN (KaKs_Calculator) | 33.0 -> 21.1 | |
+  | 1,000-gene example, YN with `kaks_tool = "coal"` | 25.5 -> 14.1 | |
+  | S. cerevisiae / C. glabrata (4,384 pairs), default | 106.6 -> 53.9 | 122.1 -> 50.6 |
+  | S. cerevisiae / C. glabrata, YN / Li / PAL2NAL | | 153 -> 98 / 108 -> 59 / 197 -> 142 |
+
+  The dN/dS step alone (`compute_dnds()`, 1,000-gene example, 1 core): 27.4 s -> 10.4 s before the change of
+  `gestimator()`. What is left per pair is mostly the alignments themselves (pwalign), the estimate, and for
+  PAL2NAL / KaKs_Calculator the start of one process per gene pair.
 - `stringr` (and with it `stringi`) is no longer imported: its 27 calls were splitting and matching of file names
   and are base R now.
 
