@@ -67,6 +67,8 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   `orthologr_legacy_options()`: a 0.4.3 script ran unchanged without any sign that its numbers changed. Not shown
   while knitr runs, when any `orthologr.*` option is set, or with `options(orthologr.quiet_upgrade = TRUE)` (or
   `suppressPackageStartupMessages()`); the option is not part of the record of a run.
+- README: the links to pages that the package site (drostlab.github.io/orthologr) does not have yet - the
+  articles "Upgrading from 0.4.3" and "Orthogroups" and `?orthologr_options` - point to the files in the repository.
 
 ### Internal
 
