@@ -202,9 +202,10 @@ test_that("R14: a gene pair with synonymous changes only has dN = 0 with KaKs_Ca
                 expect_equal(r$dNdS, 0, info = m)
                 kept <- suppressMessages(filter_dNdS(as.data.frame(r), dnds.threshold = 2))
                 expect_equal(nrow(kept), 1, info = m)
-                # identical sequences: KaKs_Calculator gives no value at all; nothing is invented
+                # identical sequences: KaKs_Calculator prints NA NA NA; no nucleotide differs, so dN = dS = 0 and
+                # the ratio is not defined (test-kaks_values.R; NA NA NA with orthologr.legacy_kaks_zero_dn)
                 i <- substitutionrate(g, est.method = m, quiet = TRUE)
-                expect_true(is.na(i$dN) && is.na(i$dS) && is.na(i$dNdS), info = m)
+                expect_true(i$dN == 0 && i$dS == 0 && is.na(i$dNdS), info = m)
         }
         old <- options(orthologr.legacy_kaks_zero_dn = TRUE)
         on.exit(options(old), add = TRUE)
