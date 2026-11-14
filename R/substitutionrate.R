@@ -136,6 +136,33 @@
 #' purifying selection, put the pair into the most conserved stratum of \code{\link{divergence_map}} and passed
 #' \code{\link{filter_dNdS}}. \code{options(orthologr.legacy_kaks_saturation = TRUE)} restores the old values.
 #'
+#' For the LWL family the printed counts (6 significant digits) cannot tell the sign of \code{1 - 2P - Q} when it
+#' is within about 1e-5 of 0 - typically exactly 0, where KaKs_Calculator's own rounding decides. For such pairs
+#' (an argument within 1e-3 of 0 by the printed counts) the counts are computed again from the codon alignment, with
+#' the operations of KaKs_Calculator 2.0 in the same order, and its own test is applied to them; so the status
+#' follows what KaKs_Calculator did (checked on all LWL, MLWL, LPB and MLPB pairs of S. cerevisiae / C. glabrata,
+#' S. cerevisiae / K. lactis and E. coli K-12 / O157 against a KaKs_Calculator that reports its decision: no pair
+#' differs; with the printed counts alone 21 pairs differed, among them 2 MLPB pairs whose undefined 4-fold class
+#' gave underestimated Ks of 0.97 and 2.26 that passed as estimates). Where KaKs_Calculator computed such a class
+#' its Ks is large and unreliable (9 - 19 on these pairs). The recount needs the genetic code: it is read from
+#' \code{-c} in \code{kaks_calc.params} (default 1); with a code KaKs_Calculator 2.0 does not have, or a
+#' KaKs_Calculator whose counts differ from the recount, the printed counts decide. A build of KaKs_Calculator
+#' that rounds differently (e.g. with fused multiply-add on arm64) may decide an exact 0 the other way.
+#'
+#' \strong{Iterations that do not converge (YN, MYN).} KaKs_Calculator iterates the estimates of YN and MYN for at
+#' most 10 rounds and prints the values of the last round without saying whether they converged. Such a pair
+#' cannot be told from an estimate and is returned as one: S. cerevisiae / C. glabrata 18 of 605 YN estimates
+#' (3\%) and 7 of 352 MYN estimates, S. cerevisiae / K. lactis 17 of 597 YN estimates, E. coli K-12 / O157 3 of
+#' 3,412 YN estimates; all of them with dS above 1.4. Treat dS above about 1.5 from KaKs_Calculator with caution.
+#'
+#' \strong{Estimates that failed (\code{nan}).} When KaKs_Calculator prints \code{nan} for Ka or Ks (MYN:
+#' S. cerevisiae / C. glabrata 50 of 4,164 pairs, all of them iterations that did not converge), the row is
+#' \code{NA} and is a failed estimate: \code{substitutionrate()} names it in \code{attr(result, "kaks_failed")}
+#' (method, reason), and \code{\link{dNdS}} reports the pair as failed, with the reason in
+#' \code{attr(result, "failed_pairs")}. It is not saturated: the iteration failed. Up to this version the row was
+#' \code{NaN} (in one of the 50 pairs dN a number), like a saturated estimate;
+#' \code{options(orthologr.legacy_kaks_saturation = TRUE)} returns it as printed.
+#'
 #' @section Saturation (Comeron's method):
 #' The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:
 #' proportions of transitional and transversional differences in a class of sites). When such an argument is not
@@ -331,7 +358,9 @@ substitutionrate <- function(file,
                              conditionMessage(e), call. = FALSE)
                 })
                 
-                return(kaks_result_table(kaks_tbl, pair_ids, paste0(context, " (method ", est.method, ")")))
+                return(kaks_result_table(kaks_tbl, pair_ids, paste0(context, " (method ", est.method, ")"),
+                                         aln = c(as.character(aln_seqs[[1]]), as.character(aln_seqs[[2]])),
+                                         genetic_code = kaks_genetic_code(kaks_calc.params)))
         }
         
         # every method accepted above is handled by one of the branches; a method that is not must never give NULL
@@ -399,7 +428,10 @@ kaks_calc_args <- function(est.method, kaks_calc.params = NULL) {
 
 # The result table of substitutionrate() from KaKs_Calculator's output table 'kaks_tbl' (columns Sequence, Method,
 # Ka, Ks, Ka/Ks, ...) for the gene pair 'pair_ids' (query id, subject id).
-kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair") {
+#   aln          : NULL, or the two aligned coding sequences handed to KaKs_Calculator (for the saturation test of
+#                  the LWL family, see kaks_saturated())
+#   genetic_code : KaKs_Calculator's genetic code ('-c', 1 by default)
+kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair", aln = NULL, genetic_code = 1L) {
         query_id <- NULL
         if (nrow(kaks_tbl) == 0 || ncol(kaks_tbl) < 5)
                 stop("KaKs_Calculator returned no result for ", context, ".", call. = FALSE)
@@ -427,16 +459,40 @@ kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair") {
                         kaks_tbl_res$dNdS[no_non] <- 0
                 }
         }
+        failed <- NULL
         if (!kaks_legacy_saturation()) {
-                sat <- kaks_saturated(kaks_tbl)
+                sat <- kaks_saturated(kaks_tbl, aln = aln, genetic_code = genetic_code)
                 if (!is.null(sat)) {
                         kaks_tbl_res$dS[sat$Ks] <- NA_real_
                         kaks_tbl_res$dN[sat$Ka] <- NA_real_
                         kaks_tbl_res$dNdS[sat$Ks | sat$Ka] <- NA_real_
                 }
+                # Ka or Ks printed as 'nan' (or '-nan'): the estimate failed (MYN of S. cerevisiae / C. glabrata: 50 of
+                # 4,164 pairs, all of them iterations that did not converge). This is not saturation: COAL estimates
+                # most of these pairs (43 of the 50). The row is NA and named in attr(, "kaks_failed"); dNdS() reports
+                # it as a failed pair (status "failed", the reason in attr(<result>, "failed_pairs")). It was NaN
+                # (the dN of one pair a number) and the status "saturated".
+                nan <- is.nan(num(kaks_tbl[ , 3])) | is.nan(num(kaks_tbl[ , 4]))
+                if (any(nan)) {
+                        kaks_tbl_res$dN[nan] <- NA_real_
+                        kaks_tbl_res$dS[nan] <- NA_real_
+                        kaks_tbl_res$dNdS[nan] <- NA_real_
+                        failed <- data.frame(
+                                method = kaks_tbl_res$method[nan],
+                                reason = paste0("KaKs_Calculator printed 'nan' for ",
+                                                ifelse(is.nan(num(kaks_tbl[nan, 3])) & is.nan(num(kaks_tbl[nan, 4])), "Ka and Ks",
+                                                       ifelse(is.nan(num(kaks_tbl[nan, 4])), "Ks", "Ka")),
+                                                " (method ", kaks_tbl_res$method[nan], ") of ",
+                                                sub(" \\(method [^)]*\\)$", "", context),
+                                                ": its estimate failed (for YN / MYN typically an iteration that did ",
+                                                "not converge); the pair is not saturated"),
+                                stringsAsFactors = FALSE)
+                }
         }
         kaks_tbl_res <- data.table::as.data.table(kaks_tbl_res)
         data.table::setkey(kaks_tbl_res, query_id)
+        if (!is.null(failed))
+                data.table::setattr(kaks_tbl_res, "kaks_failed", failed)
         return(kaks_tbl_res)
 }
 
@@ -518,10 +574,18 @@ kaks_legacy_saturation <- function() {
 #     0.75, KaKs_Calculator (as PAML yn00) sets P to 0.75 (n - 1) / n, which gives t = 0.75 log(n) for n sites:
 #     Ks = 0.75 log(S-Sites) or Ka = 0.75 log(N-Sites) to the printed precision;
 #   - LWL, MLWL, LPB, MLPB: a class of sites (0-, 2-, 4-fold) with 1 - 2P - Q <= 0 or 1 - 2Q <= 0 (P, Q:
-#     transitions and transversions per site of the class, from the printed counts); KaKs_Calculator then counts
-#     0 substitutions for that class. 2- or 4-fold classes saturate Ks, 0- or 2-fold classes saturate Ka (the
-#     rule of COAL's LWL family).
-kaks_saturated <- function(kaks_tbl) {
+#     transitions and transversions per site of the class); KaKs_Calculator then counts 0 substitutions for that
+#     class. 2- or 4-fold classes saturate Ks, 0- or 2-fold classes saturate Ka (the rule of COAL's LWL family).
+#     P and Q are taken from the counts KaKs_Calculator prints (6 significant digits). Where that gives an
+#     argument within 1e-3 of 0, the printed digits cannot tell the sign (S. cerevisiae / K. lactis: a 4-fold class
+#     with 1 - 2P - Q = 0 exactly passed as 'ok', with Ks 0.97 instead of saturated; others were taken for saturated
+#     although KaKs_Calculator gave a value): the counts are then computed again from the codon alignment 'aln', with
+#     the same operations in the same order as KaKs_Calculator 2.0 (kaks_lwl_counts()), and its own test is applied
+#     to them. When 'aln' is not given, or the counts computed do not agree with the printed ones (another version
+#     of KaKs_Calculator), the printed counts decide.
+#   aln          : NULL, or the two aligned sequences of the pair (one pair for all rows of 'kaks_tbl')
+#   genetic_code : the genetic code of KaKs_Calculator ('-c')
+kaks_saturated <- function(kaks_tbl, aln = NULL, genetic_code = 1L) {
         k <- kaks_columns(kaks_tbl)
         if (is.null(k))
                 return(NULL)
@@ -537,11 +601,20 @@ kaks_saturated <- function(kaks_tbl) {
                 L <- k$L[lwl, , drop = FALSE]
                 P <- k$Si[lwl, , drop = FALSE] / L
                 Q <- k$Vi[lwl, , drop = FALSE] / L
-                # (P and Q come from numbers printed with 6 significant digits: for an argument within about 1e-5 of
-                # 0 the sign can come out either way - 1 or 2 of 150 S. cerevisiae / C. glabrata pairs differ from
-                # COAL for that reason)
-                sat <- !is.na(L) & L > 0 & !((1 - 2 * P - Q) > 0 & (1 - 2 * Q) > 0)
+                a1 <- 1 - 2 * P - Q
+                a2 <- 1 - 2 * Q
+                sat <- !is.na(L) & L > 0 & !(a1 > 0 & a2 > 0)
                 sat[is.na(sat)] <- FALSE
+                # near 0 the printed digits do not tell the sign: KaKs_Calculator's own numbers decide
+                near <- which(rowSums(!is.na(L) & L > 0 & ((!is.na(a1) & abs(a1) < 1e-3) | (!is.na(a2) & abs(a2) < 1e-3))) > 0)
+                if (length(near) > 0 && length(aln) == 2) {
+                        for (r in near) {
+                                exact <- kaks_lwl_counts(aln[1], aln[2], method = k$method[lwl[r]], genetic_code = genetic_code)
+                                if (is.null(exact) || !kaks_counts_agree(exact, L[r, ], k$Si[lwl[r], ], k$Vi[lwl[r], ]))
+                                        next
+                                sat[r, ] <- exact$L > 0 & !((1 - 2 * exact$P - exact$Q) > 0 & (1 - 2 * exact$Q) > 0)
+                        }
+                }
                 ks[lwl] <- ks[lwl] | sat[, 2] | sat[, 3]
                 ka[lwl] <- ka[lwl] | sat[, 1] | sat[, 2]
         }
@@ -571,4 +644,199 @@ kaks_zero_dn <- function(dN, dS, dNdS) {
                 dNdS[known] <- pmax(0, dNdS[known])          # '-0' is 0
         }
         list(dN = dN, dNdS = dNdS, changed = known)
+}
+
+# KaKs_Calculator's genetic code: the value of '-c' in kaks_calc.params (1, the standard code, when not given; NA
+# when it cannot be read).
+kaks_genetic_code <- function(kaks_calc.params = NULL) {
+        p <- paste(unlist(kaks_calc.params), collapse = " ")
+        m <- regmatches(p, regexec("(^|\\s)-c\\s*([0-9]+)(\\s|$)", p))[[1]]
+        if (length(m) == 0)
+                return(if (grepl("(^|\\s)-c", p)) NA_integer_ else 1L)
+        as.integer(m[3])
+}
+
+# The genetic codes of KaKs_Calculator 2.0 (base.cpp, 'transl_table'; codons in the order TTT, TTC, TTA, TTG, TCT,
+# ... with T, C, A, G = 0, 1, 2, 3; '!' a stop codon). NULL for a code it does not have.
+kaks_transl_table <- function(genetic_code) {
+        tables <- c(
+                "1"  = "FFLLSSSSYY!!CC!WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "2"  = "FFLLSSSSYY!!CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSS!!VVVVAAAADDEEGGGG",
+                "3"  = "FFLLSSSSYY!!CCWWTTTTPPPPHHQQRRRRIIMMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "4"  = "FFLLSSSSYY!!CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "5"  = "FFLLSSSSYY!!CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSSSVVVVAAAADDEEGGGG",
+                "6"  = "FFLLSSSSYYQQCC!WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "9"  = "FFLLSSSSYY!!CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG",
+                "10" = "FFLLSSSSYY!!CCCWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "11" = "FFLLSSSSYY!!CC!WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "12" = "FFLLSSSSYY!!CC!WLLLSPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "13" = "FFLLSSSSYY!!CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSGGVVVVAAAADDEEGGGG",
+                "14" = "FFLLSSSSYYY!CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG",
+                "15" = "FFLLSSSSYY!QCC!WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "16" = "FFLLSSSSYY!LCC!WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "21" = "FFLLSSSSYY!!CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNNKSSSSVVVVAAAADDEEGGGG",
+                "22" = "FFLLSS!SYY!LCC!WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "23" = "FF!LSSSSYY!!CC!WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "24" = "FFLLSSSSYY!!CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG",
+                "25" = "FFLLSSSSYY!!CCGWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "26" = "FFLLSSSSYY!!CC!WLLLAPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "27" = "FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "28" = "FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "29" = "FFLLSSSSYYYYCC!WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "30" = "FFLLSSSSYYEECC!WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "31" = "FFLLSSSSYYEECCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+                "33" = "FFLLSSSSYYY!CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG"
+        )
+        if (length(genetic_code) != 1 || is.na(genetic_code) || !is.element(as.character(genetic_code), names(tables)))
+                return(NULL)
+        strsplit(tables[[as.character(genetic_code)]], "")[[1]]
+}
+
+# The per-codon tables of the LWL family for one genetic code and one rule of transitions (LWL85 for LWL and LPB;
+# Tzeng et al. 2004 for MLWL and MLPB), as KaKs_Calculator 2.0 computes them (LWL85.cpp, LPB93.cpp):
+#   L  : 64 x 3, the number of positions of a codon that are 0-, 2- and 4-fold degenerate
+#   S, V : 4096 x 3, what a pair of codons (row 64 * i + j + 1 for codons i, j) adds to the transitions (S) and
+#        transversions (V) of the three classes: the differences of all evolutionary pathways that do not pass a
+#        stop codon, 0.5 to the class of either codon at the position, divided by the number of these pathways
+# Computed once per code and rule.
+kaks_lwl_tables <- function(genetic_code, modified) {
+        key <- paste0("lwl_", genetic_code, "_", modified)
+        if (!is.null(kaks_lwl_cache[[key]]))
+                return(kaks_lwl_cache[[key]])
+        aa <- kaks_transl_table(genetic_code)
+        if (is.null(aa))
+                return(NULL)
+        # codon i (1..64) as bases 0..3 (T, C, A, G) and back
+        base <- cbind((0:63) %/% 16L, ((0:63) %/% 4L) %% 4L, (0:63) %% 4L)
+        id <- function(b) b[1] * 16L + b[2] * 4L + b[3] + 1L
+        named <- function(x) id(match(strsplit(x, "")[[1]], c("T", "C", "A", "G")) - 1L)
+        # the class (0, 2, 4) of every position of every codon: how many of the other three bases give the same
+        # amino acid (a stop codon is never the same)
+        cls <- matrix(0L, 64, 3)
+        for (i in 1:64)
+                for (pos in 1:3) {
+                        n <- 0L
+                        for (b in setdiff(0:3, base[i, pos])) {
+                                t <- base[i, ]
+                                t[pos] <- b
+                                a <- aa[id(t)]
+                                if (a != "!" && a == aa[i])
+                                        n <- n + 1L
+                        }
+                        cls[i, pos] <- if (n == 3L) 4L else if (n > 0L) 2L else 0L
+                }
+        L <- cbind(rowSums(cls == 0L), rowSums(cls == 2L), rowSums(cls == 4L))
+        slot <- cls %/% 2L + 1L
+        ATA <- named("ATA"); ATG <- named("ATG"); ATC <- named("ATC"); ATT <- named("ATT")
+        arg_pairs <- rbind(c(named("CGA"), named("AGA")), c(named("CGG"), named("AGG")))
+        is_arg <- function(c1, c2) any((arg_pairs[, 1] == c1 & arg_pairs[, 2] == c2) | (arg_pairs[, 1] == c2 & arg_pairs[, 2] == c1))
+        # one difference at position 'pos' between codons c1 and c2: what it adds to s / v (class slots 1..3)
+        tt <- function(c1, c2, pos, sv) {
+                k1 <- slot[c1, pos]
+                k2 <- slot[c2, pos]
+                syn <- -1L
+                if (modified && pos == 3L) {
+                        if ((c1 == ATA && c2 == ATG) || (c1 == ATG && c2 == ATA))
+                                syn <- 0L
+                        if ((c1 == ATA && (c2 == ATC || c2 == ATT)) || ((c1 == ATC || c1 == ATT) && c2 == ATA))
+                                syn <- 1L
+                }
+                if (pos == 1L && is_arg(c1, c2)) {
+                        if (!modified) {
+                                # LWL85: half a transition to the class of the first codon, half a transversion to the second
+                                sv[k1] <- sv[k1] + 0.5
+                                sv[3L + k2] <- sv[3L + k2] + 0.5
+                                return(sv)
+                        }
+                        syn <- 1L
+                }
+                if (syn == -1L) {
+                        sm <- base[c1, pos] + base[c2, pos]
+                        syn <- if (sm == 5L || sm == 1L) 1L else 0L
+                }
+                off <- if (syn == 1L) 0L else 3L
+                sv[off + k1] <- sv[off + k1] + 0.5
+                sv[off + k2] <- sv[off + k2] + 0.5
+                sv
+        }
+        perms <- list(list(1L), list(1:2, 2:1), list(c(1L, 2L, 3L), c(1L, 3L, 2L), c(2L, 1L, 3L), c(2L, 3L, 1L), c(3L, 1L, 2L), c(3L, 2L, 1L)))
+        SV <- matrix(0, 4096, 6)
+        for (i in which(aa != "!")) {
+                for (j in which(aa != "!")) {
+                        if (i == j)
+                                next
+                        diff <- which(base[i, ] != base[j, ])
+                        num <- length(diff)
+                        sv <- numeric(6)
+                        stop <- 0L
+                        for (pp in perms[[num]]) {
+                                path <- diff[pp]
+                                cur <- base[i, ]
+                                steps <- i
+                                for (p in path[-num]) {
+                                        cur[p] <- base[j, p]
+                                        steps <- c(steps, id(cur))
+                                }
+                                if (any(aa[steps[-1]] == "!")) {
+                                        stop <- stop + 1L
+                                        next
+                                }
+                                steps <- c(steps, j)
+                                for (h in seq_len(num))
+                                        sv <- tt(steps[h], steps[h + 1L], path[h], sv)
+                        }
+                        n_path <- length(perms[[num]]) - stop
+                        if (n_path > 0)
+                                SV[64L * (i - 1L) + j, ] <- sv / n_path
+                }
+        }
+        out <- list(aa = aa, L = L, S = SV[, 1:3], V = SV[, 4:6])
+        assign(key, out, envir = kaks_lwl_cache)
+        out
+}
+
+kaks_lwl_cache <- new.env(parent = emptyenv())
+
+# The sites (L), transitions (Si) and transversions (Vi) of the 0-, 2- and 4-fold classes of a codon alignment as
+# KaKs_Calculator 2.0 computes them for 'method' (LWL, MLWL, LPB, MLPB), and P = Si / L, Q = Vi / L. Codons with a
+# gap, a character other than A, C, G, T or a stop codon in either sequence are left out, as by KaKs_Calculator;
+# the sums are built codon by codon in the order of the alignment, so that the numbers are KaKs_Calculator's to
+# the last bit. NULL when the alignment or the genetic code cannot be handled here (e.g. 'U' in the sequences).
+kaks_lwl_counts <- function(seq1, seq2, method, genetic_code = 1L) {
+        if (!is.element(method, kaks_lwl_methods()) || length(seq1) != 1 || length(seq2) != 1 || is.na(seq1) || is.na(seq2))
+                return(NULL)
+        tab <- kaks_lwl_tables(genetic_code, modified = is.element(method, c("MLWL", "MLPB")))
+        if (is.null(tab))
+                return(NULL)
+        s1 <- toupper(seq1)
+        s2 <- toupper(seq2)
+        if (nchar(s1) != nchar(s2) || nchar(s1) %% 3 != 0 || grepl("U", s1, fixed = TRUE) || grepl("U", s2, fixed = TRUE))
+                return(NULL)
+        n <- nchar(s1) %/% 3
+        if (n == 0)
+                return(NULL)
+        code <- function(s) {
+                b <- match(strsplit(s, "")[[1]], c("T", "C", "A", "G")) - 1L
+                m <- matrix(b, nrow = 3)
+                m[1, ] * 16L + m[2, ] * 4L + m[3, ] + 1L
+        }
+        i1 <- code(s1)
+        i2 <- code(s2)
+        keep <- !is.na(i1) & !is.na(i2)
+        keep[keep] <- tab$aa[i1[keep]] != "!" & tab$aa[i2[keep]] != "!"
+        i1 <- i1[keep]
+        i2 <- i2[keep]
+        L <- (colSums(tab$L[i1, , drop = FALSE]) + colSums(tab$L[i2, , drop = FALSE])) / 2
+        row <- 64L * (i1 - 1L) + i2
+        # sums in the order of the alignment, in double precision (sum() and cumsum() add in extended precision)
+        add <- function(x) Reduce(`+`, x, 0)
+        Si <- c(add(tab$S[row, 1]), add(tab$S[row, 2]), add(tab$S[row, 3]))
+        Vi <- c(add(tab$V[row, 1]), add(tab$V[row, 2]), add(tab$V[row, 3]))
+        list(L = L, Si = Si, Vi = Vi, P = Si / L, Q = Vi / L)
+}
+
+# Do the counts of kaks_lwl_counts() agree with those KaKs_Calculator printed (6 significant digits)?
+kaks_counts_agree <- function(exact, L, Si, Vi) {
+        close <- function(a, b) all(is.finite(a) & is.finite(b) & abs(a - b) <= 1e-5 * pmax(1, abs(a)))
+        close(exact$L, L) && close(exact$Si, Si) && close(exact$Vi, Vi)
 }
