@@ -540,7 +540,7 @@ cds_vector <- function(cds_dt) {
 dNdS_coal <- function(query_file,
                       subject_file,
                       aligner            = "diamond",
-                      sensitivity_mode   = "fast",
+                      sensitivity_mode   = getOption("orthologr.sensitivity_mode", "default"),
                       aligner_path       = NULL,
                       seq_type           = "cds",
                       format             = "fasta",
@@ -555,6 +555,7 @@ dNdS_coal <- function(query_file,
                       quiet              = TRUE,
                       print_citation     = TRUE,
                       best_hit_rule      = getOption("orthologr.best_hit_rule", "bitscore")) {
+        sensitivity_mode <- orthologr_sensitivity_mode(if (missing(sensitivity_mode)) NULL else sensitivity_mode)
 
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
 

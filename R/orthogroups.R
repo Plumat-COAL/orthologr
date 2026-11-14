@@ -24,8 +24,9 @@
 #' the proteome of the subject species alone} is not above \code{eval} (see Details); Default \code{"1E-5"}.
 #' \code{method = "deepclust"}: handed to \code{\link{deepclust}}.
 #' @param sensitivity_mode the DIAMOND sensitivity mode of the search (\code{method = "rbh"}, \code{refine = TRUE}),
-#' see \code{\link{diamond}}. Default is \code{"fast"}, the default of \code{\link{diamond_rec}}; for distantly
-#' related species use \code{"sensitive"} or higher.
+#' see \code{\link{diamond}}. Default is \code{"default"} (DIAMOND's own default mode; \code{"fast"} up to 0.4.3;
+#' \code{options(orthologr.sensitivity_mode = )} sets another), the default of \code{\link{diamond_rec}}; for
+#' distantly related species use \code{"sensitive"} or higher.
 #' @param min_qcov,min_identity optional filters on the hits (Default \code{NULL}: off): hits whose alignment covers
 #' less than \code{min_qcov} percent of the query, or with a percent identity below \code{min_identity}, are left out
 #' \emph{before} best hits are chosen. As a reciprocal best hit needs a hit in both directions, \code{min_qcov} is
@@ -136,7 +137,7 @@ orthogroups <- function(files,
                         seq_type             = c("cds", "protein"),
                         best_hit_rule        = getOption("orthologr.best_hit_rule", "bitscore"),
                         eval                 = "1E-5",
-                        sensitivity_mode     = "fast",
+                        sensitivity_mode     = getOption("orthologr.sensitivity_mode", "default"),
                         min_qcov             = NULL,
                         min_identity         = NULL,
                         inparalogs           = FALSE,
@@ -150,6 +151,7 @@ orthogroups <- function(files,
                         path                 = NULL,
                         quiet                = TRUE,
                         ...) {
+        sensitivity_mode <- orthologr_sensitivity_mode(if (missing(sensitivity_mode)) NULL else sensitivity_mode)
 
         method   <- check_choice(method[1], c("rbh", "deepclust"), "method")
         seq_type <- check_choice(seq_type[1], c("cds", "protein"), "seq_type")

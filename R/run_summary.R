@@ -306,6 +306,7 @@ orthologr_options_in_force <- function() {
         defaults <- list(
                 orthologr.legacy                    = FALSE,
                 orthologr.best_hit_rule             = "bitscore",
+                orthologr.sensitivity_mode          = "default",
                 orthologr.legacy_pairwise_aln       = FALSE,
                 orthologr.legacy_comeron_saturation = FALSE,
                 orthologr.comeron_twosubs           = "comeron",
@@ -716,6 +717,7 @@ number_text <- function(x) {
 orthologr_legacy_values <- function() {
         list(
                 orthologr.best_hit_rule             = "evalue",
+                orthologr.sensitivity_mode          = "fast",
                 orthologr.legacy_pairwise_aln       = TRUE,
                 orthologr.legacy_comeron_saturation = TRUE,
                 orthologr.comeron_twosubs           = "libsequence",
@@ -751,6 +753,7 @@ orthologr_option <- function(name, default = NULL) {
 #' @details The options (each can also be set on its own; see \code{\link{orthologr_options}}):
 #' \tabular{ll}{
 #' \code{orthologr.best_hit_rule = "evalue"} \tab best hits by e-value, then alignment length \cr
+#' \code{orthologr.sensitivity_mode = "fast"} \tab DIAMOND's \code{--fast} mode (the default of the argument \code{sensitivity_mode}) \cr
 #' \code{orthologr.legacy_pairwise_aln = TRUE} \tab pairwise protein alignments without substitution matrix, cut to the aligned range, stop codon aligned \cr
 #' \code{orthologr.legacy_comeron_saturation = TRUE} \tab Comeron's method returns a finite value for saturated pairs \cr
 #' \code{orthologr.comeron_twosubs = "libsequence"} \tab Comeron's method counts codons that differ at two positions along libsequence's branches \cr

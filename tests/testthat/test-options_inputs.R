@@ -26,7 +26,18 @@ test_that("the validators agree with the documentation: BH and RBH only", {
         expect_true(is.ortho_detection_method("RBH"))
         expect_false(is.ortho_detection_method("PO"))
         expect_false(is.ortho_detection_method("DELTA"))
-        expect_identical(eval(formals(dNdS)$sensitivity_mode), "fast")
+        # the default is DIAMOND's own mode (0.4.3: "fast"); options(orthologr.sensitivity_mode) sets another
+        expect_identical(eval(formals(dNdS)$sensitivity_mode), "default")
+        for (f in list(orthologs, diamond, diamond_best, diamond_rec, divergence_stratigraphy, orthogroups, dNdS_coal))
+                expect_identical(eval(formals(f)$sensitivity_mode), "default")
+        withr::with_options(list(orthologr.sensitivity_mode = "fast"),
+                            expect_identical(eval(formals(dNdS)$sensitivity_mode), "fast"))
+        expect_identical(orthologr_sensitivity_mode(), "default")
+        withr::with_options(list(orthologr.legacy = TRUE), expect_identical(orthologr_sensitivity_mode(), "fast"))
+        expect_identical(orthologr_legacy_options(set = FALSE)$orthologr.sensitivity_mode, "fast")
+        expect_identical(orthologr_sensitivity_mode("sensitive"), "sensitive")
+        expect_error(withr::with_options(list(orthologr.sensitivity_mode = "turbo"), orthologr_sensitivity_mode()),
+                     class = "orthologr_error_bad_argument")
         expect_true(all(c("fast", "default") %in% diamond_sensitivity_modes()))
 })
 

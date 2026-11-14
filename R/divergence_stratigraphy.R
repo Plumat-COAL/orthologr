@@ -9,9 +9,9 @@
 #' Thus, the default is \code{aligner} = \code{diamond}.
 #' @param sensitivity_mode specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 #' \itemize{
-#' \item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+#' \item \code{sensitivity_mode = "fast"}: fast alignment mode, designed for finding hits of >90\% identity (the default up to orthologr 0.4.3).
 #' \item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
-#' \item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+#' \item \code{sensitivity_mode = "default"} (Default; \code{options(orthologr.sensitivity_mode = )} sets another): the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >60\% identity.
 #' \item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
 #' \item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
 #' \item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
@@ -220,9 +220,10 @@ divergence_stratigraphy <- function(query_file,
                                     ds.values       = TRUE,
                                     subject.id      = FALSE,
                                     n_quantile      = 10,
-                                    sensitivity_mode = "fast",
+                                    sensitivity_mode = getOption("orthologr.sensitivity_mode", "default"),
                                     dS_zero         = getOption("orthologr.dS_zero", "drop"),
                                     best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")){
+        sensitivity_mode <- orthologr_sensitivity_mode(if (missing(sensitivity_mode)) NULL else sensitivity_mode)
         
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         
