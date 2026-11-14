@@ -152,7 +152,9 @@ test_that("divergence_stratigraphy() works with comp_cores = 2 ...", {
 
 
 test_that("quiet = TRUE (default) shows the progress of the dN/dS run in interactive sessions only", {
-        testthat::local_mocked_bindings(is_interactive = function() TRUE, .package = "orthologr")
+        # (a progress line every 2 gene pairs: the example has 20, fewer than the usual step of 50)
+        testthat::local_mocked_bindings(is_interactive = function() TRUE, progress_step = function(n) 2L,
+                                        .package = "orthologr")
         expect_true(stratigraphy_progress_wanted(TRUE))
         expect_false(stratigraphy_progress_wanted(FALSE))   # quiet = FALSE shows it anyway (dNdS's own messages)
         expect_identical(eval(formals(divergence_stratigraphy)$quiet), TRUE)
