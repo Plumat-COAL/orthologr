@@ -159,7 +159,8 @@ dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_co
         for (n in names(extra_attr))
                 attr(res, n) <- extra_attr[[n]]
         attr(res, "orthologr_run") <- run_record(fun = record$fun, args = record$args, engine = record$engine,
-                                                 tools = record$tools, files = record$files, status = status)
+                                                 tools = record$tools, files = record$files, status = status,
+                                                 settings = record$settings)
         # several methods per gene pair (dnds_est.method = "ALL"): the rows are counted as gene pairs x methods
         what <- "gene pairs"
         if (is.element("method", names(res)) && length(unique(stats::na.omit(res$method))) > 1)
@@ -253,7 +254,7 @@ format_seconds <- function(s) {
 # structured values are described, not stored.
 run_arguments <- function(env = parent.frame(), fun = sys.function(sys.parent())) {
         args <- mget(setdiff(names(formals(fun)), "..."), envir = env, ifnotfound = list(NULL))
-        lapply(args, function(v) {
+        out <- lapply(args, function(v) {
                 if (is.null(v))
                         return(NULL)
                 if (is.function(v))
@@ -268,6 +269,36 @@ run_arguments <- function(env = parent.frame(), fun = sys.function(sys.parent())
                         return(paste0("<", typeof(v), " vector of length ", length(v), ">"))
                 paste0("<", class(v)[1], ">")
         })
+        # where the run starts in the log of search commands (run_record()'s "commands")
+        attr(out, "command_mark") <- length(.orthologr_state$command_log)
+        out
+}
+
+# The search commands (DIAMOND, BLAST+) of the session, as run (run_tool() adds them).
+log_command <- function(cmd, args) {
+        .orthologr_state$command_log <- c(.orthologr_state$command_log, list(c(cmd, quote_args(args))))
+        invisible(NULL)
+}
+
+# The user's call: the outermost call of a function of the package that records its runs (when one runs another,
+# divergence_stratigraphy() runs dNdS(), the record says how it was called; C07 of the integration pass).
+RECORDED_FUNCTIONS <- c("dNdS", "dNdS_orthogroups", "divergence_stratigraphy")
+run_user_call <- function() {
+        calls <- sys.calls()
+        frames <- sys.frames()
+        fns <- lapply(seq_along(calls), function(i) sys.function(i))
+        ns <- asNamespace("orthologr")
+        for (i in seq_along(calls)) {
+                nm <- tryCatch(as.character(calls[[i]][[1]]), error = function(e) "")
+                nm <- nm[length(nm)]
+                if (length(nm) == 1 && is.element(nm, RECORDED_FUNCTIONS) &&
+                    identical(environment(fns[[i]]), ns)) {
+                        return(list("function" = nm,
+                                    call = paste(deparse(calls[[i]], width.cutoff = 500L), collapse = " "),
+                                    arguments = run_arguments(env = frames[[i]], fun = fns[[i]])))
+                }
+        }
+        NULL
 }
 
 # Every option of the package with the value in force (set values, and the defaults of the ones that are not set).
@@ -313,6 +344,16 @@ tool_version_line <- function(program, args, path = NULL, pattern = NULL) {
         res
 }
 
+# KaKs_Calculator's version: `-h` prints "Program: KaKs_Calculator Toolbox" and, on the next line,
+# "Version: 2.0, June. 2009"; the line with the version, else the program line (C04 of the integration pass).
+kaks_version_line <- function(kaks_calc_path = NULL) {
+        line <- tool_version_line("KaKs_Calculator", "-h", kaks_calc_path, pattern = "[Vv]ersion")
+        if (grepl("[Vv]ersion", line))
+                return(sub("^[Vv]ersion: *", "", line))
+        line <- tool_version_line("KaKs_Calculator", "-h", kaks_calc_path, pattern = "KaKs_Calculator")
+        if (nzchar(line)) line else "version not reported by the program"
+}
+
 package_version_text <- function(pkg) {
         tryCatch(as.character(utils::packageVersion(pkg)), error = function(e) NA_character_)
 }
@@ -346,10 +387,7 @@ run_tool_versions <- function(aligner = NULL, aligner_path = NULL, aa_aln_tool =
                 v$perl <- tool_version_line("perl", "-v", pattern = "This is perl")
         }
         if (isTRUE(kaks))
-                v$KaKs_Calculator <- {
-                        line <- tool_version_line("KaKs_Calculator", "-h", kaks_calc_path, pattern = "[Vv]ersion|KaKs_Calculator")
-                        if (nzchar(line)) line else "version not reported by the program"
-                }
+                v$KaKs_Calculator <- kaks_version_line(kaks_calc_path)
         v$Biostrings <- package_version_text("Biostrings")
         v$seqinr <- package_version_text("seqinr")
         v$R <- paste(R.version$major, R.version$minor, sep = ".")
@@ -377,11 +415,23 @@ run_input_files <- function(files) {
 #   tools    : versions (run_tool_versions())
 #   files    : the input files
 #   status   : the status of every gene pair, or NULL
-run_record <- function(fun, args, engine, tools, files, status = NULL) {
-        list(
+#   settings : what the engine was given (a list), or NULL
+run_record <- function(fun, args, engine, tools, files, status = NULL, settings = NULL) {
+        mark <- attr(args, "command_mark")
+        attr(args, "command_mark") <- NULL
+        log <- .orthologr_state$command_log
+        commands <- if (!is.null(mark) && length(log) > mark)
+                vapply(log[(mark + 1):length(log)], paste, "", collapse = " ") else NULL
+        user <- run_user_call()
+        out <- list(
                 orthologr = package_version_text("orthologr"),
                 "function" = fun,
                 arguments = args,
+                call      = user$call,
+                called_as = if (!is.null(user) && !identical(user[["function"]], fun))
+                        user[c("function", "arguments")] else NULL,
+                commands  = commands,
+                engine_settings = settings,
                 options   = orthologr_options_in_force(),
                 engine    = engine,
                 tools     = tools,
@@ -389,6 +439,7 @@ run_record <- function(fun, args, engine, tools, files, status = NULL) {
                 input_files = run_input_files(files),
                 status_counts = if (is.null(status)) NULL else as.list(dnds_status_counts(status))
         )
+        out[!(vapply(out, is.null, TRUE) & is.element(names(out), c("call", "called_as", "commands", "engine_settings")))]
 }
 
 # ---- writing and reading a result ------------------------------------------------------------------------------
@@ -410,6 +461,12 @@ run_record <- function(fun, args, engine, tools, files, status = NULL) {
 #' \describe{
 #' \item{\code{orthologr}}{the version of the package;}
 #' \item{\code{function}, \code{arguments}}{the function and the values of its arguments;}
+#' \item{\code{call}}{the call as it was written (the outermost of \code{dNdS()}, \code{dNdS_orthogroups()},
+#' \code{divergence_stratigraphy()});}
+#' \item{\code{called_as}}{when that call is of another function than \code{function}: its name and the values of
+#' all its arguments;}
+#' \item{\code{commands}}{the command lines of the sequence searches the run started (DIAMOND, BLAST+), with the
+#' file names of the working folder;}
 #' \item{\code{options}}{every \code{orthologr.*} option with the value in force (see \code{\link{orthologr_options}});
 #' this shows whether a result was computed with the settings of 0.4.3;}
 #' \item{\code{engine}}{\code{"orthologr"} or \code{"coal"};}
