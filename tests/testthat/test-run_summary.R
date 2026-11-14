@@ -428,7 +428,8 @@ test_that("the record has the user's call and the search commands of the run", {
         orthologr:::log_command("diamond", list("makedb"))   # before the run: not in its record
         rec <- f()
         expect_identical(length(rec$commands), 1L)
-        expect_match(rec$commands, "diamond 'blastp' '--max-target-seqs' '10000'", fixed = TRUE)
+        # (quoted for the shell of the platform: '...' or "...")
+        expect_match(rec$commands, "^diamond ['\"]blastp['\"] ['\"]--max-target-seqs['\"] ['\"]10000['\"]$")
         expect_null(attr(rec$arguments, "command_mark"))
         expect_null(rec$called_as)   # not called from a function of the package
         expect_false(is.element("engine_settings", names(rec)))
