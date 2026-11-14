@@ -223,9 +223,15 @@ compute_dnds <- function(complete_tbl,
                 # output, fread() turned '007' into 7, KaKs_Calculator labels were split at '-'), and the result
                 # was then joined with the hit table by these changed IDs: rows were lost or held IDs that are in
                 # no input file.
+                kaks_failed <- attr(rates, "kaks_failed")
                 rates <- data.table::as.data.table(rates)
                 data.table::set(rates, j = "query_id", value = as.character(orthologs_names[[1]]))
                 data.table::set(rates, j = "subject_id", value = as.character(orthologs_names[[2]]))
+                # an estimate of KaKs_Calculator that failed ('nan'): the row is a failed gene pair (with the method)
+                if (!is.null(kaks_failed) && nrow(kaks_failed) > 0 && is.element("method", names(rates)))
+                        data.table::set(rates, j = ".reason",
+                                        value = dnds_pair_reason(kaks_failed$reason[match(rates$method, kaks_failed$method)],
+                                                                 q_ids[i], s_ids[i]))
                 rates
         }
         
@@ -273,6 +279,11 @@ compute_dnds <- function(complete_tbl,
         dNdS_tbl <- data.table::rbindlist(dNdS_values, use.names = TRUE, fill = TRUE)
         
         failed_pairs <- as.data.frame(dNdS_tbl[!is.na(.reason), list(query_id, subject_id, reason = .reason)])
+        # several methods per gene pair ("ALL"): the method whose estimate failed (NA: the whole pair failed)
+        if (identical(dnds_est.method, "ALL") && is.element("method", names(dNdS_tbl))) {
+                m <- dNdS_tbl[!is.na(.reason)][["method"]]
+                failed_pairs$method <- ifelse(m == "ALL", NA_character_, m)
+        }
         dNdS_tbl[ , .reason := NULL]
         
         setkeyv(dNdS_tbl, c("query_id", "subject_id"))
