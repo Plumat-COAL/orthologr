@@ -72,7 +72,8 @@
 #' \code{"pal2nal"} when it is not. The two give byte-identical codon alignments (checked on 12,605 gene pairs of five
 #' species pairs and with every method, see NEWS), so the results do not depend on whether \pkg{coalr} is installed;
 #' COAL saves the start of a Perl process per gene pair (about half of the run time of a default run). The tool used is
-#' in \code{attr(result, "orthologr_run")$arguments$codon_aln_tool}.
+#' in \code{attr(result, "orthologr_run")$arguments$codon_aln_tool}. \code{"coal"} where COAL is not installed (e.g.
+#' when the arguments of such a record are used again on another machine) uses PAL2NAL, with a message.
 #' @param kaks_tool the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
 #' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
 #' program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).
@@ -261,9 +262,14 @@
 #' estimated. A pair that is saturated at synonymous sites usually still has its dN;}
 #' \item{\code{"no_data"}}{the pair has no codons that can be compared (reported by \code{engine = "coal"}; the
 #' programs of \code{engine = "orthologr"} do not tell this case from \code{"saturated"});}
-#' \item{\code{"failed"}}{a step of the pipeline failed for the pair; the reason is in
-#' \code{attr(result, "failed_pairs")}.}
+#' \item{\code{"failed"}}{a step of the pipeline failed for the pair, or KaKs_Calculator printed \code{nan} for
+#' its estimate (see \code{\link{substitutionrate}}); the reason is in \code{attr(result, "failed_pairs")} (with
+#' \code{dnds_est.method = "ALL"} also the method, in the column \code{method}).}
 #' }
+#' KaKs_Calculator does not report whether the iteration of \code{"YN"} or \code{"MYN"} converged: such a pair has
+#' the values of the last round and status \code{"ok"} (about 3\% of the estimates of distant yeasts, all with dS
+#' above 1.4; see \code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)"). \code{kaks_tool = "coal"} or
+#' \code{engine = "coal"} computes these methods and reports such pairs as not converged.
 #' At the end of a run one message gives the numbers by status and the median dS, and says so when a large part of
 #' the pairs is saturated or the median dS is above 1.5: the two species are then too distant for pairwise dN/dS
 #' (S. cerevisiae against C. glabrata: 72 \% of 4,164 pairs saturated, median dS of the others 1.9).
@@ -394,6 +400,17 @@ dNdS <- function(query_file,
         
         if (!is.element(engine, c("orthologr", "coal")))
                 orthologr_abort(class = "bad_argument", "Please choose engine = \"orthologr\" or engine = \"coal\".", call. = FALSE)
+        
+        # codon_aln_tool = "coal" where COAL is not installed: PAL2NAL builds the same codon alignments (byte-identical,
+        # see NEWS). This is what happens when the arguments of a run record (which names the tool that was used,
+        # "coal" on a machine with coalr) are replayed on a machine without COAL; it stopped with an error.
+        # (an invalid options(orthologr.coal_backend) is still an error)
+        if (engine == "orthologr" && identical(codon_aln_tool, "coal") &&
+            !tryCatch({ coal_backend(); TRUE }, orthologr_error_package_missing = function(e) FALSE)) {
+                message("codon_aln_tool = \"coal\": COAL (the R package 'coalr' or the coal-cpp program) is not installed, so ",
+                        "PAL2NAL builds the codon alignments; they are byte-identical to those of COAL, and so are the results.")
+                codon_aln_tool <- "pal2nal"
+        }
         
         # what is not supported is rejected now, before any program is started
         dnds_check_args(

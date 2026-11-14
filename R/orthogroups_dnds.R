@@ -19,7 +19,10 @@
 #' (\code{coalr::coal_info()$methods}) and then give the values of \code{engine = "orthologr"} for the same
 #' alignment.
 #' @param engine \code{"orthologr"} (Default): the programs \code{\link{dNdS}} uses - \code{\link{multi_aln}} or
-#' \code{\link{pairwise_aln}}, PAL2NAL (\code{\link{codon_aln}}) and \code{\link{substitutionrate}}.
+#' \code{\link{pairwise_aln}}, PAL2NAL (\code{\link{codon_aln}}) and \code{\link{substitutionrate}}. The codon
+#' alignments are always built by PAL2NAL (it needs Perl; one start per gene pair), also when \pkg{coalr} is
+#' installed, where \code{dNdS()} uses COAL for them by default: the alignments of the two are byte-identical, so
+#' the results are the same.
 #' \code{"coal"}: COAL (\url{https://github.com/Plumat-COAL/COAL}) through the R package \pkg{coalr}, as
 #' \code{\link{dNdS_clusters}} does: all groups are computed in one call on \code{comp_cores} threads, which is much
 #' faster. It computes the methods \code{"YN"} (its default), \code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"},
@@ -115,6 +118,9 @@ dNdS_orthogroups <- function(x,
                 groups <- check_choice(groups[1], c("single_copy", "all"), "groups")
         }
         engine <- check_choice(engine[1], c("orthologr", "coal"), "engine")
+        # (an invalid options(orthologr.max_aln_cells) failed every pair after the search)
+        if (engine == "orthologr")
+                max_aln_cells()
         check_count(max_group_size, "max_group_size")
         check_flag(quiet, "quiet")
         if (!is.numeric(dS_saturation) || length(dS_saturation) != 1 || is.na(dS_saturation) || dS_saturation <= 0)
@@ -391,7 +397,7 @@ dnds_groups_orthologr <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_a
                 if (!is.element("method", names(res)))
                         res[["method"]] <- dnds_est.method
                 res[["note"]] <- if (is.null(fp) || nrow(fp) == 0) NA_character_ else
-                        fp$reason[match(paste(res$query_id, res$subject_id, sep = "\r"), paste(fp$query_id, fp$subject_id, sep = "\r"))]
+                        dnds_failed_reason(res, fp)
                 res[["orthogroup"]] <- pairs$orthogroup[match(paste(res$query_id, res$subject_id, sep = "\r"),
                                                               paste(pairs$query_id, pairs$subject_id, sep = "\r"))]
                 return(res[ , c("orthogroup", "query_id", "subject_id", "method", "dN", "dS", "dNdS", "note"), with = FALSE])

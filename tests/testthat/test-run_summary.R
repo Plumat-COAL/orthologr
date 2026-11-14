@@ -247,6 +247,44 @@ test_that("write_dNdS() and read_dNdS() keep the table, its column types and its
         expect_null(attr(alone, "orthologr_run"))
 })
 
+test_that("read_dNdS() returns non-ASCII IDs equal to those written, in a UTF-8 and in a C locale (V03)", {
+        skip_if_not_installed("jsonlite")
+        skip_on_os("windows")
+        # IDs as dNdS() returns them (the bytes of the FASTA file, unmarked), marked as UTF-8, and in latin1
+        raw_id <- rawToChar(as.raw(c(0xc3, 0xbc, 0x6e, 0xc3, 0xaf, 0x63, 0x6f, 0x64, 0x65)))
+        utf8_id <- raw_id
+        Encoding(utf8_id) <- "UTF-8"
+        latin_id <- iconv(rawToChar(as.raw(c(0xc3, 0xa9))), from = "UTF-8", to = "latin1")
+        tbl <- data.frame(query_id = c(raw_id, utf8_id, "plain"), subject_id = c("s1", latin_id, raw_id),
+                          dN = 0.1, dS = 0.2, dNdS = 0.5, status = "ok", stringsAsFactors = FALSE)
+        attr(tbl, "failed_pairs") <- data.frame(query_id = c(raw_id, "x"), subject_id = c(latin_id, utf8_id),
+                                                reason = c("r", raw_id), stringsAsFactors = FALSE)
+        attr(tbl, "dropped_sequences") <- data.frame(file = "f.fa", id = raw_id, reason = "r", stringsAsFactors = FALSE)
+        bytes <- function(v) lapply(v, charToRaw)
+        old <- Sys.getlocale("LC_CTYPE")
+        on.exit(Sys.setlocale("LC_CTYPE", old), add = TRUE)
+        for (loc in c("C.UTF-8", "C")) {
+                # (the comparisons are made in that locale too; equal bytes and marks are equal in every locale)
+                if (!nzchar(suppressWarnings(Sys.setlocale("LC_CTYPE", loc))))
+                        next
+                f <- file.path(new_test_dir(), paste0("enc_", loc, ".tsv"))
+                write_dNdS(tbl, f)
+                back <- read_dNdS(f)
+                expect_true(all(back$query_id == tbl$query_id), info = loc)
+                expect_false(anyNA(match(tbl$query_id, back$query_id)), info = loc)
+                for (col in c("query_id", "subject_id")) {
+                        expect_identical(back[[col]], tbl[[col]], info = paste(loc, col))
+                        expect_identical(bytes(back[[col]]), bytes(tbl[[col]]), info = paste(loc, col))
+                        expect_identical(Encoding(back[[col]]), Encoding(tbl[[col]]), info = paste(loc, col))
+                }
+                expect_identical(attr(back, "failed_pairs"), attr(tbl, "failed_pairs"), info = loc)
+                expect_identical(bytes(attr(back, "failed_pairs")$subject_id), bytes(attr(tbl, "failed_pairs")$subject_id), info = loc)
+                expect_identical(Encoding(attr(back, "failed_pairs")$query_id), Encoding(attr(tbl, "failed_pairs")$query_id), info = loc)
+                expect_identical(attr(back, "dropped_sequences"), attr(tbl, "dropped_sequences"), info = loc)
+                expect_identical(Encoding(attr(back, "dropped_sequences")$id), "unknown", info = loc)
+        }
+})
+
 test_that("write_dNdS() checks its input", {
         skip_if_not_installed("jsonlite")
         expect_error(write_dNdS(1:3, tempfile()), "must be a dN/dS table")
