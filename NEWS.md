@@ -1,9 +1,34 @@
 ## `orthologr` 0.5.0
 
-Results change in this version: three defaults were changed and several errors that changed numbers were fixed.
+Results change in this version: defaults were changed and several errors that changed numbers were fixed.
 `orthologr_legacy_options()` (or `options(orthologr.legacy = TRUE)`) restores the behaviour of 0.4.3 in one line;
 the article **"Upgrading from 0.4.3"** (`vignette("upgrading_from_0.4.3")`) gives the measured effect of every
 change. Please report the version of orthologr in the methods of analyses based on dN/dS values.
+
+### Upgrading from 0.4.3
+
+Every default that changed, and what restores the behaviour of 0.4.3. All rows marked "switch" at once:
+`orthologr_legacy_options()` (or `options(orthologr.legacy = TRUE)`); the stored 0.4.3 tables of the 20-gene
+example (Comeron, YN) are reproduced exactly with it. Measurements: the table "Changed defaults" below.
+
+| Default in 0.5.0 | 0.4.3 | Restore | Switch |
+|---|---|---|---|
+| best hits by bit score | e-value, then alignment length | `best_hit_rule = "evalue"`, `options(orthologr.best_hit_rule = "evalue")` | yes |
+| DIAMOND `sensitivity_mode = "default"` | `"fast"` | `sensitivity_mode = "fast"`, `options(orthologr.sensitivity_mode = "fast")` | yes |
+| pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | no matrix, aligned range, stop aligned | `options(orthologr.legacy_pairwise_aln = TRUE)` | yes |
+| no pwalign alignment above 5e8 cells (with `coalr` installed such a pair is aligned by COAL with pwalign's scoring: the same alignment) | no limit | `options(orthologr.max_aln_cells = Inf)` | yes |
+| coding sequences with IUPAC ambiguity codes (N, ...) are kept, codons with them not compared | left out | `options(orthologr.ambiguous_cds = "drop")` | yes |
+| Comeron: `NA` for a saturated dN / dS | a finite, too small value | `options(orthologr.legacy_comeron_saturation = TRUE)` | yes |
+| Comeron: codons that differ at two positions counted along Comeron's two pathways | libsequence's branches (the estimate depended on which sequence is first) | `options(orthologr.comeron_twosubs = "libsequence")` | yes |
+| Comeron: a site class with fewer than 3 sites cannot make dN / dS `NA` | (0.4.3 had no `NA` for saturation at all) | `options(orthologr.comeron_min_sites = 0)` | (not needed: covered by the saturation switch) |
+| KaKs_Calculator methods: dN and dS of 0 are 0 | `NA` | `options(orthologr.legacy_kaks_zero_dn = TRUE)` | yes |
+| KaKs_Calculator methods: capped values (99, JC69's cap, empty LWL classes) and `nan` are `NA` (`"saturated"` / `"failed"`) | returned as estimates | `options(orthologr.legacy_kaks_saturation = TRUE)` | yes |
+| `filter_dNdS()` / `divergence_stratigraphy()`: pairs with dS = 0 left out | the same | `dS_zero = "keep"` keeps them | (unchanged) |
+| dN/dS tables end with the column `status` | no such column | `options(orthologr.status_column = FALSE)` | yes |
+| `divergence_stratigraphy(quiet = TRUE)` (progress line in interactive sessions) | `quiet = FALSE` | `quiet = FALSE` | no (messages only) |
+| T-Coffee in its default mode | `-mode accurate` | `aa_aln_params = "-mode accurate"` | no (argument) |
+| `aa_aln_params` passed to the alignment program | ignored | do not set it | no (argument) |
+| with `coalr` installed, codon alignments by COAL (byte-identical to PAL2NAL's) | PAL2NAL | `options(orthologr.codon_aln_tool = "pal2nal")` | no (same result) |
 
 ### New
 
@@ -57,8 +82,11 @@ change. Please report the version of orthologr in the methods of analyses based 
 - A warning when an input file of `dNdS()`, `divergence_stratigraphy()`, `orthologs()` or `orthogroups()` seems
   to hold several transcripts per gene (`options(orthologr.isoform_warning = FALSE)` switches it off).
 - `aa_sub_matrix` (`dNdS()`, `pairwise_aln()`): the substitution matrix of pairwise protein alignments.
-- `options(orthologr.ambiguous_cds = "keep")`: coding sequences with IUPAC ambiguity codes (N, R, Y, ...) are kept
-  (a codon with such a base is translated to X) instead of being left out (default "drop", as in 0.4.3).
+- `options(orthologr.ambiguous_cds)`: coding sequences with IUPAC ambiguity codes (N, R, Y, ...) are kept (a codon
+  with such a base is translated to X; the default `"keep"`, see "Changed defaults") or left out (`"drop"`, as in
+  0.4.3).
+- `options(orthologr.sensitivity_mode)`, `options(orthologr.comeron_twosubs)`, `options(orthologr.comeron_min_sites)`,
+  `options(orthologr.large_pair_aligner)`: see "Changed defaults" and `?orthologr_options`.
 - `best_hit_rule` (`dNdS()`, `orthologs()`, `diamond_best()`, `diamond_rec()`, `blast_best()`, `blast_rec()`,
   `divergence_stratigraphy()`, `select_orthologs()`, `orthogroups()`).
 - `dS_zero` (`filter_dNdS()`, `divergence_stratigraphy()`): `"keep"` returns gene pairs with dS = 0 instead of
@@ -71,6 +99,7 @@ change. Please report the version of orthologr in the methods of analyses based 
 
 | Change | Effect (measured) | Old behaviour |
 |---|---|---|
+| DIAMOND's sensitivity mode is `"default"` in `dNdS()`, `orthologs()`, `orthogroups()`, `dNdS_coal()`, `divergence_stratigraphy()`, `diamond()`, `diamond_best()`, `diamond_rec()` (was `"fast"`, which DIAMOND designs for hits of more than 90 % identity; DIAMOND's own default mode is for hits of more than 60 %); the hint for distant species now suggests `"sensitive"` | reciprocal best hits as `dNdS()` searches (e-value 1e-5, 2 threads), references OrthoFinder 3.2 (four yeasts) and Ensembl Compara 115 (human / mouse): S. cerevisiae against C. glabrata / K. lactis / A. gossypii 4,165 / 3,846 / 3,695 -> 4,385 / 4,206 / 4,044 pairs (+5.3 to +9.4 %), recall of the 1:1 orthologs 88.9 / 85.7 / 84.7 % -> 93.8 / 94.3 / 93.2 %, precision 99.45 / 99.66 / 99.70 % -> 99.38 / 99.67 / 99.78 %; human / mouse 16,943 -> 17,104 (+0.9 %), recall 97.45 -> 98.14 %; CPU time of the search x 1.3 - 1.6 (human / mouse 81 -> 131 CPU s). Re-measured with this version's `diamond_rec()`: S. cerevisiae / C. glabrata 4,164 -> 4,384 pairs, 9.7 -> 13.6 CPU s; 1,000-gene example 985 -> 987 | `sensitivity_mode = "fast"` or `options(orthologr.sensitivity_mode = "fast")` |
 | Best hits are chosen by bit score (was: e-value, then alignment length) | human / mouse: 3.2 % of the best hits change; pairs that contradict Ensembl Compara fall from 2.0 % to 0.4 % | `best_hit_rule = "evalue"` or `options(orthologr.best_hit_rule = "evalue")` |
 | Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | 1,000-gene example: dN or dS changes for a third of the gene pairs, mostly slightly (r of dN/dS old vs new 0.988) | `options(orthologr.legacy_pairwise_aln = TRUE)` |
 | Comeron's method: `NA` for a saturated dN or dS (was: a finite, too small value) | 1 dN of 995 pairs (example); 17 dN and 1 dS of 1,500 pairs (human / mouse) | `options(orthologr.legacy_comeron_saturation = TRUE)` |
@@ -81,12 +110,16 @@ change. Please report the version of orthologr in the methods of analyses based 
 | dN/dS tables end with the column `status` | one more column | `options(orthologr.status_column = FALSE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
-| A pairwise protein alignment of more than 5e8 cells (length x length; pwalign needs about 3 bytes per cell, so about 1.5 GB) is not computed: the gene pair is returned with status `"failed"` and the reason (was: aligned whatever the memory; `options(orthologr.max_aln_cells)`, `?pairwise_aln`) | human 1,000 transcripts / all mouse CDS, 2 cores: 1 of 946 pairs (titin, 35,991 x 35,390 residues, 1.27e9 cells) failed instead of dS 0.50; peak memory 4.3 GB -> 0.79 GB, run time 87 s -> 42 s; 1,000-gene example: 0 pairs | `options(orthologr.max_aln_cells = Inf)` |
-| `divergence_stratigraphy(quiet = TRUE)`, as `dNdS()` (was `FALSE`) | 1,000-gene example: 10 messages instead of 45; same result | `quiet = FALSE` |
+| A pairwise protein alignment of more than 5e8 cells (length x length; pwalign needs about 3 bytes per cell, so about 1.5 GB) is not computed by pwalign (was: aligned whatever the memory; `options(orthologr.max_aln_cells)`, `?pairwise_aln`). With `coalr` installed such a pair is aligned by COAL's aligner with its `"pwalign"` preset (pwalign's scoring and tie-break; a message names the pair); without it the pair is returned with status `"failed"` and the reason | titin (35,991 x 35,390 residues, 1.27e9 cells): COAL 5.6 s and 137 MB against pwalign 16.2 s and 3,935 MB, identical rows and score (166,805); human 1,000 transcripts / all mouse CDS: 1 of 946 pairs (titin); without `coalr` it fails instead of dS 0.50 (peak memory 4.3 GB -> 0.79 GB); 1,000-gene example: 0 pairs | `options(orthologr.max_aln_cells = Inf)` (pwalign for every pair); `options(orthologr.large_pair_aligner = "none")` keeps failing such pairs with `coalr` |
+| `divergence_stratigraphy(quiet = TRUE)`, as `dNdS()` (was `FALSE`); in an interactive session it still shows a progress line about every tenth of the gene pairs (stratigraphy runs are long) | 1,000-gene example: 10 messages instead of 45 (in scripts); same result | `quiet = FALSE` |
+| Coding sequences with IUPAC ambiguity codes (N, R, Y, ...) are kept (`options(orthologr.ambiguous_cds = "keep")`): a codon with such a base is translated to X and not compared (was: the sequence was left out); `dNdS()` lists them in `attr(, "ambiguous_sequences")` with the number of such codons and counts their rows in the summary, `dNdS_orthogroups()` (which left them out whatever the option) adds a note to their pairs | Ensembl, one transcript per gene: 87 of 19,746 human and 75 of 21,584 mouse coding sequences contain such characters (median share of ambiguous codons 0.4 %); one N in about 1 % of the codons of every human gene: Comeron's dS within 5 % of the N-free value for 99.1 % of 946 human / mouse pairs (YN 95.3 %); 1,000-gene example: 2 more pairs (with `sensitivity_mode = "default"` 999 pairs instead of 995) | `options(orthologr.ambiguous_cds = "drop")` |
+| Comeron's method counts codons that differ at two positions along Comeron's two pathways (libsequence's `TwoSubs`, and so 0.4.3, passes its arguments in another order and counts codon1 - int1, int1 - int2, codon1 - codon2 and codon2 - int2, with which the estimate depends on which sequence is first; libsequence's repository is archived). The COAL engine does the same (`coalr` with `comeron_twosubs`) | swapping the two sequences of 300 random 150-codon pairs changed Ka in 279 and Ks in 190 of them; now in none. dS of the same alignments (COAL's gestimator flavour = this code): 1,000-gene example 474 of 995 pairs change, median 0 %, p95 2.9 %, max 12 %, no status changes; human / mouse 813 of 946, median 1.0 %, p95 5.0 %, 4 status changes; S. cerevisiae / C. glabrata (mostly saturated) median 8.8 %, p95 56 %, 493 status changes. The corrected dS is slightly closer to YN's (median difference 7.68 -> 7.53 % on the 1,000-gene example) | `options(orthologr.comeron_twosubs = "libsequence")` |
+| Comeron's method: a site class with fewer than 3 sites (the 2-fold transversional class of short alignments) cannot make dN or dS `NA`; its undefined logarithm is 0, as in 0.4.3 | simulated 30-codon pairs: dN `NA` 3.7 % -> 0 %, the recovered values' mean absolute error 8.8 % (all 30-codon pairs 11.2 %); real data: 1,000-gene example 0 pairs, human / mouse 3, yeasts 14. Never changes a value that is not `NA` otherwise | `options(orthologr.comeron_min_sites = 0)` |
 | `orthogroups()` and `dNdS_orthogroups()` trim coding sequences whose length is not a multiple of 3 (`delete_corrupt_cds = FALSE`, as `dNdS()` does) | - (new functions) | `delete_corrupt_cds = TRUE` |
 
-All of these except the T-Coffee mode, `aa_aln_params`, `divergence_stratigraphy(quiet)` and `delete_corrupt_cds`
-at once: `orthologr_legacy_options()`.
+All of these except the T-Coffee mode, `aa_aln_params`, `divergence_stratigraphy(quiet)`, the minimum class size of
+Comeron (which does not matter with the 0.4.3 saturation rule) and `delete_corrupt_cds` at once:
+`orthologr_legacy_options()`.
 
 Further behaviour that differs from 0.4.3 and cannot be switched back:
 
@@ -103,8 +136,10 @@ Further behaviour that differs from 0.4.3 and cannot be switched back:
   `attr(, "dropped_sequences")` / `attr(, "trimmed_sequences")`) instead of a block of messages about each kind:
   1,000-gene example, 12 messages before (8 about the 12 trimmed sequences), 2 after (also with
   `engine = "coal"`); `quiet = FALSE` shows the old messages.
-- Coding sequences with characters other than A, C, G, T are left out before the search, as before, but no
-  longer without a word: they are counted in the summary and listed in `attr(, "dropped_sequences")`.
+- Coding sequences with characters other than A, C, G, T and the IUPAC ambiguity codes (or, with
+  `options(orthologr.ambiguous_cds = "drop")`, with any character other than A, C, G, T) are left out before the
+  search, as before, but no longer without a word: they are counted in the summary and listed in
+  `attr(, "dropped_sequences")`.
 - Intermediate files are kept in a folder of the call inside `tempdir()` and removed afterwards
   (`options(orthologr.keep_tmp = TRUE)` keeps them until the end of the R session, which removes `tempdir()`;
   `options(orthologr.keep_tmp = "<folder>")` keeps them in that folder, also after `Rscript` or a batch job, and
@@ -189,6 +224,16 @@ Running programs:
   `"saturated"` means that dN or dS could not be estimated (60 yeast groups: 296 pairs with status "saturated",
   `sum(n_saturated)` 30). `n_saturated` now counts status `"saturated"`, as in `dNdS_clusters()`; the new columns
   `n_dS_zero`, `n_no_data` and `n_failed` count the other statuses, and `n_dS_above` is the old count.
+- `dNdS_orthogroups()` summary: the quartile columns are `dN_q25`, `dN_q75`, `dS_q25`, `dS_q75`, `dNdS_q25`,
+  `dNdS_q75`, as in `dNdS_clusters()`, coalr and COAL's command line (they were `_q1` / `_q3` in development
+  versions of 0.5.0; `dNdS_orthogroups()` is new in 0.5.0, so no release had the old names).
+- With COAL (`engine = "coal"`, or `codon_aln(tool = "coal")`), a codon alignment that cannot be built is an error
+  of class `orthologr_error_alignment_failed` (with `_tool_failed`), as with PAL2NAL; it was a plain error.
+- `codon_aln(tool = "pal2nal")` with selenocysteine (`U`) in a protein: PAL2NAL v14 has no codon for it and failed
+  ("inconsistency between pep and nuc"), while COAL accepts any codon there. PAL2NAL now gets the protein alignment
+  with `U` as `X` (which it matches with any codon): both tools give the same codon alignment (byte-identical FASTA;
+  checked with the input as FASTA and CLUSTAL). Inside `dNdS()` the proteins are orthologr's own translations and
+  never hold `U`.
 - `dNdS_clusters()` summary: a cluster none of whose pairs has an estimate because they are saturated (or have no
   codons to compare) has the status `"saturated"` (`"no_data"`) and a note with the numbers; it was `"failed"` with
   an empty note and `n_failed = 0` (E. coli K-12 + O157: 37 clusters).
