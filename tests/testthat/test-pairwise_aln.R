@@ -170,3 +170,32 @@ test_that("dNdS() takes aa_sub_matrix, and the codon alignments no longer hold t
         expect_error(suppressMessages(dNdS(query_file = query_cds, subject_file = subject_cds, comp_cores = 1,
                                            quiet = TRUE, print_citation = FALSE, aa_sub_matrix = 1)))
 })
+
+test_that("pairwise_aln() does not align pairs above options(orthologr.max_aln_cells); dNdS() reports them as failed (O12)", {
+        f <- system.file("seqs/aa_seqs.fasta", package = "orthologr")
+        rlang::local_options(orthologr.max_aln_cells = 100)
+        e <- tryCatch(pairwise_aln(f, quiet = TRUE), error = function(e) e)
+        expect_s3_class(e, "orthologr_error_alignment_too_large")
+        expect_match(conditionMessage(e), "orthologr.max_aln_cells = Inf")
+        rlang::local_options(orthologr.max_aln_cells = 1e7)
+        expect_silent(pairwise_aln(f, quiet = TRUE))
+        rlang::local_options(orthologr.max_aln_cells = "a lot")
+        expect_error(pairwise_aln(f, quiet = TRUE), class = "orthologr_error_bad_argument")
+        # Inf: no limit (also under the legacy switch)
+        rlang::local_options(orthologr.max_aln_cells = NULL, orthologr.legacy = TRUE)
+        expect_identical(max_aln_cells(), Inf)
+        rlang::local_options(orthologr.legacy = NULL)
+        expect_identical(max_aln_cells(), 5e8)
+})
+
+test_that("dNdS(): a gene pair above options(orthologr.max_aln_cells) is a failed pair with the reason (O12)", {
+        skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
+        rlang::local_options(orthologr.max_aln_cells = 1e5)
+        expect_warning(res <- suppressMessages(dNdS(thal_cds(), lyra_cds(), quiet = TRUE, print_citation = FALSE)),
+                       class = "orthologr_warning_failed_pairs")
+        failed <- attr(res, "failed_pairs")
+        expect_gt(nrow(failed), 0)
+        expect_lt(nrow(failed), 20)
+        expect_true(all(grepl("orthologr.max_aln_cells", failed$reason)))
+        expect_true(all(res$status[paste(res$query_id, res$subject_id) %in% paste(failed$query_id, failed$subject_id)] == "failed"))
+})

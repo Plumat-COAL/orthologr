@@ -47,8 +47,20 @@ itself has the value that gives the results of 0.4.3. \code{\link{orthologr_lega
 \item{\code{orthologr.cluster_type}}{\code{"FORK"} (default on Linux and macOS) or \code{"PSOCK"} (default and only
 choice on Windows): the kind of R processes used with \code{comp_cores > 1} in \code{dNdS()} and
 \code{dNdS_orthogroups()}.}
-\item{\code{orthologr.keep_tmp}}{\code{FALSE} (default). \code{TRUE}: the folder with the intermediate files of
-a call (FASTA files of the pairs, alignments, program output) is not removed, and a message names it.}
+\item{\code{orthologr.max_aln_cells}}{\code{5e8} (default): the largest pairwise protein alignment (length of
+one sequence times length of the other) that \code{\link{pairwise_aln}} - and so \code{dNdS()} with the default
+engine - computes. \pkg{pwalign} needs about 3 bytes per cell (5e8 cells: about 1.5 GB, e.g. two proteins of
+22,000 residues; a titin pair of 36,000 x 35,400 residues needs 3.9 GB), and with \code{comp_cores > 1} every
+pair that is aligned at the same time needs its own. A larger pair is not aligned: \code{dNdS()} returns it with
+status \code{"failed"} and the reason in \code{attr(result, "failed_pairs")}. \code{Inf}: no limit (as in 0.4.3,
+and under \code{\link{orthologr_legacy_options}}). The COAL engine has its own limit (\pkg{coalr}'s
+\code{max_cells}, 4e9 cells at about 0.5 bytes per cell).}
+\item{\code{orthologr.keep_tmp}}{\code{FALSE} (default): the folder with the intermediate files of a call (FASTA
+files of the pairs, alignments, program output) is removed when the call ends. \code{TRUE}: it is kept, and a
+message names it; it is inside \code{tempdir()}, which R removes when the session ends (so after
+\code{Rscript} or a batch job the files are gone). The path of a folder, e.g.
+\code{options(orthologr.keep_tmp = "orthologr_files")}: the folder of the call is made inside that folder (which is
+created if needed) and kept there after the session.}
 \item{\code{orthologr.tmpdir}}{\code{NULL} (default: \code{tempdir()}): the folder in which functions called on
 their own (\code{pairwise_aln()}, \code{multi_aln()}, \code{codon_aln()}, \code{substitutionrate()},
 \code{diamond()}, \code{blast()}, ...) keep the folders \code{_alignment}, \code{_blast_db}, \code{_diamond_db}
@@ -100,16 +112,23 @@ the text of the message, e.g.
 \item{\code{orthologr_error_tool_missing}}{an external program (DIAMOND, BLAST+, Perl, an alignment program,
 KaKs_Calculator) was not found;}
 \item{\code{orthologr_error_package_missing}}{an optional R package (Suggests) is needed but not installed;}
-\item{\code{orthologr_error_tool_failed}}{an external program failed or wrote no output; with
+\item{\code{orthologr_error_tool_failed}}{an external program failed, wrote no output or could not be started
+(e.g. it crashes when asked for its version; that is not reported as a missing program); with
 \code{orthologr_error_alignment_failed} when it was an alignment program (PAL2NAL, Clustal, MAFFT, MUSCLE,
 T-Coffee);}
 \item{\code{orthologr_error_no_hits}}{the search found no (reciprocal best) hits, so there are no gene pairs;}
 \item{\code{orthologr_error_bad_input}}{an input file cannot be used (it does not exist, it is empty, a protein file
 given as coding sequences, duplicated sequence IDs);}
 \item{\code{orthologr_error_bad_argument}}{an argument value is not supported;}
+\item{\code{orthologr_error_alignment_too_large}}{\code{\link{pairwise_aln}} was asked to align two sequences
+whose alignment has more cells than \code{options(orthologr.max_aln_cells)} allows (in \code{dNdS()} the pair is
+a failed pair with this reason);}
 \item{\code{orthologr_warning_failed_pairs}}{some gene pairs could not be processed (their values are \code{NA},
 the reasons are in \code{attr(result, "failed_pairs")});}
-\item{\code{orthologr_warning_isoforms}}{an input file seems to hold several transcripts per gene.}
+\item{\code{orthologr_warning_isoforms}}{an input file seems to hold several transcripts per gene;}
+\item{\code{orthologr_warning_tool_version}}{the DIAMOND found is older than 2.1.0 (SystemRequirements);}
+\item{\code{orthologr_warning_comp_cores}}{\code{comp_cores} is more than the number of cores of the machine (the
+number of cores is used).}
 }
 These classes are given by the checks of the arguments and input files of \code{\link{dNdS}},
 \code{\link{orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{divergence_stratigraphy}},

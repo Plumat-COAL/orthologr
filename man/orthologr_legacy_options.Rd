@@ -29,11 +29,17 @@ The options (each can also be set on its own; see \code{\link{orthologr_options}
 \code{orthologr.legacy_comeron_saturation = TRUE} \tab Comeron's method returns a finite value for saturated pairs \cr
 \code{orthologr.legacy_kaks_zero_dn = TRUE} \tab KaKs_Calculator methods: \code{NA} for a dN or dS that is 0 (pairs without nonsynonymous or without any change) \cr
 \code{orthologr.legacy_kaks_saturation = TRUE} \tab KaKs_Calculator methods: its capped values (e.g. dS = 99) for saturated estimates \cr
+\code{orthologr.max_aln_cells = Inf} \tab pairwise alignments of any size (default: pairs above 5e8 cells are not aligned) \cr
 \code{orthologr.dS_zero = "drop"} \tab \code{filter_dNdS()} / \code{divergence_stratigraphy()} leave pairs with dS = 0 out (also the default of 0.5.0) \cr
 \code{orthologr.status_column = FALSE} \tab the dN/dS tables have no column \code{status}
 }
 \code{options(orthologr.legacy = TRUE)} is a shorthand with the same effect: while it is set, each of these
 options that is not set itself has its legacy value.
+
+\strong{Run time:} the pairwise alignments of 0.4.3 (\code{orthologr.legacy_pairwise_aln = TRUE}) take about 0.6 -
+0.8 s per gene pair, 14 to 19 times as long as the default (150 gene pairs: about 115 s against 6 s; 1,000 pairs:
+about 10 minutes per core), as long as with 0.4.3 itself. Reproducing a genome-wide run of 0.4.3 takes hours;
+use \code{comp_cores}.
 
 Not covered by an option, because they are arguments: T-Coffee was run with \code{-mode accurate} in 0.4.3
 (\code{aa_aln_params = "-mode accurate"} restores it), and \code{aa_aln_params} was ignored for all alignment

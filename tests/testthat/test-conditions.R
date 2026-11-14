@@ -24,7 +24,7 @@ test_that("a missing program is orthologr_error_tool_missing", {
         expect_s3_class(e, "orthologr_error_alignment_failed")
         old <- Sys.getenv("PATH")
         on.exit({ Sys.setenv(PATH = old); tool_cache_reset() }, add = TRUE)
-        Sys.setenv(PATH = new_test_dir("cond_empty_"))
+        Sys.setenv(PATH = with_coreutils(new_test_dir("cond_empty_")))
         tool_cache_reset()
         expect_orthologr_error(dnds_require_programs(aa_aln_tool = "NW", dnds_est.method = "Comeron"), "tool_missing")
 })
@@ -118,4 +118,35 @@ test_that("argument and input-file errors of the main functions have the documen
                         fail(paste0(p[[1]], ": ", paste(class(e), collapse = ", "), ": ", conditionMessage(e)))
         }
         expect_true(all(vapply(probes, `[[`, "", 3) %in% orthologr_condition_classes()$error))
+})
+
+test_that("DIAMOND: an old version warns, a program that crashes is tool_failed, a failed search is tool_failed (O14)", {
+        skip_on_os("windows")
+        bin <- new_test_dir("old_diamond_")
+        writeLines(c("#!/bin/sh", "echo 'diamond version 0.9.24'"), file.path(bin, "diamond"))
+        Sys.chmod(file.path(bin, "diamond"), "755")
+        tool_cache_reset()
+        on.exit(tool_cache_reset(), add = TRUE)
+        expect_warning(v <- diamond_version(path = bin), class = "orthologr_warning_tool_version")
+        expect_match(v, "0.9.24")
+        expect_silent(diamond_version(path = bin))           # once per session and program
+        crash <- new_test_dir("crash_diamond_")
+        writeLines(c("#!/bin/sh", "echo 'Segmentation fault' >&2", "exit 139"), file.path(crash, "diamond"))
+        Sys.chmod(file.path(crash, "diamond"), "755")
+        e <- expect_orthologr_error(diamond_version(path = crash), "tool_failed")
+        expect_match(conditionMessage(e), "could not be started.*status 139")
+        expect_false(inherits(e, "orthologr_error_tool_missing"))
+        expect_orthologr_error(diamond_version(path = new_test_dir("no_diamond_")), "tool_missing")
+        # a version 2.1 or newer: no warning
+        new <- new_test_dir("new_diamond_")
+        writeLines(c("#!/bin/sh", "echo 'diamond version 2.1.8'"), file.path(new, "diamond"))
+        Sys.chmod(file.path(new, "diamond"), "755")
+        expect_silent(diamond_version(path = new))
+})
+
+test_that("comp_cores above the number of cores is a classed warning (O14)", {
+        cores <- parallel::detectCores()
+        skip_if(is.na(cores))
+        expect_warning(n <- check_comp_cores(cores + 5), class = "orthologr_warning_comp_cores")
+        expect_identical(as.numeric(n), as.numeric(cores))
 })

@@ -149,7 +149,16 @@ tool_available <- function(program, version_args, pattern, path = NULL, not_foun
         res <- run_tool(program, args = version_args, path = path, error = FALSE)
         lines <- c(res$stdout, res$stderr)
         found <- grep(pattern, lines, value = TRUE, ignore.case = TRUE)
-        if (identical(as.integer(res$status), 127L) || length(found) == 0) {
+        status <- as.integer(res$status)
+        if (length(found) == 0 && length(status) == 1 && !is.na(status) && !is.element(status, c(0L, 127L))) {
+                # the program is there but does not run (e.g. it crashes, exit status 139): that is not a missing program
+                said <- utils::tail(lines[nzchar(trimws(lines))], 3)
+                orthologr_abort("The program '", program, "' was found but could not be started ('", program, " ",
+                                paste(version_args, collapse = " "), "' exited with status ", status, ")",
+                                if (length(said) > 0) paste0(": ", paste(said, collapse = " / ")) else ".",
+                                class = "tool_failed")
+        }
+        if (identical(status, 127L) || length(found) == 0) {
                 if (is.null(not_found))
                         not_found <- paste0("The program '", program, "' was not found.")
                 orthologr_abort(not_found, class = "tool_missing")
@@ -173,7 +182,7 @@ call_dir_start <- function(prefix) {
 }
 
 call_dir_end <- function(dir) {
-        if (!isTRUE(getOption("orthologr.keep_tmp", FALSE)))
+        if (!keep_tmp_setting()$keep)
                 unlink(dir, recursive = TRUE, force = TRUE)
         invisible(dir)
 }
@@ -203,8 +212,8 @@ check_comp_cores <- function(comp_cores) {
                 orthologr_abort("comp_cores must be a positive number.", class = "bad_argument")
         cores <- parallel::detectCores()
         if (!is.na(cores) && comp_cores > cores) {
-                warning("comp_cores = ", comp_cores, " is more than the ", cores, " core", if (cores != 1) "s",
-                        " available on this machine: using comp_cores = ", cores, ".", call. = FALSE)
+                orthologr_warn(class = "comp_cores", "comp_cores = ", comp_cores, " is more than the ", cores, " core", if (cores != 1) "s",
+                               " available on this machine: using comp_cores = ", cores, ".", call. = FALSE)
                 comp_cores <- cores
         }
         comp_cores

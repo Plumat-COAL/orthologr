@@ -44,7 +44,11 @@ the name of a matrix shipped with \pkg{pwalign} (\code{"BLOSUM62"} (Default), \c
 \code{"BLOSUM80"}, \code{"BLOSUM100"}, \code{"PAM30"}, \code{"PAM40"}, \code{"PAM70"}, \code{"PAM120"}, \code{"PAM250"}),
 or a numeric substitution matrix. \code{aa_sub_matrix = NULL} gives the scoring of \pkg{orthologr} <= 0.4.3
 (\code{\link[pwalign]{pairwiseAlignment}} without a substitution matrix, i.e. a match/mismatch score that ignores which
-amino acids are exchanged). The argument is ignored for DNA sequences.}
+amino acids are exchanged). The argument is ignored for DNA sequences. \strong{The scoring of 0.4.3 is slow:}
+\pkg{pwalign} aligns without a matrix about 15 times slower than with one, about 0.6 - 0.8 s per gene pair of
+typical length (1,000-gene example, 1 core: 632 s against 45 s for the whole \code{dNdS()} run); a genome-wide
+run with \code{aa_sub_matrix = NULL} or \code{options(orthologr.legacy_pairwise_aln = TRUE)} (also set by
+\code{\link{orthologr_legacy_options}}) takes hours per core.}
 }
 \value{
 In case the argument \code{get_aln} is set \code{TRUE}, an object of class alignment of the seqinr package is returned.
@@ -73,6 +77,13 @@ stop codon is not part of the alignment (and of the codon alignment and dN/dS es
 All three change the alignments and therefore, slightly, the dN/dS values computed from them.
 The behaviour of \pkg{orthologr} <= 0.4.3 (old scoring, truncated overhangs, stop codon aligned, score file always
 written) can be restored for reproducing earlier results with \code{options(orthologr.legacy_pairwise_aln = TRUE)}.
+
+\strong{Memory.} \code{\link[pwalign]{pairwiseAlignment}} keeps the whole dynamic-programming matrix: about 3 bytes
+per cell, i.e. per pair of residues (two proteins of 10,000 residues: 0.3 GB; a titin pair of 36,000 x 35,400
+residues: 3.9 GB). An alignment of more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
+1.5 GB) is not computed: \code{pairwise_aln()} stops with an error of class
+\code{orthologr_error_alignment_too_large}, and \code{\link{dNdS}} returns the pair with status \code{"failed"}.
+\code{options(orthologr.max_aln_cells = Inf)} removes the limit (see \code{\link{orthologr_options}}).
 }
 \examples{
 # Needleman-Wunsch alignment of the two proteins of a file
