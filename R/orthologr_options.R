@@ -23,7 +23,8 @@
 #' return the capped values KaKs_Calculator prints for saturated estimates (Ka or Ks = 99; for YN and MYN JC69's
 #' distance at its cap, 0.75 log(sites); for the LWL family a class of sites counted with 0 substitutions) as
 #' estimates, as in 0.4.3 (default: \code{NA}, status \code{"saturated"}; see
-#' \code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)").}
+#' \code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)"), and an estimate printed as
+#' \code{nan} as \code{NaN} with status \code{"saturated"} (default: \code{NA}, status \code{"failed"}).}
 #' \item{\code{orthologr.dS_zero}}{\code{"drop"} (default, as in 0.4.3) or \code{"keep"}: the default of the
 #' argument \code{dS_zero} of \code{\link{filter_dNdS}} and \code{\link{divergence_stratigraphy}}.}
 #' \item{\code{orthologr.status_column}}{\code{TRUE} (default): the dN/dS tables end with the column \code{status}

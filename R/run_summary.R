@@ -52,8 +52,35 @@ dnds_status_counts <- function(status) {
 dnds_is_failed <- function(tbl, failed_pairs) {
         if (is.null(failed_pairs) || NROW(failed_pairs) == 0)
                 return(rep(FALSE, nrow(tbl)))
-        is.element(paste(tbl$query_id, tbl$subject_id, sep = "\r"),
-                   paste(failed_pairs$query_id, failed_pairs$subject_id, sep = "\r"))
+        pair <- paste(tbl$query_id, tbl$subject_id, sep = "\r")
+        fp_pair <- paste(failed_pairs$query_id, failed_pairs$subject_id, sep = "\r")
+        # with several methods per pair (dnds_est.method = "ALL") a failed estimate of one method names the method
+        if (is.element("method", names(failed_pairs)) && is.element("method", names(tbl))) {
+                whole <- is.na(failed_pairs$method)
+                return(is.element(pair, fp_pair[whole]) |
+                               is.element(paste(pair, tbl$method, sep = "\r"),
+                                          paste(fp_pair[!whole], failed_pairs$method[!whole], sep = "\r")))
+        }
+        is.element(pair, fp_pair)
+}
+
+# The reason of every row of a pair table from the table of failed pairs (NA for rows that did not fail); with a
+# column 'method' in both (dnds_est.method = "ALL") a failed estimate of one method is the reason of its row only.
+dnds_failed_reason <- function(tbl, failed_pairs) {
+        out <- rep(NA_character_, nrow(tbl))
+        if (is.null(failed_pairs) || NROW(failed_pairs) == 0)
+                return(out)
+        pair <- paste(tbl$query_id, tbl$subject_id, sep = "\r")
+        fp_pair <- paste(failed_pairs$query_id, failed_pairs$subject_id, sep = "\r")
+        if (is.element("method", names(failed_pairs)) && is.element("method", names(tbl))) {
+                whole <- is.na(failed_pairs$method)
+                out <- failed_pairs$reason[!whole][match(paste(pair, tbl$method, sep = "\r"),
+                                                          paste(fp_pair[!whole], failed_pairs$method[!whole], sep = "\r"))]
+                w <- match(pair, fp_pair[whole])
+                out[!is.na(w)] <- failed_pairs$reason[whole][w[!is.na(w)]]
+                return(out)
+        }
+        failed_pairs$reason[match(pair, fp_pair)]
 }
 
 # ---- summary message -------------------------------------------------------------------------------------------
@@ -75,6 +102,9 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
                 if (counts[["no_data"]] > 0) paste0(counts[["no_data"]], " without codons to compare"),
                 if (counts[["failed"]] > 0) paste0(counts[["failed"]], " failed (reasons in ", failed_where, ")")
         )
+        # (one gene pair: "1 gene pair")
+        if (n == 1 && identical(what, "gene pairs"))
+                what <- "gene pair"
         txt <- paste0(fun, ": ", n, " ", what, " - ", paste(parts, collapse = ", "), ".")
         dS <- suppressWarnings(as.numeric(dS))
         dS <- dS[!is.na(dS)]
@@ -133,8 +163,11 @@ dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_co
         # several methods per gene pair (dnds_est.method = "ALL"): the rows are counted as gene pairs x methods
         what <- "gene pairs"
         if (is.element("method", names(res)) && length(unique(stats::na.omit(res$method))) > 1)
-                what <- paste0("rows (", nrow(unique(as.data.frame(res)[, c("query_id", "subject_id")])), " gene pairs x ",
+                what <- local({
+                        n_pairs <- nrow(unique(as.data.frame(res)[, c("query_id", "subject_id")]))
+                        paste0("rows (", n_pairs, if (n_pairs == 1) " gene pair x " else " gene pairs x ",
                                length(unique(stats::na.omit(res$method))), " methods)")
+                })
         message(dnds_summary_text(status, dS = res$dS, dropped = dropped, not_converged = not_converged,
                                   fun = paste0(record$fun, "()"), trimmed = trimmed, what = what))
         citation_message(print_citation)
@@ -434,19 +467,23 @@ write_dNdS <- function(x, file) {
         for (col in names(plain))
                 if (is.double(plain[[col]]))
                         plain[[col]] <- number_text(plain[[col]])
+        # (the text is written byte for byte; the encoding marks of non-ASCII text go into the record, see below)
         data.table::fwrite(plain, file, sep = "\t", na = "NA", quote = "auto")
         side <- list(
                 format   = "orthologr dN/dS table",
                 table    = basename(file),
                 rows     = nrow(plain),
                 columns  = classes,
+                text_encoding = text_marks(plain),
                 run      = run,
                 failed_pairs      = if (is.data.frame(failed)) failed else NULL,
-                dropped_sequences = if (is.data.frame(dropped)) dropped else NULL
+                failed_pairs_encoding = if (is.data.frame(failed)) text_marks(failed) else NULL,
+                dropped_sequences = if (is.data.frame(dropped)) dropped else NULL,
+                dropped_sequences_encoding = if (is.data.frame(dropped)) text_marks(dropped) else NULL
         )
         side_file <- paste0(file, ".run.json")
-        writeLines(jsonlite::toJSON(side, auto_unbox = TRUE, pretty = TRUE, digits = NA, null = "null", na = "null",
-                                    dataframe = "columns"), side_file)
+        writeLines(jsonlite::toJSON(json_text(side), auto_unbox = TRUE, pretty = TRUE, digits = NA, null = "null",
+                                    na = "null", dataframe = "columns"), side_file, useBytes = TRUE)
         invisible(c(table = file, run = side_file))
 }
 
@@ -464,14 +501,26 @@ read_dNdS <- function(file) {
                 warning("'", side_file, "' was not found: the table is read without the record of its run.", call. = FALSE)
         }
         # every column is read as text and then given its type: R's own conversion reads a number exactly
+        # The text is read byte for byte, as write_dNdS() wrote it, and gets back the encoding marks it had (from
+        # the record; without one: unmarked, as dNdS() returns the IDs of the FASTA files). IDs read back thus equal
+        # the IDs of the run in every locale. (Marking all text as UTF-8 made non-ASCII IDs unequal to those of
+        # dNdS() in a C / POSIX locale: '==', match() and merge() failed.)
         tbl <- data.table::fread(file, sep = "\t", header = TRUE, na.strings = "NA", colClasses = "character",
-                                 data.table = FALSE, showProgress = FALSE, encoding = "UTF-8")
+                                 data.table = FALSE, showProgress = FALSE, encoding = "unknown")
         # write_dNdS() quotes a field that holds a quote (or a tab or a line end) and doubles the quotes inside it;
         # fread() removes the outer quotes but keeps the doubled ones ('d"q' came back as 'd""q'). Every '""' in a
         # field therefore is one quote.
         for (col in names(tbl))
-                if (is.character(tbl[[col]]))
-                        tbl[[col]] <- gsub("\"\"", "\"", tbl[[col]], fixed = TRUE)
+                if (is.character(tbl[[col]])) {
+                        v <- tbl[[col]]
+                        dq <- which(grepl("\"\"", v, fixed = TRUE, useBytes = TRUE))
+                        if (length(dq) > 0) {
+                                v[dq] <- gsub("\"\"", "\"", v[dq], fixed = TRUE, useBytes = TRUE)
+                                Encoding(v[dq]) <- "unknown"
+                        }
+                        tbl[[col]] <- v
+                }
+        tbl <- restore_text_marks(tbl, side$text_encoding, from_json = FALSE)
         classes <- if (!is.null(side$columns)) unlist(side$columns) else
                 vapply(tbl, function(v) if (all(is.na(v) | !is.na(suppressWarnings(as.numeric(v))))) "numeric" else "character", "")
         for (col in intersect(names(tbl), names(classes)))
@@ -493,9 +542,99 @@ read_dNdS <- function(file) {
                 }
                 attr(tbl, "orthologr_run") <- run
                 if (!is.null(side$failed_pairs))
-                        attr(tbl, "failed_pairs") <- as_table(side$failed_pairs)
+                        attr(tbl, "failed_pairs") <- restore_text_marks(as_table(side$failed_pairs),
+                                                                        side$failed_pairs_encoding, from_json = TRUE)
                 if (!is.null(side$dropped_sequences))
-                        attr(tbl, "dropped_sequences") <- as_table(side$dropped_sequences)
+                        attr(tbl, "dropped_sequences") <- restore_text_marks(as_table(side$dropped_sequences),
+                                                                             side$dropped_sequences_encoding, from_json = TRUE)
+        }
+        tbl
+}
+
+# The encoding marks of the non-ASCII text of the character columns of a table: list(<column> = list(row = <rows>,
+# mark = <mark>)), NULL when all text is ASCII. <mark> is Encoding() ("unknown", "UTF-8", "latin1", "bytes"), and
+# "native" for unmarked text that is not valid UTF-8 (text in the encoding of a non-UTF-8 locale). R compares text
+# by its marks as well as by its bytes: in a C / POSIX locale an unmarked non-ASCII ID (as dNdS() returns the IDs
+# of a FASTA file) differs from the same bytes marked as UTF-8. write_dNdS() stores the marks so that read_dNdS()
+# returns the text as it was.
+text_marks <- function(tbl) {
+        out <- list()
+        for (col in names(tbl)) {
+                v <- tbl[[col]]
+                if (!is.character(v))
+                        next
+                rows <- which(!is_ascii_text(v))
+                if (length(rows) > 0) {
+                        mark <- Encoding(v[rows])
+                        mark[mark == "unknown" & !validUTF8(v[rows])] <- "native"
+                        out[[col]] <- list(row = rows, mark = mark)
+                }
+        }
+        if (length(out) == 0) NULL else out
+}
+
+# TRUE for NA and for text of ASCII bytes only (whatever the encoding mark and the locale).
+is_ascii_text <- function(v) {
+        is.na(v) | !is.na(iconv(v, from = "latin1", to = "ASCII"))
+}
+
+# The text of a list (the record written by write_dNdS()) prepared for jsonlite::toJSON(): unmarked non-ASCII
+# text that is valid UTF-8 is marked as UTF-8 (the bytes are not changed), so that it is written as it is (in a
+# C / POSIX locale jsonlite wrote such text as escapes like '<c3><bc>').
+json_text <- function(x) {
+        if (is.character(x)) {
+                u <- which(!is_ascii_text(x) & Encoding(x) == "unknown" & validUTF8(x))
+                if (length(u) > 0)
+                        Encoding(x[u]) <- "UTF-8"
+                return(x)
+        }
+        if (is.list(x)) {
+                a <- attributes(x)
+                x <- lapply(x, json_text)
+                attributes(x) <- a
+        }
+        x
+}
+
+# The encoding marks recorded by text_marks() given back to the text of a table read by read_dNdS().
+#   from_json : the text was read from the JSON record, where jsonlite marks all of it as UTF-8 (text in latin1 or
+#               in a native non-UTF-8 encoding was converted to UTF-8 when it was written, and is converted back)
+# Non-ASCII text without a record (a file written by an earlier version) is unmarked, as dNdS() returns IDs.
+restore_text_marks <- function(tbl, marks, from_json = FALSE) {
+        if (is.null(tbl))
+                return(tbl)
+        for (col in names(tbl)) {
+                v <- tbl[[col]]
+                if (!is.character(v))
+                        next
+                rows <- which(!is_ascii_text(v))
+                if (length(rows) == 0)
+                        next
+                mark <- rep("unknown", length(rows))
+                rec <- marks[[col]]
+                if (!is.null(rec)) {
+                        r <- as.integer(unlist(rec$row))
+                        m <- as.character(unlist(rec$mark))
+                        if (length(r) == length(m)) {
+                                hit <- match(rows, r)
+                                mark[!is.na(hit)] <- m[hit[!is.na(hit)]]
+                        }
+                }
+                for (m in unique(mark)) {
+                        i <- rows[mark == m]
+                        if (from_json) {
+                                v[i] <- switch(m,
+                                               "UTF-8"  = v[i],
+                                               latin1   = iconv(v[i], from = "UTF-8", to = "latin1"),
+                                               native   = enc2native(v[i]),
+                                               { x <- v[i]; Encoding(x) <- "unknown"; x })
+                        } else if (is.element(m, c("UTF-8", "latin1", "bytes"))) {
+                                Encoding(v[i]) <- m
+                        } else {
+                                Encoding(v[i]) <- "unknown"
+                        }
+                }
+                tbl[[col]] <- v
         }
         tbl
 }
@@ -553,7 +692,7 @@ orthologr_option <- function(name, default = NULL) {
 #' \code{orthologr.legacy_pairwise_aln = TRUE} \tab pairwise protein alignments without substitution matrix, cut to the aligned range, stop codon aligned \cr
 #' \code{orthologr.legacy_comeron_saturation = TRUE} \tab Comeron's method returns a finite value for saturated pairs \cr
 #' \code{orthologr.legacy_kaks_zero_dn = TRUE} \tab KaKs_Calculator methods: \code{NA} for a dN or dS that is 0 (pairs without nonsynonymous or without any change) \cr
-#' \code{orthologr.legacy_kaks_saturation = TRUE} \tab KaKs_Calculator methods: its capped values (e.g. dS = 99) for saturated estimates \cr
+#' \code{orthologr.legacy_kaks_saturation = TRUE} \tab KaKs_Calculator methods: its capped values (e.g. dS = 99) for saturated estimates, and \code{nan} as \code{NaN} (status \code{"saturated"}, not \code{"failed"}) \cr
 #' \code{orthologr.max_aln_cells = Inf} \tab pairwise alignments of any size (default: pairs above 5e8 cells are not aligned) \cr
 #' \code{orthologr.dS_zero = "drop"} \tab \code{filter_dNdS()} / \code{divergence_stratigraphy()} leave pairs with dS = 0 out (also the default of 0.5.0) \cr
 #' \code{orthologr.status_column = FALSE} \tab the dN/dS tables have no column \code{status}

@@ -359,7 +359,7 @@ dnds_groups_orthologr <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_a
                 if (!is.element("method", names(res)))
                         res[["method"]] <- dnds_est.method
                 res[["note"]] <- if (is.null(fp) || nrow(fp) == 0) NA_character_ else
-                        fp$reason[match(paste(res$query_id, res$subject_id, sep = "\r"), paste(fp$query_id, fp$subject_id, sep = "\r"))]
+                        dnds_failed_reason(res, fp)
                 res[["orthogroup"]] <- pairs$orthogroup[match(paste(res$query_id, res$subject_id, sep = "\r"),
                                                               paste(pairs$query_id, pairs$subject_id, sep = "\r"))]
                 return(res[ , c("orthogroup", "query_id", "subject_id", "method", "dN", "dS", "dNdS", "note"), with = FALSE])

@@ -130,6 +130,17 @@ test_that("a KaKs_Calculator estimate printed as 'nan' is a failed estimate, not
         expect_identical(f$method, c("MYN", "MYN"))
         expect_match(f$reason[1], "printed 'nan' for Ka and Ks (method MYN) of gene pair 'a' / 'b': its estimate failed", fixed = TRUE)
         expect_match(f$reason[2], "printed 'nan' for Ks (method MYN)", fixed = TRUE)
+        # status: failed (with the table of failed pairs), not saturated
+        fp <- data.frame(query_id = "a", subject_id = "b", reason = f$reason[1], stringsAsFactors = FALSE)
+        st <- dnds_status(res$dN[1], res$dS[1], res$dNdS[1], failed = dnds_is_failed(data.frame(query_id = "a", subject_id = "b"), fp))
+        expect_identical(st, "failed")
+        # several methods per pair: only the row of the method that failed
+        rows <- data.frame(query_id = "a", subject_id = "b", method = c("YN", "MYN"))
+        fpm <- data.frame(query_id = "a", subject_id = "b", reason = "r", method = "MYN", stringsAsFactors = FALSE)
+        expect_identical(dnds_is_failed(rows, fpm), c(FALSE, TRUE))
+        expect_identical(dnds_failed_reason(rows, fpm), c(NA, "r"))
+        fpm$method <- NA_character_
+        expect_identical(dnds_is_failed(rows, fpm), c(TRUE, TRUE))
         # options(orthologr.legacy_kaks_saturation = TRUE): as printed (NaN), without the note
         rlang::local_options(orthologr.legacy_kaks_saturation = TRUE)
         old <- kaks_result_table(tbl, c("a", "b"))

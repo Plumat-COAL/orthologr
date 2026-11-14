@@ -166,11 +166,17 @@ Running programs:
   `"saturated"` means that dN or dS could not be estimated (60 yeast groups: 296 pairs with status "saturated",
   `sum(n_saturated)` 30). `n_saturated` now counts status `"saturated"`; the new columns
   `n_dS_zero`, `n_no_data` and `n_failed` count the other statuses, and `n_dS_above` is the old count.
-- `read_dNdS()` returns IDs with a double quote as written (`d"q` came back as `d""q`) and marks text as UTF-8.
+- `read_dNdS()` returns IDs with a double quote as written (`d"q` came back as `d""q`), and non-ASCII text with
+  the bytes and the encoding marks it had when it was written (kept in `<file>.run.json`), so that IDs read back
+  equal those of `dNdS()` in every locale. (An intermediate version marked all text as UTF-8: in a C / POSIX
+  locale a non-ASCII ID then no longer matched the ID of the run - `==`, `match()` and `merge()` failed; and
+  `write_dNdS()` wrote such IDs of `attr(, "failed_pairs")` as escapes like `<c3><bc>` in a C locale.)
 - An invalid `options(orthologr.max_aln_cells)` (`-1`, `"5e8"` as text, `NA`, several values) is an error
   (`orthologr_error_bad_argument`, naming the value) before the search in `dNdS()` and `dNdS_orthogroups()`; it ran
   the search and then failed every gene pair with the message about the option (20-gene example: 20 of 20 pairs
-  "failed").
+  "failed"). `options(orthologr.keep_tmp)` of `NA` or of several values is an error as well (was taken for
+  `FALSE`), and a folder that cannot be created is `orthologr_error_bad_argument` (was an unclassed error). A run of
+  one gene pair is summarised as "1 gene pair".
 - A DIAMOND older than 2.1.0 is used with a warning (`orthologr_warning_tool_version`; it was used without a word);
   a program that is there but crashes when asked for its version is `orthologr_error_tool_failed` ("could not be
   started ... exit status 139"), no longer "not installed"; a failed DIAMOND search is `orthologr_error_tool_failed`

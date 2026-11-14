@@ -193,13 +193,13 @@ test_that("an invalid options(orthologr.max_aln_cells) is an error before the se
                 rlang::local_options(orthologr.max_aln_cells = bad)
                 t <- system.time(e <- tryCatch(dNdS(thal_cds(), lyra_cds(), quiet = TRUE, print_citation = FALSE),
                                                error = function(e) e))[["elapsed"]]
-                expect_s3_class(e, "error")
+                expect_s3_class(e, "orthologr_error_bad_argument")
                 expect_match(conditionMessage(e), "options(orthologr.max_aln_cells) must be one positive number", fixed = TRUE)
                 expect_lt(t, 5)
         }
         rlang::local_options(orthologr.max_aln_cells = "5e8")
         expect_match(tryCatch(max_aln_cells(), error = conditionMessage), "not '5e8' (text)", fixed = TRUE)
-        expect_error(dNdS_orthogroups(c(a = thal_cds(), b = lyra_cds())), "must be one positive number")
+        expect_error(dNdS_orthogroups(c(a = thal_cds(), b = lyra_cds())), class = "orthologr_error_bad_argument")
         rlang::local_options(orthologr.max_aln_cells = Inf)
         expect_identical(max_aln_cells(), Inf)
 })

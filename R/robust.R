@@ -13,11 +13,18 @@ orthologr_tmpdir <- function() {
 
 # options(orthologr.keep_tmp): FALSE (default; the working folders are removed), TRUE (kept, inside tempdir(), which
 # R removes at the end of the session) or the path of a folder (kept there). Returns list(keep, dir).
+# Any other value (NA, c("a", "b"), "") is an error; it was taken for FALSE without a word.
 keep_tmp_setting <- function() {
         v <- getOption("orthologr.keep_tmp", FALSE)
         if (is.character(v) && length(v) == 1 && !is.na(v) && nzchar(v))
                 return(list(keep = TRUE, dir = v))
-        list(keep = isTRUE(v), dir = NULL)
+        if (is.null(v))
+                return(list(keep = FALSE, dir = NULL))
+        if (!is.logical(v) || length(v) != 1 || is.na(v))
+                orthologr_abort(class = "bad_argument", "options(orthologr.keep_tmp) must be TRUE, FALSE or the path of a folder, not ",
+                                if (is.character(v)) paste0("'", paste(v, collapse = "', '"), "'") else paste(format(v), collapse = ", "),
+                                ".", call. = FALSE)
+        list(keep = v, dir = NULL)
 }
 
 # Start a working folder for one pipeline call. Returns a function that restores the previous state and removes
@@ -29,7 +36,7 @@ orthologr_tmpdir_start <- function(prefix = "orthologr_") {
         if (!is.null(k$dir)) {
                 dir.create(k$dir, recursive = TRUE, showWarnings = FALSE)
                 if (!dir.exists(k$dir))
-                        stop("options(orthologr.keep_tmp = '", k$dir, "'): the folder could not be created.", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "options(orthologr.keep_tmp = '", k$dir, "'): the folder could not be created.", call. = FALSE)
                 base <- normalizePath(k$dir, mustWork = TRUE)
         }
         run_dir <- tempfile(prefix, tmpdir = base)
