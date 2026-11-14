@@ -84,8 +84,8 @@ residues: 3.9 GB). An alignment of more than \code{options(orthologr.max_aln_cel
 1.5 GB) is not computed by \pkg{pwalign}. With the R package \pkg{coalr} installed (and the default
 \code{aa_sub_matrix = "BLOSUM62"}) such a pair is aligned by COAL's aligner with its \code{"pwalign"} preset instead
 (a message names the pair), which returns the alignment \pkg{pwalign} would return - the same scoring and
-tie-break; titin: identical rows and score - in a fraction of the memory (titin, 35,991 x 35,390 residues: 424 MB
-for the R process and 49 s, against 3.9 GB and 18 s with \pkg{pwalign}). Without
+tie-break; titin: identical rows and score - in a fraction of the memory and time (titin, 35,991 x 35,390 residues:
+about 6 - 10 s and 0.42 GB for the R process, against 18 s and 3.9 GB with \pkg{pwalign}). Without
 \pkg{coalr} (or with \code{options(orthologr.large_pair_aligner = "none")}, or with \code{get_aln = TRUE})
 \code{pairwise_aln()} stops with an error of class \code{orthologr_error_alignment_too_large}, and \code{\link{dNdS}}
 returns the pair with status \code{"failed"}. \code{options(orthologr.max_aln_cells = Inf)} removes the limit:

@@ -52,8 +52,8 @@
 #' 1.5 GB) is not computed by \pkg{pwalign}. With the R package \pkg{coalr} installed (and the default
 #' \code{aa_sub_matrix = "BLOSUM62"}) such a pair is aligned by COAL's aligner with its \code{"pwalign"} preset instead
 #' (a message names the pair), which returns the alignment \pkg{pwalign} would return - the same scoring and
-#' tie-break; titin: identical rows and score - in a fraction of the memory (titin, 35,991 x 35,390 residues: 424 MB
-#' for the R process and 49 s, against 3.9 GB and 18 s with \pkg{pwalign}). Without
+#' tie-break; titin: identical rows and score - in a fraction of the memory and time (titin, 35,991 x 35,390 residues:
+#' about 6 - 10 s and 0.42 GB for the R process, against 18 s and 3.9 GB with \pkg{pwalign}). Without
 #' \pkg{coalr} (or with \code{options(orthologr.large_pair_aligner = "none")}, or with \code{get_aln = TRUE})
 #' \code{pairwise_aln()} stops with an error of class \code{orthologr_error_alignment_too_large}, and \code{\link{dNdS}}
 #' returns the pair with status \code{"failed"}. \code{options(orthologr.max_aln_cells = Inf)} removes the limit:
@@ -349,8 +349,9 @@ aln_too_large <- function(n, m) {
 # A pair above options(orthologr.max_aln_cells) aligned with COAL (decision D3 of 2026-11-14): the two full-length
 # rows of the alignment coalr::coal_align_pairs(preset = "pwalign") returns - pwalign's own scoring (BLOSUM62 as
 # pwalign has it, gap opening 10 + extension 4) and tie-break, so the rows are those pwalign::pairwiseAlignment()
-# would return (titin, 35,991 x 35,390 residues: identical rows and score 166,805; through coalr 49 s and 424 MB for
-# the whole R process, pwalign 18 s and 3.9 GB: slower, in a ninth of the memory). NULL when that is not possible - coalr is not installed (or options(orthologr.coal_backend) is
+# would return (titin, 35,991 x 35,390 residues: identical rows and score 166,805; through pairwise_aln() and coalr
+# 6.4 - 10.6 s and 423 MB for the whole R process, pwalign 16 - 18 s and 3.9 GB: about twice as fast, in a ninth of
+# the memory). NULL when that is not possible - coalr is not installed (or options(orthologr.coal_backend) is
 # "none" / "binary"), the matrix is not BLOSUM62 (the only one checked to be pwalign's), COAL fails, or
 # options(orthologr.large_pair_aligner = "none") - and then the pair is not aligned (the error of check_aln_cells()).
 large_pair_coal_rows <- function(seqs, names, aa_sub_matrix) {
