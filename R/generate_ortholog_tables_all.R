@@ -34,9 +34,9 @@ generate_ortholog_tables_all <-
                 
                 dnds_files <- file.path(dNdS_folder, list.files(dNdS_folder, pattern = ".*\\.(csv|tsv)"))
                 dnds_species <- basename(dnds_files)
-                qry_species <- unlist(stringr::str_split(basename(annotation_file_query), "[.]"))[1]    
+                qry_species <- first_field(basename(annotation_file_query), ".")    
                 sbj_files <- file.path(annotation_folder_subject, list.files(annotation_folder_subject))
-                sbj_species <- unlist(sapply(basename(sbj_files), function(x) unlist(stringr::str_split(x, "[.]"))[1]))
+                sbj_species <- unlist(sapply(basename(sbj_files), function(x) first_field(x, ".")))
                 
                 message("Generating ortholog tables for qry: ", qry_species, " and subject species: ", paste0(sbj_species, collapse = ", "))
                 
@@ -51,7 +51,7 @@ generate_ortholog_tables_all <-
                 
                 for (i in seq_len(length(dnds_files))) {
                         message("Processing dnds_file '", dnds_files[i], "' qry_annotation '", annotation_file_query, "' and subj_annotation '", sbj_files[i], "' ...")
-                        if (!stringr::str_detect(dnds_species[i], sbj_species[i]))
+                        if (!grepl(sbj_species[i], dnds_species[i], perl = TRUE))
                                 stop("The species in the dnds_file used for this computation does not match with the species of the subject annotation file ... Please fix this.", call. = FALSE)
                         
                         res[i] <- list(generate_ortholog_tables(

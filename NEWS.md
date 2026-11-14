@@ -1,3 +1,52 @@
+## `orthologr` 0.6.0 (in development)
+
+### Performance (results unchanged)
+
+The dN/dS step of `dNdS()` no longer spends most of its time on work around the estimates. Every result table was
+compared with that of 0.5.0 (all columns, the attributes and the record of the run): identical for the 20-gene
+example, the 1,000-gene example and S. cerevisiae / C. glabrata, with the default settings, `engine = "coal"`,
+`codon_aln_tool = "pal2nal"`, the methods Comeron, Li and YN (KaKs_Calculator and `kaks_tool = "coal"`), 1 and 2
+cores, and under `orthologr_legacy_options()` (which still reproduces the stored 0.4.3 tables).
+
+- Pairwise protein alignments (`aa_aln_type = "pairwise"`, the default): the proteins of up to 100 gene pairs are
+  aligned with one `pwalign::pairwiseAlignment()` call (pwalign aligns the i-th pattern with the i-th subject:
+  the same alignments, scores and tie-breaks as one call per pair) instead of building an `AAString` object and
+  reading a FASTA file per pair. Not used with `store_locally = TRUE`, `aa_sub_matrix = NULL` and the legacy
+  pairwise alignment (`options(orthologr.legacy_pairwise_aln = TRUE)`): those pairs are aligned one by one as before,
+  and so is a pair the joint call cannot handle (above `options(orthologr.max_aln_cells)`, unusual characters).
+- With COAL as codon aligner (the default when `coalr` is installed) the codon alignment is built from these rows
+  in memory instead of reading the two files of the pair back.
+- Comeron's method (`gestimator()`, C++): the redundancy tables of the genetic code and the Grantham distances
+  are built once per R process instead of once per gene pair and once per pair of codons that differ at two or
+  three positions: about 10 times faster on divergent genes, with the same arithmetic.
+- Per gene pair: no `data.table` sub-assignments (`:=`), the working files written with one `writeLines()` (the
+  same bytes as `seqinr::write.fasta()`); the checks of coding sequences for non-ACGT characters use PCRE (the
+  same answers, about 50 times faster on long sequences).
+- Measured: the whole `dNdS()` call including DIAMOND, CPU seconds (user + system, with child processes; the
+  machine was shared, so elapsed times varied by a factor of 2), 0.5.0 -> 0.6.0:
+
+  | data, settings | 1 core | 2 cores |
+  |---|---|---|
+  | 1,000-gene example, default (Comeron, COAL codon step) | 29.2 -> 12.1 | 32.5 -> 15.0 |
+  | 1,000-gene example, `codon_aln_tool = "pal2nal"` | 43.1 -> 33.9 | |
+  | 1,000-gene example, Li | 26.6 -> 14.6 | |
+  | 1,000-gene example, YN (KaKs_Calculator) | 33.0 -> 21.1 | |
+  | 1,000-gene example, YN with `kaks_tool = "coal"` | 25.5 -> 14.1 | |
+  | S. cerevisiae / C. glabrata (4,384 pairs), default | 106.6 -> 53.9 | 122.1 -> 50.6 |
+  | S. cerevisiae / C. glabrata, YN / Li / PAL2NAL | | 153 -> 98 / 108 -> 59 / 197 -> 142 |
+
+  The dN/dS step alone (`compute_dnds()`, 1,000-gene example, 1 core): 27.4 s -> 10.4 s before the change of
+  `gestimator()`. What is left per pair is mostly the alignments themselves (pwalign), the estimate, and for
+  PAL2NAL / KaKs_Calculator the start of one process per gene pair.
+- `stringr` (and with it `stringi`) is no longer imported: its 27 calls were splitting and matching of file names
+  and are base R now.
+
+### Internal
+
+- Tests (`test-perf.R`): the batched code paths against the per-pair code (alignments, codon alignments, tables of
+  `compute_dnds()` for Comeron, Li and YN with COAL and PAL2NAL), independence of the chunk size and of the number
+  of processes, progress messages.
+
 ## `orthologr` 0.5.0
 
 Results change in this version: defaults were changed and several errors that changed numbers were fixed.

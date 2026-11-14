@@ -289,11 +289,11 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                         residue_2_seqs <- as.character(cds.dt[which(residue_2) , seqs])
                         
                         residue_1_seqs_vec <- as.character(sapply(residue_1_seqs, function(x) {
-                                stringr::str_sub(x, 1, nchar(x) - 1)
+                                substr(x, 1, nchar(x) - 1)
                         }))
                 
                         residue_2_seqs_vec <- as.character(sapply(residue_2_seqs, function(x) {
-                                stringr::str_sub(x, 1, nchar(x) - 2)
+                                substr(x, 1, nchar(x) - 2)
                         }))
                         
                         cds.dt[which(residue_1) , seqs := residue_1_seqs_vec]
