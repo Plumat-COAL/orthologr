@@ -47,6 +47,11 @@ Results:
   (proteins were lost without notice, annotation lines of more than 65,000 characters were deleted, GFF3 loci
   were grouped by name).
 - `substitutionrate(kaks_calc.params = )` is added to the method instead of replacing it.
+- `dnds_est.method = "MLPB"` (default engine, KaKs_Calculator) works: `substitutionrate()` returned `NULL` for it
+  and `dNdS()` ended after the whole search with an error about a missing column (20-gene example: before an
+  error after 4 s; after 20 pairs, the values KaKs_Calculator gives for `-m MLPB`). There is one list of the
+  KaKs_Calculator methods for the whole package, and a method that `substitutionrate()` does not handle is an
+  error instead of `NULL`.
 
 Running programs:
 
