@@ -255,10 +255,10 @@ only.
 
 For the close pair the engines agree (median difference 0, r >= 0.97). The differences in this table come from
 the protein alignments: where several alignments score the same, the COAL of that day placed a gap otherwise
-than pwalign. **With a `coalr` that has COAL's pwalign tie-break** (`tie_break`; COAL after 2026-11-14, its
-integration pass C01), `engine = "coal"` computes pwalign's protein alignments row for row and the engines agree
-to the digits orthologr prints. All reciprocal-best-hit pairs, native engine against `engine = "coal"`, before /
-after (dS where both engines give one, equal to 6 significant digits, 4 for Comeron; pairs with the same status):
+than pwalign. **With a `coalr` that has COAL's pwalign tie-break** (`tie_break`; `coalr` from COAL main since 009bdd5,
+pull request #64 of 2026-11-14), `engine = "coal"` computes pwalign's protein alignments row for row and the engines agree
+to the digits orthologr prints. All reciprocal-best-hit pairs, native engine against `engine = "coal"` (coalr from
+COAL main 009bdd5), before / after (dS where both engines give one, equal to 6 significant digits, 4 for Comeron; pairs with the same status):
 
 | Species pair | Method | pairs | dS equal | dS > 1 % apart | same status |
 |---|---|---|---|---|---|
