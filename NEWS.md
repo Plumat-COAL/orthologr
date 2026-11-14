@@ -104,7 +104,7 @@ Running programs:
   on valid input fixed. `check_annotation(remove_annotation_outliers = TRUE)` no longer overwrites the
   annotation file.
 - An invalid `options(orthologr.max_aln_cells)` (`-1`, `"5e8"` as text, `NA`, several values) is an error
-  (naming the value) before the search in `dNdS()`; it ran the search and then failed every gene pair with the
+  (naming the value) before the search in `dNdS()` and `dNdS_orthogroups()`; it ran the search and then failed every gene pair with the
   message about the option (20-gene example: 20 of 20 pairs failed).
 
 ### Speed (results unchanged)

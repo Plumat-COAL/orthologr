@@ -90,6 +90,9 @@ dNdS_orthogroups <- function(x,
                 groups <- check_choice(groups[1], c("single_copy", "all"), "groups")
         }
         engine <- check_choice(engine[1], "orthologr", "engine")
+        # (an invalid options(orthologr.max_aln_cells) failed every pair after the search)
+        if (engine == "orthologr")
+                max_aln_cells()
         check_count(max_group_size, "max_group_size")
         check_flag(quiet, "quiet")
         if (!is.numeric(dS_saturation) || length(dS_saturation) != 1 || is.na(dS_saturation) || dS_saturation <= 0)
