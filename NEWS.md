@@ -185,7 +185,11 @@ Running programs:
 - `dNdS_clusters()` summary: a cluster none of whose pairs has an estimate because they are saturated (or have no
   codons to compare) has the status `"saturated"` (`"no_data"`) and a note with the numbers; it was `"failed"` with
   an empty note and `n_failed = 0` (E. coli K-12 + O157: 37 clusters).
-- `read_dNdS()` returns IDs with a double quote as written (`d"q` came back as `d""q`) and marks text as UTF-8.
+- `read_dNdS()` returns IDs with a double quote as written (`d"q` came back as `d""q`), and non-ASCII text with
+  the bytes and the encoding marks it had when it was written (kept in `<file>.run.json`), so that IDs read back
+  equal those of `dNdS()` in every locale. (An intermediate version marked all text as UTF-8: in a C / POSIX
+  locale a non-ASCII ID then no longer matched the ID of the run - `==`, `match()` and `merge()` failed; and
+  `write_dNdS()` wrote such IDs of `attr(, "failed_pairs")` as escapes like `<c3><bc>` in a C locale.)
 - A DIAMOND older than 2.1.0 is used with a warning (`orthologr_warning_tool_version`; it was used without a word);
   a program that is there but crashes when asked for its version is `orthologr_error_tool_failed` ("could not be
   started ... exit status 139"), no longer "not installed"; a failed DIAMOND search is `orthologr_error_tool_failed`

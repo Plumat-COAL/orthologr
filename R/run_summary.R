@@ -434,19 +434,23 @@ write_dNdS <- function(x, file) {
         for (col in names(plain))
                 if (is.double(plain[[col]]))
                         plain[[col]] <- number_text(plain[[col]])
+        # (the text is written byte for byte; the encoding marks of non-ASCII text go into the record, see below)
         data.table::fwrite(plain, file, sep = "\t", na = "NA", quote = "auto")
         side <- list(
                 format   = "orthologr dN/dS table",
                 table    = basename(file),
                 rows     = nrow(plain),
                 columns  = classes,
+                text_encoding = text_marks(plain),
                 run      = run,
                 failed_pairs      = if (is.data.frame(failed)) failed else NULL,
-                dropped_sequences = if (is.data.frame(dropped)) dropped else NULL
+                failed_pairs_encoding = if (is.data.frame(failed)) text_marks(failed) else NULL,
+                dropped_sequences = if (is.data.frame(dropped)) dropped else NULL,
+                dropped_sequences_encoding = if (is.data.frame(dropped)) text_marks(dropped) else NULL
         )
         side_file <- paste0(file, ".run.json")
-        writeLines(jsonlite::toJSON(side, auto_unbox = TRUE, pretty = TRUE, digits = NA, null = "null", na = "null",
-                                    dataframe = "columns"), side_file)
+        writeLines(jsonlite::toJSON(json_text(side), auto_unbox = TRUE, pretty = TRUE, digits = NA, null = "null",
+                                    na = "null", dataframe = "columns"), side_file, useBytes = TRUE)
         invisible(c(table = file, run = side_file))
 }
 
@@ -464,14 +468,26 @@ read_dNdS <- function(file) {
                 warning("'", side_file, "' was not found: the table is read without the record of its run.", call. = FALSE)
         }
         # every column is read as text and then given its type: R's own conversion reads a number exactly
+        # The text is read byte for byte, as write_dNdS() wrote it, and gets back the encoding marks it had (from
+        # the record; without one: unmarked, as dNdS() returns the IDs of the FASTA files). IDs read back thus equal
+        # the IDs of the run in every locale. (Marking all text as UTF-8 made non-ASCII IDs unequal to those of
+        # dNdS() in a C / POSIX locale: '==', match() and merge() failed.)
         tbl <- data.table::fread(file, sep = "\t", header = TRUE, na.strings = "NA", colClasses = "character",
-                                 data.table = FALSE, showProgress = FALSE, encoding = "UTF-8")
+                                 data.table = FALSE, showProgress = FALSE, encoding = "unknown")
         # write_dNdS() quotes a field that holds a quote (or a tab or a line end) and doubles the quotes inside it;
         # fread() removes the outer quotes but keeps the doubled ones ('d"q' came back as 'd""q'). Every '""' in a
         # field therefore is one quote.
         for (col in names(tbl))
-                if (is.character(tbl[[col]]))
-                        tbl[[col]] <- gsub("\"\"", "\"", tbl[[col]], fixed = TRUE)
+                if (is.character(tbl[[col]])) {
+                        v <- tbl[[col]]
+                        dq <- which(grepl("\"\"", v, fixed = TRUE, useBytes = TRUE))
+                        if (length(dq) > 0) {
+                                v[dq] <- gsub("\"\"", "\"", v[dq], fixed = TRUE, useBytes = TRUE)
+                                Encoding(v[dq]) <- "unknown"
+                        }
+                        tbl[[col]] <- v
+                }
+        tbl <- restore_text_marks(tbl, side$text_encoding, from_json = FALSE)
         classes <- if (!is.null(side$columns)) unlist(side$columns) else
                 vapply(tbl, function(v) if (all(is.na(v) | !is.na(suppressWarnings(as.numeric(v))))) "numeric" else "character", "")
         for (col in intersect(names(tbl), names(classes)))
@@ -493,9 +509,99 @@ read_dNdS <- function(file) {
                 }
                 attr(tbl, "orthologr_run") <- run
                 if (!is.null(side$failed_pairs))
-                        attr(tbl, "failed_pairs") <- as_table(side$failed_pairs)
+                        attr(tbl, "failed_pairs") <- restore_text_marks(as_table(side$failed_pairs),
+                                                                        side$failed_pairs_encoding, from_json = TRUE)
                 if (!is.null(side$dropped_sequences))
-                        attr(tbl, "dropped_sequences") <- as_table(side$dropped_sequences)
+                        attr(tbl, "dropped_sequences") <- restore_text_marks(as_table(side$dropped_sequences),
+                                                                             side$dropped_sequences_encoding, from_json = TRUE)
+        }
+        tbl
+}
+
+# The encoding marks of the non-ASCII text of the character columns of a table: list(<column> = list(row = <rows>,
+# mark = <mark>)), NULL when all text is ASCII. <mark> is Encoding() ("unknown", "UTF-8", "latin1", "bytes"), and
+# "native" for unmarked text that is not valid UTF-8 (text in the encoding of a non-UTF-8 locale). R compares text
+# by its marks as well as by its bytes: in a C / POSIX locale an unmarked non-ASCII ID (as dNdS() returns the IDs
+# of a FASTA file) differs from the same bytes marked as UTF-8. write_dNdS() stores the marks so that read_dNdS()
+# returns the text as it was.
+text_marks <- function(tbl) {
+        out <- list()
+        for (col in names(tbl)) {
+                v <- tbl[[col]]
+                if (!is.character(v))
+                        next
+                rows <- which(!is_ascii_text(v))
+                if (length(rows) > 0) {
+                        mark <- Encoding(v[rows])
+                        mark[mark == "unknown" & !validUTF8(v[rows])] <- "native"
+                        out[[col]] <- list(row = rows, mark = mark)
+                }
+        }
+        if (length(out) == 0) NULL else out
+}
+
+# TRUE for NA and for text of ASCII bytes only (whatever the encoding mark and the locale).
+is_ascii_text <- function(v) {
+        is.na(v) | !is.na(iconv(v, from = "latin1", to = "ASCII"))
+}
+
+# The text of a list (the record written by write_dNdS()) prepared for jsonlite::toJSON(): unmarked non-ASCII
+# text that is valid UTF-8 is marked as UTF-8 (the bytes are not changed), so that it is written as it is (in a
+# C / POSIX locale jsonlite wrote such text as escapes like '<c3><bc>').
+json_text <- function(x) {
+        if (is.character(x)) {
+                u <- which(!is_ascii_text(x) & Encoding(x) == "unknown" & validUTF8(x))
+                if (length(u) > 0)
+                        Encoding(x[u]) <- "UTF-8"
+                return(x)
+        }
+        if (is.list(x)) {
+                a <- attributes(x)
+                x <- lapply(x, json_text)
+                attributes(x) <- a
+        }
+        x
+}
+
+# The encoding marks recorded by text_marks() given back to the text of a table read by read_dNdS().
+#   from_json : the text was read from the JSON record, where jsonlite marks all of it as UTF-8 (text in latin1 or
+#               in a native non-UTF-8 encoding was converted to UTF-8 when it was written, and is converted back)
+# Non-ASCII text without a record (a file written by an earlier version) is unmarked, as dNdS() returns IDs.
+restore_text_marks <- function(tbl, marks, from_json = FALSE) {
+        if (is.null(tbl))
+                return(tbl)
+        for (col in names(tbl)) {
+                v <- tbl[[col]]
+                if (!is.character(v))
+                        next
+                rows <- which(!is_ascii_text(v))
+                if (length(rows) == 0)
+                        next
+                mark <- rep("unknown", length(rows))
+                rec <- marks[[col]]
+                if (!is.null(rec)) {
+                        r <- as.integer(unlist(rec$row))
+                        m <- as.character(unlist(rec$mark))
+                        if (length(r) == length(m)) {
+                                hit <- match(rows, r)
+                                mark[!is.na(hit)] <- m[hit[!is.na(hit)]]
+                        }
+                }
+                for (m in unique(mark)) {
+                        i <- rows[mark == m]
+                        if (from_json) {
+                                v[i] <- switch(m,
+                                               "UTF-8"  = v[i],
+                                               latin1   = iconv(v[i], from = "UTF-8", to = "latin1"),
+                                               native   = enc2native(v[i]),
+                                               { x <- v[i]; Encoding(x) <- "unknown"; x })
+                        } else if (is.element(m, c("UTF-8", "latin1", "bytes"))) {
+                                Encoding(v[i]) <- m
+                        } else {
+                                Encoding(v[i]) <- "unknown"
+                        }
+                }
+                tbl[[col]] <- v
         }
         tbl
 }
