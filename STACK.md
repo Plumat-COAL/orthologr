@@ -23,7 +23,7 @@ restores it to that test, so the test shows that the old numbers can still be ha
 | `upstream-v2/07-ids-and-joins` | IDs returned as in the files, results joined by gene pair, duplicate IDs an error, dropped sequences reported, isoform warning, same ID in both files (R06) | only fixes (lost or changed IDs) | `options(orthologr.isoform_warning = FALSE)` silences the new warning |
 | `upstream-v2/08-annotation` | longest isoforms and gene loci on real NCBI / Ensembl GFF3 / GTF; long annotation lines kept (R03) | only fixes | - |
 | `upstream-v2/09-pairwise-alignment` | pairwise protein alignments: BLOSUM62, full length, no terminal stop; full-length rows built directly (about twice as fast); no alignment above 5e8 cells (about 1.5 GB; O12) | **yes**: dN or dS of about a third of the pairs of the 1,000-gene example, mostly slightly (r = 0.988); human / mouse: 1 of 946 pairs (titin) failed instead of aligned in 4.3 GB | `options(orthologr.legacy_pairwise_aln = TRUE)`, `options(orthologr.max_aln_cells = Inf)` |
-| `upstream-v2/10-strata-and-saturation` | tie-safe strata, dS = 0 policy, gestimator input checks, Comeron saturation (R17), dN = 0 from KaKs_Calculator (R14), left-out pairs reported (R23); KaKs_Calculator's capped values of saturated estimates are NA (O02), zeros it prints as NA are 0 (identical sequences, nonsynonymous-only pairs; O03) | **yes**: Comeron NA for a saturated dN / dS (1 of 995 pairs); dN = 0 instead of NA (11 of 995); YN S. cerevisiae / C. glabrata 3,559 of 4,164 dS -> NA, E. coli K-12 / O157 230 NA -> 0 and 21 dS -> NA | `options(orthologr.legacy_comeron_saturation = TRUE)`, `options(orthologr.legacy_kaks_zero_dn = TRUE)`, `options(orthologr.legacy_kaks_saturation = TRUE)` |
+| `upstream-v2/10-strata-and-saturation` | tie-safe strata, dS = 0 policy, gestimator input checks, Comeron saturation (R17), dN = 0 from KaKs_Calculator (R14), left-out pairs reported (R23); KaKs_Calculator's capped values of saturated estimates are NA (O02; LWL family at 1 - 2P - Q = 0 as KaKs_Calculator decided, V02), zeros it prints as NA are 0 (identical sequences, nonsynonymous-only pairs; O03); an estimate printed as `nan` is a failed pair (V07) | **yes**: Comeron NA for a saturated dN / dS (1 of 995 pairs); dN = 0 instead of NA (11 of 995); YN S. cerevisiae / C. glabrata 3,559 of 4,164 dS -> NA, E. coli K-12 / O157 230 NA -> 0 and 21 dS -> NA; LWL S. cerevisiae / C. glabrata 1,925 Ks -> NA (the classes KaKs_Calculator found undefined), MYN 50 `nan` pairs failed | `options(orthologr.legacy_comeron_saturation = TRUE)`, `options(orthologr.legacy_kaks_zero_dn = TRUE)`, `options(orthologr.legacy_kaks_saturation = TRUE)` |
 | `upstream-v2/11-best-hit-rule` | best hits by bit score; order-independent tie-breaks (R20) | **yes**: 3.2 % of human / mouse best hits | `best_hit_rule = "evalue"` or `options(orthologr.best_hit_rule = "evalue")` |
 | `upstream-v2/12-golden-values` | pinned dN / dS of fixed codon alignments, known ortholog pairs, tie-break fixture; fragile tests repaired | no (tests only) | - |
 | `upstream-v2/13-orthogroups` | new `orthogroups()`, `write_orthogroups()`, `dNdS_orthogroups()` (engine "orthologr"); `orthofinder2()` soft-deprecated | no (new functions) | - |
@@ -33,6 +33,15 @@ restores it to that test, so the test shows that the old numbers can still be ha
 The fixes of the deep test of 2026-11-14 (O01 - O14) were added in the same way: O01 in 04 (with the test of every
 method in 06), O12 in 09, O02 / O03 in 10, the parts that use the classed conditions, the run summary and the
 options page (O04 - O07, O09, O10, O14) in 14, the COAL parts (O08, O11, O13) in 15.
+
+The fixes of the re-test of 2026-11-14 (V01 - V07) likewise: V04 (`options(orthologr.max_aln_cells)` checked before
+the search) in 09 and, for `dNdS_orthogroups()`, in 13; V02 (LWL-family saturation decided by KaKs_Calculator's own
+arithmetic where its printed counts are within rounding of 0) and V07 (an estimate printed as `nan` is a failed
+pair, not saturated) in 10, the status parts of V07 in 14; V03 (`read_dNdS()` keeps the bytes and encoding marks of
+non-ASCII IDs), the `keep_tmp` checks of V06 and the documentation of non-converged YN / MYN iterations (V01) in 14;
+the COAL parts (V01: `kaks_tool = "coal"` reports them; V05: `codon_aln_tool = "coal"` without COAL uses PAL2NAL;
+V06: the `max_aln_cells` reason mentions `engine = "coal"`) in 15. Results change only in 10 (LWL family: pairs at
+1 - 2P - Q = 0; `nan` estimates), both under `options(orthologr.legacy_kaks_saturation = TRUE)` as before.
 
 The fixes of the third review (R01 - R23) are in the branches they correct (named in the table and in the
 commit messages); there is no separate fix-up branch.
