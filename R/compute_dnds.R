@@ -400,7 +400,8 @@ dnds_chunks <- function(idx, n_workers = 1) {
 }
 
 # The number of gene pairs whose protein alignments are computed with one call of pwalign::pairwiseAlignment():
-# 100 (from about 25 on the call costs less than 0.1 ms per pair).
+# 100. (A call costs about 3 - 5 ms besides the alignments: per pair 0.6 ms with 5 pairs per call, 0.13 ms with 25,
+# 0.05 ms with 100.)
 dnds_chunk_size <- function() 100L
 
 # What seqinr::write.fasta(sequences = seqs, names = as.list(names), file.out = file) writes for a list of strings -
