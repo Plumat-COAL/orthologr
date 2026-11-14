@@ -52,6 +52,12 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   changes under `orthologr_legacy_options()` (0.4.3's saturation rule). Seeded short pairs of 5 - 20 codons (the test
   `test-substitutionrate.R`, 160 pairs): 2 dS of 0 -> `NA`, the 9 other values the rule gives in place of `NA` unchanged.
 
+### Other changes
+
+- `dNdS_orthogroups()`: the summary has the minimum and maximum of dN, dS and dN/dS per group (`dN_min`, `dN_max`,
+  ...), as `dNdS_clusters()`, `coalr` and COAL's command line (the statistics median, mean, `_q25`, `_q75`,
+  `_min`, `_max`, in that order).
+
 ### Internal
 
 - Tests (`test-perf.R`): the batched code paths against the per-pair code (alignments, codon alignments, tables of

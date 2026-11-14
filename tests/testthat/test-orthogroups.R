@@ -528,3 +528,24 @@ test_that("dNdS_orthogroups() summary: counts by status (n_saturated as the colu
         expect_identical(s2$n_saturated, c(2L, 0L))
         expect_identical(s2$n_dS_zero, c(0L, 1L))
 })
+
+test_that("dNdS_orthogroups() summary: _min / _max as in dNdS_clusters(), coalr and COAL's command line (K04)", {
+        pairs <- data.table::data.table(
+                orthogroup = c("OG1", "OG1", "OG1", "OG2"), method = "Comeron",
+                query_id = paste0("q", 1:4), subject_id = paste0("s", 1:4),
+                dN   = c(0.1, 0.3, 0.2, NA),
+                dS   = c(0.5, NA, 0.4, NA),
+                dNdS = c(0.2, NA, 0.5, NA))
+        members <- data.table::data.table(orthogroup = rep(c("OG1", "OG2"), c(3, 2)), gene = paste0("g", 1:5),
+                                          species = c("A", "B", "C", "A", "B"))
+        s <- dnds_groups_summary(pairs, members)
+        expect_equal(s$dN_min, c(0.1, NA)); expect_equal(s$dN_max, c(0.3, NA))
+        expect_equal(s$dS_min, c(0.4, NA)); expect_equal(s$dS_max, c(0.5, NA))
+        expect_equal(s$dNdS_min, c(0.2, NA)); expect_equal(s$dNdS_max, c(0.5, NA))
+        # each value's statistics in COAL's order (median, mean, q25, q75, min, max), the numbers of the shared rule
+        stats <- c("median", "mean", "q25", "q75", "min", "max")
+        cols <- paste0(rep(c("dN", "dS", "dNdS"), each = 6), "_", stats)
+        expect_identical(names(s)[names(s) %in% cols], cols)
+        ref <- as.data.frame(dnds_value_stats(pairs, by = c("orthogroup", "method"), stats = stats))
+        expect_equal(as.data.frame(s)[ , cols], ref[ , cols])
+})
