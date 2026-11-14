@@ -30,13 +30,18 @@ test_that("the validators agree with the documentation: BH and RBH only", {
         expect_identical(eval(formals(dNdS)$sensitivity_mode), "default")
         for (f in list(orthologs, diamond, diamond_best, diamond_rec, divergence_stratigraphy, orthogroups, dNdS_coal))
                 expect_identical(eval(formals(f)$sensitivity_mode), "default")
-        withr::with_options(list(orthologr.sensitivity_mode = "fast"),
-                            expect_identical(eval(formals(dNdS)$sensitivity_mode), "fast"))
+        with_opts <- function(opts, code) {
+                old <- options(opts)
+                on.exit(options(old))
+                code
+        }
+        with_opts(list(orthologr.sensitivity_mode = "fast"),
+                  expect_identical(eval(formals(dNdS)$sensitivity_mode), "fast"))
         expect_identical(orthologr_sensitivity_mode(), "default")
-        withr::with_options(list(orthologr.legacy = TRUE), expect_identical(orthologr_sensitivity_mode(), "fast"))
+        with_opts(list(orthologr.legacy = TRUE), expect_identical(orthologr_sensitivity_mode(), "fast"))
         expect_identical(orthologr_legacy_options(set = FALSE)$orthologr.sensitivity_mode, "fast")
         expect_identical(orthologr_sensitivity_mode("sensitive"), "sensitive")
-        expect_error(withr::with_options(list(orthologr.sensitivity_mode = "turbo"), orthologr_sensitivity_mode()),
+        expect_error(with_opts(list(orthologr.sensitivity_mode = "turbo"), orthologr_sensitivity_mode()),
                      class = "orthologr_error_bad_argument")
         expect_true(all(c("fast", "default") %in% diamond_sensitivity_modes()))
 })
