@@ -238,8 +238,8 @@ substitutionrate <- function(file,
         
         kaks_calc_methods <- kaks_calculator_methods()
         
-        if (!is.dnds_est_method(est.method))
-                orthologr_abort(class = "bad_argument", "Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+        if (length(est.method) != 1 || !is.dnds_est_method(est.method))
+                dnds_method_abort(est.method, "substitutionrate()", kaks_calc = TRUE)
         
         if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
                 orthologr_abort(class = "bad_argument", "Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)

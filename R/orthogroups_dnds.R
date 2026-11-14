@@ -130,9 +130,7 @@ dNdS_orthogroups <- function(x,
                         dnds_est.method <- "Comeron"
                 if (!is.character(dnds_est.method) || length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method) ||
                     identical(dnds_est.method, "kaks_calc"))
-                        orthologr_abort(class = "bad_argument", "dnds_est.method = '", paste(dnds_est.method, collapse = "', '"), "' is not supported with engine = \"orthologr\". ",
-                             "Please choose one of: 'Comeron', 'Li', 'NG', 'LWL', 'LPB', 'MLWL', 'MLPB', 'YN', 'MYN', 'GY', 'MA', 'MS', 'GMYN', 'ALL'.",
-                             call. = FALSE)
+                        dnds_method_abort(dnds_est.method, "dNdS_orthogroups(engine = \"orthologr\") (one method per run)")
                 check_choice(aa_aln_tool, c("clustalo", "mafft", "muscle", "clustalw", "t_coffee", "pairwise"), "aa_aln_tool")
                 # the programs must be there before the search and the alignments start
                 dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = "pal2nal",

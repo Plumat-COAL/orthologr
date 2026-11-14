@@ -439,7 +439,7 @@ dNdS <- function(query_file,
                         orthologr_abort(class = "bad_argument", "Please choose a codon alignment tool that is supported by this function.", call. = FALSE)
                 
                 if (length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method))
-                        orthologr_abort(class = "bad_argument", "Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+                        dnds_method_abort(dnds_est.method, "dNdS(engine = \"orthologr\") (one method per run)")
                 # "kaks_calc" means "the methods are in kaks_calc.params", an argument of substitutionrate() only:
                 # here it ran the whole search and then failed every gene pair
                 if (identical(dnds_est.method, "kaks_calc"))
