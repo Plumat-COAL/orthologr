@@ -5,8 +5,10 @@ previous one and is meant to pass R CMD check on its own. Each was checked local
 full test suite with the external programs); GitHub Actions (Linux release / devel / oldrel, Linux without any
 optional program, Windows, macOS) passed only on the branches and commits named under "CI evidence" below. The
 least controversial changes come first; the branches that change
-results come after the ones that do not; COAL appears only in the last branch. The tree of the last branch is
-the tree of `integration/all` plus this file.
+results come after the ones that do not; COAL appears first in branch 15. Branches 16 - 18 (version 0.6.0 in
+development: tests, performance, fixes) were appended after 15 when `integration/all` had moved on; the existing
+branches 01 - 15 were not changed. The tree of the last branch (`upstream-v2/18-fixes`) is the tree of
+`integration/all` plus this file.
 
 `tests/testthat/test-legacy.R` (from branch 01 on) compares `dNdS()` on the 20-gene example with tables stored
 from 0.4.3 (Comeron and YN). Every branch keeps it passing: a branch that changes a default adds the option that
@@ -29,6 +31,9 @@ restores it to that test, so the test shows that the old numbers can still be ha
 | `upstream-v2/13-orthogroups` | new `orthogroups()`, `write_orthogroups()`, `dNdS_orthogroups()` (engine "orthologr"; quartile columns `_q25` / `_q75`); `orthofinder2()` soft-deprecated | no (new functions) | - |
 | `upstream-v2/14-run-record-and-legacy` | column `status`, summary message, record of the run, `write_dNdS()` / `read_dNdS()`, `orthologr_legacy_options()`, `?orthologr_options` (R22), upgrade article; classed errors and warnings (`orthologr_error_*`, `orthologr_warning_*`), `options(orthologr.ambiguous_cds = "keep")`, a hint for `sensitivity_mode` with distant species, malformed-input tests; `aa_sub_matrix` checked before the search; sequences trimmed or left out counted in the summary under `quiet = TRUE` (`attr(, "trimmed_sequences")`); fixes of the deep test: `keep_tmp` folder (O04), BOM / CR input (O05), legacy run time documented (O06), `kaks_calc` / `ALL` (O07), status counts in the `dNdS_orthogroups()` summary (O09), quotes in `read_dNdS()` (O10), DIAMOND version and crash, classed DIAMOND error and `comp_cores` warning (O14) | one more column; `divergence_stratigraphy(quiet = TRUE)` by default (progress in interactive sessions); **yes**: DIAMOND `sensitivity_mode = "default"` (was `"fast"`; yeasts +5.3 to +9.4 % reciprocal best hits, human / mouse +0.9 %, same precision), coding sequences with ambiguous bases kept (`ambiguous_cds = "keep"`; 1,000-gene example 2 more pairs) | `options(orthologr.status_column = FALSE)`; `quiet = FALSE`; `options(orthologr.sensitivity_mode = "fast")`; `options(orthologr.ambiguous_cds = "drop")`; all at once: `orthologr_legacy_options()` |
 | `upstream-v2/15-coal` | optional COAL engine (`coalr`): `dNdS(engine = "coal")`, `dNdS_coal()`, `dNdS_clusters()`, `codon_aln(tool = "coal")`, `substitutionrate(kaks_tool = "coal")`; a classed warning when the settings of 0.4.3 meet the COAL engine (which cannot reproduce them); with `coalr` installed `dNdS()` builds its codon alignments with COAL (O11); no failed-pairs warning for saturated pairs of `dNdS_orthogroups(engine = "coal")` (O08); cluster status `"saturated"` in `dNdS_clusters()` (O13); the COAL engine with Comeron's two-position pathways and minimum class size (`coalr` with `comeron_twosubs`, `comeron_min_sites`); with `coalr` installed, pairs above `max_aln_cells` aligned by COAL's pwalign preset (the alignment pwalign would return; titin identical); selenocysteine `U` identical with PAL2NAL and COAL; COAL's codon-alignment errors classed; maintainer notes; this file | no for calls that do not ask for COAL (the codon alignments of COAL and PAL2NAL are byte-identical: 12,605 of 12,605 pairs) | do not use `engine = "coal"`; `options(orthologr.codon_aln_tool = "pal2nal")`; `options(orthologr.large_pair_aligner = "none")` |
+| `upstream-v2/16-coverage-tests` | tests only: the COAL glue (`R/coal.R`, with a fake `coal-cpp` script), `map_generator_dnds()` / `map.generator.lnc()`, `orthologs_lnc()`, Kimura80, `orthologs()` dispatch, `orthofinder2()`'s run path (fake OrthoFinder), `gestimator()` output modes, readers' error paths, small helpers; two tests of known bugs (B1, B2) are skipped here and run from 18 on | no (tests only) | - |
+| `upstream-v2/17-performance` | `dNdS()` about 2 - 2.5 times faster (whole call, 1,000-gene example: 29.2 -> 12.1 CPU s; S. cerevisiae / C. glabrata 106.6 -> 53.9): protein alignments of up to 100 pairs in one `pwalign::pairwiseAlignment()` call, COAL codon alignments from the rows in memory, `gestimator()`'s redundancy and Grantham tables built once per process, no `data.table` sub-assignment per pair, sequence checks with PCRE; `stringr` (and `stringi`) no longer imported; `test-perf.R` (batched against per-pair code); NEWS 0.6.0 with the measured times | no: every table identical to 0.5.0 (all columns, attributes, run record; 20-gene, 1,000-gene, S. cerevisiae / C. glabrata; default, `engine = "coal"`, PAL2NAL, Comeron / Li / YN, 1 and 2 cores, legacy switch) | - |
+| `upstream-v2/18-fixes` | Comeron's min-sites rule (D9 of 10) only where the value that results is > 0 (D9 refinement; COAL #76); `dNdS_clusters()` with a named `cds_file` vector (B1) and `codon_aln(tool = "coal")` on CLUSTAL files without a conservation line (B2), both bugs of 15; `dNdS_orthogroups()` summary `_min` / `_max` (K04); errors for an unknown `dnds_est.method` list each engine's methods and suggest the likely one (U09); a note on `library(orthologr)` that results differ from 0.4.3, once per session (U06); README links to the repository's articles (U14); docs: titin timing of the large-pair route (K02), D8's and D9's measured effects (K03) | **yes** (D9 refinement): a Comeron dN or dS that the min-sites rule of 10 left at exactly 0 although a change was seen is `NA` (status `"saturated"`) instead of 0 (`"dS_zero"`); no value > 0 changes; real data (20-gene, 1,000-gene, S. cerevisiae / C. glabrata): no value changes; seeded short pairs of 5 - 20 codons: 2 of 160 dS 0 -> NA. Otherwise new summary columns, new messages | `options(orthologr.comeron_min_sites = 0)` (NA for every undefined small class); 0.4.3's numbers: `orthologr_legacy_options()` (unaffected); `options(orthologr.quiet_upgrade = TRUE)` hides the note |
 
 The fixes of the deep test of 2026-11-14 (O01 - O14) were added in the same way: O01 in 04 (with the test of every
 method in 06), O12 in 09, O02 / O03 in 10, the parts that use the classed conditions, the run summary and the
@@ -59,6 +64,22 @@ classed COAL error) in 15. The legacy switch still reproduces the stored tables 
 The fixes of the third review (R01 - R23) are in the branches they correct (named in the table and in the
 commit messages); there is no separate fix-up branch.
 
+Branches 16 - 18 are different: they were appended after 15 instead of being folded into the branches they touch,
+because folding them in would have meant merging forward through every later branch for changes that leave no
+earlier branch broken (each of 01 - 15 still passes its own check). Where they correct an earlier branch:
+
+- 18's D9 refinement changes the min-sites rule of 10 (and the COAL engine's copy in 15). A maintainer who takes
+  10 without 18 gets dS = 0 (status `"dS_zero"`) for the rare pair whose only synonymous change falls in a class
+  of fewer than 3 sites; no real data set measured has such a pair.
+- 18's B1 and B2 fix `dNdS_clusters()` (a named vector of CDS files found no CDS) and `codon_aln(tool = "coal")`
+  (CLUSTAL files without a conservation line read as empty), both added in 15 and both only with `coalr`. 16 adds
+  their tests skipped, 18 makes them run.
+- 17 changes no result. Its first commit is the net effect of two commits of `integration/all` (5a35092, which
+  removed unused internal functions, and 329e65c, which restored them because 16's tests call them): only the
+  `stringr` calls are replaced. Each commit of 16 - 18 names the commit of `integration/all` it was taken from.
+- NEWS has a 0.6.0 section from 17 on; the `Version` field stays 0.5.0 (as on `integration/all`), to be raised at
+  release.
+
 CI evidence (GitHub Actions, all six legs green), by branch and commit, as of 2026-11-14:
 
 - `upstream-v2/01-ci-and-tests` at 0445681 (run 43493418485);
@@ -66,8 +87,18 @@ CI evidence (GitHub Actions, all six legs green), by branch and commit, as of 20
   43531506648) - both before the fixes of the deep test (O01), which were added to 04 and merged into 05 later;
 - `upstream-v2/08-annotation` at 447cb11 (run 43493414706);
 - `upstream-v2/15-coal` at e0472ce (run 43507540285);
+- `upstream-v2/15-coal` at 0bd0b00, its current tip (run 43616613722);
 - `integration/all` at 173bb3e (run 43505256122, second attempt: the macOS leg of the first was cancelled) and at
-  da9c518 (run 43563306610: the fixes of the deep test, O01 - O14).
+  da9c518 (run 43563306610: the fixes of the deep test, O01 - O14);
+- the trees of the tips of 16, 17 and 18 without this file: `integration/all` at 9dbb233 (run 43632907574; tip of
+  16), at 4e56d32 (run 43641948334; tip of 17) and `fix/d9-ol` at b3e50fa (runs 43649614517, 43649621781; tip of
+  18, the tree that `integration/all` 071f933 has). The run of the tip of 18 itself is on the Actions page; the
+  runs of the tips of 16 and 17 were cancelled to save runner time (their trees passed as listed). Locally, with
+  the external programs and `coalr`, the full test suite at each tip: 16 571 tests (3,890 expectations), 17 581
+  (4,031), 18 585 (4,084), 0 failed (skipped: no `metablastr`, no TAIR files, root user, `coalr` installed, and in
+  16 the two tests of B1 / B2); R CMD check --as-cran --no-manual on 18: 0 ERROR, 0 WARNING, 6 NOTEs (`Remotes`,
+  the time server, `-march`, an `\examples` line of `?diamond_install` over 100 characters, the `metablastr`
+  cross-reference, a 6 s example; none new since 15).
 
 The run of `upstream-v2/15-coal` at aa43248 (43563309087; the same tree as `integration/all` da9c518) failed on
 its Ubuntu release leg in `test-substitutionrate.R`: KaKs_Calculator wrote no result line for one of its methods,
