@@ -52,7 +52,7 @@ Whether a result was computed with these settings can be read from the result it
 | Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | `options(orthologr.legacy_pairwise_aln = TRUE)` |
 | Comeron's method returns `NA` for a saturated dN or dS | `options(orthologr.legacy_comeron_saturation = TRUE)` |
 | KaKs_Calculator methods return `dN = 0` (was `NA`) for a pair without nonsynonymous change, and dN = dS = 0 for identical sequences | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
-| KaKs_Calculator methods return `NA` (status `"saturated"`) where KaKs_Calculator prints a capped value (e.g. dS = 99) | `options(orthologr.legacy_kaks_saturation = TRUE)` |
+| KaKs_Calculator methods return `NA` (status `"saturated"`) where KaKs_Calculator prints a capped value (e.g. dS = 99), and `NA` with status `"failed"` where it prints `nan` | `options(orthologr.legacy_kaks_saturation = TRUE)` |
 | dN/dS tables end with the column `status` | `options(orthologr.status_column = FALSE)` |
 | A pairwise protein alignment of more than 5e8 cells (about 1.5 GB) is not computed; the pair is `"failed"` | `options(orthologr.max_aln_cells = Inf)` |
 | T-Coffee runs in its default mode | `aa_aln_params = "-mode accurate"` |
@@ -130,6 +130,10 @@ or 0 substitutions for a class of sites in the LWL family. orthologr returned th
 `"ok"`). Now they are `NA` with the status `"saturated"`, as with the COAL engine.
 S. cerevisiae / C. glabrata, YN: 3,559 of 4,164 pairs (172 of them with dS = 99, whose dN/dS of about 0.003 put
 them into the most conserved divergence stratum); E. coli K-12 / O157: 21 of 3,663; 1,000-gene example: 1 of 995.
+Where KaKs_Calculator prints `nan` (its estimate failed; MYN, S. cerevisiae / C. glabrata: 50 of 4,164 pairs) the
+pair is `NA` with the status `"failed"` and the reason in `attr(result, "failed_pairs")` (was `NaN` and
+`"saturated"`). KaKs_Calculator does not report whether the YN / MYN iteration converged; such pairs keep the
+values of its last round and the status `"ok"` (3 % of the yeast YN estimates; `kaks_tool = "coal"` reports them).
 `options(orthologr.legacy_kaks_saturation = TRUE)` returns the printed numbers.
 
 ### Not a default change: gene pairs with dS = 0
