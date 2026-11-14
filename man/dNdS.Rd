@@ -300,9 +300,13 @@ not defined: the two sequences differ at so many sites of a class that the numbe
 estimated. A pair that is saturated at synonymous sites usually still has its dN;}
 \item{\code{"no_data"}}{the pair has no codons that can be compared (the programs of \code{dNdS()} do not tell
 this case from \code{"saturated"});}
-\item{\code{"failed"}}{a step of the pipeline failed for the pair; the reason is in
-\code{attr(result, "failed_pairs")}.}
+\item{\code{"failed"}}{a step of the pipeline failed for the pair, or KaKs_Calculator printed \code{nan} for
+its estimate (see \code{\link{substitutionrate}}); the reason is in \code{attr(result, "failed_pairs")} (with
+\code{dnds_est.method = "ALL"} also the method, in the column \code{method}).}
 }
+KaKs_Calculator does not report whether the iteration of \code{"YN"} or \code{"MYN"} converged: such a pair has
+the values of the last round and status \code{"ok"} (about 3\% of the estimates of distant yeasts, all with dS
+above 1.4; see \code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)").
 At the end of a run one message gives the numbers by status and the median dS, and says so when a large part of
 the pairs is saturated or the median dS is above 1.5: the two species are then too distant for pairwise dN/dS
 (S. cerevisiae against C. glabrata: 72 \% of 4,164 pairs saturated, median dS of the others 1.9).

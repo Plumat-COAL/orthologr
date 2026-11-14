@@ -136,16 +136,16 @@ that rounds differently (e.g. with fused multiply-add on arm64) may decide an ex
 
 \strong{Iterations that do not converge (YN, MYN).} KaKs_Calculator iterates the estimates of YN and MYN for at
 most 10 rounds and prints the values of the last round without saying whether they converged. Such a pair
-cannot be told from an estimate and is returned as one: S. cerevisiae / C. glabrata 18 of 605 YN estimates
+cannot be told from an estimate and has status \code{"ok"}: S. cerevisiae / C. glabrata 18 of 605 YN estimates
 (3\%) and 7 of 352 MYN estimates, S. cerevisiae / K. lactis 17 of 597 YN estimates, E. coli K-12 / O157 3 of
 3,412 YN estimates; all of them with dS above 1.4. Treat dS above about 1.5 from KaKs_Calculator with caution.
 
 \strong{Estimates that failed (\code{nan}).} When KaKs_Calculator prints \code{nan} for Ka or Ks (MYN:
 S. cerevisiae / C. glabrata 50 of 4,164 pairs, all of them iterations that did not converge), the row is
 \code{NA} and is a failed estimate: \code{substitutionrate()} names it in \code{attr(result, "kaks_failed")}
-(method, reason), and \code{\link{dNdS}} reports the pair as failed, with the reason in
+(method, reason), and \code{\link{dNdS}} gives the pair the status \code{"failed"} with the reason in
 \code{attr(result, "failed_pairs")}. It is not saturated: the iteration failed. Up to this version the row was
-\code{NaN} (in one of the 50 pairs dN a number), like a saturated estimate;
+\code{NaN} (in one of the 50 pairs dN a number) with status \code{"saturated"};
 \code{options(orthologr.legacy_kaks_saturation = TRUE)} returns it as printed.
 }
 

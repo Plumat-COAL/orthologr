@@ -28,7 +28,7 @@ The options (each can also be set on its own; see \code{\link{orthologr_options}
 \code{orthologr.legacy_pairwise_aln = TRUE} \tab pairwise protein alignments without substitution matrix, cut to the aligned range, stop codon aligned \cr
 \code{orthologr.legacy_comeron_saturation = TRUE} \tab Comeron's method returns a finite value for saturated pairs \cr
 \code{orthologr.legacy_kaks_zero_dn = TRUE} \tab KaKs_Calculator methods: \code{NA} for a dN or dS that is 0 (pairs without nonsynonymous or without any change) \cr
-\code{orthologr.legacy_kaks_saturation = TRUE} \tab KaKs_Calculator methods: its capped values (e.g. dS = 99) for saturated estimates \cr
+\code{orthologr.legacy_kaks_saturation = TRUE} \tab KaKs_Calculator methods: its capped values (e.g. dS = 99) for saturated estimates, and \code{nan} as \code{NaN} (status \code{"saturated"}, not \code{"failed"}) \cr
 \code{orthologr.max_aln_cells = Inf} \tab pairwise alignments of any size (default: pairs above 5e8 cells are not aligned) \cr
 \code{orthologr.dS_zero = "drop"} \tab \code{filter_dNdS()} / \code{divergence_stratigraphy()} leave pairs with dS = 0 out (also the default of 0.5.0) \cr
 \code{orthologr.status_column = FALSE} \tab the dN/dS tables have no column \code{status}
