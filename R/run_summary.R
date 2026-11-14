@@ -229,6 +229,7 @@ orthologr_options_in_force <- function() {
                 orthologr.legacy_pairwise_aln       = FALSE,
                 orthologr.legacy_comeron_saturation = FALSE,
                 orthologr.legacy_kaks_zero_dn       = FALSE,
+                orthologr.legacy_kaks_saturation    = FALSE,
                 orthologr.dS_zero                   = "drop",
                 orthologr.ambiguous_cds             = "drop",
                 orthologr.status_column             = TRUE,
@@ -495,6 +496,7 @@ orthologr_legacy_values <- function() {
                 orthologr.legacy_pairwise_aln       = TRUE,
                 orthologr.legacy_comeron_saturation = TRUE,
                 orthologr.legacy_kaks_zero_dn       = TRUE,
+                orthologr.legacy_kaks_saturation    = TRUE,
                 orthologr.dS_zero                   = "drop",
                 orthologr.status_column             = FALSE
         )
@@ -516,8 +518,8 @@ orthologr_option <- function(name, default = NULL) {
 
 #' @title The settings that reproduce results of orthologr 0.4.3
 #' @description Version 0.5.0 changed defaults that change results (how best hits are chosen, how proteins are
-#' aligned pairwise, what is returned for saturated gene pairs, the value of dN for pairs without nonsynonymous
-#' change) and added a column \code{status} to the dN/dS tables. \code{orthologr_legacy_options()} sets all
+#' aligned pairwise, what is returned for saturated gene pairs, the value of dN and dS for pairs without
+#' nonsynonymous or without any change) and added a column \code{status} to the dN/dS tables. \code{orthologr_legacy_options()} sets all
 #' options that restore the behaviour of 0.4.3 at once, so that an analysis made with 0.4.3 can be repeated.
 #' @param set \code{TRUE} (default): the options are set for the session. \code{FALSE}: nothing is set; the list
 #' of options is returned.
@@ -526,7 +528,8 @@ orthologr_option <- function(name, default = NULL) {
 #' \code{orthologr.best_hit_rule = "evalue"} \tab best hits by e-value, then alignment length \cr
 #' \code{orthologr.legacy_pairwise_aln = TRUE} \tab pairwise protein alignments without substitution matrix, cut to the aligned range, stop codon aligned \cr
 #' \code{orthologr.legacy_comeron_saturation = TRUE} \tab Comeron's method returns a finite value for saturated pairs \cr
-#' \code{orthologr.legacy_kaks_zero_dn = TRUE} \tab KaKs_Calculator methods: \code{dN = NA} for a pair without nonsynonymous change \cr
+#' \code{orthologr.legacy_kaks_zero_dn = TRUE} \tab KaKs_Calculator methods: \code{NA} for a dN or dS that is 0 (pairs without nonsynonymous or without any change) \cr
+#' \code{orthologr.legacy_kaks_saturation = TRUE} \tab KaKs_Calculator methods: its capped values (e.g. dS = 99) for saturated estimates \cr
 #' \code{orthologr.dS_zero = "drop"} \tab \code{filter_dNdS()} / \code{divergence_stratigraphy()} leave pairs with dS = 0 out (also the default of 0.5.0) \cr
 #' \code{orthologr.status_column = FALSE} \tab the dN/dS tables have no column \code{status}
 #' }
