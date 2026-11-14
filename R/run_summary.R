@@ -332,6 +332,7 @@ orthologr_options_in_force <- function() {
                 orthologr.legacy_kaks_zero_dn       = FALSE,
                 orthologr.legacy_kaks_saturation    = FALSE,
                 orthologr.max_aln_cells             = 5e8,
+                orthologr.large_pair_aligner        = "coal",
                 orthologr.dS_zero                   = "drop",
                 orthologr.ambiguous_cds             = "keep",
                 orthologr.status_column             = TRUE,

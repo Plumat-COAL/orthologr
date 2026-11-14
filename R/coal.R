@@ -348,13 +348,17 @@ coal_codon_aln_file <- function(file_aln, file_nuc, file.out, format = "fasta", 
         }
         cds <- read_fasta_strings(file_nuc)
         # PAL2NAL pairs the two files by position; so does orthologr (both files hold the pair in the same order)
+        # (a failed codon alignment has the class of PAL2NAL's, orthologr_error_alignment_failed, so that callers
+        # can handle both tools alike; it was a plain error)
         if (length(rows) != length(cds))
-                stop("COAL: the protein alignment holds ", length(rows), " sequences and the CDS file ", length(cds),
-                     " for ", context, ".", call. = FALSE)
+                orthologr_abort(class = c("alignment_failed", "tool_failed"),
+                                "COAL: the protein alignment holds ", length(rows), " sequences and the CDS file ",
+                                length(cds), " for ", context, ".", call. = FALSE)
         codon <- tryCatch(
                 coalr::coal_codon_align(unname(rows), unname(cds)),
-                error = function(e) stop("COAL could not build the codon alignment for ", context, ": ",
-                                         conditionMessage(e), call. = FALSE)
+                error = function(e) orthologr_abort(class = c("alignment_failed", "tool_failed"),
+                                                    "COAL could not build the codon alignment for ", context, ": ",
+                                                    conditionMessage(e), call. = FALSE)
         )
         names(codon) <- names(cds)
         write_alignment(codon, tmp.out, format = format)
