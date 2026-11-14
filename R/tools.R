@@ -111,6 +111,8 @@ run_tool <- function(program, args = list(), path = NULL, stdout = NULL, tool = 
                 on.exit(Sys.setenv(PATH = old_path), add = TRUE)
                 Sys.setenv(PATH = paste(path, old_path, sep = .Platform$path.sep))
         }
+        if (is.element(program, c("diamond", "blastp", "makeblastdb")))
+                log_command(cmd, args)
         err_file <- tempfile("orthologr_stderr_")
         out_file <- if (is.null(stdout)) tempfile("orthologr_stdout_") else stdout
         on.exit(unlink(c(err_file, if (is.null(stdout)) out_file)), add = TRUE)

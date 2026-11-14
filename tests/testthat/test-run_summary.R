@@ -396,3 +396,41 @@ test_that("dNdS(dnds_est.method = 'kaks_calc') is an error before the search; 'A
                             message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
         expect_true(any(grepl("dNdS(): 6 rows (2 gene pairs x 3 methods) - 6 with dN/dS", msgs, fixed = TRUE)))
 })
+
+test_that("the record names KaKs_Calculator's version, the line after 'Program: KaKs_Calculator Toolbox'", {
+        skip_on_os("windows")
+        dir <- tempfile("kaks_")
+        dir.create(dir)
+        on.exit(unlink(dir, recursive = TRUE), add = TRUE)
+        exe <- file.path(dir, "KaKs_Calculator")
+        writeLines(c("#!/bin/sh", "echo", "echo '*********'", "echo '  Program: KaKs_Calculator Toolbox'",
+                     "echo '  Version: 2.0, June. 2009'", "echo '  Description: A toolbox'"), exe)
+        Sys.chmod(exe, "0755")
+        expect_identical(orthologr:::kaks_version_line(dir), "2.0, June. 2009")
+        expect_identical(orthologr:::run_tool_versions(kaks = TRUE, kaks_calc_path = dir)$KaKs_Calculator,
+                         "2.0, June. 2009")
+        # a program that prints no version line: its program line
+        dir2 <- tempfile("kaks_")
+        dir.create(dir2)
+        on.exit(unlink(dir2, recursive = TRUE), add = TRUE)
+        writeLines(c("#!/bin/sh", "echo '  Program: KaKs_Calculator Toolbox'"), file.path(dir2, "KaKs_Calculator"))
+        Sys.chmod(file.path(dir2, "KaKs_Calculator"), "0755")
+        expect_identical(orthologr:::kaks_version_line(dir2), "Program: KaKs_Calculator Toolbox")
+})
+
+test_that("the record has the user's call and the search commands of the run", {
+        # the commands logged by run_tool() after the arguments were taken
+        f <- function(a = 1) {
+                args <- orthologr:::run_arguments()
+                orthologr:::log_command("diamond", list("blastp", "--max-target-seqs", 10000))
+                orthologr:::run_record("f", args, "orthologr", list(), character(0))
+        }
+        orthologr:::log_command("diamond", list("makedb"))   # before the run: not in its record
+        rec <- f()
+        expect_identical(length(rec$commands), 1L)
+        expect_match(rec$commands, "diamond 'blastp' '--max-target-seqs' '10000'", fixed = TRUE)
+        expect_null(attr(rec$arguments, "command_mark"))
+        expect_null(rec$called_as)   # not called from a function of the package
+        expect_false(is.element("engine_settings", names(rec)))
+        expect_true(is.element("status_counts", names(rec)))
+})

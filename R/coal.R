@@ -98,6 +98,49 @@ coal_flavour_args <- function(fun) {
         args[intersect(names(args), names(formals(fun)))]
 }
 
+# The matrix to give COAL: with aa_aln_scoring = "pwalign" and BLOSUM62, pwalign's copy of BLOSUM62 (it scores B, Z
+# and X otherwise than NCBI's current file, which COAL's "BLOSUM62" is) when the installed coalr has it, so that the
+# protein alignments are those of pwalign::pairwiseAlignment() also for proteins with X.
+coal_matrix_arg <- function(aa_sub_matrix, aa_aln_scoring) {
+        if (identical(aa_aln_scoring, "pwalign") && identical(aa_sub_matrix, "BLOSUM62") &&
+            is.element("BLOSUM62-PWALIGN", tryCatch(coalr::coal_info()$matrices, error = function(e) character(0))))
+                return("BLOSUM62-PWALIGN")
+        aa_sub_matrix
+}
+
+# What orthologr gives COAL, for the record of the run ("engine_settings"), and the `coal pipeline` command line
+# that computes the same pairs with the same settings (C05 of the integration pass; ?dNdS_coal, "The same run with
+# the COAL command line").
+#   fun : the coalr function;  args : the arguments orthologr passes (without the sequences)
+coal_engine_settings <- function(fun_name, fun, args, mode = c("pairs", "clusters")) {
+        mode <- match.arg(mode)
+        args <- c(args, coal_flavour_args(fun))
+        has <- names(formals(fun))
+        tie <- if (is.element("tie_break", has)) {
+                if (identical(args$preset, "pwalign")) "pwalign" else "leftmost"
+        } else "leftmost (coalr without tie_break)"
+        matrix <- args$matrix
+        if (is.null(matrix))
+                matrix <- if (identical(args$preset, "pwalign") && is.element("tie_break", has)) "BLOSUM62-PWALIGN" else "BLOSUM62"
+        flags <- c(paste("-m", args$methods), "--preset", args$preset, "--matrix", matrix,
+                   if (is.element("tie_break", has)) c("--tie-break", tie),
+                   if (!is.null(args$comeron_flavour)) c("--comeron-flavour", args$comeron_flavour),
+                   if (!is.null(args$li_flavour)) c("--li-flavour", args$li_flavour),
+                   if (!is.null(args$terminal_stops)) c("--terminal-stops", args$terminal_stops))
+        cmd <- if (mode == "pairs") {
+                c("coal pipeline pairs --query QUERY_CDS --subject SUBJECT_CDS --pairs PAIRS.tsv", flags,
+                  "-o OUT_DIR")
+        } else {
+                c("coal pipeline clusters --cds CDS --clusters CLUSTERS.tsv", flags, "-o OUT_DIR")
+        }
+        list(coalr_function = fun_name,
+             coalr = package_version_text("coalr"),
+             preset = args$preset, matrix = matrix, tie_break = tie,
+             comeron_flavour = args$comeron_flavour, li_flavour = args$li_flavour,
+             terminal_stops = args$terminal_stops,
+             coal_command = paste(cmd, collapse = " "))
+}
+
 # options(orthologr.legacy_pairwise_aln = TRUE) - set on its own, by orthologr_legacy_options() or by
 # options(orthologr.legacy = TRUE) - asks for the pairwise protein alignments of 0.4.3 (no substitution matrix, cut
 # to the aligned range). COAL aligns itself and cannot make them, so the numbers are not those of 0.4.3: say so
@@ -425,8 +468,11 @@ cds_vector <- function(cds_dt) {
 #' Comeron's saturation rule (\code{NA} where a correction is undefined in a class that has sites; finite values
 #' with \code{options(orthologr.legacy_comeron_saturation = TRUE)}; see \code{\link{substitutionrate}}), rounding
 #' to the 4 significant digits gestimator writes (Comeron only), and \code{NA} for negative or saturated values of
-#' Li's method. \code{attr(result, "coal")} holds COAL's unrounded values and notes. Differences between the
-#' engines that remain come from the protein alignment (co-optimal alignments; see NEWS).
+#' Li's method. \code{attr(result, "coal")} holds COAL's unrounded values and notes. With
+#' \code{aa_aln_scoring = "pwalign"} and a \pkg{coalr} that has COAL's pwalign tie-break (\code{tie_break}),
+#' COAL's protein alignments are those of \code{pwalign::pairwiseAlignment()}, row for row, so both engines
+#' compute the same codon alignments (see NEWS for the measured agreement); with an older \pkg{coalr} they may
+#' place a gap differently where several alignments score the same.
 #' \item A dN or dS of exactly 0 is returned as 0 (KaKs_Calculator prints values below 1e-6 as \code{NA}); a
 #' saturated estimate is \code{NA} (KaKs_Calculator prints a capped value).
 #' \item Codon columns with a gap, an ambiguous base or an internal stop codon are skipped; a terminal stop codon is
@@ -439,6 +485,30 @@ cds_vector <- function(cds_dt) {
 #'
 #' This function needs the R package \pkg{coalr}:
 #' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+#'
+#' \strong{The same run with the COAL command line, and the other way.} The record of the run,
+#' \code{attr(result, "orthologr_run")}, has in \code{engine_settings} what orthologr gave COAL (\code{preset},
+#' \code{matrix}, \code{tie_break}, \code{comeron_flavour}, \code{li_flavour}, \code{terminal_stops}) and in
+#' \code{engine_settings$coal_command} the \code{coal pipeline pairs} command line with these settings; its
+#' \code{commands} are the DIAMOND (or BLAST+) searches of the run. With the gene pairs of the result as
+#' \code{--pairs}, the command line computes the same pairs with the same alignments:
+#' \preformatted{
+#' res <- dNdS_coal("query.fa", "subject.fa", dnds_est.method = "YN")
+#' pairs <- unique(as.data.frame(res)[, c("query_id", "subject_id")])
+#' write.table(pairs, "pairs.tsv", sep = "\\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+#' attr(res, "orthologr_run")$engine_settings$coal_command
+#' # coal pipeline pairs --query QUERY_CDS --subject SUBJECT_CDS --pairs PAIRS.tsv -m YN --preset pwalign
+#' #   --matrix BLOSUM62-PWALIGN --tie-break pwalign --comeron-flavour gestimator --li-flavour seqinr
+#' #   --terminal-stops drop -o OUT_DIR
+#' }
+#' Its \code{dnds.tsv} holds COAL's own values, which \code{attr(result, "coal")} keeps too; orthologr's
+#' result applies its rules to Comeron and Li (above). The pairs must come from the result: COAL's own search
+#' takes DIAMOND's first target as the best hit, orthologr the hit with the highest bit score, and orthologr
+#' leaves out coding sequences with ambiguous bases (\code{options(orthologr.ambiguous_cds)}), which COAL keeps.
+#' The other way, a \code{coal pipeline pairs} run in R: \code{coalr::coal_dnds_pairs()} with the run's
+#' \code{orthologs.tsv} as \code{pairs} and the run's options (\code{report.json}, \code{parameters}) as arguments of
+#' the same names; a \code{coal pipeline clusters} run: \code{\link{dNdS_clusters}} with its \code{clusters.tsv} as
+#' \code{clusters}.
 #' @author Chloe Newton
 #' @return A tibble with the columns of \code{\link{dNdS}}: \code{query_id}, \code{subject_id}, \code{dN}, \code{dS},
 #' \code{dNdS}, \code{method} and the columns of the hit table.
@@ -549,7 +619,7 @@ dNdS_coal <- function(query_file,
                 pairs       = pairs,
                 methods     = dnds_est.method,
                 threads     = comp_cores,
-                matrix      = aa_sub_matrix,
+                matrix      = coal_matrix_arg(aa_sub_matrix, aa_aln_scoring),
                 preset      = aa_aln_scoring
         ), coal_flavour_args(coalr::coal_dnds_pairs)))
         # (the attribute "coal" keeps COAL's own values; the result holds them as orthologr's methods define them)
@@ -603,7 +673,10 @@ dNdS_coal <- function(query_file,
                 not_converged = sum(grepl("not converge|did not converge|no convergence", note, ignore.case = TRUE)),
                 record = list(fun = "dNdS_coal", args = run_args, engine = "coal",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path), coal_versions()),
-                              files = c(query_file, subject_file)),
+                              files = c(query_file, subject_file),
+                              settings = coal_engine_settings("coal_dnds_pairs", coalr::coal_dnds_pairs, list(
+                                      methods = dnds_est.method, preset = aa_aln_scoring,
+                                      matrix = coal_matrix_arg(aa_sub_matrix, aa_aln_scoring)))),
                 print_citation = print_citation, extra_attr = list(coal = coal_raw)
         )
         isoform_result_note(res, isoforms_query)
@@ -805,7 +878,9 @@ dNdS_clusters <- function(cds_file,
                 tools = c(if (is.null(run_args$clusters)) run_tool_versions(aligner = "diamond", aligner_path = path),
                           if (aa_aln_tool != "pairwise") run_tool_versions(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path),
                           coal_versions()),
-                files = cds_file, status = status)
+                files = cds_file, status = status,
+                settings = coal_engine_settings("coal_dnds_clusters", coalr::coal_dnds_clusters, list(
+                        methods = dnds_est.method, preset = aa_aln_scoring), mode = "clusters"))
         out
 }
 
