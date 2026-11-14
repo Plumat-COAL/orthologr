@@ -171,9 +171,10 @@ test_that("dNdS() takes aa_sub_matrix, and the codon alignments no longer hold t
                                            quiet = TRUE, print_citation = FALSE, aa_sub_matrix = 1)))
 })
 
-test_that("pairwise_aln() does not align pairs above options(orthologr.max_aln_cells); dNdS() reports them as failed (O12)", {
+test_that("pairwise_aln() does not align pairs above options(orthologr.max_aln_cells) without coalr; dNdS() reports them as failed (O12)", {
         f <- system.file("seqs/aa_seqs.fasta", package = "orthologr")
-        rlang::local_options(orthologr.max_aln_cells = 100)
+        # (without COAL: options(orthologr.coal_backend = "none") hides coalr; the COAL route is the next test)
+        rlang::local_options(orthologr.max_aln_cells = 100, orthologr.coal_backend = "none")
         e <- tryCatch(pairwise_aln(f, quiet = TRUE), error = function(e) e)
         expect_s3_class(e, "orthologr_error_alignment_too_large")
         expect_match(conditionMessage(e), "orthologr.max_aln_cells = Inf")
@@ -186,6 +187,42 @@ test_that("pairwise_aln() does not align pairs above options(orthologr.max_aln_c
         expect_identical(max_aln_cells(), Inf)
         rlang::local_options(orthologr.legacy = NULL)
         expect_identical(max_aln_cells(), 5e8)
+})
+
+test_that("with coalr, a pair above options(orthologr.max_aln_cells) is aligned by COAL's pwalign preset: pwalign's rows (D3)", {
+        skip_if_not_installed("coalr")
+        f <- system.file("seqs/aa_seqs.fasta", package = "orthologr")
+        out <- file.path(orthologr_tmpdir(), "_alignment", "pairwise_aln", "NW_AA.aln")
+        rows <- function() { x <- Biostrings::readAAStringSet(out); stats::setNames(as.character(x), names(x)) }
+        # pwalign's alignment, no limit
+        rlang::local_options(orthologr.max_aln_cells = Inf)
+        pairwise_aln(f, quiet = TRUE)
+        pw <- rows()
+        unlink(out)
+        # above the limit: COAL, with a message that names the pair, and the same rows
+        rlang::local_options(orthologr.max_aln_cells = 100)
+        expect_message(pairwise_aln(f, quiet = TRUE), "is above options\\(orthologr.max_aln_cells\\).*aligned with COAL")
+        expect_identical(rows(), pw)
+        # options(orthologr.large_pair_aligner = "none"), another matrix, or get_aln = TRUE: not aligned (the error)
+        rlang::local_options(orthologr.large_pair_aligner = "none")
+        expect_error(pairwise_aln(f, quiet = TRUE), class = "orthologr_error_alignment_too_large")
+        rlang::local_options(orthologr.large_pair_aligner = NULL)
+        expect_error(pairwise_aln(f, quiet = TRUE, aa_sub_matrix = "BLOSUM45"), class = "orthologr_error_alignment_too_large")
+        expect_error(pairwise_aln(f, quiet = TRUE, get_aln = TRUE), class = "orthologr_error_alignment_too_large")
+        rlang::local_options(orthologr.large_pair_aligner = "sometimes")
+        expect_error(pairwise_aln(f, quiet = TRUE), class = "orthologr_error_bad_argument")
+})
+
+test_that("with coalr, dNdS() computes a pair above options(orthologr.max_aln_cells) with the values of an unlimited run (D3)", {
+        skip_if_not_installed("coalr")
+        skip_if_not(diamond_available && perl_available, "DIAMOND or perl is not installed")
+        rlang::local_options(orthologr.max_aln_cells = Inf)
+        ref <- suppressMessages(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE))
+        rlang::local_options(orthologr.max_aln_cells = 3e5)       # a few of the 20 pairs are above it
+        msgs <- testthat::capture_messages(res <- dNdS(thal_cds(), lyra_cds(), print_citation = FALSE))
+        expect_gt(sum(grepl("aligned with COAL", msgs)), 0)
+        expect_identical(res$dNdS, ref$dNdS)
+        expect_true(all(res$status == ref$status))
 })
 
 test_that("an invalid options(orthologr.max_aln_cells) is an error before the search (V04)", {
@@ -204,9 +241,10 @@ test_that("an invalid options(orthologr.max_aln_cells) is an error before the se
         expect_identical(max_aln_cells(), Inf)
 })
 
-test_that("dNdS(): a gene pair above options(orthologr.max_aln_cells) is a failed pair with the reason (O12)", {
+test_that("dNdS(): without COAL a gene pair above options(orthologr.max_aln_cells) is a failed pair with the reason (O12)", {
         skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
-        rlang::local_options(orthologr.max_aln_cells = 1e5)
+        # (options(orthologr.large_pair_aligner = "none"): as without coalr - with it, the next test)
+        rlang::local_options(orthologr.max_aln_cells = 1e5, orthologr.large_pair_aligner = "none")
         expect_warning(res <- suppressMessages(dNdS(thal_cds(), lyra_cds(), quiet = TRUE, print_citation = FALSE)),
                        class = "orthologr_warning_failed_pairs")
         failed <- attr(res, "failed_pairs")

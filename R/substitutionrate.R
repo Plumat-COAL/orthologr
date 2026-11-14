@@ -207,7 +207,8 @@
 #' codon 2 and codon 2 - intermediate 2 instead, with which the estimate depends on which sequence is first
 #' (swapping the two sequences of 300 random pairs changed Ka in 279 of them). Since 0.5.0 the two pathways are
 #' counted (\code{options(orthologr.comeron_twosubs = "comeron")}, the default); \code{"libsequence"} gives the
-#' numbers of 0.4.3 (set by \code{\link{orthologr_legacy_options}}).
+#' numbers of 0.4.3 (set by \code{\link{orthologr_legacy_options}}). The COAL engine
+#' (\code{engine = "coal"}, \code{kaks_tool = "coal"}) follows both options.
 #' Effect on dS (same alignments): 1,000-gene example median 0 \%, 95th percentile 2.9 \%; human / mouse median
 #' 1.0 \%, 95th percentile 5.0 \%.
 #' 

@@ -73,10 +73,11 @@ test_that("every method that is.dnds_est_method() accepts gives a table in subst
         }
 })
 
+
 # Comeron, decisions D8 / D9 of 2026-11-14: codons that differ at two positions are counted along Comeron's two
 # pathways by default (libsequence's branches made the estimate depend on which sequence is first;
 # options(orthologr.comeron_twosubs = "libsequence") keeps them), and a site class with fewer than
-# options(orthologr.comeron_min_sites) (3) sites cannot make dN or dS NA.
+# options(orthologr.comeron_min_sites) (3) sites cannot make dN or dS NA. The COAL engine gets the same settings.
 comeron_random_pairs <- function(n, codons, seed) {
         set.seed(seed)
         bases <- c("T", "C", "A", "G")
@@ -115,7 +116,23 @@ test_that("Comeron: the estimate does not depend on which sequence is first; lib
         expect_gt(sum(lab[, "dN"] != lba[, "dN"]), 20)
         expect_false(identical(lab, ab))
         options(orthologr.comeron_twosubs = "both")
-        expect_error(comeron_native(p[1, 1], p[2, 1]), "comeron_twosubs")
+        expect_error(comeron_native(p[1, 1], p[2, 1]), class = "orthologr_error_bad_argument")
+})
+
+test_that("Comeron: the native engine and COAL agree to the printed digits with both pathway orders (D8)", {
+        skip_if_not_installed("coalr")
+        skip_if_not(is.element("comeron_twosubs", names(formals(coalr::coal_kaks))), "coalr predates comeron_twosubs")
+        p <- comeron_random_pairs(40, 150, 7)
+        for (ts in c("comeron", "libsequence")) {
+                old <- options(orthologr.comeron_twosubs = ts)
+                nat <- t(apply(p, 2, function(x) comeron_native(x[1], x[2])))
+                co <- do.call(coalr::coal_kaks, c(list(p[1, ], p[2, ], method = "Comeron"),
+                                                  orthologr:::coal_flavour_args(coalr::coal_kaks, "Comeron")))
+                co <- orthologr:::coal_orthologr_values(co)
+                expect_identical(unname(nat[, "dN"]), co$dN, info = ts)
+                expect_identical(unname(nat[, "dS"]), co$dS, info = ts)
+                options(old)
+        }
 })
 
 test_that("Comeron: a site class with fewer than 3 sites cannot make dN NA; options(orthologr.comeron_min_sites = 0) restores it (D9)", {
@@ -131,5 +148,15 @@ test_that("Comeron: a site class with fewer than 3 sites cannot make dN NA; opti
         v3 <- t(apply(p, 2, function(x) comeron_native(x[1], x[2])))
         expect_identical(v3[!is.na(v0)], v0[!is.na(v0)])
         options(orthologr.comeron_min_sites = -1)
-        expect_error(comeron_native("GCT", "GAT"), "comeron_min_sites")
+        expect_error(comeron_native("GCT", "GAT"), class = "orthologr_error_bad_argument")
+        skip_if_not_installed("coalr")
+        skip_if_not(is.element("comeron_min_sites", names(formals(coalr::coal_kaks))), "coalr predates comeron_min_sites")
+        # the COAL engine: the same rule (its note for such a class is not "correction undefined")
+        for (ms in c(0, 3)) {
+                options(orthologr.comeron_min_sites = ms)
+                co <- do.call(coalr::coal_kaks, c(list("GCT", "GAT", method = "Comeron"),
+                                                  orthologr:::coal_flavour_args(coalr::coal_kaks, "Comeron")))
+                co <- orthologr:::coal_orthologr_values(co)
+                expect_identical(co$dN, comeron_native("GCT", "GAT")[["dN"]], info = ms)
+        }
 })

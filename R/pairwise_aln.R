@@ -49,9 +49,15 @@
 #' \strong{Memory.} \code{\link[pwalign]{pairwiseAlignment}} keeps the whole dynamic-programming matrix: about 3 bytes
 #' per cell, i.e. per pair of residues (two proteins of 10,000 residues: 0.3 GB; a titin pair of 36,000 x 35,400
 #' residues: 3.9 GB). An alignment of more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
-#' 1.5 GB) is not computed: \code{pairwise_aln()} stops with an error of class
-#' \code{orthologr_error_alignment_too_large}, and \code{\link{dNdS}} returns the pair with status \code{"failed"}.
-#' \code{options(orthologr.max_aln_cells = Inf)} removes the limit (see \code{\link{orthologr_options}}).
+#' 1.5 GB) is not computed by \pkg{pwalign}. With the R package \pkg{coalr} installed (and the default
+#' \code{aa_sub_matrix = "BLOSUM62"}) such a pair is aligned by COAL's aligner with its \code{"pwalign"} preset instead
+#' (a message names the pair), which returns the alignment \pkg{pwalign} would return - the same scoring and
+#' tie-break; titin: identical rows and score - in a fraction of the memory (titin, 35,991 x 35,390 residues: 424 MB
+#' for the R process and 49 s, against 3.9 GB and 18 s with \pkg{pwalign}). Without
+#' \pkg{coalr} (or with \code{options(orthologr.large_pair_aligner = "none")}, or with \code{get_aln = TRUE})
+#' \code{pairwise_aln()} stops with an error of class \code{orthologr_error_alignment_too_large}, and \code{\link{dNdS}}
+#' returns the pair with status \code{"failed"}. \code{options(orthologr.max_aln_cells = Inf)} removes the limit:
+#' \pkg{pwalign} aligns every pair (see \code{\link{orthologr_options}}).
 #' 
 #' @examples
 #' # Needleman-Wunsch alignment of the two proteins of a file
@@ -169,7 +175,18 @@ pairwise_aln <- function(file,
                 # The dynamic programming of pwalign::pairwiseAlignment() needs about 3 bytes per cell of the
                 # n x m matrix (measured: 1e8 cells 0.31 GB; a titin pair of 36,000 x 35,400 residues 3.9 GB), with
                 # comp_cores > 1 once per running pair. Above options(orthologr.max_aln_cells) the pair is not
-                # aligned (an error, which dNdS() reports as a failed pair).
+                # aligned (an error, which dNdS() reports as a failed pair) - unless the R package coalr is installed:
+                # then COAL's aligner with its pwalign preset aligns it, which returns pwalign's alignment (same
+                # scoring and tie-break; titin: identical rows and score) in a ninth of the memory.
+                if (seq_type == "protein" && !legacy && !get_aln && aln_too_large(length(seqs[[1]]), length(seqs[[2]]))) {
+                        rows <- large_pair_coal_rows(seqs, names, aa_sub_matrix)
+                        if (!is.null(rows)) {
+                                seqinr::write.fasta(sequences = as.list(rows), names = names, file.out = file.out)
+                                if (!quiet)
+                                        message("File successfully written to ", file.out, ".")
+                                return(invisible(NULL))
+                        }
+                }
                 check_aln_cells(length(seqs[[1]]), length(seqs[[2]]))
                 
                 # align
@@ -267,6 +284,46 @@ max_aln_cells <- function() {
         v
 }
 
+# Has the alignment of two sequences of n and m residues more cells than max_aln_cells() allows?
+aln_too_large <- function(n, m) {
+        limit <- max_aln_cells()
+        is.finite(limit) && as.numeric(n) * as.numeric(m) > limit
+}
+
+# A pair above options(orthologr.max_aln_cells) aligned with COAL (decision D3 of 2026-11-14): the two full-length
+# rows of the alignment coalr::coal_align_pairs(preset = "pwalign") returns - pwalign's own scoring (BLOSUM62 as
+# pwalign has it, gap opening 10 + extension 4) and tie-break, so the rows are those pwalign::pairwiseAlignment()
+# would return (titin, 35,991 x 35,390 residues: identical rows and score 166,805; through coalr 49 s and 424 MB for
+# the whole R process, pwalign 18 s and 3.9 GB: slower, in a ninth of the memory). NULL when that is not possible - coalr is not installed (or options(orthologr.coal_backend) is
+# "none" / "binary"), the matrix is not BLOSUM62 (the only one checked to be pwalign's), COAL fails, or
+# options(orthologr.large_pair_aligner = "none") - and then the pair is not aligned (the error of check_aln_cells()).
+large_pair_coal_rows <- function(seqs, names, aa_sub_matrix) {
+        aligner <- orthologr_option("orthologr.large_pair_aligner", "coal")
+        if (!is.character(aligner) || length(aligner) != 1 || !is.element(aligner, c("coal", "none")))
+                orthologr_abort(class = "bad_argument", "options(orthologr.large_pair_aligner = ) must be \"coal\" or \"none\".",
+                                call. = FALSE)
+        backend <- getOption("orthologr.coal_backend", NULL)
+        if (aligner == "none" || isTRUE(backend %in% c("none", "binary")) || !identical(aa_sub_matrix, "BLOSUM62") ||
+            !requireNamespace("coalr", quietly = TRUE))
+                return(NULL)
+        matrix <- coal_matrix_arg(aa_sub_matrix, "pwalign")
+        if (!identical(matrix, "BLOSUM62-PWALIGN"))
+                return(NULL)
+        a <- as.character(seqs[[1]])
+        b <- as.character(seqs[[2]])
+        cells <- as.numeric(nchar(a)) * as.numeric(nchar(b))
+        message("The pair '", names[1], "' / '", names[2], "' (", nchar(a), " x ", nchar(b), " residues, ",
+                format(cells, big.mark = ",", scientific = FALSE), " cells) is above options(orthologr.max_aln_cells) = ",
+                format(max_aln_cells(), big.mark = ",", scientific = FALSE), ": aligned with COAL (coalr, preset ",
+                "\"pwalign\"), which returns pwalign's alignment in a fraction of the memory.")
+        r <- tryCatch(coalr::coal_align_pairs(stats::setNames(a, names[1]), stats::setNames(b, names[2]),
+                                              preset = "pwalign", matrix = matrix, threads = 1L),
+                      error = function(e) NULL)
+        if (is.null(r) || nrow(r) != 1 || !is.na(r$error[1]) || is.na(r$aligned_a[1]))
+                return(NULL)
+        c(r$aligned_a[1], r$aligned_b[1])
+}
+
 # Stop when the alignment of two sequences of n and m residues has more cells than max_aln_cells() allows.
 check_aln_cells <- function(n, m) {
         limit <- max_aln_cells()
@@ -278,7 +335,9 @@ check_aln_cells <- function(n, m) {
                      signif(3 * cells / 1e9, 2), " GB of memory; options(orthologr.max_aln_cells) is ",
                      format(limit, big.mark = ",", scientific = FALSE), ". The pair is not aligned; ",
                      "options(orthologr.max_aln_cells = Inf) aligns it anyway (about 3 bytes per cell, with comp_cores > 1 for every pair aligned at the same time); ",
-                     "dNdS(engine = \"coal\") aligns such pairs in much less memory (titin, 36,000 x 35,000 residues: about 1.1 GB and 25 s).",
+                     "with the R package coalr installed such pairs are aligned by COAL with pwalign's scoring (the same alignment ",
+                     "in a fraction of the memory: titin, 36,000 x 35,000 residues, 0.4 GB), and dNdS(engine = \"coal\") ",
+                     "aligns every pair with COAL.",
                      call. = FALSE)
         invisible(cells)
 }

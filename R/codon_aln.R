@@ -137,6 +137,17 @@ codon_aln <- function(file_aln,
                 tmp.out <- tempfile("aln_", tmpdir = dirname(file.out), fileext = ".tmp")
                 on.exit(unlink(tmp.out), add = TRUE)
                 
+                # Selenocysteine (U) in a protein: PAL2NAL v14 has no codon for it and fails ("inconsistency
+                # between pep and nuc"), COAL accepts any codon there. PAL2NAL gets a copy of the protein alignment
+                # with U as X, which it also matches with any codon, so that both tools give the same codon
+                # alignment (decision D4 of 2026-11-14: identical output in all formats). Inside dNdS() the proteins
+                # are orthologr's own translations, which never hold U.
+                sec_aln <- pal2nal_selenocysteine_input(file_aln)
+                if (!identical(sec_aln, file_aln)) {
+                        on.exit(unlink(sec_aln), add = TRUE)
+                        file_aln <- sec_aln
+                }
+                
                 # PAL2NAL reports a protein that does not fit its CDS on stderr, exits with status 0 and writes
                 # nothing: both the exit status and the output are checked.
                 run_tool(
@@ -201,4 +212,33 @@ default_codon_aln_tool <- function(codon_aln_tool = NULL) {
         if (!identical(getOption("orthologr.coal_backend", NULL), "none") && requireNamespace("coalr", quietly = TRUE))
                 return("coal")
         "pal2nal"
+}
+
+
+# The protein alignment for PAL2NAL: `file_aln` itself, or - when a protein row holds U (selenocysteine) - a copy in
+# orthologr's working folder with U as X (u as x), the letter PAL2NAL matches with any codon, as COAL does with U.
+# FASTA (header lines start with '>') and CLUSTAL (the sequence is the second field of a row; the first line, blank
+# lines and conservation lines are kept as they are) are handled; names are never changed.
+pal2nal_selenocysteine_input <- function(file_aln) {
+        x <- readLines(file_aln, warn = FALSE)
+        first <- x[nzchar(trimws(x))][1]
+        clustal <- !is.na(first) && startsWith(first, "CLUSTAL")
+        if (clustal) {
+                row <- grepl("^\\S+\\s+\\S", x) & !startsWith(x, "CLUSTAL")
+                field <- sub("^(\\S+\\s+)(\\S+)(.*)$", "\\2", x[row])
+                if (!any(grepl("[Uu]", field)))
+                        return(file_aln)
+                x[row] <- paste0(sub("^(\\S+\\s+)(\\S+)(.*)$", "\\1", x[row]), chartr("Uu", "Xx", field),
+                                 sub("^(\\S+\\s+)(\\S+)(.*)$", "\\3", x[row]))
+        } else {
+                seq_line <- !startsWith(x, ">")
+                if (!any(grepl("[Uu]", x[seq_line])))
+                        return(file_aln)
+                x[seq_line] <- chartr("Uu", "Xx", x[seq_line])
+        }
+        dir <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln")
+        dir.create(dir, recursive = TRUE, showWarnings = FALSE)
+        out <- tempfile("pep_sec_", tmpdir = dir, fileext = if (clustal) ".aln" else ".fasta")
+        writeLines(x, out)
+        out
 }

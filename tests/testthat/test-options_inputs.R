@@ -28,7 +28,7 @@ test_that("the validators agree with the documentation: BH and RBH only", {
         expect_false(is.ortho_detection_method("DELTA"))
         # the default is DIAMOND's own mode (0.4.3: "fast"); options(orthologr.sensitivity_mode) sets another
         expect_identical(eval(formals(dNdS)$sensitivity_mode), "default")
-        for (f in list(orthologs, diamond, diamond_best, diamond_rec, divergence_stratigraphy, orthogroups))
+        for (f in list(orthologs, diamond, diamond_best, diamond_rec, divergence_stratigraphy, orthogroups, dNdS_coal))
                 expect_identical(eval(formals(f)$sensitivity_mode), "default")
         with_opts <- function(opts, code) {
                 old <- options(opts)

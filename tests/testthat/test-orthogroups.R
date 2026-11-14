@@ -415,7 +415,7 @@ test_that("dNdS_orthogroups(): one codon alignment per group, all between-specie
         expect_equal(s$dN_median[1], stats::median(p$dN[p$orthogroup == ids[1]]))
         expect_equal(s$dNdS_mean[2], mean(p$dNdS[p$orthogroup == ids[2]], na.rm = TRUE))
         expect_equal(s$dS_q75[1], unname(stats::quantile(p$dS[p$orthogroup == ids[1]], 0.75, na.rm = TRUE)))
-        # the quartile columns are named _q25 / _q75, not _q1 / _q3
+        # the quartile columns are named as in dNdS_clusters() and coalr (_q25 / _q75), not _q1 / _q3
         expect_true(all(c("dN_q25", "dN_q75", "dS_q25", "dS_q75", "dNdS_q25", "dNdS_q75") %in% names(s)))
         expect_false(any(grepl("_q[13]$", names(s))))
         expect_identical(s$n_ok + s$n_na, s$n_pairs)

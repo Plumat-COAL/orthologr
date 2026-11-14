@@ -55,10 +55,12 @@ test_that("a saturated pair has status 'saturated' with the COAL engine (1,000 g
         s <- system.file("seqs/ortho_lyra_cds_1000.fasta", package = "orthologr")
         run <- coal_messages(dNdS(q, s, engine = "coal", comp_cores = 2, print_citation = FALSE))
         res <- run$value
-        expect_identical(nrow(res), 995L)
-        expect_identical(as.vector(table(factor(res$status, levels = c("ok", "saturated")))), c(994L, 1L))
+        # 999 pairs since 0.5.0's defaults sensitivity_mode = "default" and ambiguous_cds = "keep" (995 with "fast"
+        # and "drop", the settings of 0.4.3)
+        expect_identical(nrow(res), 999L)
+        expect_identical(as.vector(table(factor(res$status, levels = c("ok", "saturated")))), c(998L, 1L))
         expect_true(all(is.na(res$dNdS[res$status == "saturated"])))
-        expect_match(run$messages[length(run$messages)], "995 gene pairs - 994 with dN/dS, 1 saturated", fixed = TRUE)
+        expect_match(run$messages[length(run$messages)], "999 gene pairs - 998 with dN/dS, 1 saturated", fixed = TRUE)
 })
 
 test_that("options(orthologr.status_column = FALSE) leaves the column out with the COAL engine", {

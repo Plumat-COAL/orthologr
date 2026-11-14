@@ -28,12 +28,12 @@
 #' \item{\code{orthologr.sensitivity_mode}}{\code{"default"} (default since 0.5.0): DIAMOND's own default mode, the
 #' default of the argument \code{sensitivity_mode} of \code{\link{dNdS}}, \code{\link{orthologs}},
 #' \code{\link{orthogroups}}, \code{\link{divergence_stratigraphy}}, \code{\link{diamond}}, \code{\link{diamond_best}}
-#' and \code{\link{diamond_rec}}. \code{"fast"} is the mode of 0.4.3 (DIAMOND designs it for hits of
+#' and \code{\link{diamond_rec}} (and \code{\link{dNdS_coal}}). \code{"fast"} is the mode of 0.4.3 (DIAMOND designs it for hits of
 #' more than 90 \% identity; it finds 5 - 9 \% fewer reciprocal best hits between two yeasts).}
 #' \item{\code{orthologr.comeron_twosubs}}{\code{"comeron"} (default since 0.5.0): Comeron's method counts codons that
 #' differ at two positions along Comeron's two pathways. \code{"libsequence"}: along the branches libsequence's
 #' \code{TwoSubs} counts, as 0.4.3 did (the estimate then depends on which sequence is first; see
-#' \code{\link{substitutionrate}}).}
+#' \code{\link{substitutionrate}}). The COAL engine follows it.}
 #' \item{\code{orthologr.comeron_min_sites}}{\code{3} (default since 0.5.0): a site class of Comeron's method with fewer
 #' sites cannot make dN or dS \code{NA} (its undefined logarithm is 0). \code{0}: every class with sites can. Not set
 #' by \code{\link{orthologr_legacy_options}}: with \code{orthologr.legacy_comeron_saturation = TRUE} nothing is \code{NA} anyway.}
@@ -53,10 +53,15 @@
 #' one sequence times length of the other) that \code{\link{pairwise_aln}} - and so \code{dNdS()} with the default
 #' engine - computes. \pkg{pwalign} needs about 3 bytes per cell (5e8 cells: about 1.5 GB, e.g. two proteins of
 #' 22,000 residues; a titin pair of 36,000 x 35,400 residues needs 3.9 GB), and with \code{comp_cores > 1} every
-#' pair that is aligned at the same time needs its own. A larger pair is not aligned: \code{dNdS()} returns it with
-#' status \code{"failed"} and the reason in \code{attr(result, "failed_pairs")}. \code{Inf}: no limit (as in 0.4.3,
-#' and under \code{\link{orthologr_legacy_options}}). The COAL engine has its own limit (\pkg{coalr}'s
+#' pair that is aligned at the same time needs its own. A larger pair is aligned by COAL when the R package
+#' \pkg{coalr} is installed (its \code{"pwalign"} preset: pwalign's alignment, in a fraction of the memory; a message
+#' names the pair); otherwise it is not aligned: \code{dNdS()} returns it with status \code{"failed"} and the reason
+#' in \code{attr(result, "failed_pairs")}. \code{Inf}: no limit, \pkg{pwalign} aligns every pair (as in 0.4.3, and
+#' under \code{\link{orthologr_legacy_options}}). The COAL engine has its own limit (\pkg{coalr}'s
 #' \code{max_cells}, 4e9 cells at about 0.5 bytes per cell).}
+#' \item{\code{orthologr.large_pair_aligner}}{\code{"coal"} (default): a pair above
+#' \code{orthologr.max_aln_cells} is aligned by COAL when \pkg{coalr} is installed (see above). \code{"none"}: it is
+#' not aligned (status \code{"failed"}), as without \pkg{coalr}.}
 #' \item{\code{orthologr.codon_aln_tool}}{\code{NULL} (default): \code{dNdS()} and \code{divergence_stratigraphy()}
 #' build codon alignments with COAL when \pkg{coalr} is installed and with PAL2NAL otherwise (identical alignments).
 #' \code{"pal2nal"} or \code{"coal"}: that tool, when the argument \code{codon_aln_tool} is not given.}
@@ -78,8 +83,8 @@
 #' \code{orthologs()} and \code{orthogroups()} do not check whether the input files hold several isoforms per gene.}
 #' \item{\code{orthologr.ambiguous_cds}}{\code{"keep"} (default since 0.5.0): coding sequences whose characters other
 #' than A, C, G, T are IUPAC ambiguity codes (N, R, Y, K, M, S, W, B, D, H, V) are kept; a codon with such a base is
-#' translated to \code{X}, and the alignment and estimation programs do not compare it. \code{dNdS()} lists
-#' these sequences in \code{attr(result, "ambiguous_sequences")} (with the number of such
+#' translated to \code{X}, and the alignment and estimation programs do not compare it. \code{dNdS()} and
+#' \code{dNdS_coal()} list these sequences in \code{attr(result, "ambiguous_sequences")} (with the number of such
 #' codons) and count the rows they are part of in the summary; \code{dNdS_orthogroups()} adds a note to those pairs.
 #' Sequences with other characters are left out (counted in the summary and listed in
 #' \code{attr(result, "dropped_sequences")}). \code{"drop"} (0.4.3; set by \code{\link{orthologr_legacy_options}}):
@@ -134,7 +139,9 @@
 #' number of cores is used);}
 #' \item{\code{orthologr_warning_legacy_engine}}{the settings of 0.4.3 are in force
 #' (\code{orthologr.legacy_pairwise_aln}, \code{\link{orthologr_legacy_options}}) but the COAL engine was asked for,
-#' which cannot reproduce the numbers of 0.4.3.}
+#' which cannot reproduce the numbers of 0.4.3;}
+#' \item{\code{orthologr_warning_coal_version}}{the installed \pkg{coalr} predates the options
+#' \code{comeron_twosubs} / \code{comeron_min_sites}, so its Comeron can differ from \code{engine = "orthologr"}.}
 #' }
 #' These classes are given by the checks of the arguments and input files of \code{\link{dNdS}},
 #' \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}}, \code{\link{orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{divergence_stratigraphy}},

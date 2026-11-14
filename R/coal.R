@@ -89,13 +89,25 @@ coal_versions <- function() {
 #   terminal_stops = "drop"    : orthologr 0.5.0 translates and aligns without the stop codon;
 #                    "compare" : with options(orthologr.legacy_pairwise_aln = TRUE), i.e. the alignments of 0.4.3,
 #                                in which the two stop codons are an aligned column that gestimator compares
-coal_flavour_args <- function(fun) {
+#   comeron_twosubs, comeron_min_sites : Comeron's pathways for codons that differ at two positions and the
+#                    smallest site class that can make dN or dS NA, as the native engine computes them
+#                    (options(orthologr.comeron_twosubs), options(orthologr.comeron_min_sites))
+coal_flavour_args <- function(fun, methods = NULL) {
         args <- list(
-                comeron_flavour = "gestimator",
-                li_flavour      = "seqinr",
-                terminal_stops  = if (isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))) "compare" else "drop"
+                comeron_flavour   = "gestimator",
+                comeron_twosubs   = comeron_twosubs(),
+                comeron_min_sites = comeron_min_sites(),
+                li_flavour        = "seqinr",
+                terminal_stops    = if (isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))) "compare" else "drop"
         )
-        args[intersect(names(args), names(formals(fun)))]
+        have <- names(formals(fun))
+        if (is.element("Comeron", methods) && !is.element("comeron_twosubs", have))
+                orthologr_warn(class = "coal_version",
+                               "This version of coalr predates the options comeron_twosubs and comeron_min_sites: its ",
+                               "Comeron counts codons that differ at two positions along libsequence's branches and ",
+                               "makes dN / dS NA for small site classes, so it can differ from engine = \"orthologr\". ",
+                               "Install a current coalr.", call. = FALSE)
+        args[intersect(names(args), have)]
 }
 
 # The matrix to give COAL: with aa_aln_scoring = "pwalign" and BLOSUM62, pwalign's copy of BLOSUM62 (it scores B, Z
@@ -336,13 +348,17 @@ coal_codon_aln_file <- function(file_aln, file_nuc, file.out, format = "fasta", 
         }
         cds <- read_fasta_strings(file_nuc)
         # PAL2NAL pairs the two files by position; so does orthologr (both files hold the pair in the same order)
+        # (a failed codon alignment has the class of PAL2NAL's, orthologr_error_alignment_failed, so that callers
+        # can handle both tools alike; it was a plain error)
         if (length(rows) != length(cds))
-                stop("COAL: the protein alignment holds ", length(rows), " sequences and the CDS file ", length(cds),
-                     " for ", context, ".", call. = FALSE)
+                orthologr_abort(class = c("alignment_failed", "tool_failed"),
+                                "COAL: the protein alignment holds ", length(rows), " sequences and the CDS file ",
+                                length(cds), " for ", context, ".", call. = FALSE)
         codon <- tryCatch(
                 coalr::coal_codon_align(unname(rows), unname(cds)),
-                error = function(e) stop("COAL could not build the codon alignment for ", context, ": ",
-                                         conditionMessage(e), call. = FALSE)
+                error = function(e) orthologr_abort(class = c("alignment_failed", "tool_failed"),
+                                                    "COAL could not build the codon alignment for ", context, ": ",
+                                                    conditionMessage(e), call. = FALSE)
         )
         names(codon) <- names(cds)
         write_alignment(codon, tmp.out, format = format)
@@ -364,7 +380,7 @@ coal_kaks_file <- function(file, est.method, subst_name = NULL) {
 
         if (backend$type == "coalr") {
                 k <- do.call(coalr::coal_kaks, c(list(seqs[[1]], seqs[[2]], method = est.method),
-                                                 coal_flavour_args(coalr::coal_kaks)))
+                                                 coal_flavour_args(coalr::coal_kaks, est.method)))
                 if (identical(k$status[1], "error"))
                         stop("COAL could not estimate dN/dS for ", context, ": ", k$note[1], call. = FALSE)
                 k <- coal_orthologr_values(k)
@@ -528,7 +544,7 @@ cds_vector <- function(cds_dt) {
 dNdS_coal <- function(query_file,
                       subject_file,
                       aligner            = "diamond",
-                      sensitivity_mode   = "fast",
+                      sensitivity_mode   = getOption("orthologr.sensitivity_mode", "default"),
                       aligner_path       = NULL,
                       seq_type           = "cds",
                       format             = "fasta",
@@ -543,6 +559,7 @@ dNdS_coal <- function(query_file,
                       quiet              = TRUE,
                       print_citation     = TRUE,
                       best_hit_rule      = getOption("orthologr.best_hit_rule", "bitscore")) {
+        sensitivity_mode <- orthologr_sensitivity_mode(if (missing(sensitivity_mode)) NULL else sensitivity_mode)
 
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
 
@@ -621,7 +638,7 @@ dNdS_coal <- function(query_file,
                 threads     = comp_cores,
                 matrix      = coal_matrix_arg(aa_sub_matrix, aa_aln_scoring),
                 preset      = aa_aln_scoring
-        ), coal_flavour_args(coalr::coal_dnds_pairs)))
+        ), coal_flavour_args(coalr::coal_dnds_pairs, dnds_est.method)))
         # (the attribute "coal" keeps COAL's own values; the result holds them as orthologr's methods define them)
         coal_raw <- coal_tbl
         coal_tbl <- coal_orthologr_values(coal_tbl)
@@ -668,8 +685,9 @@ dNdS_coal <- function(query_file,
         res[[".coal_status"]] <- NULL
         res[[".coal_note"]] <- NULL
         trimmed <- trimmed_table()
+        ambiguous <- ambiguous_table()
         res <- dnds_finish(
-                res, failed_pairs = failed, dropped = end_dropped(), engine_status = engine_status, trimmed = trimmed,
+                res, failed_pairs = failed, dropped = end_dropped(), ambiguous = ambiguous, engine_status = engine_status, trimmed = trimmed,
                 not_converged = sum(grepl("not converge|did not converge|no convergence", note, ignore.case = TRUE)),
                 record = list(fun = "dNdS_coal", args = run_args, engine = "coal",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path), coal_versions()),
@@ -740,9 +758,8 @@ dNdS_coal <- function(query_file,
 #' dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
 #' cluster that have a dN (dS, dN/dS) value, whatever their status - a pair with status \code{"saturated"} that
 #' has a dN counts with it. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the numbers behind the statistics
-#' (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule, but
-#' names the quartiles \code{_q1} / \code{_q3} and has no minimum and maximum (the names here are those of
-#' \pkg{coalr}'s summary).
+#' (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule and the
+#' same column names (the names of \pkg{coalr}'s summary), but has no minimum and maximum.
 #' The column \code{status} of the summary: \code{"ok"} (at least one pair has an estimate), \code{"failed"} (no
 #' estimate, and a pair failed or the cluster could not be aligned), \code{"saturated"} / \code{"no_data"} /
 #' \code{"not_converged"} (no estimate because the pairs are saturated, have no codons to compare or did not
@@ -841,7 +858,7 @@ dNdS_clusters <- function(cds_file,
                 seed             = seed,
                 # pairs that COAL aligns itself (aa_aln_tool = "pairwise", clusters of two, large clusters)
                 preset           = aa_aln_scoring
-        ), coal_flavour_args(coalr::coal_dnds_clusters)))
+        ), coal_flavour_args(coalr::coal_dnds_clusters, dnds_est.method)))
 
         pairs <- coal_orthologr_values(res$pairs)
         names(pairs)[names(pairs) == "seq1"] <- "query_id"
@@ -922,7 +939,7 @@ dnds_cluster_status <- function(summary) {
 #   their status - a pair that is saturated at synonymous sites still counts with its dN. The columns n_dN, n_dS
 #   and n_dNdS give the numbers of pairs behind the statistics.
 # Returns a data.table: the columns `by`, n_dN, n_dS, n_dNdS and <value>_<statistic> for the statistics asked for.
-dnds_value_stats <- function(pairs, by, stats = c("median", "mean", "q1", "q3")) {
+dnds_value_stats <- function(pairs, by, stats = c("median", "mean", "q25", "q75")) {
         dN <- dS <- dNdS <- NULL
         pairs <- data.table::as.data.table(pairs)
         fun <- list(
