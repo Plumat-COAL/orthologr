@@ -261,7 +261,9 @@ aligned_rows <- function(aln, pattern_seq, subject_seq) {
 max_aln_cells <- function() {
         v <- orthologr_option("orthologr.max_aln_cells", 5e8)
         if (!is.numeric(v) || length(v) != 1 || is.na(v) || v <= 0)
-                orthologr_abort(class = "bad_argument", "options(orthologr.max_aln_cells) must be one positive number (Inf: no limit).", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "options(orthologr.max_aln_cells) must be one positive number (Inf: no limit), not ",
+                                if (is.character(v)) paste0("'", paste(v, collapse = "', '"), "' (text)") else paste(format(v), collapse = ", "),
+                                ".", call. = FALSE)
         v
 }
 
@@ -275,7 +277,8 @@ check_aln_cells <- function(n, m) {
                      format(cells, big.mark = ",", scientific = FALSE), " cells and would need about ",
                      signif(3 * cells / 1e9, 2), " GB of memory; options(orthologr.max_aln_cells) is ",
                      format(limit, big.mark = ",", scientific = FALSE), ". The pair is not aligned; ",
-                     "options(orthologr.max_aln_cells = Inf) aligns it anyway (about 3 bytes per cell, with comp_cores > 1 for every pair aligned at the same time).",
+                     "options(orthologr.max_aln_cells = Inf) aligns it anyway (about 3 bytes per cell, with comp_cores > 1 for every pair aligned at the same time); ",
+                     "dNdS(engine = \"coal\") aligns such pairs in much less memory (titin, 36,000 x 35,000 residues: about 1.1 GB and 25 s).",
                      call. = FALSE)
         invisible(cells)
 }

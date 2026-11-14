@@ -123,7 +123,8 @@ computed inside R by the package \pkg{coalr}; see \code{\link{codon_aln}}). Defa
 \code{"pal2nal"} when it is not. The two give byte-identical codon alignments (checked on 12,605 gene pairs of five
 species pairs and with every method, see NEWS), so the results do not depend on whether \pkg{coalr} is installed;
 COAL saves the start of a Perl process per gene pair (about half of the run time of a default run). The tool used is
-in \code{attr(result, "orthologr_run")$arguments$codon_aln_tool}.}
+in \code{attr(result, "orthologr_run")$arguments$codon_aln_tool}. \code{"coal"} where COAL is not installed (e.g.
+when the arguments of such a record are used again on another machine) uses PAL2NAL, with a message.}
 
 \item{kaks_calc_path}{a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).}
@@ -332,9 +333,14 @@ not defined: the two sequences differ at so many sites of a class that the numbe
 estimated. A pair that is saturated at synonymous sites usually still has its dN;}
 \item{\code{"no_data"}}{the pair has no codons that can be compared (reported by \code{engine = "coal"}; the
 programs of \code{engine = "orthologr"} do not tell this case from \code{"saturated"});}
-\item{\code{"failed"}}{a step of the pipeline failed for the pair; the reason is in
-\code{attr(result, "failed_pairs")}.}
+\item{\code{"failed"}}{a step of the pipeline failed for the pair, or KaKs_Calculator printed \code{nan} for
+its estimate (see \code{\link{substitutionrate}}); the reason is in \code{attr(result, "failed_pairs")} (with
+\code{dnds_est.method = "ALL"} also the method, in the column \code{method}).}
 }
+KaKs_Calculator does not report whether the iteration of \code{"YN"} or \code{"MYN"} converged: such a pair has
+the values of the last round and status \code{"ok"} (about 3\% of the estimates of distant yeasts, all with dS
+above 1.4; see \code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)"). \code{kaks_tool = "coal"} or
+\code{engine = "coal"} computes these methods and reports such pairs as not converged.
 At the end of a run one message gives the numbers by status and the median dS, and says so when a large part of
 the pairs is saturated or the median dS is above 1.5: the two species are then too distant for pairwise dN/dS
 (S. cerevisiae against C. glabrata: 72 \% of 4,164 pairs saturated, median dS of the others 1.9).

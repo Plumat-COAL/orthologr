@@ -42,9 +42,21 @@ test_that("COAL is optional: a helpful message when it is not installed ...", {
         expect_error(codon_aln(file_aln = aln, file_nuc = nuc, format = "fasta", tool = "coal", quiet = TRUE),
                      "COAL is not available")
         # dNdS() says so before the search starts
-        expect_error(run_dNdS(codon_aln_tool = "coal"), "COAL is not available")
         expect_error(run_dNdS(dnds_est.method = "YN", kaks_tool = "coal"), "COAL is not available")
         expect_error(run_dNdS(dnds_est.method = "YN", engine = "coal"), "COAL is not available")
+})
+
+test_that("dNdS(codon_aln_tool = 'coal') without COAL uses PAL2NAL, with a message (a run record replayed elsewhere; V05)", {
+        skip_if_not(diamond_available && perl_available, "DIAMOND or perl is not installed")
+        old <- options(orthologr.coal_backend = "none")
+        on.exit(options(old), add = TRUE)
+        expect_message(res <- dNdS(query_file = query_cds, subject_file = subject_cds, codon_aln_tool = "coal", quiet = TRUE,
+                                   print_citation = FALSE),
+                       "PAL2NAL builds the codon alignments")
+        expect_identical(attr(res, "orthologr_run")$arguments$codon_aln_tool, "pal2nal")
+        ref <- run_dNdS(codon_aln_tool = "pal2nal")
+        expect_equal(as.data.frame(res)[, c("query_id", "subject_id", "dN", "dS", "dNdS", "status")],
+                     as.data.frame(ref)[, c("query_id", "subject_id", "dN", "dS", "dNdS", "status")])
 })
 
 test_that("arguments of the COAL options are checked ...", {

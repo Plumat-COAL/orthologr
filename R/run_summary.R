@@ -52,8 +52,35 @@ dnds_status_counts <- function(status) {
 dnds_is_failed <- function(tbl, failed_pairs) {
         if (is.null(failed_pairs) || NROW(failed_pairs) == 0)
                 return(rep(FALSE, nrow(tbl)))
-        is.element(paste(tbl$query_id, tbl$subject_id, sep = "\r"),
-                   paste(failed_pairs$query_id, failed_pairs$subject_id, sep = "\r"))
+        pair <- paste(tbl$query_id, tbl$subject_id, sep = "\r")
+        fp_pair <- paste(failed_pairs$query_id, failed_pairs$subject_id, sep = "\r")
+        # with several methods per pair (dnds_est.method = "ALL") a failed estimate of one method names the method
+        if (is.element("method", names(failed_pairs)) && is.element("method", names(tbl))) {
+                whole <- is.na(failed_pairs$method)
+                return(is.element(pair, fp_pair[whole]) |
+                               is.element(paste(pair, tbl$method, sep = "\r"),
+                                          paste(fp_pair[!whole], failed_pairs$method[!whole], sep = "\r")))
+        }
+        is.element(pair, fp_pair)
+}
+
+# The reason of every row of a pair table from the table of failed pairs (NA for rows that did not fail); with a
+# column 'method' in both (dnds_est.method = "ALL") a failed estimate of one method is the reason of its row only.
+dnds_failed_reason <- function(tbl, failed_pairs) {
+        out <- rep(NA_character_, nrow(tbl))
+        if (is.null(failed_pairs) || NROW(failed_pairs) == 0)
+                return(out)
+        pair <- paste(tbl$query_id, tbl$subject_id, sep = "\r")
+        fp_pair <- paste(failed_pairs$query_id, failed_pairs$subject_id, sep = "\r")
+        if (is.element("method", names(failed_pairs)) && is.element("method", names(tbl))) {
+                whole <- is.na(failed_pairs$method)
+                out <- failed_pairs$reason[!whole][match(paste(pair, tbl$method, sep = "\r"),
+                                                          paste(fp_pair[!whole], failed_pairs$method[!whole], sep = "\r"))]
+                w <- match(pair, fp_pair[whole])
+                out[!is.na(w)] <- failed_pairs$reason[whole][w[!is.na(w)]]
+                return(out)
+        }
+        failed_pairs$reason[match(pair, fp_pair)]
 }
 
 # ---- summary message -------------------------------------------------------------------------------------------
@@ -75,6 +102,9 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
                 if (counts[["no_data"]] > 0) paste0(counts[["no_data"]], " without codons to compare"),
                 if (counts[["failed"]] > 0) paste0(counts[["failed"]], " failed (reasons in ", failed_where, ")")
         )
+        # (one gene pair: "1 gene pair")
+        if (n == 1 && identical(what, "gene pairs"))
+                what <- "gene pair"
         txt <- paste0(fun, ": ", n, " ", what, " - ", paste(parts, collapse = ", "), ".")
         dS <- suppressWarnings(as.numeric(dS))
         dS <- dS[!is.na(dS)]
@@ -133,8 +163,11 @@ dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_co
         # several methods per gene pair (dnds_est.method = "ALL"): the rows are counted as gene pairs x methods
         what <- "gene pairs"
         if (is.element("method", names(res)) && length(unique(stats::na.omit(res$method))) > 1)
-                what <- paste0("rows (", nrow(unique(as.data.frame(res)[, c("query_id", "subject_id")])), " gene pairs x ",
+                what <- local({
+                        n_pairs <- nrow(unique(as.data.frame(res)[, c("query_id", "subject_id")]))
+                        paste0("rows (", n_pairs, if (n_pairs == 1) " gene pair x " else " gene pairs x ",
                                length(unique(stats::na.omit(res$method))), " methods)")
+                })
         message(dnds_summary_text(status, dS = res$dS, dropped = dropped, not_converged = not_converged,
                                   fun = paste0(record$fun, "()"), trimmed = trimmed, what = what))
         citation_message(print_citation)

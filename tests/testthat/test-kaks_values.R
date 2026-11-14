@@ -48,6 +48,107 @@ test_that("capped values of KaKs_Calculator are NA (saturated) and zeros it prin
         expect_null(kaks_zero_ds(tbl[, 1:5]))
 })
 
+# Two LWL-family pairs whose 4-fold class has 1 - 2P - Q = 0 exactly (2 Si + Vi = L in twelfths): KaKs_Calculator's
+# floating-point result decides, and its printed counts (6 digits) cannot tell which way it went (V02).
+#   q1966 (S. cerevisiae / C. glabrata, LWL): KaKs_Calculator computed the class (Ks 13.4); the printed counts give
+#     an argument of -1e-6 (taken for saturated before)
+#   q2376 (S. cerevisiae / K. lactis, MLPB): KaKs_Calculator found the class undefined and counted 0 substitutions
+#     (Ks 0.967, an underestimate); the printed counts give +7e-7 (taken for an estimate before)
+lwl_zero_lines <- c(
+        kaks_lines[1],
+        "q1966\tLWL\t0.310604\t13.4228\t0.02314\t0\t423\t88.5\t334.5\t268.5:99:55.5\t160\t1187.92\t103.897\t28.6667:34:14.1667\t36.0833:19.9167:27.1667\t3.05394\t1.8477:1.8477:1:1:1:1\t0.399351(0.480519:0.418831:0.298701)\tNA\tNA\tNA\tNA",
+        "q2376\tMLPB\t0.670748\t0.967005\t0.693635\t5.15685e-40\t1179\t413.5\t950.788\t765.5:273.5:140\t614\t399.856\t637.739\t110.833:89.75:36.5833\t225.042:84.9583:66.8333\t0.880064\t1.25874:1.25874:1:1:1:1\t0.367492(0.394144:0.34009:0.368243)\tNA\tNA\tNA\tNA"
+)
+lwl_zero_aln <- function(name) {
+        f <- test_path("fixtures", "codon_aln", paste0("lwl_exact_zero_", name, ".fa"))
+        x <- readLines(f)
+        x[!startsWith(x, ">")]
+}
+
+test_that("the saturation test of the LWL family follows KaKs_Calculator's own numbers where the printed counts cannot tell (V02)", {
+        rlang::local_options(orthologr.legacy_kaks_saturation = NULL, orthologr.legacy = NULL)
+        tbl <- utils::read.csv(text = lwl_zero_lines, sep = "\t", header = TRUE)
+        cgla <- lwl_zero_aln("scer_cgla")
+        klac <- lwl_zero_aln("scer_klac")
+        # the counts computed from the codon alignments are those KaKs_Calculator printed
+        k <- kaks_columns(tbl)
+        e1 <- kaks_lwl_counts(cgla[1], cgla[2], "LWL")
+        e2 <- kaks_lwl_counts(klac[1], klac[2], "MLPB")
+        expect_true(kaks_counts_agree(e1, k$L[1, ], k$Si[1, ], k$Vi[1, ]))
+        expect_true(kaks_counts_agree(e2, k$L[2, ], k$Si[2, ], k$Vi[2, ]))
+        expect_equal(e1$L, c(268.5, 99, 55.5))
+        expect_equal(2 * e2$Si[3] + e2$Vi[3], 140)
+        # KaKs_Calculator's test on its own numbers: q1966 defined (> 0), q2376 not (<= 0)
+        expect_gt(1 - 2 * e1$P[3] - e1$Q[3], 0)
+        expect_lte(1 - 2 * e2$P[3] - e2$Q[3], 0)
+        expect_identical(kaks_saturated(tbl[1, ], aln = cgla)$Ks, FALSE)
+        expect_identical(kaks_saturated(tbl[2, ], aln = klac)$Ks, TRUE)
+        expect_identical(kaks_saturated(tbl[2, ], aln = klac)$Ka, FALSE)
+        res <- kaks_result_table(tbl[2, ], c("q", "s"), aln = klac)
+        expect_true(is.na(res$dS))
+        expect_equal(res$dN, 0.670748)
+        # without the alignment (or with another one) the printed counts decide, as before
+        expect_identical(kaks_saturated(tbl)$Ks, c(TRUE, FALSE))
+        expect_identical(kaks_saturated(tbl[1, ], aln = klac)$Ks, TRUE)
+        # another genetic code: no table of it here, so the printed counts decide; '-c' is read from kaks_calc.params
+        expect_identical(kaks_genetic_code(NULL), 1L)
+        expect_identical(kaks_genetic_code("-c 11"), 11L)
+        expect_identical(kaks_genetic_code(c("-m", "LWL", "-c", "2")), 2L)
+        expect_true(is.na(kaks_genetic_code("-c x")))
+        expect_identical(kaks_saturated(tbl[2, ], aln = klac, genetic_code = NA)$Ks, FALSE)
+        # the tables of the standard code: the classes of a few codons
+        tab <- kaks_lwl_tables(1, modified = FALSE)
+        expect_equal(unname(tab$L[c(1, 2, 3, 64), ]), matrix(c(2, 1, 0, 2, 1, 0, 1, 2, 0, 2, 0, 1), ncol = 3, byrow = TRUE))
+})
+
+test_that("KaKs_Calculator and orthologr agree on the LWL-family pairs at 1 - 2P - Q = 0 (Linux x86-64)", {
+        skip_if_not(kaks_available, "KaKs_Calculator is not installed")
+        # (the sign of an exact 0 is a matter of KaKs_Calculator's rounding; builds for other processors may round
+        # differently, e.g. with fused multiply-add on arm64)
+        skip_if_not(Sys.info()[["sysname"]] == "Linux" && R.version$arch == "x86_64", "the expected rounding is that of x86-64")
+        rlang::local_options(orthologr.legacy_kaks_saturation = NULL, orthologr.legacy = NULL)
+        klac <- suppressMessages(substitutionrate(test_path("fixtures", "codon_aln", "lwl_exact_zero_scer_klac.fa"), est.method = "MLPB", quiet = TRUE))
+        expect_true(is.na(klac$dS))
+        expect_true(is.finite(klac$dN))
+        cgla <- suppressMessages(substitutionrate(test_path("fixtures", "codon_aln", "lwl_exact_zero_scer_cgla.fa"), est.method = "LWL", quiet = TRUE))
+        expect_equal(cgla$dS, 13.4228, tolerance = 1e-4)
+})
+
+test_that("a KaKs_Calculator estimate printed as 'nan' is a failed estimate, not a saturated one (V07)", {
+        rlang::local_options(orthologr.legacy_kaks_saturation = NULL, orthologr.legacy = NULL)
+        # MYN rows of S. cerevisiae / C. glabrata (KaKs_Calculator 2.0): Ka and Ks 'nan', and Ks 'nan' with a Ka
+        lines <- c(kaks_lines[1],
+                   "q2\tMYN\t-nan\t-nan\t-nan\t0\t216\t-nan\t-nan\tNA\t87\t25\t5\tNA\tNA\t-nan\t2.70104:inf:1:1:1:1\t0.484018(0.424658:0.424658:0.60274)\tNA\tNA\tNA\tNA",
+                   "q7\tMYN\t0.0546929\t-nan\t-nan\t0.267293\t144\t29.2971\t114.703\tNA\t9\t3\t6\tNA\tNA\t-nan\t2:2:1:1:1:1\t0.177083(0.197917:0.21875:0.114583)\tNA\tNA\tNA\tNA",
+                   kaks_lines[4])
+        tbl <- utils::read.csv(text = lines, sep = "\t", header = TRUE)
+        res <- kaks_result_table(tbl, c("a", "b"), "gene pair 'a' / 'b' (method MYN)")
+        expect_true(all(is.na(res$dN[1:2])) && all(is.na(res$dS[1:2])) && all(is.na(res$dNdS[1:2])))
+        expect_false(any(is.nan(res$dN)))
+        expect_equal(res$dS[3], 2.49034)
+        f <- attr(res, "kaks_failed")
+        expect_identical(f$method, c("MYN", "MYN"))
+        expect_match(f$reason[1], "printed 'nan' for Ka and Ks (method MYN) of gene pair 'a' / 'b': its estimate failed", fixed = TRUE)
+        expect_match(f$reason[2], "printed 'nan' for Ks (method MYN)", fixed = TRUE)
+        # status: failed (with the table of failed pairs), not saturated
+        fp <- data.frame(query_id = "a", subject_id = "b", reason = f$reason[1], stringsAsFactors = FALSE)
+        st <- dnds_status(res$dN[1], res$dS[1], res$dNdS[1], failed = dnds_is_failed(data.frame(query_id = "a", subject_id = "b"), fp))
+        expect_identical(st, "failed")
+        # several methods per pair: only the row of the method that failed
+        rows <- data.frame(query_id = "a", subject_id = "b", method = c("YN", "MYN"))
+        fpm <- data.frame(query_id = "a", subject_id = "b", reason = "r", method = "MYN", stringsAsFactors = FALSE)
+        expect_identical(dnds_is_failed(rows, fpm), c(FALSE, TRUE))
+        expect_identical(dnds_failed_reason(rows, fpm), c(NA, "r"))
+        fpm$method <- NA_character_
+        expect_identical(dnds_is_failed(rows, fpm), c(TRUE, TRUE))
+        # options(orthologr.legacy_kaks_saturation = TRUE): as printed (NaN), without the note
+        rlang::local_options(orthologr.legacy_kaks_saturation = TRUE)
+        old <- kaks_result_table(tbl, c("a", "b"))
+        expect_true(is.nan(old$dS[1]) && is.nan(old$dN[1]))
+        expect_equal(old$dN[2], 0.0546929)
+        expect_null(attr(old, "kaks_failed"))
+})
+
 test_that("options(orthologr.legacy_kaks_saturation / legacy_kaks_zero_dn = TRUE) return the values as printed (0.4.3)", {
         rlang::local_options(orthologr.legacy_kaks_saturation = TRUE, orthologr.legacy_kaks_zero_dn = TRUE)
         tbl <- kaks_example_table()

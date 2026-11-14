@@ -199,6 +199,14 @@ distant for pairwise dN/dS: *S. cerevisiae* against *C. glabrata* gives 4,164 pa
 no dS, and a median dS of 1.9 for the others. dS values above about 2 carry little information even when a
 number is returned. Compare more closely related species, or use dN alone.
 
+**Iterations that do not converge (YN, MYN with KaKs_Calculator).** KaKs_Calculator iterates the YN and MYN
+estimates for at most 10 rounds and prints the last round without saying whether it converged, so such a pair
+has status `"ok"`: 18 of the 605 YN estimates of *S. cerevisiae* / *C. glabrata* (3 %) and 3 of 3,412 of
+*E. coli* K-12 / O157, all with dS above 1.4. `kaks_tool = "coal"` or `engine = "coal"` compute the same
+methods, agree with KaKs_Calculator within 5e-6 elsewhere, and report these pairs as not converged. When
+KaKs_Calculator prints `nan` (MYN: 50 of the yeast pairs) the pair has status `"failed"` and the reason in
+`attr(result, "failed_pairs")`.
+
 **Filtering.** `filter_dNdS()` removes pairs without dN or dS, pairs with dS = 0 (`dS_zero = "keep"` keeps them
 with `dNdS = NA`) and pairs above `dnds.threshold` (default 2), and says how many rows it left out for each
 reason. Filter on `status == "ok"` and on dS explicitly when the analysis needs a stricter rule.
