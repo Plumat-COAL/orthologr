@@ -54,7 +54,7 @@ Whether a result was computed with these settings can be read from the result it
 | Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | `options(orthologr.legacy_pairwise_aln = TRUE)` |
 | Comeron's method returns `NA` for a saturated dN or dS | `options(orthologr.legacy_comeron_saturation = TRUE)` |
 | Comeron's method counts codons that differ at two positions along Comeron's two pathways (libsequence's order made the estimate depend on which sequence is first; human / mouse dS: median change 1 %) | `options(orthologr.comeron_twosubs = "libsequence")` |
-| Comeron's method: a site class with fewer than 3 sites cannot make dN or dS `NA` | `options(orthologr.comeron_min_sites = 0)` (not part of the switch: with the saturation rule of 0.4.3 nothing is `NA`) |
+| Comeron's method: a site class with fewer than 3 sites cannot make dN or dS `NA`, unless the value would be 0 (since 0.6.0 such a 0 stays `NA`) | `options(orthologr.comeron_min_sites = 0)` (not part of the switch: with the saturation rule of 0.4.3 nothing is `NA`) |
 | KaKs_Calculator methods return `dN = 0` (was `NA`) for a pair without nonsynonymous change, and dN = dS = 0 for identical sequences | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
 | KaKs_Calculator methods return `NA` (status `"saturated"`) where KaKs_Calculator prints a capped value (e.g. dS = 99), and `NA` with status `"failed"` where it prints `nan` | `options(orthologr.legacy_kaks_saturation = TRUE)` |
 | dN/dS tables end with the column `status` | `options(orthologr.status_column = FALSE)` |
