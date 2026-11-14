@@ -137,7 +137,7 @@ dnds_saturation_hint <- function(status, median_dS) {
         n <- length(status)
         if (n < 10)
                 return(FALSE)
-        mean(status == "saturated") > 0.2 || (!is.na(median_dS) && median_dS > 1.5)
+        isTRUE(mean(status == "saturated", na.rm = TRUE) > 0.2) || isTRUE(!is.na(median_dS) && median_dS > 1.5)
 }
 
 saturation_hint_text <- function(n_saturated, n, median_dS) {

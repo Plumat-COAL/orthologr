@@ -145,7 +145,7 @@ test_that("substitutionrate(kaks_tool = \"coal\") computes the KaKs_Calculator m
                         expect_equal(as.character(res$method), m)
                         expect_true(is.numeric(res$dN) && is.finite(res$dN) && is.finite(res$dS))
                         expect_equal(res$dNdS, res$dN / res$dS)
-                        if (kaks_available && m != "MLPB") {
+                        if (kaks_available) {
                                 ref <- substitutionrate(f, est.method = m, quiet = TRUE, subst_name = "t")
                                 # KaKs_Calculator prints 6 significant digits (and "-nan" for MYN on a pair as short
                                 # as this one)
