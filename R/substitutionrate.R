@@ -260,6 +260,10 @@ substitutionrate <- function(file,
                 if (format != "fasta")
                         stop("To use gestimator an alignment file in fasta format is required.")
                 
+                # the options are checked here, so that a wrong value is an error of its own (not a failed pair)
+                twosubs_libsequence <- identical(comeron_twosubs(), "libsequence")
+                min_sites <- comeron_min_sites()
+                
                 tryCatch({
                         # To use gestimator a file in fasta format is required
                         
@@ -270,8 +274,8 @@ substitutionrate <- function(file,
                         gestimator(file     = file,
                                    file_out = file.out,
                                    legacy_saturation = comeron_legacy_saturation(),
-                                   twosubs_libsequence = identical(comeron_twosubs(), "libsequence"),
-                                   min_sites = comeron_min_sites())
+                                   twosubs_libsequence = twosubs_libsequence,
+                                   min_sites = min_sites)
                         
                         #system(paste0("gestimator -i ",file," -o ",file.out))
                         
