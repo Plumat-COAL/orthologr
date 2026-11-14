@@ -152,3 +152,28 @@ test_that("dNdS() takes aa_sub_matrix, and the codon alignments no longer hold t
         expect_error(suppressMessages(dNdS(query_file = query_cds, subject_file = subject_cds, comp_cores = 1,
                                            quiet = TRUE, print_citation = FALSE, aa_sub_matrix = 1)))
 })
+
+test_that("pairwise_aln() does not align pairs above options(orthologr.max_aln_cells); dNdS() reports them as failed (O12)", {
+        f <- system.file("seqs/aa_seqs.fasta", package = "orthologr")
+        rlang::local_options(orthologr.max_aln_cells = 100)
+        expect_error(pairwise_aln(f, quiet = TRUE), "orthologr.max_aln_cells = Inf")
+        rlang::local_options(orthologr.max_aln_cells = 1e7)
+        expect_silent(pairwise_aln(f, quiet = TRUE))
+        rlang::local_options(orthologr.max_aln_cells = "a lot")
+        expect_error(pairwise_aln(f, quiet = TRUE), "must be one positive number")
+        rlang::local_options(orthologr.max_aln_cells = NULL)
+        expect_identical(max_aln_cells(), 5e8)
+})
+
+test_that("dNdS(): a gene pair above options(orthologr.max_aln_cells) is a failed pair with the reason (O12)", {
+        skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
+        rlang::local_options(orthologr.max_aln_cells = 1e5)
+        expect_warning(res <- suppressMessages(dNdS(thal_cds(), lyra_cds(), quiet = TRUE, print_citation = FALSE)),
+                       "could not be processed")
+        failed <- attr(res, "failed_pairs")
+        expect_gt(nrow(failed), 0)
+        expect_lt(nrow(failed), 20)
+        expect_true(all(grepl("orthologr.max_aln_cells", failed$reason)))
+        k <- paste(res$query_id, res$subject_id) %in% paste(failed$query_id, failed$subject_id)
+        expect_true(all(is.na(res$dNdS[k])))
+})
