@@ -45,7 +45,7 @@ status \code{"dS_zero"} where dS is 0; see \code{\link{substitutionrate}}).}
 \item{\code{orthologr.legacy_kaks_saturation}}{\code{FALSE} (default). \code{TRUE}: the KaKs_Calculator methods
 return the capped values KaKs_Calculator prints for saturated estimates (Ka or Ks = 99; for YN and MYN JC69's
 distance at its cap, 0.75 log(sites); for the LWL family a class of sites counted with 0 substitutions) as
-estimates, as in 0.4.3 (default: \code{NA}, status \code{"saturated"}; see
+estimates, as in 0.4.3 (default: \code{NA}, status \code{"saturated"}, as with the COAL engine; see
 \code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)").}
 \item{\code{orthologr.dS_zero}}{\code{"drop"} (default, as in 0.4.3) or \code{"keep"}: the default of the
 argument \code{dS_zero} of \code{\link{filter_dNdS}} and \code{\link{divergence_stratigraphy}}.}

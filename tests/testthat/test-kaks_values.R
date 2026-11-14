@@ -1,6 +1,6 @@
 # What is read from KaKs_Calculator's table (default engine): values it prints as NA although they are 0 (O03), and
 # capped values it prints for saturated estimates (O02). The rows are real output of KaKs_Calculator 2.0 (S.
-# cerevisiae / C. glabrata and E. coli K-12 / O157 gene pairs).
+# cerevisiae / C. glabrata and E. coli K-12 / O157 gene pairs); the COAL engine gives the same status for each.
 
 kaks_lines <- c(
         paste("Sequence", "Method", "Ka", "Ks", "Ka/Ks", "P-Value(Fisher)", "Length", "S-Sites", "N-Sites",
@@ -63,7 +63,7 @@ test_that("options(orthologr.legacy_kaks_saturation / legacy_kaks_zero_dn = TRUE
         expect_equal(res2$dN, res$dN)
 })
 
-test_that("identical sequences and nonsynonymous-only pairs with KaKs_Calculator: dS = 0", {
+test_that("identical sequences and nonsynonymous-only pairs with KaKs_Calculator: dS = 0 as with the COAL engine", {
         skip_if_not(kaks_available, "KaKs_Calculator is not installed")
         rlang::local_options(orthologr.legacy_kaks_saturation = NULL, orthologr.legacy_kaks_zero_dn = NULL, orthologr.legacy = NULL)
         a   <- "ATGAAAACCGCGTATATTGCGAAACAGCGTCTGGAAGGTGATCTGAAAGCGTGGCTGACCGGTCTGGAAGCGAAACTGGGTATTCCGGAAGCG"

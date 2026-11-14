@@ -116,8 +116,8 @@ KaKs_Calculator prints `NA` for every Ka below 1e-6 and still prints `Ka/Ks = 0`
 genes. Now `dN = 0`. 1,000-gene example, YN: 11 of 995 pairs change from `dN = NA` to `dN = 0` (their `dNdS` was
 and is 0); `filter_dNdS()` kept 984 of the 995 pairs and now keeps all 995.
 
-In the same way identical sequences (KaKs_Calculator: `NA NA NA`) now have dN = dS = 0 (status `"dS_zero"`)
-instead of three `NA` and the status `"saturated"`, and a pair with nonsynonymous
+In the same way identical sequences (KaKs_Calculator: `NA NA NA`) now have dN = dS = 0 (status `"dS_zero"`, as
+with the COAL engine) instead of three `NA` and the status `"saturated"`, and a pair with nonsynonymous
 differences only has dS = 0. E. coli K-12 / O157, YN: 230 of 3,663 pairs; a file compared with itself is no
 longer reported as "saturated - the species are probably too distant".
 
@@ -126,7 +126,7 @@ longer reported as "saturated - the species are probably too distant".
 Where the correction for multiple substitutions is not defined, KaKs_Calculator prints a capped number instead of
 `NA`: dS = 99, JC69's distance at its cap (0.75 log of the number of sites; dS of about 2.5 - 6) for YN and MYN,
 or 0 substitutions for a class of sites in the LWL family. orthologr returned these as estimates (status
-`"ok"`). Now they are `NA` with the status `"saturated"`.
+`"ok"`). Now they are `NA` with the status `"saturated"`, as with the COAL engine.
 S. cerevisiae / C. glabrata, YN: 3,559 of 4,164 pairs (172 of them with dS = 99, whose dN/dS of about 0.003 put
 them into the most conserved divergence stratum); E. coli K-12 / O157: 21 of 3,663; 1,000-gene example: 1 of 995.
 `options(orthologr.legacy_kaks_saturation = TRUE)` returns the printed numbers.

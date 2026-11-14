@@ -48,7 +48,8 @@ A GPL-2-only orthologr that calls a GPL-3 package at run time is a second reason
 | Best hits are ranked by bit score (was: e-value, then alignment length) | `options(orthologr.best_hit_rule = "evalue")` or the argument `best_hit_rule = "evalue"` |
 | Pairwise protein alignments (BLOSUM62; only on the branch with the faster pairwise alignment) | `options(orthologr.legacy_pairwise_aln = TRUE)` |
 | Comeron's method: `NA` instead of a finite value when a correction is undefined in a class that has sites | `options(orthologr.legacy_comeron_saturation = TRUE)` |
-| KaKs_Calculator methods: `dN = 0` instead of `dN = NA` for a pair without nonsynonymous change | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
+| KaKs_Calculator methods: `dN = 0` instead of `dN = NA` for a pair without nonsynonymous change; dN = dS = 0 for identical sequences, dS = 0 for nonsynonymous-only pairs | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
+| KaKs_Calculator methods: `NA` (status `"saturated"`) for KaKs_Calculator's capped values (Ka / Ks = 99, JC69's cap of YN / MYN, a class with 0 substitutions in the LWL family) | `options(orthologr.legacy_kaks_saturation = TRUE)` |
 | Li's method returns numeric columns; a value below 9.9 that R compared as text is no longer `NA` | none (bug fix) |
 | dN/dS tables end with the column `status` (`"ok"`, `"dS_zero"`, `"saturated"`, `"no_data"`, `"failed"`) | `options(orthologr.status_column = FALSE)` |
 | T-Coffee default mode (was `-mode accurate`) | `aa_aln_params = "-mode accurate"` / `params = "-mode accurate"` |
