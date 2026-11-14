@@ -343,8 +343,15 @@ coal_codon_aln_file <- function(file_aln, file_nuc, file.out, format = "fasta", 
         if (length(first) > 0 && startsWith(first, ">")) {
                 rows <- read_fasta_strings(file_aln)
         } else {
-                aln <- seqinr::read.alignment(file_aln, format = "clustal", forceToLower = FALSE)
-                rows <- structure(toupper(unlist(aln$seq)), names = sub("\\s.*$", "", aln$nam))
+                aln <- tryCatch(suppressWarnings(seqinr::read.alignment(file_aln, format = "clustal", forceToLower = FALSE)),
+                                error = function(e) NULL)
+                if (!is.null(aln) && isTRUE(aln$nb > 0)) {
+                        rows <- structure(toupper(unlist(aln$seq)), names = sub("\\s.*$", "", aln$nam))
+                } else {
+                        # seqinr reads no sequence from a CLUSTAL file without a conservation line (the format
+                        # orthologr's write_alignment(), PAL2NAL, T-Coffee and MUSCLE write), as in codon_aln()
+                        rows <- toupper(read_clustal(file_aln))
+                }
         }
         cds <- read_fasta_strings(file_nuc)
         # PAL2NAL pairs the two files by position; so does orthologr (both files hold the pair in the same order)
@@ -834,7 +841,9 @@ dNdS_clusters <- function(cds_file,
                 clusters <- as.data.frame(clusters)[ , 1:2]
 
         geneids <- seqs <- NULL
-        cds <- do.call(c, lapply(cds_file, function(f) {
+        # (unname: c() on a named list would prefix every gene id with the name of its file, e.g.
+        # cds_file = c(A = "a.fasta", B = "b.fasta"), and no member would be found)
+        cds <- do.call(c, lapply(unname(cds_file), function(f) {
                 cds_vector(read.cds(file = f, format = "fasta", delete_corrupt_cds = delete_corrupt_cds))
         }))
 
