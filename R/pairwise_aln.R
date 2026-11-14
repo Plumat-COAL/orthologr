@@ -277,7 +277,8 @@ check_aln_cells <- function(n, m) {
                      format(cells, big.mark = ",", scientific = FALSE), " cells and would need about ",
                      signif(3 * cells / 1e9, 2), " GB of memory; options(orthologr.max_aln_cells) is ",
                      format(limit, big.mark = ",", scientific = FALSE), ". The pair is not aligned; ",
-                     "options(orthologr.max_aln_cells = Inf) aligns it anyway (about 3 bytes per cell, with comp_cores > 1 for every pair aligned at the same time).",
+                     "options(orthologr.max_aln_cells = Inf) aligns it anyway (about 3 bytes per cell, with comp_cores > 1 for every pair aligned at the same time); ",
+                     "dNdS(engine = \"coal\") aligns such pairs in much less memory (titin, 36,000 x 35,000 residues: about 1.1 GB and 25 s).",
                      call. = FALSE)
         invisible(cells)
 }

@@ -125,7 +125,7 @@ test_that("argument and input-file errors of the main functions have the documen
                                                                   dNdS(q, s, codon_aln_tool = "coal") })),    "bad_argument"),
                 list("COAL not there",              quote(local({ old <- options(orthologr.coal_backend = "none")
                                                                   on.exit(options(old))
-                                                                  dNdS(q, s, codon_aln_tool = "coal") })),    "package_missing")
+                                                                  dNdS(q, s, dnds_est.method = "YN", kaks_tool = "coal") })), "package_missing")
         ))
         if (requireNamespace("coalr", quietly = TRUE))
                 probes <- c(probes, list(

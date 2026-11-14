@@ -133,7 +133,7 @@ them into the most conserved divergence stratum); E. coli K-12 / O157: 21 of 3,6
 Where KaKs_Calculator prints `nan` (its estimate failed; MYN, S. cerevisiae / C. glabrata: 50 of 4,164 pairs) the
 pair is `NA` with the status `"failed"` and the reason in `attr(result, "failed_pairs")` (was `NaN` and
 `"saturated"`). KaKs_Calculator does not report whether the YN / MYN iteration converged; such pairs keep the
-values of its last round and the status `"ok"` (3 % of the yeast YN estimates).
+values of its last round and the status `"ok"` (3 % of the yeast YN estimates; `kaks_tool = "coal"` reports them).
 `options(orthologr.legacy_kaks_saturation = TRUE)` returns the printed numbers.
 
 ### Not a default change: gene pairs with dS = 0
