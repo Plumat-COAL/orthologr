@@ -191,6 +191,13 @@ Running programs:
   equal those of `dNdS()` in every locale. (An intermediate version marked all text as UTF-8: in a C / POSIX
   locale a non-ASCII ID then no longer matched the ID of the run - `==`, `match()` and `merge()` failed; and
   `write_dNdS()` wrote such IDs of `attr(, "failed_pairs")` as escapes like `<c3><bc>` in a C locale.)
+- An invalid `options(orthologr.max_aln_cells)` (`-1`, `"5e8"` as text, `NA`, several values) is an error
+  (`orthologr_error_bad_argument`, naming the value) before the search in `dNdS()` and `dNdS_orthogroups()`; it ran
+  the search and then failed every gene pair with the message about the option (20-gene example: 20 of 20 pairs
+  "failed"). `options(orthologr.keep_tmp)` of `NA` or of several values is an error as well (was taken for
+  `FALSE`), and a folder that cannot be created is `orthologr_error_bad_argument` (was an unclassed error). The
+  reason of a pair above `orthologr.max_aln_cells` mentions `engine = "coal"`; a run of one gene pair is summarised
+  as "1 gene pair".
 - A DIAMOND older than 2.1.0 is used with a warning (`orthologr_warning_tool_version`; it was used without a word);
   a program that is there but crashes when asked for its version is `orthologr_error_tool_failed` ("could not be
   started ... exit status 139"), no longer "not installed"; a failed DIAMOND search is `orthologr_error_tool_failed`
@@ -215,6 +222,10 @@ Running programs:
   each of Clustal Omega, MAFFT, MUSCLE, ClustalW and T-Coffee, and the 1,000-gene example with each of Comeron,
   Li, NG, LWL, MLWL, LPB, MLPB, YN and MYN give identical tables; with and without `coalr` installed the
   default run gives the same table (checked on two of these sets), also under `orthologr_legacy_options()`.
+  `codon_aln_tool = "coal"` where COAL is not installed uses PAL2NAL, with a message (so the arguments of a run
+  record from a machine with `coalr`, which name `"coal"`, can be used again elsewhere; this was an
+  `orthologr_error_package_missing`). `dNdS_orthogroups(engine = "orthologr")` builds its codon alignments with
+  PAL2NAL in any case (same alignments).
   Default run, 2 cores (Comeron): 37 -> 17 s (1,000-gene example), 99 -> 69 s (E. coli), 79 -> 56 s
   (Salmonella / Shigella), 156 -> 84 s (yeasts), 61 -> 41 s (human / mouse); the deep test measured 178 -> 94 s
   for the yeasts with YN on 1 core.
