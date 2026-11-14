@@ -118,6 +118,9 @@ dNdS_orthogroups <- function(x,
                 groups <- check_choice(groups[1], c("single_copy", "all"), "groups")
         }
         engine <- check_choice(engine[1], c("orthologr", "coal"), "engine")
+        # (an invalid options(orthologr.max_aln_cells) failed every pair after the search)
+        if (engine == "orthologr")
+                max_aln_cells()
         check_count(max_group_size, "max_group_size")
         check_flag(quiet, "quiet")
         if (!is.numeric(dS_saturation) || length(dS_saturation) != 1 || is.na(dS_saturation) || dS_saturation <= 0)
@@ -142,9 +145,6 @@ dNdS_orthogroups <- function(x,
                 orthologr_abort(class = "bad_argument", "aa_aln_scoring = \"", aa_aln_scoring, "\" needs engine = \"coal\": engine = \"orthologr\" aligns pairs ",
                      "with pairwise_aln(), i.e. \"pwalign\".", call. = FALSE)
         comp_cores <- check_comp_cores(comp_cores)
-        # (an invalid options(orthologr.max_aln_cells) failed every pair after the search)
-        if (engine == "orthologr")
-                max_aln_cells()
         
         # the arguments of this call, for the record of the run (attr(<result>, "orthologr_run"))
         run_args <- run_arguments()

@@ -145,6 +145,10 @@
 #' defined (an underestimate). Since 0.5.0 these estimates are \code{NA} (and \code{dNdS} with them; status
 #' \code{"saturated"}), as with the COAL engine; they are recognised in the columns KaKs_Calculator prints (sites
 #' and differences by class), so the other values are unchanged. The methods GY, MA, MS and GMYN are not checked.
+#' Up to 0.4.3 such a value was returned as an estimate: e.g. dS = 99, which makes dN/dS look like strong
+#' purifying selection, put the pair into the most conserved stratum of \code{\link{divergence_map}} and passed
+#' \code{\link{filter_dNdS}}. \code{options(orthologr.legacy_kaks_saturation = TRUE)} restores the old values.
+#'
 #' For the LWL family the printed counts (6 significant digits) cannot tell the sign of \code{1 - 2P - Q} when it
 #' is within about 1e-5 of 0 - typically exactly 0, where KaKs_Calculator's own rounding decides. For such pairs
 #' (an argument within 1e-3 of 0 by the printed counts) the counts are computed again from the codon alignment, with
@@ -174,9 +178,6 @@
 #' \code{attr(result, "failed_pairs")}. It is not saturated (COAL estimates 43 of these 50 pairs). Up to this
 #' version the row was \code{NaN} (in one of the 50 pairs dN a number) with status \code{"saturated"};
 #' \code{options(orthologr.legacy_kaks_saturation = TRUE)} returns it as printed.
-#' Up to 0.4.3 such a value was returned as an estimate: e.g. dS = 99, which makes dN/dS look like strong
-#' purifying selection, put the pair into the most conserved stratum of \code{\link{divergence_map}} and passed
-#' \code{\link{filter_dNdS}}. \code{options(orthologr.legacy_kaks_saturation = TRUE)} restores the old values.
 #'
 #' @section Saturation (Comeron's method):
 #' The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:
