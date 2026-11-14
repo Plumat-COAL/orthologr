@@ -35,6 +35,14 @@ list with
 \describe{
 \item{\code{orthologr}}{the version of the package;}
 \item{\code{function}, \code{arguments}}{the function and the values of its arguments;}
+\item{\code{call}}{the call as it was written (the outermost of \code{dNdS()}, \code{dNdS_coal()},
+\code{dNdS_clusters()}, \code{dNdS_orthogroups()}, \code{divergence_stratigraphy()});}
+\item{\code{called_as}}{when that call is of another function than \code{function} (\code{dNdS(engine = "coal")}
+runs \code{dNdS_coal()}): its name and the values of all its arguments, also of those the engine does not use;}
+\item{\code{commands}}{the command lines of the sequence searches the run started (DIAMOND, BLAST+), with the
+file names of the working folder;}
+\item{\code{engine_settings}}{with \code{engine = "coal"}: what orthologr gave COAL (the arguments of
+\pkg{coalr}) and the equivalent \code{coal pipeline} command line (see \code{\link{dNdS_coal}});}
 \item{\code{options}}{every \code{orthologr.*} option with the value in force (see \code{\link{orthologr_options}});
 this shows whether a result was computed with the settings of 0.4.3;}
 \item{\code{engine}}{\code{"orthologr"} or \code{"coal"};}
