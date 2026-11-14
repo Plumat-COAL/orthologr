@@ -75,7 +75,7 @@ A list of three tibbles:
 \code{dN}, \code{dS}, \code{dNdS}, \code{note}. The query is the gene of the species that comes first in \code{x$species};
 \item \code{summary}: one row per group (and method): \code{orthogroup}, \code{method}, \code{n_genes},
 \code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value), \code{n_na}, \code{n_saturated}
-(dS above \code{dS_saturation}), and median, mean, first and third quartile of dN, dS and dN/dS over the pairs
+(dS above \code{dS_saturation}), and median, mean, first and third quartile (_q25, _q75) of dN, dS and dN/dS over the pairs
 with values;
 \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 }

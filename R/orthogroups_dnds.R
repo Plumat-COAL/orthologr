@@ -46,7 +46,7 @@
 #' \code{dN}, \code{dS}, \code{dNdS}, \code{note}. The query is the gene of the species that comes first in \code{x$species};
 #' \item \code{summary}: one row per group (and method): \code{orthogroup}, \code{method}, \code{n_genes},
 #' \code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value), \code{n_na}, \code{n_saturated}
-#' (dS above \code{dS_saturation}), and median, mean, first and third quartile of dN, dS and dN/dS over the pairs
+#' (dS above \code{dS_saturation}), and median, mean, first and third quartile (_q25, _q75) of dN, dS and dN/dS over the pairs
 #' with values;
 #' \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 #' }
@@ -442,9 +442,10 @@ dnds_groups_summary <- function(pairs, members, dS_saturation = 2) {
                 n_ok        = sum(!is.na(dNdS)),
                 n_na        = sum(is.na(dNdS)),
                 n_saturated = sum(!is.na(dS) & dS > dS_saturation),
-                dN_median = q(dN, 0.5), dN_mean = mn(dN), dN_q1 = q(dN, 0.25), dN_q3 = q(dN, 0.75),
-                dS_median = q(dS, 0.5), dS_mean = mn(dS), dS_q1 = q(dS, 0.25), dS_q3 = q(dS, 0.75),
-                dNdS_median = q(dNdS, 0.5), dNdS_mean = mn(dNdS), dNdS_q1 = q(dNdS, 0.25), dNdS_q3 = q(dNdS, 0.75)
+                # quartile columns _q25 / _q75
+                dN_median = q(dN, 0.5), dN_mean = mn(dN), dN_q25 = q(dN, 0.25), dN_q75 = q(dN, 0.75),
+                dS_median = q(dS, 0.5), dS_mean = mn(dS), dS_q25 = q(dS, 0.25), dS_q75 = q(dS, 0.75),
+                dNdS_median = q(dNdS, 0.5), dNdS_mean = mn(dNdS), dNdS_q25 = q(dNdS, 0.25), dNdS_q75 = q(dNdS, 0.75)
         ), by = list(orthogroup, method)]
         s <- merge(size, s, by = "orthogroup")
         data.table::setcolorder(s, c("orthogroup", "method"))
