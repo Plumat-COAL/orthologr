@@ -198,15 +198,29 @@ compute_dnds <- function(complete_tbl,
                 }
                 
                 # align codon -> cds.aln
-                codon_aln(
-                        file_aln       = aa_aln_file,
-                        file_nuc       = cds_session_fasta,
-                        tool           = codon_aln_tool,
-                        format         = "fasta",
-                        codon_aln_name = aa_aln_name,
-                        get_aln        = FALSE,
-                        quiet          = TRUE
-                )
+                if (codon_in_memory && !is.null(aln_rows) && plain_seqs(c(q_cds[i], s_cds[i]))) {
+                        # COAL in process with the rows and coding sequences at hand: the file codon_aln() writes,
+                        # without reading the two files of the pair back
+                        codon <- coal_codon_rows(aln_rows, c(q_cds[i], s_cds[i]),
+                                                 paste0("gene pair '", pair_names[1], "' / '", pair_names[2], "' (",
+                                                        aa_aln_name, ")"))
+                        names(codon) <- pair_names
+                        codon_file <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln",
+                                                paste0(aa_aln_name, "_", codon_aln_tool, ".aln"))
+                        if (file.exists(codon_file))
+                                unlink(codon_file)
+                        write_alignment(codon, codon_file, format = "fasta")
+                } else {
+                        codon_aln(
+                                file_aln       = aa_aln_file,
+                                file_nuc       = cds_session_fasta,
+                                tool           = codon_aln_tool,
+                                format         = "fasta",
+                                codon_aln_name = aa_aln_name,
+                                get_aln        = FALSE,
+                                quiet          = TRUE
+                        )
+                }
                 
                 # compute kaks
                 rates <- substitutionrate(
@@ -273,6 +287,15 @@ compute_dnds <- function(complete_tbl,
                 !is.null(aa_sub_matrix) && !isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))
         if (batch_aln) {
                 d <- file.path(orthologr_tmpdir(), "_alignment", "pairwise_aln")
+                if (!file.exists(d))
+                        dir.create(d, recursive = TRUE)
+        }
+        # With these alignments and codon_aln_tool = "coal" through coalr, the codon alignment is built from the
+        # rows in memory (coal_codon_rows(), what codon_aln() does after reading the two files back).
+        codon_in_memory <- batch_aln && identical(codon_aln_tool, "coal") &&
+                isTRUE(tryCatch(identical(coal_backend()$type, "coalr"), error = function(e) FALSE))
+        if (codon_in_memory) {
+                d <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln")
                 if (!file.exists(d))
                         dir.create(d, recursive = TRUE)
         }
@@ -386,6 +409,12 @@ dnds_chunk_size <- function() 100L
 write_pair_fasta <- function(seqs, names, file) {
         seqs <- vapply(seqs, function(x) paste(as.character(x), collapse = ""), character(1), USE.NAMES = FALSE)
         writeLines(as.vector(rbind(paste0(">", unlist(names)), seqs)), file)
+}
+
+# Are the sequences 'x' such that writing them with write_pair_fasta() and reading them back with seqinr::read.fasta()
+# gives them unchanged (letters, '*' and '-' only; not NA, not empty)?
+plain_seqs <- function(x) {
+        !anyNA(x) && all(grepl("^[A-Za-z*-]+$", x))
 }
 
 # The names of the two sequences in the files of a gene pair.
