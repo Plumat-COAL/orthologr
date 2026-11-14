@@ -16,15 +16,24 @@ golden <- utils::read.delim(test_path("fixtures", "codon_aln", "golden_values.ts
 # ---------------------------------------------------------------- dN / dS values
 
 test_that("Comeron: dN, dS and dN/dS of fixed codon alignments are the pinned values ...", {
-        for (i in seq_len(nrow(golden))) {
-                x <- substitutionrate(golden_file(golden$file[i]), est.method = "Comeron", quiet = TRUE)
-                expect_identical(x$query_id, golden$query_id[i])
-                expect_identical(x$subject_id, golden$subject_id[i])
-                # gestimator prints four significant digits
-                expect_equal(x$dN, golden$comeron_dN[i], tolerance = 1e-12, info = golden$file[i])
-                expect_equal(x$dS, golden$comeron_dS[i], tolerance = 1e-12, info = golden$file[i])
-                expect_equal(x$dNdS, golden$comeron_dNdS[i], tolerance = 1e-12, info = golden$file[i])
+        # comeron_* : libsequence's branches for codons that differ at two positions (gestimator of 0.4.3,
+        # options(orthologr.comeron_twosubs = "libsequence")); comeron_pathways_* : Comeron's two pathways, the
+        # default since 0.5.0 (only pair1 has such codons where the two differ)
+        for (twosubs in c("comeron", "libsequence")) {
+                old <- options(orthologr.comeron_twosubs = twosubs)
+                pre <- if (twosubs == "comeron") "comeron_pathways_" else "comeron_"
+                for (i in seq_len(nrow(golden))) {
+                        x <- substitutionrate(golden_file(golden$file[i]), est.method = "Comeron", quiet = TRUE)
+                        expect_identical(x$query_id, golden$query_id[i])
+                        expect_identical(x$subject_id, golden$subject_id[i])
+                        # gestimator prints four significant digits
+                        for (v in c("dN", "dS", "dNdS"))
+                                expect_equal(x[[v]], golden[[paste0(pre, v)]][i], tolerance = 1e-12,
+                                             info = paste(golden$file[i], twosubs))
+                }
+                options(old)
         }
+        expect_false(identical(golden$comeron_pathways_dS, golden$comeron_dS))
 })
 
 test_that("Li: dN, dS and dN/dS of fixed codon alignments are the pinned values ...", {
@@ -42,6 +51,8 @@ test_that("the pinned Comeron and Li values agree with KaKs_Calculator (MLPB) wi
         close_to <- function(a, b) abs(a - b) <= pmax(0.15 * abs(b), 0.005)
         expect_true(all(close_to(golden$comeron_dN, golden$mlpb_dN)))
         expect_true(all(close_to(golden$comeron_dS, golden$mlpb_dS)))
+        expect_true(all(close_to(golden$comeron_pathways_dN, golden$mlpb_dN)))
+        expect_true(all(close_to(golden$comeron_pathways_dS, golden$mlpb_dS)))
         expect_true(all(close_to(golden$li_dN, golden$mlpb_dN)))
         expect_true(all(close_to(golden$li_dS, golden$mlpb_dS)))
         # the reference values themselves are pinned from a run of KaKs_Calculator 2.0; when the program is
@@ -85,7 +96,8 @@ test_that("dNdS() on the example data returns the known ortholog pairs with the 
         # The values are those of the protein alignments of orthologr <= 0.4.3. Branches that change the default
         # alignment scoring (BLOSUM62, options(orthologr.legacy_pairwise_aln = )) reproduce them with this option;
         # where the option does not exist it has no effect.
-        opt <- options(orthologr.legacy_pairwise_aln = TRUE)
+        # (and Comeron with libsequence's branches, as 0.4.3 computed it: options(orthologr.comeron_twosubs))
+        opt <- options(orthologr.legacy_pairwise_aln = TRUE, orthologr.comeron_twosubs = "libsequence")
         on.exit(options(opt), add = TRUE)
         for (rule in c("bitscore", "evalue")) {
                 res <- suppressMessages(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE, best_hit_rule = rule))
@@ -165,7 +177,8 @@ test_that("pipe, numeric, long and hyphen IDs come through dNdS() unchanged, wit
                         expect_false(anyNA(res$dN), info = label)
                 expect_false(anyNA(res$dS), info = label)
         }
-        opt <- options(orthologr.legacy_pairwise_aln = TRUE)       # see above: the alignments of the pinned values
+        opt <- options(orthologr.legacy_pairwise_aln = TRUE,       # see above: the alignments of the pinned values
+                       orthologr.comeron_twosubs = "libsequence")
         check(suppressMessages(dNdS(qf, sf, print_citation = FALSE)), "Comeron / NW")
         options(opt)
         check(suppressMessages(dNdS(qf, sf, dnds_est.method = "Li", print_citation = FALSE)), "Li / NW", values = FALSE)
