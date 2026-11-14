@@ -65,8 +65,8 @@
 #' \code{\link{dNdS}}, section "Status of a gene pair"; the same columns as in \code{\link{dNdS_clusters}}),
 #' \code{n_dS_above} (pairs with dS above \code{dS_saturation}: estimated, but hardly informative; this column was
 #' called \code{n_saturated} in development versions of 0.5.0), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the
-#' numbers of pairs with a dN, a dS and a dN/dS value), and median, mean, first and third quartile of dN, dS and dN/dS. \strong{Which pairs enter
-#' the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the group that have a dN (dS,
+#' numbers of pairs with a dN, a dS and a dN/dS value), and median, mean, first and third quartile of dN, dS and
+#' dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the group that have a dN (dS,
 #' dN/dS) value - a pair without dS (e.g. saturated at synonymous sites) still counts with its dN, and a pair
 #' above \code{dS_saturation} counts with all its values. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the
 #' numbers behind the statistics. \code{\link{dNdS_clusters}} uses the same rule (its quartile columns are named

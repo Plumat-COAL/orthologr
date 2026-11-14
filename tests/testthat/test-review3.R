@@ -481,7 +481,7 @@ test_that("R09: a missing program stops dNdS() and dNdS_orthogroups() before the
         # no perl: PAL2NAL cannot run
         Sys.setenv(PATH = with_coreutils(new_test_dir("r09_empty_")))
         tool_cache_reset()
-        expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE)), "'perl' was not found")
+        expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), codon_aln_tool = "pal2nal", print_citation = FALSE)), "'perl' was not found")
         expect_false(searched)
         # what is needed and there passes
         Sys.setenv(PATH = old); tool_cache_reset()

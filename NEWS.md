@@ -201,6 +201,18 @@ Running programs:
   translation and best-hit selection, and not writing a second copy of every alignment.
 - `select_orthologs()`, `retrieve_longest_isoforms()` and `deepclust()` read annotations and sequences in one
   pass.
+- When the R package `coalr` is installed, `dNdS()` and `divergence_stratigraphy()` build the codon alignments
+  with COAL instead of starting PAL2NAL (Perl) once per gene pair (`codon_aln_tool = NULL`, the new default;
+  `options(orthologr.codon_aln_tool = "pal2nal")` or `codon_aln_tool = "pal2nal"` keeps PAL2NAL; the record of the
+  run names the tool used). The codon alignments are byte-identical: 12,605 of 12,605 gene pairs (1,000-gene
+  example 995, E. coli K-12 / O157 3,663, Salmonella LT2 / Shigella flexneri 2,820, S. cerevisiae / C. glabrata
+  4,164, human 1,000 transcripts / all mouse CDS 945, a file of edited sequences 18), the 20-gene example with
+  each of Clustal Omega, MAFFT, MUSCLE, ClustalW and T-Coffee, and the 1,000-gene example with each of Comeron,
+  Li, NG, LWL, MLWL, LPB, MLPB, YN and MYN give identical tables; with and without `coalr` installed the
+  default run gives the same table (checked on two of these sets), also under `orthologr_legacy_options()`.
+  Default run, 2 cores (Comeron): 37 -> 17 s (1,000-gene example), 99 -> 69 s (E. coli), 79 -> 56 s
+  (Salmonella / Shigella), 156 -> 84 s (yeasts), 61 -> 41 s (human / mouse); the deep test measured 178 -> 94 s
+  for the yeasts with YN on 1 core.
 
 ### Checked against other programs
 

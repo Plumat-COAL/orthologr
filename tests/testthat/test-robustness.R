@@ -160,7 +160,7 @@ test_that("dNdS() works in a folder of its own and removes it ...", {
                                       quiet = TRUE, print_citation = FALSE))
         kept <- setdiff(list.files(tempdir(), pattern = "^orthologr_dNdS_"), before)
         expect_length(kept, 1)
-        expect_true(file.exists(file.path(tempdir(), kept, "_alignment", "codon_aln", "q1_pal2nal.aln")))
+        expect_true(any(file.exists(file.path(tempdir(), kept, "_alignment", "codon_aln", c("q1_pal2nal.aln", "q1_coal.aln")))))
         unlink(file.path(tempdir(), kept), recursive = TRUE)
         expect_equal(as.data.frame(res2), as.data.frame(res), ignore_attr = TRUE)
 })
