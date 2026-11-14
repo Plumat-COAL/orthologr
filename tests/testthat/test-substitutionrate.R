@@ -20,7 +20,7 @@ test_that("substitutionrate() computes Li's dN and dS with seqinr::kaks()", {
 })
 
 test_that("substitutionrate() checks method and format", {
-        expect_error(substitutionrate(codon_aln_example, est.method = "XX"), "dNdS estimation method")
+        expect_error(substitutionrate(codon_aln_example, est.method = "XX"), "is not a method of substitutionrate()", fixed = TRUE)
         expect_error(substitutionrate(codon_aln_example, est.method = "Comeron", format = "nexus"), "format")
         expect_error(substitutionrate(codon_aln_example, est.method = "Comeron", format = "clustal"), "fasta")
 })

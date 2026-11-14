@@ -22,6 +22,5 @@ show_upgrade_note <- function() {
 
 .onAttach <- function(libname, pkgname) {
         if (show_upgrade_note())
-                packageStartupMessage(paste(strwrap(upgrade_note(pkgname), width = 0.9 * getOption("width", 80)),
-                                            collapse = "\n"))
+                packageStartupMessage(paste(strwrap(upgrade_note(pkgname)), collapse = "\n"))
 }

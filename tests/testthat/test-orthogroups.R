@@ -377,7 +377,7 @@ test_that("dNdS_orthogroups(): pairwise alignments give the values of dNdS(); re
         
         # argument checks
         expect_error(dNdS_orthogroups(og, engine = "paml"), "engine = 'paml' is not supported")
-        expect_error(dNdS_orthogroups(og, dnds_est.method = "XX"), "not supported with engine")
+        expect_error(dNdS_orthogroups(og, dnds_est.method = "XX"), "is not a method of dNdS_orthogroups(engine = \"orthologr\")", fixed = TRUE)
         expect_error(dNdS_orthogroups(og, aa_aln_tool = "NW"), "aa_aln_tool = 'NW' is not supported")
         # (aa_aln_tool = "pairwise": these checks come after the one for the alignment program, which is not
         # installed everywhere)
