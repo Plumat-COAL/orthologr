@@ -460,7 +460,7 @@ test_that("R09: a missing program stops dNdS() and dNdS_orthogroups() before the
         file.symlink(Sys.which("perl"), file.path(bin, "perl"))
         old <- Sys.getenv("PATH")
         on.exit({ Sys.setenv(PATH = old); tool_cache_reset() }, add = TRUE)
-        Sys.setenv(PATH = bin)
+        Sys.setenv(PATH = with_coreutils(bin))
         tool_cache_reset()
         searched <- FALSE
         testthat::local_mocked_bindings(
@@ -479,7 +479,7 @@ test_that("R09: a missing program stops dNdS() and dNdS_orthogroups() before the
         expect_error(suppressMessages(divergence_stratigraphy(thal_cds(), lyra_cds(), dnds_est.method = "YN")), "KaKs_Calculator")
         expect_false(searched)
         # no perl: PAL2NAL cannot run
-        Sys.setenv(PATH = new_test_dir("r09_empty_"))
+        Sys.setenv(PATH = with_coreutils(new_test_dir("r09_empty_")))
         tool_cache_reset()
         expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE)), "'perl' was not found")
         expect_false(searched)

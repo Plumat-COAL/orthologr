@@ -471,6 +471,7 @@ test_that("dNdS_orthogroups(): one codon alignment per group, all between-specie
         expect_identical(is.na(res_na$pairs$dNdS), c(FALSE, TRUE, FALSE))
         expect_match(res_na$pairs$note[2], "no estimate for this pair")
         expect_identical(c(res_na$summary$n_ok, res_na$summary$n_na), c(2L, 1L))
+        expect_identical(c(res_na$summary$n_failed, res_na$summary$n_saturated), c(1L, 0L))
         expect_equal(res_na$summary$dNdS_median, 0.2)
         expect_warning(suppressMessages(testthat::with_mocked_bindings(
                 dNdS_orthogroups(og, groups = ids[3], aa_aln_tool = "clustalo"),
@@ -489,4 +490,28 @@ test_that("dNdS_orthogroups() runs orthogroups() when it is given files; orthofi
         expect_identical(nrow(res$pairs), 13L)
         expect_true(all(res$summary$n_pairs == 1))
         expect_error(dNdS_orthogroups(toy$files, cds_files = toy$files), "'cds_files' must be NULL")
+})
+
+test_that("dNdS_orthogroups() summary: counts by status (n_saturated as the column status) and n_dS_above (O09)", {
+        pairs <- data.table::data.table(
+                orthogroup = c("OG1", "OG1", "OG1", "OG1", "OG2"), method = "YN",
+                query_id = paste0("q", 1:5), subject_id = paste0("s", 1:5),
+                dN   = c(0.1, 0.2, 0.3, NA, 0),
+                dS   = c(0.5, 2.5, NA, NA, 0),
+                dNdS = c(0.2, 0.08, NA, NA, NA))
+        members <- data.table::data.table(orthogroup = rep(c("OG1", "OG2"), c(4, 2)), gene = paste0("g", 1:6),
+                                          species = c("A", "B", "C", "D", "A", "B"))
+        status <- c("ok", "ok", "saturated", "failed", "dS_zero")
+        s <- dnds_groups_summary(pairs, members, dS_saturation = 2, status = status)
+        expect_identical(s$n_ok, c(2L, 0L))
+        expect_identical(s$n_na, c(2L, 1L))
+        expect_identical(s$n_saturated, c(1L, 0L))
+        expect_identical(s$n_failed, c(1L, 0L))
+        expect_identical(s$n_dS_zero, c(0L, 1L))
+        expect_identical(s$n_no_data, c(0L, 0L))
+        expect_identical(s$n_dS_above, c(1L, 0L))
+        # without a status the status is derived from the values
+        s2 <- dnds_groups_summary(pairs, members, dS_saturation = 2)
+        expect_identical(s2$n_saturated, c(2L, 0L))
+        expect_identical(s2$n_dS_zero, c(0L, 1L))
 })

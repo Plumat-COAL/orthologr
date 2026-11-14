@@ -96,3 +96,18 @@ test_that("dNdS_orthogroups(engine = \"coal\") has the status column and the rec
         expect_identical(attr(res, "orthologr_run")$engine, "coal")
         expect_true(nzchar(attr(res, "orthologr_run")$tools$coalr))
 })
+
+test_that("dNdS_clusters(): a cluster whose pairs are only saturated is 'saturated', not 'failed' (O13)", {
+        sm <- data.frame(cluster_id = c("a", "b", "c", "d", "e"), status = c("failed", "failed", "ok", "failed", "skipped"),
+                         n_pairs = c(1L, 3L, 2L, 2L, 0L), n_ok = c(0L, 0L, 1L, 0L, 0L), n_not_converged = 0L,
+                         n_saturated = c(1L, 2L, 1L, 1L, 0L), n_no_data = c(0L, 1L, 0L, 0L, 0L), n_failed = c(0L, 0L, 0L, 1L, 0L),
+                         note = c("", NA, "", "", "too large"), stringsAsFactors = FALSE)
+        out <- dnds_cluster_status(sm)
+        expect_identical(out$status, c("saturated", "saturated", "ok", "failed", "skipped"))
+        expect_match(out$note[1], "no pair has an estimate \\(1 pair: 1 saturated\\)")
+        expect_match(out$note[2], "2 saturated, 1 without codons to compare")
+        expect_match(out$note[4], "1 failed")
+        expect_identical(out$note[c(3, 5)], c("", "too large"))
+        sm$n_saturated[2] <- 0L
+        expect_identical(dnds_cluster_status(sm)$status[2], "no_data")
+})

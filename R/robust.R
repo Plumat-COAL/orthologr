@@ -11,16 +11,38 @@ orthologr_tmpdir <- function() {
         return(d)
 }
 
+# options(orthologr.keep_tmp): FALSE (default; the working folders are removed), TRUE (kept, inside tempdir(), which
+# R removes at the end of the session) or the path of a folder (kept there). Returns list(keep, dir).
+keep_tmp_setting <- function() {
+        v <- getOption("orthologr.keep_tmp", FALSE)
+        if (is.character(v) && length(v) == 1 && !is.na(v) && nzchar(v))
+                return(list(keep = TRUE, dir = v))
+        list(keep = isTRUE(v), dir = NULL)
+}
+
 # Start a working folder for one pipeline call. Returns a function that restores the previous state and removes
-# the folder (unless options(orthologr.keep_tmp = TRUE)); call it in on.exit().
+# the folder (unless options(orthologr.keep_tmp) keeps it); call it in on.exit(). With options(orthologr.keep_tmp =
+# "<folder>") the working folder is made inside that folder.
 orthologr_tmpdir_start <- function(prefix = "orthologr_") {
-        run_dir <- tempfile(prefix)
+        k <- keep_tmp_setting()
+        base <- tempdir()
+        if (!is.null(k$dir)) {
+                dir.create(k$dir, recursive = TRUE, showWarnings = FALSE)
+                if (!dir.exists(k$dir))
+                        stop("options(orthologr.keep_tmp = '", k$dir, "'): the folder could not be created.", call. = FALSE)
+                base <- normalizePath(k$dir, mustWork = TRUE)
+        }
+        run_dir <- tempfile(prefix, tmpdir = base)
         dir.create(run_dir, recursive = TRUE)
         old <- options(orthologr.tmpdir = run_dir)
         function() {
                 options(old)
-                if (isTRUE(getOption("orthologr.keep_tmp", FALSE))) {
-                        message("Intermediate files were kept in '", run_dir, "' (options(orthologr.keep_tmp = TRUE)).")
+                if (keep_tmp_setting()$keep || !is.null(k$dir)) {
+                        message("Intermediate files were kept in '", run_dir, "'",
+                                if (is.null(k$dir)) paste0(" (options(orthologr.keep_tmp = TRUE)). This folder is inside tempdir(), which R ",
+                                                           "removes when the session ends; options(orthologr.keep_tmp = \"<folder>\") ",
+                                                           "keeps the files in a folder of your choice.") else
+                                        " (options(orthologr.keep_tmp)).")
                 } else {
                         unlink(run_dir, recursive = TRUE, force = TRUE)
                 }

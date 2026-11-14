@@ -44,7 +44,11 @@ the name of a matrix shipped with \pkg{pwalign} (\code{"BLOSUM62"} (Default), \c
 \code{"BLOSUM80"}, \code{"BLOSUM100"}, \code{"PAM30"}, \code{"PAM40"}, \code{"PAM70"}, \code{"PAM120"}, \code{"PAM250"}),
 or a numeric substitution matrix. \code{aa_sub_matrix = NULL} gives the scoring of \pkg{orthologr} <= 0.4.3
 (\code{\link[pwalign]{pairwiseAlignment}} without a substitution matrix, i.e. a match/mismatch score that ignores which
-amino acids are exchanged). The argument is ignored for DNA sequences.}
+amino acids are exchanged). The argument is ignored for DNA sequences. \strong{The scoring of 0.4.3 is slow:}
+\pkg{pwalign} aligns without a matrix about 15 times slower than with one, about 0.6 - 0.8 s per gene pair of
+typical length (1,000-gene example, 1 core: 632 s against 45 s for the whole \code{dNdS()} run); a genome-wide
+run with \code{aa_sub_matrix = NULL} or \code{options(orthologr.legacy_pairwise_aln = TRUE)} (also set by
+\code{\link{orthologr_legacy_options}}) takes hours per core.}
 }
 \value{
 In case the argument \code{get_aln} is set \code{TRUE}, an object of class alignment of the seqinr package is returned.

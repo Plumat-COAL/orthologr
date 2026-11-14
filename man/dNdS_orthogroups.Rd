@@ -63,7 +63,7 @@ from which the alignment of every pair is taken; or \code{"pairwise"} - every pa
 \item{max_group_size}{groups with more genes than this are not computed (\code{groups = "all"}); they are listed
 in \code{failed}. Default is \code{50}.}
 
-\item{dS_saturation}{pairs with a dS above this value are counted as saturated in the summary. Default is \code{2}.}
+\item{dS_saturation}{pairs with a dS above this value are counted in the column \code{n_dS_above} of the summary. Default is \code{2}.}
 
 \item{kaks_calc_path}{the folder that holds KaKs_Calculator (for its methods, see \code{\link{substitutionrate}}).}
 
@@ -91,9 +91,12 @@ A list of three tibbles:
 \code{orthogroup}, \code{query_species}, \code{query_id}, \code{subject_species}, \code{subject_id}, \code{method},
 \code{dN}, \code{dS}, \code{dNdS}, \code{note}. The query is the gene of the species that comes first in \code{x$species};
 \item \code{summary}: one row per group (and method): \code{orthogroup}, \code{method}, \code{n_genes},
-\code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value), \code{n_na}, \code{n_saturated}
-(dS above \code{dS_saturation}), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
-and a dN/dS value), and median, mean, first and third quartile of dN, dS and dN/dS. \strong{Which pairs enter
+\code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value, i.e. status \code{"ok"}), \code{n_na}
+(the others), \code{n_dS_zero}, \code{n_saturated}, \code{n_no_data}, \code{n_failed} (pairs by status, see
+\code{\link{dNdS}}, section "Status of a gene pair"; the same columns as in \code{\link{dNdS_clusters}}),
+\code{n_dS_above} (pairs with dS above \code{dS_saturation}: estimated, but hardly informative; this column was
+called \code{n_saturated} in development versions of 0.5.0), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the
+numbers of pairs with a dN, a dS and a dN/dS value), and median, mean, first and third quartile of dN, dS and dN/dS. \strong{Which pairs enter
 the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the group that have a dN (dS,
 dN/dS) value - a pair without dS (e.g. saturated at synonymous sites) still counts with its dN, and a pair
 above \code{dS_saturation} counts with all its values. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the

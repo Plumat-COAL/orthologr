@@ -19,5 +19,5 @@ orthologr_warn <- function(..., class = NULL, call. = FALSE) {
 orthologr_condition_classes <- function() {
         list(error   = c("tool_missing", "package_missing", "tool_failed", "alignment_failed", "no_hits",
                          "bad_input", "bad_argument", "alignment_too_large"),
-             warning = c("failed_pairs", "isoforms", "legacy_engine"))
+             warning = c("failed_pairs", "isoforms", "legacy_engine", "tool_version", "comp_cores"))
 }

@@ -36,6 +36,11 @@ The options (each can also be set on its own; see \code{\link{orthologr_options}
 \code{options(orthologr.legacy = TRUE)} is a shorthand with the same effect: while it is set, each of these
 options that is not set itself has its legacy value.
 
+\strong{Run time:} the pairwise alignments of 0.4.3 (\code{orthologr.legacy_pairwise_aln = TRUE}) take about 0.6 -
+0.8 s per gene pair, 14 to 19 times as long as the default (150 gene pairs: about 115 s against 6 s; 1,000 pairs:
+about 10 minutes per core), as long as with 0.4.3 itself. Reproducing a genome-wide run of 0.4.3 takes hours;
+use \code{comp_cores}.
+
 Not covered by an option, because they are arguments: T-Coffee was run with \code{-mode accurate} in 0.4.3
 (\code{aa_aln_params = "-mode accurate"} restores it), and \code{aa_aln_params} was ignored for all alignment
 programs (do not set it). With these settings the 20-gene and the 1,000-gene example of the package give the

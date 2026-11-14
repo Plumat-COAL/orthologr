@@ -230,6 +230,14 @@ test_that("write_dNdS() and read_dNdS() keep the table, its column types and its
         expect_identical(got$input_files$md5, rec$input_files$md5)
         expect_identical(as.integer(unlist(got$status_counts)), as.integer(unlist(rec$status_counts)))
 
+        # IDs with quotes and other characters that are special in a table (O10: 'd"q' came back as 'd""q')
+        odd <- tibble::tibble(query_id = c('d"q', '"x"', "q'uote", "x,y", "h#sh", "a|b", "\u00fcn\u00efcode", '"'),
+                              subject_id = c("s", "t", "u", "v", "w", "x", "y", "z"), dN = 0.1, dS = 0.2, dNdS = 0.5,
+                              status = "ok")
+        g <- file.path(new_test_dir(), "odd.tsv")
+        write_dNdS(odd, g)
+        expect_identical(read_dNdS(g)$query_id, odd$query_id)
+
         # the table file alone can be read by anything; read_dNdS() says that the record is missing
         plain <- utils::read.delim(f, stringsAsFactors = FALSE, colClasses = "character")
         expect_identical(plain$query_id, tbl$query_id)
@@ -337,4 +345,16 @@ test_that("the isoform check needs 1 % of the genes named in the headers to have
         f2 <- file.path(d, "many.fna")
         writeLines(as.vector(rbind(sprintf(">lcl|cds_%d [locus_tag=%s] [protein_id=P%d]", seq_along(many), many, seq_along(many)), "ATGAAATAA")), f2)
         expect_warning(orthologr:::isoform_warning(f2, "query_file"), "30 genes with more than one sequence")
+})
+
+test_that("dNdS(dnds_est.method = 'kaks_calc') is an error before the search; 'ALL' is summarised as pairs x methods (O07)", {
+        expect_error(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "kaks_calc"), class = "orthologr_error_bad_argument")
+        expect_error(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "kaks_calc"), "only substitutionrate")
+        res <- data.frame(query_id = rep(c("a", "b"), each = 3), subject_id = rep(c("x", "y"), each = 3),
+                          method = rep(c("NG", "YN", "MA"), 2), dN = 0.1, dS = 0.5, dNdS = 0.2)
+        msgs <- character()
+        withCallingHandlers(dnds_finish(res, failed_pairs = NULL, dropped = NULL, print_citation = FALSE,
+                                        record = list(fun = "dNdS", args = list(), engine = "orthologr", tools = list(), files = character(0))),
+                            message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+        expect_true(any(grepl("dNdS(): 6 rows (2 gene pairs x 3 methods) - 6 with dN/dS", msgs, fixed = TRUE)))
 })

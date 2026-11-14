@@ -225,7 +225,8 @@ diamond <- function(
         
         if (!identical(as.integer(res$status), 0L)) {
                 said <- utils::tail(res$stderr[nzchar(trimws(res$stderr))], 5)
-                stop(
+                orthologr_abort(
+                        class = "tool_failed",
                         "diamond ", diamond_algorithm,
                         " exited with non-zero status: ", res$status,
                         "\nPlease check the path to the DIAMOND2 executable and the input file.",
@@ -279,10 +280,29 @@ diamond <- function(
 
 # "diamond version 2.x.y" - the DIAMOND version line; stops when diamond cannot be started. Asked once per session.
 diamond_version <- function(path = NULL) {
-        tool_available(
+        v <- tool_available(
                 "diamond", version_args = "version", pattern = "diamond", path = path,
                 not_found = paste0(
                         "It seems like you don't have DIAMOND2 installed locally on your machine or the PATH variable to the DIAMOND2 program is not set correctly.",
                         " Please run orthologr::diamond_install() to download DIAMOND2 for orthologr, or name the folder that holds your diamond executable with the argument 'path' (diamond(), diamond_best(), diamond_rec(), set_diamond(), deepclust()) or 'aligner_path' (dNdS(), divergence_stratigraphy()), e.g. path = '/usr/local/bin' or aligner_path = '/opt/miniconda3/bin'.")
         )
+        diamond_check_version(v, path)
+        v
+}
+
+# DIAMOND older than 2.1.0 (SystemRequirements) is used, with a warning once per session and executable: its
+# options and output differ (e.g. sensitivity modes, --masking), and results were not checked with it.
+diamond_check_version <- function(version_line, path = NULL) {
+        key <- paste0("diamond_version_warned\r", if (is.null(path)) "" else path)
+        num <- regmatches(version_line, regexpr("[0-9]+\\.[0-9]+(\\.[0-9]+)?", version_line))
+        if (length(num) == 0 || isTRUE(.orthologr_state[[key]]))
+                return(invisible(NA))
+        ok <- utils::compareVersion(num, "2.1.0") >= 0
+        if (!ok) {
+                .orthologr_state[[key]] <- TRUE
+                orthologr_warn(class = "tool_version", "DIAMOND ", num, " is older than 2.1.0, the version orthologr needs ",
+                               "(SystemRequirements); options and output of older versions differ. Please update DIAMOND, ",
+                               "e.g. with orthologr::diamond_install().", call. = FALSE)
+        }
+        invisible(ok)
 }

@@ -94,7 +94,11 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
                               " a length that is not a multiple of 3 and ", if (nrow(trimmed) > 1) "were" else "was",
                               " trimmed at the 3' end (delete_corrupt_cds = FALSE; a sequence incomplete at its 5' end is ",
                               "then read in the wrong frame). They are listed in attr(<result>, \"trimmed_sequences\"); ",
-                              "as read: ", paste0("'", unique(trimmed$corrupted_file), "'", collapse = ", "), ".")
+                              "as read: ", paste0("'", unique(trimmed$corrupted_file), "'", collapse = ", "),
+                              if (any(in_tempdir(unique(trimmed$corrupted_file))))
+                                      paste0(" (inside tempdir(), which R removes when the session ends; ",
+                                             "options(orthologr.corrupted_cds_dir = \"<folder>\") keeps the file)"),
+                              ".")
         }
         if (dnds_saturation_hint(status, med))
                 txt <- paste0(txt, "\n", saturation_hint_text(counts[["saturated"]], n, med))
@@ -126,10 +130,22 @@ dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_co
                 attr(res, n) <- extra_attr[[n]]
         attr(res, "orthologr_run") <- run_record(fun = record$fun, args = record$args, engine = record$engine,
                                                  tools = record$tools, files = record$files, status = status)
+        # several methods per gene pair (dnds_est.method = "ALL"): the rows are counted as gene pairs x methods
+        what <- "gene pairs"
+        if (is.element("method", names(res)) && length(unique(stats::na.omit(res$method))) > 1)
+                what <- paste0("rows (", nrow(unique(as.data.frame(res)[, c("query_id", "subject_id")])), " gene pairs x ",
+                               length(unique(stats::na.omit(res$method))), " methods)")
         message(dnds_summary_text(status, dS = res$dS, dropped = dropped, not_converged = not_converged,
-                                  fun = paste0(record$fun, "()"), trimmed = trimmed))
+                                  fun = paste0(record$fun, "()"), trimmed = trimmed, what = what))
         citation_message(print_citation)
         res
+}
+
+# Which of the paths are inside tempdir()?
+in_tempdir <- function(path) {
+        tmp <- normalizePath(tempdir(), winslash = "/", mustWork = FALSE)
+        p <- normalizePath(path, winslash = "/", mustWork = FALSE)
+        startsWith(p, paste0(tmp, "/"))
 }
 
 # Most pairs saturated, or the synonymous distance of the estimated pairs high: the two species are too distant.
@@ -449,7 +465,13 @@ read_dNdS <- function(file) {
         }
         # every column is read as text and then given its type: R's own conversion reads a number exactly
         tbl <- data.table::fread(file, sep = "\t", header = TRUE, na.strings = "NA", colClasses = "character",
-                                 data.table = FALSE, showProgress = FALSE)
+                                 data.table = FALSE, showProgress = FALSE, encoding = "UTF-8")
+        # write_dNdS() quotes a field that holds a quote (or a tab or a line end) and doubles the quotes inside it;
+        # fread() removes the outer quotes but keeps the doubled ones ('d"q' came back as 'd""q'). Every '""' in a
+        # field therefore is one quote.
+        for (col in names(tbl))
+                if (is.character(tbl[[col]]))
+                        tbl[[col]] <- gsub("\"\"", "\"", tbl[[col]], fixed = TRUE)
         classes <- if (!is.null(side$columns)) unlist(side$columns) else
                 vapply(tbl, function(v) if (all(is.na(v) | !is.na(suppressWarnings(as.numeric(v))))) "numeric" else "character", "")
         for (col in intersect(names(tbl), names(classes)))
@@ -538,6 +560,11 @@ orthologr_option <- function(name, default = NULL) {
 #' }
 #' \code{options(orthologr.legacy = TRUE)} is a shorthand with the same effect: while it is set, each of these
 #' options that is not set itself has its legacy value.
+#'
+#' \strong{Run time:} the pairwise alignments of 0.4.3 (\code{orthologr.legacy_pairwise_aln = TRUE}) take about 0.6 -
+#' 0.8 s per gene pair, 14 to 19 times as long as the default (150 gene pairs: about 115 s against 6 s; 1,000 pairs:
+#' about 10 minutes per core), as long as with 0.4.3 itself. Reproducing a genome-wide run of 0.4.3 takes hours;
+#' use \code{comp_cores}.
 #'
 #' Not covered by an option, because they are arguments: T-Coffee was run with \code{-mode accurate} in 0.4.3
 #' (\code{aa_aln_params = "-mode accurate"} restores it), and \code{aa_aln_params} was ignored for all alignment

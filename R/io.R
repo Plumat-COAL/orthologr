@@ -33,7 +33,10 @@ read.genome <- function(file, format, ...){
         # fasta and fastq are read in the same way (Biostrings::readDNAStringSet(format = ...))
         tryCatch({
                 
-                genome <- Biostrings::readDNAStringSet(filepath = file, format = format, ...)
+                read_path <- readable_seq_file(file)
+                if (!identical(read_path, file))
+                        on.exit(unlink(read_path), add = TRUE)
+                genome <- Biostrings::readDNAStringSet(filepath = read_path, format = format, ...)
                 
                 if (length(genome) == 0)
                         stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
@@ -88,7 +91,10 @@ read.proteome <- function(file, format, ...){
                 
                 tryCatch({
                         
-                        proteome <- Biostrings::readAAStringSet(filepath = file, format = format, ...)
+                        read_path <- readable_seq_file(file)
+                        if (!identical(read_path, file))
+                                on.exit(unlink(read_path), add = TRUE)
+                        proteome <- Biostrings::readAAStringSet(filepath = read_path, format = format, ...)
                         
                         if (length(proteome) == 0)
                                 stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
@@ -140,9 +146,14 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
         
         geneids <- seqs <- NULL
         
+        # a byte-order mark or old-Mac line ends (CR only): read a normalised copy (messages name 'file')
+        read_path <- readable_seq_file(file)
+        if (!identical(read_path, file))
+                on.exit(unlink(read_path), add = TRUE)
+        
         # a protein file given as coding sequences: Biostrings would drop the letters that are no nucleotides
         # with a warning, and the search would fail later with a message that does not name the cause
-        if (format == "fasta" && fasta_looks_like_protein(file))
+        if (format == "fasta" && fasta_looks_like_protein(read_path))
                 orthologr_abort(class = "bad_input", "'", file, "' does not look like coding DNA: more than 10 % of the first residues are not ",
                      "nucleotide letters. Is this a protein file? dN/dS and the functions that read coding ",
                      "sequences (seq_type = \"cds\") need the coding sequences; for proteins use seq_type = \"protein\" ",
@@ -150,7 +161,7 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
         
         tryCatch({
                 cds_file <-
-                        Biostrings::readDNAStringSet(filepath = file, format = format, ...)
+                        Biostrings::readDNAStringSet(filepath = read_path, format = format, ...)
                 
                 if (length(cds_file) == 0)
                         stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
@@ -335,4 +346,35 @@ fasta_looks_like_protein <- function(file) {
                 return(FALSE)
         other <- nchar(gsub("[ACGTUNRYKMSWBDHV]", "", x))
         other / nchar(x) > 0.1
+}
+
+# A sequence file (FASTA / FASTQ, plain or gzip) as Biostrings can read it. A UTF-8 byte-order mark at the start of
+# the file (written by some Windows editors and by Python's 'utf-8-sig') made the file unreadable ("could not be
+# read properly"), and old-Mac line ends (CR without LF) made the whole file one line, which reached DIAMOND as one
+# sequence. For such a file the mark is removed and every CR becomes LF, in a copy inside orthologr_tmpdir(), whose
+# path is returned (the caller removes it); any other file is returned as it is. The sequences read are those of
+# the same file without the mark and with LF line ends, as COAL reads them.
+readable_seq_file <- function(file) {
+        con <- gzfile(file, "rb")
+        head <- tryCatch(readBin(con, "raw", n = 1048576), error = function(e) raw(0), finally = close(con))
+        bom <- length(head) >= 3 && identical(head[1:3], as.raw(c(0xef, 0xbb, 0xbf)))
+        cr_only <- any(head == as.raw(0x0d)) && !any(head == as.raw(0x0a))
+        if (!bom && !cr_only)
+                return(file)
+        con <- gzfile(file, "rb")
+        chunks <- list()
+        tryCatch(repeat {
+                b <- readBin(con, "raw", n = 16777216)
+                if (length(b) == 0)
+                        break
+                chunks[[length(chunks) + 1]] <- b
+        }, finally = close(con))
+        bytes <- do.call(c, chunks)
+        if (bom)
+                bytes <- bytes[-(1:3)]
+        if (cr_only)
+                bytes[bytes == as.raw(0x0d)] <- as.raw(0x0a)
+        out <- tempfile("input_", tmpdir = orthologr_tmpdir(), fileext = ".txt")
+        writeBin(bytes, out)
+        out
 }

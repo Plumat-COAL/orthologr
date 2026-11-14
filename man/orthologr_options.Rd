@@ -70,8 +70,12 @@ pair that is aligned at the same time needs its own. A larger pair is not aligne
 status \code{"failed"} and the reason in \code{attr(result, "failed_pairs")}. \code{Inf}: no limit (as in 0.4.3,
 and under \code{\link{orthologr_legacy_options}}). The COAL engine has its own limit (\pkg{coalr}'s
 \code{max_cells}, 4e9 cells at about 0.5 bytes per cell).}
-\item{\code{orthologr.keep_tmp}}{\code{FALSE} (default). \code{TRUE}: the folder with the intermediate files of
-a call (FASTA files of the pairs, alignments, program output) is not removed, and a message names it.}
+\item{\code{orthologr.keep_tmp}}{\code{FALSE} (default): the folder with the intermediate files of a call (FASTA
+files of the pairs, alignments, program output) is removed when the call ends. \code{TRUE}: it is kept, and a
+message names it; it is inside \code{tempdir()}, which R removes when the session ends (so after
+\code{Rscript} or a batch job the files are gone). The path of a folder, e.g.
+\code{options(orthologr.keep_tmp = "orthologr_files")}: the folder of the call is made inside that folder (which is
+created if needed) and kept there after the session.}
 \item{\code{orthologr.tmpdir}}{\code{NULL} (default: \code{tempdir()}): the folder in which functions called on
 their own (\code{pairwise_aln()}, \code{multi_aln()}, \code{codon_aln()}, \code{substitutionrate()},
 \code{diamond()}, \code{blast()}, ...) keep the folders \code{_alignment}, \code{_blast_db}, \code{_diamond_db}
@@ -124,7 +128,8 @@ the text of the message, e.g.
 KaKs_Calculator) was not found;}
 \item{\code{orthologr_error_package_missing}}{an optional R package (Suggests) is needed but not installed (when
 COAL is needed and neither \pkg{coalr} nor the coal-cpp program is there, also \code{orthologr_error_tool_missing});}
-\item{\code{orthologr_error_tool_failed}}{an external program failed or wrote no output; with
+\item{\code{orthologr_error_tool_failed}}{an external program failed, wrote no output or could not be started
+(e.g. it crashes when asked for its version; that is not reported as a missing program); with
 \code{orthologr_error_alignment_failed} when it was an alignment program (PAL2NAL, Clustal, MAFFT, MUSCLE,
 T-Coffee, COAL);}
 \item{\code{orthologr_error_no_hits}}{the search found no (reciprocal best) hits, so there are no gene pairs;}
@@ -137,6 +142,9 @@ a failed pair with this reason);}
 \item{\code{orthologr_warning_failed_pairs}}{some gene pairs could not be processed (their values are \code{NA},
 the reasons are in \code{attr(result, "failed_pairs")});}
 \item{\code{orthologr_warning_isoforms}}{an input file seems to hold several transcripts per gene;}
+\item{\code{orthologr_warning_tool_version}}{the DIAMOND found is older than 2.1.0 (SystemRequirements);}
+\item{\code{orthologr_warning_comp_cores}}{\code{comp_cores} is more than the number of cores of the machine (the
+number of cores is used);}
 \item{\code{orthologr_warning_legacy_engine}}{the settings of 0.4.3 are in force
 (\code{orthologr.legacy_pairwise_aln}, \code{\link{orthologr_legacy_options}}) but the COAL engine was asked for,
 which cannot reproduce the numbers of 0.4.3.}
