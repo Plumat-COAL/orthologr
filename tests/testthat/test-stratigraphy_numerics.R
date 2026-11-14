@@ -226,10 +226,10 @@ test_that("gestimator() frees what it allocates (N37) ...", {
 # ---------------------------------------------------------------- Comeron: saturation (N19)
 
 test_that("Comeron: an undefined correction gives NA, not a finite number; the option restores the old values (N19) ...", {
-        # one synonymous transition at the only fourfold site: 1 - 2P - Q < 0. (That class has 1 site: by default,
-        # options(orthologr.comeron_min_sites = 3), such a class cannot make dS NA and dS is 0 as in 0.4.3 - the
-        # rule of saturation alone is checked with min_sites = 0.)
-        expect_equal(gest("ATGGCTAAA", "ATGGCCAAA")$dS, 0)
+        # one synonymous transition at the only fourfold site: 1 - 2P - Q < 0. (That class has 1 site, fewer than
+        # options(orthologr.comeron_min_sites) = 3, but the rule of such classes only gives values > 0 (D9
+        # refinement), so dS is NA with both min_sites = 3 and 0.)
+        expect_identical(gest("ATGGCTAAA", "ATGGCCAAA"), gest("ATGGCTAAA", "ATGGCCAAA", min_sites = 0))
         new <- gest("ATGGCTAAA", "ATGGCCAAA", min_sites = 0)
         old <- gest("ATGGCTAAA", "ATGGCCAAA", legacy_saturation = TRUE)
         expect_true(is.na(new$dS))
@@ -253,7 +253,7 @@ test_that("Comeron: an undefined correction gives NA, not a finite number; the o
         # the option is what substitutionrate() and dNdS() use
         f <- tempfile(fileext = ".fa")
         writeLines(c(">a", "ATGGCTAAA", ">b", "ATGGCCAAA"), f)
-        expect_equal(substitutionrate(f, est.method = "Comeron", quiet = TRUE)$dS, 0)
+        expect_true(is.na(substitutionrate(f, est.method = "Comeron", quiet = TRUE)$dS))
         opt <- options(orthologr.comeron_min_sites = 0)
         expect_true(is.na(substitutionrate(f, est.method = "Comeron", quiet = TRUE)$dS))
         options(opt)

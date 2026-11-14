@@ -343,8 +343,10 @@ orthologr_options_in_force <- function() {
         out <- lapply(stats::setNames(names(defaults), names(defaults)), function(n) orthologr_option(n, defaults[[n]]))
         set <- options()
         set <- set[startsWith(names(set), "orthologr.")]
-        # (the working folder of the call is not a setting of the user)
+        # (the working folder of the call is not a setting of the user; whether the note of library(orthologr) is
+        # shown changes no result)
         set[["orthologr.tmpdir"]] <- NULL
+        set[["orthologr.quiet_upgrade"]] <- NULL
         for (n in setdiff(names(set), names(out)))
                 out[[n]] <- set[[n]]
         out[order(names(out))]

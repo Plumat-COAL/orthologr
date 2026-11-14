@@ -62,7 +62,8 @@ private:
       // along Comeron's two pathways (false, the default; TwoSubs.h)
       bool twosubs_libsequence;
       // orthologr: a site class with fewer than min_sites sites cannot make dN or dS NA: its undefined logarithm
-      // stays 0, as in libsequence (options(orthologr.comeron_min_sites); 0 = every class with sites can)
+      // stays 0, as in libsequence (options(orthologr.comeron_min_sites); 0 = every class with sites can), but
+      // only where the distance that results is > 0 (a 0 stays NA)
       double min_sites;
 
 // log(x) as used in omega(): a NaN argument (0/0: no sites of a class) gives 0 as before; an argument <= 0
@@ -268,12 +269,15 @@ void omega(const pair<string,string> *seq1,
     // A class with fewer than min_sites sites (options(orthologr.comeron_min_sites), default 3) does not make the
     // estimate NA either: its undefined logarithm stays 0, as in libsequence ('small' takes the flag). The
     // 2-fold transversional class has 1 - 2 sites in a 30-codon alignment, and one change there made the
-    // whole dN NA (3.7 % of simulated 30-codon pairs). COAL: --comeron-min-sites, the same rule.
-    bool none = false, small = false;
-    bool &s2S = sites->L2S() > 0 ? (sites->L2S() < min_sites ? small : saturated_s) : none;
-    bool &s4 = sites->L4() > 0 ? (sites->L4() < min_sites ? small : saturated_s) : none;
-    bool &a2V = sites->L2V() > 0 ? (sites->L2V() < min_sites ? small : saturated_a) : none;
-    bool &a0 = sites->L0() > 0 ? (sites->L0() < min_sites ? small : saturated_a) : none;
+    // whole dN NA (3.7 % of simulated 30-codon pairs). The rule applies only where the distance that results
+    // is positive ('small_s' / 'small_a', checked at the end): a 0 from such a class (ATGGCTAAA / ATGGCCAAA: one
+    // synonymous change, dS 0) would read as "no change" (dS_zero) and stays NA, as with min_sites = 0.
+    // COAL: --comeron-min-sites, the same rule (COAL #76, the "D9 refinement").
+    bool none = false, small_s = false, small_a = false;
+    bool &s2S = sites->L2S() > 0 ? (sites->L2S() < min_sites ? small_s : saturated_s) : none;
+    bool &s4 = sites->L4() > 0 ? (sites->L4() < min_sites ? small_s : saturated_s) : none;
+    bool &a2V = sites->L2V() > 0 ? (sites->L2V() < min_sites ? small_a : saturated_a) : none;
+    bool &a0 = sites->L0() > 0 ? (sites->L0() < min_sites ? small_a : saturated_a) : none;
     log1 = checked_log (1.0 - (2.0 * P2S_site) - Qa, s2S);
     log2 = checked_log (1.0 - (2.0 * Qa), s2S);
 
@@ -317,12 +321,13 @@ void omega(const pair<string,string> *seq1,
     if (!isfinite (dN))
       dN = 999;
 
-    // orthologr: an undefined correction is not a distance
+    // orthologr: an undefined correction is not a distance; nor is a distance that a class with fewer than
+    // min_sites sites left at 0 (see above: the min_sites rule only gives values > 0)
     if (!legacy_saturation)
       {
-        if (saturated_s)
+        if (saturated_s || (small_s && !(dS > 0.0)))
           dS = 999;
-        if (saturated_a)
+        if (saturated_a || (small_a && !(dN > 0.0)))
           dN = 999;
       }
 }

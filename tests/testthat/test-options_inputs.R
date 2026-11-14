@@ -362,3 +362,32 @@ test_that("FASTA files with a UTF-8 byte-order mark or old-Mac line ends (CR) ar
                                  as.data.frame(r0)[, c("query_id", "subject_id", "dN", "dS", "dNdS")], info = basename(f))
         }
 })
+
+test_that("a dnds_est.method that is not a method: the list of methods and a hint; 'other engine' only where true (U09)", {
+        # engine = "orthologr": the list, and the method a case-insensitive match (or one edit) points to
+        e <- tryCatch(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "comeron"), error = function(e) e)
+        expect_s3_class(e, "orthologr_error_bad_argument")
+        expect_match(conditionMessage(e), "dnds_est.method = \"comeron\" is not a method of dNdS", fixed = TRUE)
+        expect_match(conditionMessage(e), "Did you mean \"Comeron\"?", fixed = TRUE)
+        for (m in c("Comeron", "Li", "YN", "MYN", "GMYN", "ALL"))
+                expect_match(conditionMessage(e), paste0("\"", m, "\""), fixed = TRUE)
+        expect_error(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "yn"), "Did you mean \"YN\"?", fixed = TRUE)
+        expect_error(dNdS(thal_cds(), lyra_cds(), dnds_est.method = c("YN", "Li")), "is not a method of dNdS", fixed = TRUE)
+        e <- tryCatch(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "nonsense"), error = function(e) e)
+        expect_false(grepl("Did you mean", conditionMessage(e)))
+        expect_error(substitutionrate(system.file("seqs/pal2nal.aln", package = "orthologr"), est.method = "li"),
+                     "Did you mean \"Li\"?", fixed = TRUE)
+        expect_identical(dnds_method_hint("YNN"), " Did you mean \"YN\"?")
+        expect_identical(dnds_method_hint("XYZ"), "")
+        expect_identical(dnds_method_hint(NA_character_), "")
+        # COAL: "only available with engine = \"orthologr\"" for a method the native engine has, not for a typo
+        expect_error(coal_check_methods("MA", "engine = \"coal\""), "\"MA\" is only available with engine = \"orthologr\"",
+                     fixed = TRUE)
+        e <- tryCatch(coal_check_methods("YNN", "engine = \"coal\""), error = function(e) e)
+        expect_s3_class(e, "orthologr_error_bad_argument")
+        expect_false(grepl("only available", conditionMessage(e)))
+        expect_match(conditionMessage(e), "\"YNN\" is not a method of either. Did you mean \"YN\"?", fixed = TRUE)
+        e <- tryCatch(coal_check_methods("comeron", "engine = \"coal\""), error = function(e) e)
+        expect_match(conditionMessage(e), "Did you mean \"Comeron\"?", fixed = TRUE)
+        expect_false(grepl("only available", conditionMessage(e)))
+})
