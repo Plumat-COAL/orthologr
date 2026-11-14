@@ -35,6 +35,12 @@ list with
 \describe{
 \item{\code{orthologr}}{the version of the package;}
 \item{\code{function}, \code{arguments}}{the function and the values of its arguments;}
+\item{\code{call}}{the call as it was written (the outermost of \code{dNdS()}, \code{dNdS_orthogroups()},
+\code{divergence_stratigraphy()});}
+\item{\code{called_as}}{when that call is of another function than \code{function}: its name and the values of
+all its arguments;}
+\item{\code{commands}}{the command lines of the sequence searches the run started (DIAMOND, BLAST+), with the
+file names of the working folder;}
 \item{\code{options}}{every \code{orthologr.*} option with the value in force (see \code{\link{orthologr_options}});
 this shows whether a result was computed with the settings of 0.4.3;}
 \item{\code{engine}}{\code{"orthologr"};}
