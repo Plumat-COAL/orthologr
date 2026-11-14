@@ -8,7 +8,7 @@ dNdS_coal(
   query_file,
   subject_file,
   aligner = "diamond",
-  sensitivity_mode = "fast",
+  sensitivity_mode = getOption("orthologr.sensitivity_mode", "default"),
   aligner_path = NULL,
   seq_type = "cds",
   format = "fasta",

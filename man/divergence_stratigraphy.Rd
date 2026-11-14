@@ -21,7 +21,7 @@ divergence_stratigraphy(
   ds.values = TRUE,
   subject.id = FALSE,
   n_quantile = 10,
-  sensitivity_mode = "fast",
+  sensitivity_mode = getOption("orthologr.sensitivity_mode", "default"),
   dS_zero = getOption("orthologr.dS_zero", "drop"),
   best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
 )
@@ -67,7 +67,8 @@ Hence all genes having a dNdS value <= \code{dnds.threshold} are retained. Defau
 \item{store_locally}{a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.}
 
 \item{quiet}{\code{TRUE} (default since 0.5.0, as in \code{\link{dNdS}}): the messages of the dN/dS run are one
-line at the start and one summary at the end. \code{FALSE} (the default of 0.4.3): the messages of
+line at the start and one summary at the end, and, in an interactive R session, a progress line about every
+tenth of the gene pairs (stratigraphy runs are long). \code{FALSE} (the default of 0.4.3): the messages of
 \code{\link{dNdS}} in detail.}
 
 \item{clean_folders}{a logical value specifying whether the internal folder structure shall be deleted (cleaned) after
@@ -84,9 +85,9 @@ stop the function after the run: see the section on ties in \code{\link{divergen
 
 \item{sensitivity_mode}{specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 \itemize{
-\item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+\item \code{sensitivity_mode = "fast"}: fast alignment mode, designed for finding hits of >90\% identity (the default up to orthologr 0.4.3).
 \item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
-\item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+\item \code{sensitivity_mode = "default"} (Default; \code{options(orthologr.sensitivity_mode = )} sets another): the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >60\% identity.
 \item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
 \item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
 \item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
