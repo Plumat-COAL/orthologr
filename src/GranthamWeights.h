@@ -102,7 +102,9 @@ class GranthamWeights2
     \param codon2 a string of length 3 representing a sense codon
   */
 
-      Grantham gdist;
+      // the distance table is constant: built once (it was filled for every pair of codons that differ at two or
+      // three positions)
+      static const Grantham gdist;
       string intermediates[2];
       Intermediates2(intermediates, codon1,codon2);
       //assign weights to pathways
@@ -110,21 +112,21 @@ class GranthamWeights2
       //measured by Grantham distances
       double len_path_1 = 0.0, len_path_2 = 0.0;
 
-      string t1 = TranslateCodon (codon1);
-      string t2 = TranslateCodon (intermediates[0]);
-      len_path_1 += gdist ((t1)[0], (t2)[0]);
+      char t1 = codon_aa(codon1);
+      char t2 = codon_aa(intermediates[0]);
+      len_path_1 += gdist (t1, t2);
 
-      t1 = TranslateCodon (intermediates[0]);
-      t2 = TranslateCodon (codon2);
-      len_path_1 += gdist ((t1)[0], (t2)[0]);
+      t1 = codon_aa(intermediates[0]);
+      t2 = codon_aa(codon2);
+      len_path_1 += gdist (t1, t2);
 
-      t1 = TranslateCodon (codon1);
-      t2 = TranslateCodon (intermediates[1]);
-      len_path_2 += gdist ((t1)[0], (t2)[0]);
+      t1 = codon_aa(codon1);
+      t2 = codon_aa(intermediates[1]);
+      len_path_2 += gdist (t1, t2);
 
-      t1 = TranslateCodon (intermediates[1]);
-      t2 = TranslateCodon (codon2);
-      len_path_2 += gdist ((t1)[0], (t2)[0]);
+      t1 = codon_aa(intermediates[1]);
+      t2 = codon_aa(codon2);
+      len_path_2 += gdist (t1, t2);
 
       //calculate the weights themselves
       //double w_path1 = 0., w_path2 = 0.,
@@ -213,7 +215,9 @@ void Calculate(double *__weights, const string &codon1, const string &codon2) {
     \param codon2 a string of length 3 representing a sense codon
   */
     
-      Grantham gdist;
+      // the distance table is constant: built once (it was filled for every pair of codons that differ at two or
+      // three positions)
+      static const Grantham gdist;
       
       string intermediates[9];
       Intermediates3(intermediates,codon1,codon2);
@@ -221,100 +225,100 @@ void Calculate(double *__weights, const string &codon1, const string &codon2) {
         len_path_4 = 0., len_path_5 = 0., len_path_6 = 0.;
       double dist = 0.;
 
-      string t1 = TranslateCodon (codon1);
-      string t2 = TranslateCodon (intermediates[0]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      char t1 = codon_aa(codon1);
+      char t2 = codon_aa(intermediates[0]);
+      dist = gdist (t1,t2);
       len_path_1 += dist;
 
-      t1 = TranslateCodon (intermediates[0]);
-      t2 = TranslateCodon (intermediates[1]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[0]);
+      t2 = codon_aa(intermediates[1]);
+      dist = gdist (t1,t2);
       len_path_1 += dist;
 
-      t1 = TranslateCodon (intermediates[1]);
-      t2 = TranslateCodon (codon2);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[1]);
+      t2 = codon_aa(codon2);
+      dist = gdist (t1,t2);
       len_path_1 += dist;
 
       //path2
 
-      t1 = TranslateCodon (codon1);
-      t2 = TranslateCodon (intermediates[0]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(codon1);
+      t2 = codon_aa(intermediates[0]);
+      dist = gdist (t1,t2);
       len_path_2 += dist;
 
-      t1 = TranslateCodon (intermediates[0]);
-      t2 = TranslateCodon (intermediates[2]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[0]);
+      t2 = codon_aa(intermediates[2]);
+      dist = gdist (t1,t2);
       len_path_2 += dist;
 
-      t1 = TranslateCodon (intermediates[2]);
-      t2 = TranslateCodon (codon2);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[2]);
+      t2 = codon_aa(codon2);
+      dist = gdist (t1,t2);
       len_path_2 += dist;
 
       //path 3
-      t1 = TranslateCodon (codon1);
-      t2 = TranslateCodon (intermediates[3]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(codon1);
+      t2 = codon_aa(intermediates[3]);
+      dist = gdist (t1,t2);
       len_path_3 += dist;
 
-      t1 = TranslateCodon (intermediates[3]);
-      t2 = TranslateCodon (intermediates[4]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[3]);
+      t2 = codon_aa(intermediates[4]);
+      dist = gdist (t1,t2);
       len_path_3 += dist;
 
-      t1 = TranslateCodon (intermediates[4]);
-      t2 = TranslateCodon (codon2);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[4]);
+      t2 = codon_aa(codon2);
+      dist = gdist (t1,t2);
       len_path_3 += dist;
 
       //path4
-      t1 = TranslateCodon (codon1);
-      t2 = TranslateCodon (intermediates[3]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(codon1);
+      t2 = codon_aa(intermediates[3]);
+      dist = gdist (t1,t2);
       len_path_4 += dist;
 
-      t1 = TranslateCodon (intermediates[3]);
-      t2 = TranslateCodon (intermediates[5]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[3]);
+      t2 = codon_aa(intermediates[5]);
+      dist = gdist (t1,t2);
       len_path_4 += dist;
 
-      t1 = TranslateCodon (intermediates[5]);
-      t2 = TranslateCodon (codon2);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[5]);
+      t2 = codon_aa(codon2);
+      dist = gdist (t1,t2);
       len_path_4 += dist;
 
       //path 5
-      t1 = TranslateCodon (codon1);
-      t2 = TranslateCodon (intermediates[6]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(codon1);
+      t2 = codon_aa(intermediates[6]);
+      dist = gdist (t1,t2);
       len_path_5 += dist;
 
-      t1 = TranslateCodon (intermediates[6]);
-      t2 = TranslateCodon (intermediates[7]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[6]);
+      t2 = codon_aa(intermediates[7]);
+      dist = gdist (t1,t2);
       len_path_5 += dist;
 
-      t1 = TranslateCodon (intermediates[7]);
-      t2 = TranslateCodon (codon2);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[7]);
+      t2 = codon_aa(codon2);
+      dist = gdist (t1,t2);
       len_path_5 += dist;
 
       //path 6
-      t1 = TranslateCodon (codon1);
-      t2 = TranslateCodon (intermediates[6]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(codon1);
+      t2 = codon_aa(intermediates[6]);
+      dist = gdist (t1,t2);
       len_path_6 += dist;
 
-      t1 = TranslateCodon (intermediates[6]);
-      t2 = TranslateCodon (intermediates[8]);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[6]);
+      t2 = codon_aa(intermediates[8]);
+      dist = gdist (t1,t2);
       len_path_6 += dist;
 
-      t1 = TranslateCodon (intermediates[8]);
-      t2 = TranslateCodon (codon2);
-      dist = gdist ((t1)[0],(t2)[0]);
+      t1 = codon_aa(intermediates[8]);
+      t2 = codon_aa(codon2);
+      dist = gdist (t1,t2);
       len_path_6 += dist;
 
       __weights[0] = 1. / len_path_1;
