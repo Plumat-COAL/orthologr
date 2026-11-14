@@ -263,7 +263,9 @@ aligned_rows <- function(aln, pattern_seq, subject_seq) {
 max_aln_cells <- function() {
         v <- getOption("orthologr.max_aln_cells", 5e8)
         if (!is.numeric(v) || length(v) != 1 || is.na(v) || v <= 0)
-                stop("options(orthologr.max_aln_cells) must be one positive number (Inf: no limit).", call. = FALSE)
+                stop("options(orthologr.max_aln_cells) must be one positive number (Inf: no limit), not ",
+                     if (is.character(v)) paste0("'", paste(v, collapse = "', '"), "' (text)") else paste(format(v), collapse = ", "),
+                     ".", call. = FALSE)
         v
 }
 
