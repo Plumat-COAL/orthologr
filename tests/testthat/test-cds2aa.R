@@ -8,6 +8,12 @@ test_that("cds2aa() adds the protein of every coding sequence", {
 test_that("cds2aa() leaves out empty sequences, incomplete codons (delete_corrupt_cds) and non-ACGT sequences", {
         dt <- data.table::data.table(geneids = paste0("g", 1:5),
                                      seqs = c("atgaaataa", "", "atgaaata", "atgnnntaa", NA))
+        # the default keeps the sequence with N (a codon of X); options(orthologr.ambiguous_cds = "drop") leaves it out
+        res <- suppressMessages(cds2aa(data.table::copy(dt), delete_corrupt_cds = TRUE))
+        expect_identical(res$geneids, c("g1", "g4"))
+        expect_identical(toupper(res$aa), c("MK*", "MX*"))
+        old <- options(orthologr.ambiguous_cds = "drop")
+        on.exit(options(old), add = TRUE)
         res <- suppressMessages(cds2aa(data.table::copy(dt), delete_corrupt_cds = TRUE))
         expect_identical(res$geneids, "g1")
         expect_message(cds2aa(data.table::copy(dt), delete_corrupt_cds = TRUE), "1 of 5 coding sequences has characters other than A, C, G, T.*g4")

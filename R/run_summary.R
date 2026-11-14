@@ -92,7 +92,8 @@ dnds_failed_reason <- function(tbl, failed_pairs) {
 #   not_converged : number of pairs for which the engine reported that an iteration did not converge
 #   what          : the unit, e.g. "gene pairs"
 dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged = 0, what = "gene pairs", fun = "dNdS()",
-                              failed_where = "attr(<result>, \"failed_pairs\")", trimmed = NULL) {
+                              failed_where = "attr(<result>, \"failed_pairs\")", trimmed = NULL, ambiguous_rows = 0,
+                              ambiguous_where = "attr(<result>, \"ambiguous_sequences\")") {
         n <- length(status)
         counts <- dnds_status_counts(status)
         parts <- c(
@@ -130,9 +131,21 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
                                              "options(orthologr.corrupted_cds_dir = \"<folder>\") keeps the file)"),
                               ".")
         }
+        if (ambiguous_rows > 0)
+                txt <- paste0(txt, "\n", ambiguous_rows, if (ambiguous_rows > 1) " rows have" else " row has",
+                              " a coding sequence with ambiguous bases (e.g. N; options(orthologr.ambiguous_cds = \"keep\"), ",
+                              "the default): codons with such a base were not compared (see ", ambiguous_where, "); ",
+                              "options(orthologr.ambiguous_cds = \"drop\") leaves them out, as 0.4.3 did.")
         if (dnds_saturation_hint(status, med))
                 txt <- paste0(txt, "\n", saturation_hint_text(counts[["saturated"]], n, med))
         txt
+}
+
+# Which rows of a pair table involve a coding sequence kept with ambiguous bases (table of ambiguous_table())?
+dnds_ambiguous_rows <- function(tbl, ambiguous) {
+        if (is.null(ambiguous) || NROW(ambiguous) == 0 || nrow(tbl) == 0)
+                return(rep(FALSE, nrow(tbl)))
+        is.element(as.character(tbl$query_id), ambiguous$id) | is.element(as.character(tbl$subject_id), ambiguous$id)
 }
 
 # The end of a dN/dS run of dNdS() / dNdS_coal(): the column 'status' (last column; not with
@@ -146,7 +159,7 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
 #   trimmed       : data.frame (file, id, removed_nt, corrupted_file) of the sequences trimmed to a multiple of 3,
 #                   or NULL
 dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_converged = 0, record,
-                        print_citation = TRUE, extra_attr = list(), trimmed = NULL) {
+                        print_citation = TRUE, extra_attr = list(), trimmed = NULL, ambiguous = NULL) {
         status <- dnds_status(res$dN, res$dS, res$dNdS, failed = dnds_is_failed(res, failed_pairs),
                               engine_status = engine_status)
         if (dnds_status_column())
@@ -156,6 +169,10 @@ dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_co
         attr(res, "failed_pairs") <- failed_pairs
         if (!is.null(trimmed) && nrow(trimmed) > 0)
                 attr(res, "trimmed_sequences") <- trimmed
+        # options(orthologr.ambiguous_cds = "keep"): the sequences kept with ambiguous bases, and how many of their
+        # codons hold such a base (those codons are not compared)
+        if (!is.null(ambiguous) && nrow(ambiguous) > 0)
+                attr(res, "ambiguous_sequences") <- ambiguous
         for (n in names(extra_attr))
                 attr(res, n) <- extra_attr[[n]]
         attr(res, "orthologr_run") <- run_record(fun = record$fun, args = record$args, engine = record$engine,
@@ -170,7 +187,8 @@ dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_co
                                length(unique(stats::na.omit(res$method))), " methods)")
                 })
         message(dnds_summary_text(status, dS = res$dS, dropped = dropped, not_converged = not_converged,
-                                  fun = paste0(record$fun, "()"), trimmed = trimmed, what = what))
+                                  fun = paste0(record$fun, "()"), trimmed = trimmed, what = what,
+                                  ambiguous_rows = sum(dnds_ambiguous_rows(res, ambiguous))))
         citation_message(print_citation)
         res
 }
@@ -315,7 +333,7 @@ orthologr_options_in_force <- function() {
                 orthologr.legacy_kaks_saturation    = FALSE,
                 orthologr.max_aln_cells             = 5e8,
                 orthologr.dS_zero                   = "drop",
-                orthologr.ambiguous_cds             = "drop",
+                orthologr.ambiguous_cds             = "keep",
                 orthologr.status_column             = TRUE,
                 orthologr.isoform_warning           = TRUE,
                 orthologr.cluster_type              = if (.Platform$OS.type == "windows") "PSOCK" else "FORK",
@@ -725,6 +743,7 @@ orthologr_legacy_values <- function() {
                 orthologr.legacy_kaks_saturation    = TRUE,
                 orthologr.max_aln_cells             = Inf,
                 orthologr.dS_zero                   = "drop",
+                orthologr.ambiguous_cds             = "drop",
                 orthologr.status_column             = FALSE
         )
 }
@@ -761,6 +780,7 @@ orthologr_option <- function(name, default = NULL) {
 #' \code{orthologr.legacy_kaks_saturation = TRUE} \tab KaKs_Calculator methods: its capped values (e.g. dS = 99) for saturated estimates, and \code{nan} as \code{NaN} (status \code{"saturated"}, not \code{"failed"}) \cr
 #' \code{orthologr.max_aln_cells = Inf} \tab pairwise alignments of any size (default: pairs above 5e8 cells are not aligned) \cr
 #' \code{orthologr.dS_zero = "drop"} \tab \code{filter_dNdS()} / \code{divergence_stratigraphy()} leave pairs with dS = 0 out (also the default of 0.5.0) \cr
+#' \code{orthologr.ambiguous_cds = "drop"} \tab coding sequences with ambiguous bases (e.g. N) are left out before the search \cr
 #' \code{orthologr.status_column = FALSE} \tab the dN/dS tables have no column \code{status}
 #' }
 #' \code{options(orthologr.legacy = TRUE)} is a shorthand with the same effect: while it is set, each of these

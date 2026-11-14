@@ -123,6 +123,10 @@ test_that("sequences that are left out are reported with number and reason and r
         x[5] <- substr(x[5], 2, nchar(x[5]))             # starts in phase 1: length not a multiple of 3
         f <- tempfile(fileext = ".fa")
         writeLines(as.vector(rbind(paste0(">", paste0("g", 1:6)), x)), f)
+        # (the sequences with N or R are left out with options(orthologr.ambiguous_cds = "drop"), as in 0.4.3; the
+        # default keeps them: test-malformed_input.R)
+        old <- options(orthologr.ambiguous_cds = "drop")
+        on.exit(options(old), add = TRUE)
         
         # quiet = FALSE: one message per reason, with the numbers and the first IDs
         msg <- testthat::capture_messages(res <- dNdS(f, lyra_cds(), delete_corrupt_cds = TRUE, print_citation = FALSE,

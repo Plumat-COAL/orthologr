@@ -681,8 +681,9 @@ dNdS_coal <- function(query_file,
         res[[".coal_status"]] <- NULL
         res[[".coal_note"]] <- NULL
         trimmed <- trimmed_table()
+        ambiguous <- ambiguous_table()
         res <- dnds_finish(
-                res, failed_pairs = failed, dropped = end_dropped(), engine_status = engine_status, trimmed = trimmed,
+                res, failed_pairs = failed, dropped = end_dropped(), ambiguous = ambiguous, engine_status = engine_status, trimmed = trimmed,
                 not_converged = sum(grepl("not converge|did not converge|no convergence", note, ignore.case = TRUE)),
                 record = list(fun = "dNdS_coal", args = run_args, engine = "coal",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path), coal_versions()),
@@ -753,9 +754,8 @@ dNdS_coal <- function(query_file,
 #' dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
 #' cluster that have a dN (dS, dN/dS) value, whatever their status - a pair with status \code{"saturated"} that
 #' has a dN counts with it. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the numbers behind the statistics
-#' (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule, but
-#' names the quartiles \code{_q1} / \code{_q3} and has no minimum and maximum (the names here are those of
-#' \pkg{coalr}'s summary).
+#' (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule and the
+#' same column names (the names of \pkg{coalr}'s summary), but has no minimum and maximum.
 #' The column \code{status} of the summary: \code{"ok"} (at least one pair has an estimate), \code{"failed"} (no
 #' estimate, and a pair failed or the cluster could not be aligned), \code{"saturated"} / \code{"no_data"} /
 #' \code{"not_converged"} (no estimate because the pairs are saturated, have no codons to compare or did not
@@ -935,7 +935,7 @@ dnds_cluster_status <- function(summary) {
 #   their status - a pair that is saturated at synonymous sites still counts with its dN. The columns n_dN, n_dS
 #   and n_dNdS give the numbers of pairs behind the statistics.
 # Returns a data.table: the columns `by`, n_dN, n_dS, n_dNdS and <value>_<statistic> for the statistics asked for.
-dnds_value_stats <- function(pairs, by, stats = c("median", "mean", "q1", "q3")) {
+dnds_value_stats <- function(pairs, by, stats = c("median", "mean", "q25", "q75")) {
         dN <- dS <- dNdS <- NULL
         pairs <- data.table::as.data.table(pairs)
         fun <- list(

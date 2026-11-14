@@ -294,13 +294,21 @@ test_that("is.dnaSequence() accepts A, C, G, T only", {
         expect_false(is.dnaSequence("ACG(T)"))
 })
 
-test_that("coding sequences with N or IUPAC codes are left out with a message that names them", {
+test_that("coding sequences with N or IUPAC codes: kept by default, left out with a message under ambiguous_cds = 'drop'", {
         d <- new_test_dir()
         f <- file.path(d, "cds.fasta")
         writeLines(c(">g1", "ATGAAATTTTAA", ">g2", "ATGAANTTTTAA", ">g3", "ATGAARTTTTAA", ">g4", "ATGCCCGGGTAA"), f)
+        # default (0.5.0): kept, a codon with such a base becomes X (also AAR, although both readings are Lys)
+        expect_message(res <- set_diamond(f)[[1]], "2 coding sequences with ambiguous bases .* are kept")
+        expect_identical(res$geneids, c("g1", "g2", "g3", "g4"))
+        expect_identical(toupper(res$aa), c("MKF*", "MXF*", "MXF*", "MPG*"))
+        # options(orthologr.ambiguous_cds = "drop") (0.4.3, and the legacy switch): left out, named in a message
+        old <- options(orthologr.ambiguous_cds = "drop")
+        on.exit(options(old), add = TRUE)
         expect_message(res <- set_diamond(f)[[1]], "2 of 4 coding sequences of 'cds.fasta' have characters other than A, C, G, T.*g2, g3")
         expect_identical(res$geneids, c("g1", "g4"))
         expect_identical(toupper(res$aa), c("MKF*", "MPG*"))
+        expect_identical(orthologr_legacy_options(set = FALSE)$orthologr.ambiguous_cds, "drop")
         # nothing to report for clean input
         expect_message(set_diamond(thal_cds()), NA)
 })

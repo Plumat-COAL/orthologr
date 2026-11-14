@@ -644,8 +644,9 @@ dNdS <- function(query_file,
         kaks_used <- is.element(dnds_est.method, kaks_calculator_methods()) &&
                 !(kaks_tool == "coal" && is.element(dnds_est.method, coal_methods()))
         trimmed <- trimmed_table()
+        ambiguous <- ambiguous_table()
         res <- dnds_finish(
-                res, failed_pairs = attr(dNdS_tbl, "failed_pairs"), dropped = end_dropped(), trimmed = trimmed,
+                res, failed_pairs = attr(dNdS_tbl, "failed_pairs"), dropped = end_dropped(), ambiguous = ambiguous, trimmed = trimmed,
                 record = list(fun = "dNdS", args = run_args, engine = "orthologr",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path,
                                                           aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path,
