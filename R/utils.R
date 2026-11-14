@@ -366,6 +366,18 @@ ambiguous_cds_mode <- function() {
         m
 }
 
+is.alignment_search_tool <- function(tool = NULL){
+        
+        provided <-  c("ggsearch","ssearch")
+        
+        if (is.null(tool)){
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
+                return(FALSE)
+        }
+        
+        return(is.element(tool, provided))
+}
+
 # The part of each string in 'x' before the first 'sep' (a single character, taken literally); the whole string when
 # it holds no 'sep'. What unlist(stringr::str_split(x, sep))[1] returned for one string, also "" for "" and NA for
 # NA (strsplit() gives character(0) for "").

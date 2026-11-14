@@ -29,9 +29,6 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 
 ### Internal
 
-- Removed unused internal functions: `ws_wrap()`, `set_path()`, `check_ram()`, `get_filename()`,
-  `is.alignment_search_tool()`, `read.ortholog.table()`, `OF2Orthologs()` and the deprecated, unexported
-  `filter_core_set_lnc()`.
 - Tests (`test-perf.R`): the batched code paths against the per-pair code (alignments, codon alignments, tables of
   `compute_dnds()` for Comeron, Li and YN with COAL and PAL2NAL), independence of the chunk size and of the number
   of processes, progress messages.

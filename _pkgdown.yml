@@ -102,6 +102,7 @@ reference:
   - compute_dnds
   - filter_best_hits
   - filter_core_set
+  - filter_core_set_lnc
   - testCoreOrthoParamsGeneLocus
   - testCoreOrthoParamsSpliceVariant
 - title: "Options"
