@@ -198,10 +198,10 @@ well - see "Changed defaults". Since then, on the same codon alignments, the sta
 "kaks_calculator"` and of `kaks_tool = "coal"` agrees for 150 of 150 E. coli K-12 / O157 pairs with each of NG,
 LWL, MLWL, LPB, MLPB, YN and MYN (before 140 - 141), and for S. cerevisiae / C. glabrata in 150 (YN, before 20),
 148 (MYN, before 10; 2 pairs for which KaKs_Calculator prints `nan`), 149 (LWL / LPB, before 105; MLWL / MLPB,
-before 101) and 150 (NG) of 150.) DIAMOND `sensitivity_mode`: "fast" (default) finds 5.0 % (S. cerevisiae / C. glabrata), 8.6 %
-(S. cerevisiae / K. lactis) and 1.5 % (Salmonella / Shigella) fewer reciprocal best hits than "default", at about
-the same run time on these genomes; the default is unchanged, and `dNdS()` suggests "default" when the median
-identity of the best hits is below 70 %.
+before 101) and 150 (NG) of 150.) DIAMOND `sensitivity_mode`: "fast" (default) finds 5.0 % (S. cerevisiae /
+C. glabrata), 8.6 % (S. cerevisiae / K. lactis) and 1.5 % (Salmonella / Shigella) fewer reciprocal best hits than
+"default", at about the same run time on these genomes; the default is unchanged, and `dNdS()` suggests
+"default" when the median identity of the best hits is below 70 %.
 
 ### Internal
 
