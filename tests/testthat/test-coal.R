@@ -231,10 +231,34 @@ test_that("dNdS(engine = \"coal\") returns the table of dNdS(), computed in one 
         expect_equal(res$query_id, ref$query_id)
         expect_equal(res$subject_id, ref$subject_id)
         expect_equal(as.data.frame(res)[ , -(3:5)], as.data.frame(ref)[ , -(3:5)], ignore_attr = TRUE)
-        # the values: the same alignment scoring, but co-optimal alignments can differ in where a gap is placed
+        # the values: the same alignment scoring; with COAL's pwalign tie-break (coalr's tie_break) the same
+        # alignments, otherwise co-optimal alignments can differ in where a gap is placed
+        if (is.element("tie_break", names(formals(coalr::coal_dnds_pairs)))) {
+                expect_equal(res$dN, ref$dN, tolerance = 1e-12)
+                expect_equal(res$dS, ref$dS, tolerance = 1e-12)
+        }
         expect_gt(mean(abs(res$dN - ref$dN) < 1e-9), 0.5)
         expect_gt(stats::cor(res$dN, ref$dN), 0.999)
         expect_gt(stats::cor(res$dS, ref$dS), 0.99)
+        # the record: the user's call, the arguments of dNdS() the COAL engine ignores, the DIAMOND command, what
+        # COAL was given and the equivalent coal command line (C05, C07 of the integration pass)
+        rec <- attr(res, "orthologr_run")
+        expect_identical(rec[["function"]], "dNdS_coal")
+        expect_identical(rec$called_as[["function"]], "dNdS")
+        expect_identical(rec$called_as$arguments$engine, "coal")
+        expect_identical(rec$called_as$arguments$kaks_tool, "kaks_calculator")
+        expect_match(rec$call, "^dNdS\\(")
+        expect_true(any(grepl("blastp", rec$commands) & grepl("--max-target-seqs", rec$commands)))
+        es <- rec$engine_settings
+        expect_identical(es$preset, "pwalign")
+        expect_identical(es$comeron_flavour, "gestimator")
+        expect_match(es$coal_command, "^coal pipeline pairs .*--pairs PAIRS.tsv .*-m YN .*--preset pwalign")
+        if (is.element("tie_break", names(formals(coalr::coal_dnds_pairs)))) {
+                expect_identical(es$tie_break, "pwalign")
+                expect_identical(es$matrix, "BLOSUM62-PWALIGN")
+        }
+        expect_null(attr(direct, "orthologr_run")$called_as)
+        expect_match(attr(direct, "orthologr_run")$call, "^dNdS_coal\\(")
         # two threads and several methods
         two <- run_dNdS(dnds_est.method = c("YN", "NG"), engine = "coal")
         expect_equal(nrow(two), 2 * nrow(res))

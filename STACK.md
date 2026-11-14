@@ -43,6 +43,12 @@ the COAL parts (V01: `kaks_tool = "coal"` reports them; V05: `codon_aln_tool = "
 V06: the `max_aln_cells` reason mentions `engine = "coal"`) in 15. Results change only in 10 (LWL family: pairs at
 1 - 2P - Q = 0; `nan` estimates), both under `options(orthologr.legacy_kaks_saturation = TRUE)` as before.
 
+The fixes of the integration pass with COAL of 2026-11-14 (C04, C05, C07) likewise: the run record's
+KaKs_Calculator version (C04), the user's call, `called_as` and the DIAMOND / BLAST+ `commands` (C05, C07) in 14;
+the COAL parts (`engine_settings` with the equivalent `coal pipeline` command line, pwalign's BLOSUM62 for
+`engine = "coal"`, the documentation of both directions in `?dNdS_coal`, and the agreement of the two engines
+measured with COAL's pwalign tie-break, in NEWS) in 15. No result changes for calls that do not ask for COAL.
+
 The fixes of the third review (R01 - R23) are in the branches they correct (named in the table and in the
 commit messages); there is no separate fix-up branch.
 

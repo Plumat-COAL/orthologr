@@ -280,9 +280,9 @@ log_command <- function(cmd, args) {
         invisible(NULL)
 }
 
-# The user's call: the outermost call of a function of the package that records its runs (when one runs another,
-# divergence_stratigraphy() runs dNdS(), the record says how it was called; C07 of the integration pass).
-RECORDED_FUNCTIONS <- c("dNdS", "dNdS_orthogroups", "divergence_stratigraphy")
+# The user's call: the outermost call of a function of the package that records its runs (dNdS(engine = "coal")
+# runs dNdS_coal(), whose record then says how it was called; C07 of the integration pass).
+RECORDED_FUNCTIONS <- c("dNdS", "dNdS_coal", "dNdS_clusters", "dNdS_orthogroups", "divergence_stratigraphy")
 run_user_call <- function() {
         calls <- sys.calls()
         frames <- sys.frames()
@@ -415,7 +415,7 @@ run_input_files <- function(files) {
 #   tools    : versions (run_tool_versions())
 #   files    : the input files
 #   status   : the status of every gene pair, or NULL
-#   settings : what the engine was given (a list), or NULL
+#   settings : what the engine was given (dNdS_coal(): the arguments of coalr), or NULL
 run_record <- function(fun, args, engine, tools, files, status = NULL, settings = NULL) {
         mark <- attr(args, "command_mark")
         attr(args, "command_mark") <- NULL
@@ -461,12 +461,14 @@ run_record <- function(fun, args, engine, tools, files, status = NULL, settings 
 #' \describe{
 #' \item{\code{orthologr}}{the version of the package;}
 #' \item{\code{function}, \code{arguments}}{the function and the values of its arguments;}
-#' \item{\code{call}}{the call as it was written (the outermost of \code{dNdS()}, \code{dNdS_orthogroups()},
-#' \code{divergence_stratigraphy()});}
-#' \item{\code{called_as}}{when that call is of another function than \code{function}: its name and the values of
-#' all its arguments;}
+#' \item{\code{call}}{the call as it was written (the outermost of \code{dNdS()}, \code{dNdS_coal()},
+#' \code{dNdS_clusters()}, \code{dNdS_orthogroups()}, \code{divergence_stratigraphy()});}
+#' \item{\code{called_as}}{when that call is of another function than \code{function} (\code{dNdS(engine = "coal")}
+#' runs \code{dNdS_coal()}): its name and the values of all its arguments, also of those the engine does not use;}
 #' \item{\code{commands}}{the command lines of the sequence searches the run started (DIAMOND, BLAST+), with the
 #' file names of the working folder;}
+#' \item{\code{engine_settings}}{with \code{engine = "coal"}: what orthologr gave COAL (the arguments of
+#' \pkg{coalr}) and the equivalent \code{coal pipeline} command line (see \code{\link{dNdS_coal}});}
 #' \item{\code{options}}{every \code{orthologr.*} option with the value in force (see \code{\link{orthologr_options}});
 #' this shows whether a result was computed with the settings of 0.4.3;}
 #' \item{\code{engine}}{\code{"orthologr"} or \code{"coal"};}

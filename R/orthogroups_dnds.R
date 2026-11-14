@@ -283,7 +283,14 @@ dNdS_orthogroups <- function(x,
         attr(out, "orthologr_run") <- run_record(
                 fun = "dNdS_orthogroups", args = run_args, engine = engine,
                 tools = dnds_groups_tool_versions(engine, aa_aln_tool, aa_aln_path, dnds_est.method, kaks_calc_path),
-                files = cds_files, status = status)
+                files = cds_files, status = status,
+                settings = if (engine == "coal") {
+                        if (aa_aln_tool == "pairwise")
+                                coal_engine_settings("coal_dnds_pairs", coalr::coal_dnds_pairs,
+                                                     list(methods = dnds_est.method, preset = aa_aln_scoring))
+                        else coal_engine_settings("coal_dnds_clusters", coalr::coal_dnds_clusters,
+                                                  list(methods = dnds_est.method, preset = aa_aln_scoring), mode = "clusters")
+                } else NULL)
         out
 }
 

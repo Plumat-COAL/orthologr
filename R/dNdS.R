@@ -90,7 +90,8 @@
 #' returns the same table, with the same attributes.
 #' @param aa_aln_scoring with \code{engine = "coal"}: how COAL scores the pairwise protein alignments -
 #' \code{"pwalign"} (Default; the scoring of \code{\link{pairwise_aln}}, so that the alignments are those of
-#' \code{engine = "orthologr"} up to co-optimal alignments) or \code{"needle"} (COAL's own defaults). The same
+#' \code{engine = "orthologr"} - row for row with a \pkg{coalr} that has COAL's pwalign tie-break, otherwise up to
+#' co-optimal alignments) or \code{"needle"} (COAL's own defaults). The same
 #' argument as in \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}.
 #' @param kaks_calc_path a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
 #' (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).

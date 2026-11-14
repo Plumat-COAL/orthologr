@@ -186,7 +186,8 @@ returns the same table, with the same attributes.}
 
 \item{aa_aln_scoring}{with \code{engine = "coal"}: how COAL scores the pairwise protein alignments -
 \code{"pwalign"} (Default; the scoring of \code{\link{pairwise_aln}}, so that the alignments are those of
-\code{engine = "orthologr"} up to co-optimal alignments) or \code{"needle"} (COAL's own defaults). The same
+\code{engine = "orthologr"} - row for row with a \pkg{coalr} that has COAL's pwalign tie-break, otherwise up to
+co-optimal alignments) or \code{"needle"} (COAL's own defaults). The same
 argument as in \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}.}
 
 \item{best_hit_rule}{how the best hit of a query is chosen among its hits:

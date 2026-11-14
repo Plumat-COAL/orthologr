@@ -109,8 +109,11 @@ its own rules to the values, so that both engines return the same numbers for th
 Comeron's saturation rule (\code{NA} where a correction is undefined in a class that has sites; finite values
 with \code{options(orthologr.legacy_comeron_saturation = TRUE)}; see \code{\link{substitutionrate}}), rounding
 to the 4 significant digits gestimator writes (Comeron only), and \code{NA} for negative or saturated values of
-Li's method. \code{attr(result, "coal")} holds COAL's unrounded values and notes. Differences between the
-engines that remain come from the protein alignment (co-optimal alignments; see NEWS).
+Li's method. \code{attr(result, "coal")} holds COAL's unrounded values and notes. With
+\code{aa_aln_scoring = "pwalign"} and a \pkg{coalr} that has COAL's pwalign tie-break (\code{tie_break}),
+COAL's protein alignments are those of \code{pwalign::pairwiseAlignment()}, row for row, so both engines
+compute the same codon alignments (see NEWS for the measured agreement); with an older \pkg{coalr} they may
+place a gap differently where several alignments score the same.
 \item A dN or dS of exactly 0 is returned as 0 (KaKs_Calculator prints values below 1e-6 as \code{NA}); a
 saturated estimate is \code{NA} (KaKs_Calculator prints a capped value).
 \item Codon columns with a gap, an ambiguous base or an internal stop codon are skipped; a terminal stop codon is
@@ -123,6 +126,30 @@ protein identity, status and note) is attached as \code{attr(result, "coal")}.
 
 This function needs the R package \pkg{coalr}:
 \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+
+\strong{The same run with the COAL command line, and the other way.} The record of the run,
+\code{attr(result, "orthologr_run")}, has in \code{engine_settings} what orthologr gave COAL (\code{preset},
+\code{matrix}, \code{tie_break}, \code{comeron_flavour}, \code{li_flavour}, \code{terminal_stops}) and in
+\code{engine_settings$coal_command} the \code{coal pipeline pairs} command line with these settings; its
+\code{commands} are the DIAMOND (or BLAST+) searches of the run. With the gene pairs of the result as
+\code{--pairs}, the command line computes the same pairs with the same alignments:
+\preformatted{
+res <- dNdS_coal("query.fa", "subject.fa", dnds_est.method = "YN")
+pairs <- unique(as.data.frame(res)[, c("query_id", "subject_id")])
+write.table(pairs, "pairs.tsv", sep = "\\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+attr(res, "orthologr_run")$engine_settings$coal_command
+# coal pipeline pairs --query QUERY_CDS --subject SUBJECT_CDS --pairs PAIRS.tsv -m YN --preset pwalign
+#   --matrix BLOSUM62-PWALIGN --tie-break pwalign --comeron-flavour gestimator --li-flavour seqinr
+#   --terminal-stops drop -o OUT_DIR
+}
+Its \code{dnds.tsv} holds COAL's own values, which \code{attr(result, "coal")} keeps too; orthologr's
+result applies its rules to Comeron and Li (above). The pairs must come from the result: COAL's own search
+takes DIAMOND's first target as the best hit, orthologr the hit with the highest bit score, and orthologr
+leaves out coding sequences with ambiguous bases (\code{options(orthologr.ambiguous_cds)}), which COAL keeps.
+The other way, a \code{coal pipeline pairs} run in R: \code{coalr::coal_dnds_pairs()} with the run's
+\code{orthologs.tsv} as \code{pairs} and the run's options (\code{report.json}, \code{parameters}) as arguments of
+the same names; a \code{coal pipeline clusters} run: \code{\link{dNdS_clusters}} with its \code{clusters.tsv} as
+\code{clusters}.
 }
 \examples{
 \dontshow{if (nzchar(system.file(package = "coalr"))) withAutoprint(\{ # examplesIf}

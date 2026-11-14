@@ -28,8 +28,11 @@ change. Please report the version of orthologr in the methods of analyses based 
   force (with its default when it is not set, `orthologr.ambiguous_cds` included), engine (and the COAL backend
   used: `coalr` or the coal-cpp program), program versions (KaKs_Calculator's from the "Version:" line of its
   `-h`), date, size and MD5 of the input files, counts by status; the call as written (`call`) and, when it is of
-  another function, its name and all its arguments (`called_as`); the DIAMOND / BLAST+ command lines of the run
-  (`commands`).
+  another function (`dNdS(engine = "coal")` runs `dNdS_coal()`), its name and all its arguments (`called_as`);
+  the DIAMOND / BLAST+ command lines of the run (`commands`); with `engine = "coal"` what orthologr gave COAL
+  (`engine_settings`: preset, matrix, tie-break, Comeron / Li flavour, terminal stops) and the equivalent
+  `coal pipeline` command line (`engine_settings$coal_command`; `?dNdS_coal`, "The same run with the COAL
+  command line").
   **`write_dNdS()`** writes a table as TSV with this record in `<file>.run.json`; **`read_dNdS()`** reads both back
   (needs `jsonlite`). `orthogroups()$params` holds the package version.
 - **`orthologr_legacy_options()`** and `options(orthologr.legacy = TRUE)`: all settings of 0.4.3 at once. A test
@@ -250,9 +253,25 @@ only.
 | Salmonella LT2 / Shigella flexneri | Comeron (gestimator) | 294 | 274 | 95.3 % | 0 | 0.999 | 0.998 | 0 |
 | Salmonella LT2 / Shigella flexneri | YN (KaKs_Calculator) | 294 | 278 | 92.4 % | 1.2e-06 | 0.972 | 0.987 | 16 |
 
-For the close pair the engines agree (median difference 0, r >= 0.97). The remaining differences come from the
-protein alignments (the two engines may place a gap differently where several alignments score the same). The
-yeast pairs are saturated at synonymous sites (median dS above 2): there COAL returns `NA` (status "saturated")
+For the close pair the engines agree (median difference 0, r >= 0.97). The differences in this table come from
+the protein alignments: where several alignments score the same, the COAL of that day placed a gap otherwise
+than pwalign. **With a `coalr` that has COAL's pwalign tie-break** (`tie_break`; COAL after 2026-11-14, its
+integration pass C01), `engine = "coal"` computes pwalign's protein alignments row for row and the engines agree
+to the digits orthologr prints. All reciprocal-best-hit pairs, native engine against `engine = "coal"`, before /
+after (dS where both engines give one, equal to 6 significant digits, 4 for Comeron; pairs with the same status):
+
+| Species pair | Method | pairs | dS equal | dS > 1 % apart | same status |
+|---|---|---|---|---|---|
+| A. thaliana / A. lyrata | YN | 995 | 677 / 994 -> 994 / 994 | 267 -> 0 | 995 -> 995 |
+| A. thaliana / A. lyrata | Comeron | 995 | 692 / 994 -> 994 / 994 | 258 -> 0 | 995 -> 995 |
+| A. thaliana / A. lyrata | LWL | 995 | 687 / 994 -> 994 / 994 | 245 -> 0 | 995 -> 995 |
+| S. cerevisiae / C. glabrata | YN | 4,164 | 322 / 565 -> 587 / 587 | 206 -> 0 | 4,107 -> 4,146 |
+| S. cerevisiae / C. glabrata | Comeron | 4,164 | 563 / 1,120 -> 1,155 / 1,155 | 363 -> 0 | 4,097 -> 4,164 |
+| S. cerevisiae / C. glabrata | LWL | 4,164 | 821 / 2,166 -> 2,239 / 2,239 | 873 -> 0 | 4,021 -> 4,164 |
+
+dN agrees in the same way (one yeast YN pair: dN 2.5e-12 from COAL, 0 from KaKs_Calculator, which prints values
+below 1e-6 as 0). The 18 yeast YN pairs with another status are iterations that do not converge: COAL gives no
+estimate (`"saturated"`), KaKs_Calculator its last round (`"ok"`). The yeast pairs are saturated at synonymous sites (median dS above 2): there COAL returns `NA` (status "saturated")
 for most YN estimates for which KaKs_Calculator still prints a number (dS 4 - 5); where both give a value they
 agree. (This table was measured before the default engine returned `NA` for KaKs_Calculator's capped values as
 well - see "Changed defaults". Since then, on the same codon alignments, the status of `kaks_tool =
