@@ -354,16 +354,22 @@ coal_codon_aln_file <- function(file_aln, file_nuc, file.out, format = "fasta", 
                 orthologr_abort(class = c("alignment_failed", "tool_failed"),
                                 "COAL: the protein alignment holds ", length(rows), " sequences and the CDS file ",
                                 length(cds), " for ", context, ".", call. = FALSE)
-        codon <- tryCatch(
+        codon <- coal_codon_rows(rows, cds, context)
+        names(codon) <- names(cds)
+        write_alignment(codon, tmp.out, format = format)
+        publish_file(tmp.out, file.out)
+        invisible(file.out)
+}
+
+# The codon alignment rows of the protein alignment rows 'rows' and the coding sequences 'cds' (same order) with
+# coalr (in process); a failure is an error of class orthologr_error_alignment_failed naming 'context'.
+coal_codon_rows <- function(rows, cds, context) {
+        tryCatch(
                 coalr::coal_codon_align(unname(rows), unname(cds)),
                 error = function(e) orthologr_abort(class = c("alignment_failed", "tool_failed"),
                                                     "COAL could not build the codon alignment for ", context, ": ",
                                                     conditionMessage(e), call. = FALSE)
         )
-        names(codon) <- names(cds)
-        write_alignment(codon, tmp.out, format = format)
-        publish_file(tmp.out, file.out)
-        invisible(file.out)
 }
 
 # Ka/Ks of a two-sequence codon alignment file with COAL: the table substitutionrate() returns for the
