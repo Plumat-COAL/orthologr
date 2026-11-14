@@ -493,7 +493,9 @@ test_that("R17: an undefined logarithm in a class without sites does not make Co
                 f <- tempfile(fileext = ".fa"); o <- tempfile()
                 on.exit(unlink(c(f, o)), add = TRUE)
                 writeLines(c(">a", a, ">b", b), f)
-                gestimator(f, o, 3L, FALSE, FALSE, legacy)
+                # (libsequence's two-position branches and no minimum class size: the rule of R17 alone, with
+                # the values pinned before the decisions D8 / D9 of 2026-11-14)
+                gestimator(f, o, 3L, FALSE, FALSE, legacy, TRUE, 0)
                 v <- as.numeric(scan(o, what = "", sep = "\t", quiet = TRUE)[3:5])
                 v[v == 999] <- NA
                 v
