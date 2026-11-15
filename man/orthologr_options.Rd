@@ -16,7 +16,8 @@ Read by \code{dNdS(engine = "coal")}, \code{\link{dNdS_coal}}, \code{\link{dNdS_
 \code{substitutionrate(kaks_tool = "coal")}.
 \describe{
 \item{\code{orthologr.coal_backend}}{\code{NULL} (default: the R package \pkg{coalr} when it is installed, else
-the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}.}
+the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}. \code{"none"} (internal, for tests) behaves as
+if COAL were not installed.}
 \item{\code{orthologr.coal_path}}{the full path of the program \code{coal-cpp} (default \code{""}: the
 environment variable \code{COAL_CPP}, then the \code{PATH}).}
 \item{environment variable \code{COAL_CPP}}{the full path of the program \code{coal-cpp}, used when it is not on

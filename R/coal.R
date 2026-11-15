@@ -268,7 +268,7 @@ coal_install_message <- function() {
 coal_backend <- function(need = NULL) {
         forced <- getOption("orthologr.coal_backend", NULL)
         if (!is.null(forced) && !is.element(forced, c("coalr", "binary", "none")))
-                orthologr_abort(class = "bad_argument", "options(orthologr.coal_backend) must be \"coalr\" or \"binary\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "options(orthologr.coal_backend) must be \"coalr\", \"binary\" or \"none\" (as if COAL were not installed; for tests).", call. = FALSE)
         if (identical(forced, "none"))
                 orthologr_abort(class = c("package_missing", "tool_missing"), coal_install_message())
 
@@ -1051,7 +1051,8 @@ dnds_cluster_summary_stats <- function(summary, pairs) {
 #' \code{substitutionrate(kaks_tool = "coal")}.
 #' \describe{
 #' \item{\code{orthologr.coal_backend}}{\code{NULL} (default: the R package \pkg{coalr} when it is installed, else
-#' the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}.}
+#' the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}. \code{"none"} (internal, for tests) behaves as
+#' if COAL were not installed.}
 #' \item{\code{orthologr.coal_path}}{the full path of the program \code{coal-cpp} (default \code{""}: the
 #' environment variable \code{COAL_CPP}, then the \code{PATH}).}
 #' \item{environment variable \code{COAL_CPP}}{the full path of the program \code{coal-cpp}, used when it is not on
