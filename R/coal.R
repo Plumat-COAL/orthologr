@@ -111,13 +111,27 @@ coal_flavour_args <- function(fun, methods = NULL) {
                 terminal_stops    = if (isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))) "compare" else "drop"
         )
         have <- names(formals(fun))
-        if (is.element("Comeron", methods) && !is.element("comeron_twosubs", have))
+        # A coalr whose coal_info()$features lacks "comeron_min_sites_positive" (COAL before #76) computes Comeron
+        # otherwise than engine = "orthologr": without comeron_twosubs / comeron_min_sites (older still) along
+        # libsequence's branches and with NA for small site classes, and with them a 0 where the rule of the
+        # smallest site class gives 0 (e.g. dS = 0 for ATGGCTAAA / ATGGCCAAA, NA with engine = "orthologr").
+        # The numbers are still computed (as by every coalr since 0.5.0), so this is a warning, of the class that
+        # documents an old coalr, not an error.
+        if (is.element("Comeron", methods) && !is.element("comeron_min_sites_positive", coal_features()))
                 orthologr_warn(class = "coal_version",
-                               "This version of coalr predates the options comeron_twosubs and comeron_min_sites: its ",
-                               "Comeron counts codons that differ at two positions along libsequence's branches and ",
-                               "makes dN / dS NA for small site classes, so it can differ from engine = \"orthologr\". ",
-                               "Install a current coalr.", call. = FALSE)
+                               "This version of coalr predates COAL's Comeron refinements (coalr::coal_info()$features ",
+                               "does not list \"comeron_min_sites_positive\"): its Comeron can differ from engine = ",
+                               "\"orthologr\" (codons that differ at two positions, small site classes; e.g. dS = 0 ",
+                               "instead of NA). Install a current coalr: ",
+                               "remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\").", call. = FALSE)
         args[intersect(names(args), have)]
+}
+
+# The features the installed coalr reports (coalr::coal_info()$features; character(0) for a coalr without that
+# field or without coalr).
+coal_features <- function() {
+        f <- tryCatch(coalr::coal_info()$features, error = function(e) NULL)
+        if (is.character(f)) f else character(0)
 }
 
 # The matrix to give COAL: with aa_aln_scoring = "pwalign" and BLOSUM62, pwalign's copy of BLOSUM62 (it scores B, Z

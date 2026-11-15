@@ -87,6 +87,14 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   C. glabrata (4,384 pairs, where the rule gives 15 dN, all > 0) are identical to those of 0.5.0 (default
   settings, `engine = "coal"` with a `coalr` that has COAL #76, and the legacy switch).
 
+### Fixed
+
+- A `coalr` from before COAL #76 (whose `coalr::coal_info()$features` lacks `"comeron_min_sites_positive"`) gave
+  Comeron values that differ from `engine = "orthologr"` without a warning when it already had the arguments
+  `comeron_twosubs` / `comeron_min_sites` (e.g. dS = 0 instead of `NA` for `ATGGCTAAA` / `ATGGCCAAA`). The
+  warning of class `orthologr_warning_coal_version` is now given whenever that feature is missing and Comeron is
+  computed by COAL (`engine = "coal"`, `dNdS_coal()`, `dNdS_clusters()`, `dNdS_orthogroups(engine = "coal")`).
+
 ### Other changes
 
 - `dNdS_orthogroups()`: the summary has the minimum and maximum of dN, dS and dN/dS per group (`dN_min`, `dN_max`,
