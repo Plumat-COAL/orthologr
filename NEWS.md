@@ -31,6 +31,12 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   Not under `orthologr_legacy_options()` (one pair at a time, as in 0.4.3); `options(orthologr.batch_tools =
   FALSE)` switches it off. Using COAL for the codon step of `codon_aln_tool = "pal2nal"` (its codon alignments
   are the same) was not done: that they are the same for a pair can only be known by running PAL2NAL.
+  Compared with one process per pair (all columns, attributes, `failed_pairs`, the record of the run), identical
+  with 1 and 2 cores: the 20-gene example for every method of KaKs_Calculator (NG, LWL, LPB, MLWL, MLPB, YN, MYN,
+  GY, GMYN, MS, MA, ALL), PAL2NAL with Comeron and YN, and the legacy settings; the 1,000-gene example and
+  S. cerevisiae / C. glabrata for NG, LWL, LPB, MLWL, MLPB, YN, MYN, GMYN (with GY on the 1,000-gene example;
+  yeast: the 53 MYN / GMYN pairs that fail with `nan` included) and PAL2NAL with Comeron and YN; the dN/dS step on
+  40 pairs of the 1,000-gene example for MS, MA and ALL, and on yeast pairs for GY (200) and MA (12).
 - Measured: the whole `dNdS()` call including DIAMOND, CPU seconds (user + system, with child processes; the
   machine was shared, so elapsed times varied by a factor of 2), 0.5.0 -> 0.6.0:
 
@@ -46,8 +52,21 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 
   The dN/dS step alone (`compute_dnds()`, 1,000-gene example, 1 core): 27.4 s -> 10.4 s before the change of
   `gestimator()`. What is left per pair is mostly the alignments themselves (pwalign), the estimate, and for
-  PAL2NAL / KaKs_Calculator the work of the programs themselves (the start of one process per gene pair is gone:
-  BATCH_TIMINGS).
+  PAL2NAL / KaKs_Calculator the work of the programs themselves. One process per chunk instead of one per pair
+  (CPU seconds of the whole `dNdS()` call, mean of 2 runs, before -> after; tables identical):
+
+  | data, settings | CPU s |
+  |---|---|
+  | 1,000-gene example, YN (KaKs_Calculator), 1 core | 21.0 -> 14.6 |
+  | 1,000-gene example, NG, 2 cores | 21.3 -> 14.2 |
+  | 1,000-gene example, `codon_aln_tool = "pal2nal"` (Comeron), 1 core | 29.1 -> 19.7 |
+  | 1,000-gene example, `codon_aln_tool = "pal2nal"`, YN, 1 core | 38.0 -> 21.7 |
+  | S. cerevisiae / C. glabrata, YN, 2 cores | 90.0 -> 64.2 |
+  | S. cerevisiae / C. glabrata, `codon_aln_tool = "pal2nal"`, 2 cores | 131.5 -> 90.0 |
+  | 20-gene example, MA, 2 cores (the estimates take the time) | 125.8 -> 126.5 |
+
+  The dN/dS step alone (`compute_dnds()`, 1,000-gene example, 1 core): YN 17.7 s -> 10.6 s, PAL2NAL 25.5 s ->
+  16.7 s; what is left of PAL2NAL is its own work (about 9 ms per pair).
 - `stringr` (and with it `stringi`) is no longer imported: its 27 calls were splitting and matching of file names
   and are base R now.
 
