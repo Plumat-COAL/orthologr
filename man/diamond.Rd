@@ -89,6 +89,16 @@ This function provides a fast communication between R and DIAMOND2. It is mainly
 such as \code{\link{diamond_best}} and \code{\link{diamond_rec}} but can also be used to perform simple DIAMOND2 computations.
 This function gives the same output as \code{\link{blast}} while being up to 10 000X faster in larger databases.
 }
+\section{The columns \code{qcov} and \code{qcovhsp}}{
+
+In the tables of the DIAMOND functions (\code{diamond()}, \code{diamond_best()}, \code{diamond_rec()}, and
+\code{dNdS()} with \code{aligner = "diamond"}) \code{qcov} always equals \code{qcovhsp}. This is not a parsing
+error: BLAST+ reports the query coverage per subject (\code{qcovs}, over all HSPs of a subject), which the BLAST
+functions return as \code{qcov}; DIAMOND has no such output field, so the DIAMOND functions ask for
+\code{qcovhsp} (query coverage of the reported HSP) twice to keep the 21 columns of both table kinds the same.
+With DIAMOND, read \code{qcov} as "query coverage of the best HSP".
+}
+
 \examples{
 \dontrun{
 # performing a DIAMOND2 search using diamond blastp (default)

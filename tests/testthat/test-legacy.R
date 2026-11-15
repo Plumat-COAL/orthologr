@@ -7,7 +7,7 @@ with_0.4.3_defaults <- function(env = parent.frame()) {
         rlang::local_options(orthologr.legacy_pairwise_aln = TRUE, orthologr.legacy_comeron_saturation = TRUE,
                              orthologr.comeron_twosubs = "libsequence",
                              orthologr.legacy_kaks_zero_dn = TRUE, orthologr.legacy_kaks_saturation = TRUE,
-                             .frame = env)
+                             orthologr.best_hit_rule = "evalue", .frame = env)
 }
 
 # The tables are compared with a tolerance of 1e-12: e-values such as 2.27e-158 are read with a difference in the
