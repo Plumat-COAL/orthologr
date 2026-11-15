@@ -138,16 +138,13 @@ test_that("gestimator() checks maxHits and the input file", {
 
 test_that("the is.*() helpers list what is provided when asked without an argument", {
         helpers <- list(is.ortho_detection_method, is.multiple_aln_tool, is.pairwise_aln_tool, is.codon_aln_tool,
-                        is.dnds_est_method, is.alignment_search_tool)
+                        is.dnds_est_method)
         for (h in helpers) {
                 expect_message(r <- h(), "The following methods are provided: ")
                 expect_false(r)
         }
-        expect_true(is.alignment_search_tool("ggsearch"))
-        expect_false(is.alignment_search_tool("blastp"))
         expect_true(is.codon_aln_tool("coal"))
         expect_true(is.dnds_est_method("YN"))
-        expect_output(test("x"), "Test x passed.")
 })
 
 test_that("read_clustal() refuses files that are not CLUSTAL alignments", {

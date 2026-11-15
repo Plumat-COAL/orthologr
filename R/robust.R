@@ -117,16 +117,6 @@ pair_context <- function(file, name = NULL) {
         label
 }
 
-# The proteins of a CDS table as read.proteome() returns them (data.table: geneids, seqs; keyed by geneids),
-# translated with cds2aa().
-cds_protein_table <- function(cds_dt, delete_corrupt_cds = TRUE) {
-        geneids <- aa <- NULL
-        tmp <- cds2aa(data.table::copy(cds_dt), delete_corrupt_cds = delete_corrupt_cds)
-        res <- data.table::data.table(geneids = tmp[ , geneids], seqs = toupper(tmp[ , aa]))
-        data.table::setkey(res, geneids)
-        return(res)
-}
-
 # dN, dS and dN/dS as numbers from seqinr::kaks() values, with what cannot be used set to NA: negative values
 # (not computable), values of about 10 (seqinr's marker for saturation), and ratios that are not finite.
 li_values <- function(ka, ks) {
@@ -162,7 +152,7 @@ check_aa_sub_matrix <- function(aa_sub_matrix) {
         invisible(TRUE)
 }
 
-# The same table for a CDS file: cds_protein_table(read.cds(file)), taken from what was already read and
+# The same table for a CDS file: the proteins of read.cds(file) translated with cds2aa(), taken from what was already read and
 # translated in this call (see seq_cache_start()).
 cds_protein_table_file <- function(file, delete_corrupt_cds = TRUE) {
         geneids <- aa <- NULL

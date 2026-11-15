@@ -139,6 +139,10 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 
 ### Internal
 
+- Removed internal functions that nothing called (not exported; uncalled in upstream too): `get_filename()`,
+  `set_path()`, `ws_wrap()`, `check_ram()`, `OF2Orthologs()`, `read.ortholog.table()`, `filter_core_set_lnc()`,
+  `is.alignment_search_tool()`, `test()`, `cds_protein_table()`, with the tests that only covered them.
+  `benchmarkme` (used only by `check_ram()`) is no longer in Suggests.
 - Tests (`test-perf.R`): the batched code paths against the per-pair code (alignments, codon alignments, tables of
   `compute_dnds()` for Comeron, Li and YN with COAL and PAL2NAL), independence of the chunk size and of the number
   of processes, progress messages. `test-perf-tools.R`: PAL2NAL and KaKs_Calculator per chunk against one process

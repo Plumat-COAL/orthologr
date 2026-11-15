@@ -29,7 +29,6 @@ dependencies:
   # R packages: Suggests
   - bioconductor-rtracklayer
   - r-ape
-  - r-benchmarkme
   - r-ggplot2
   - r-scales
   - r-tidyr

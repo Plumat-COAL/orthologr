@@ -66,8 +66,11 @@ test_that("inside dNdS() / diamond_rec() a file is read once; the tables are the
         data.table::setnames(p1, "aa", "changed")
         expect_true("aa" %in% names(p2))
         expect_true("aa" %in% names(protein_table(f, seq_type = "cds", delete_corrupt_cds = FALSE)))
-        expect_equal(cds_protein_table_file(f, delete_corrupt_cds = FALSE),
-                     cds_protein_table(direct_cds, delete_corrupt_cds = FALSE))
+        # (the proteins of the CDS read directly, translated with cds2aa())
+        direct_aa <- cds2aa(data.table::copy(direct_cds), delete_corrupt_cds = FALSE)
+        direct_aa <- data.table::data.table(geneids = direct_aa$geneids, seqs = toupper(direct_aa$aa))
+        data.table::setkey(direct_aa, geneids)
+        expect_equal(cds_protein_table_file(f, delete_corrupt_cds = FALSE), direct_aa)
         end()
         expect_false(seq_cache_active())
 })
