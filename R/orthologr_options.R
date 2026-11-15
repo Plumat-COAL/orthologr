@@ -74,9 +74,9 @@
 #' \item{\code{orthologr.batch_tools}}{\code{TRUE} (default): in \code{dNdS()} and the functions that call it, PAL2NAL
 #' (\code{codon_aln_tool = "pal2nal"}, not on Windows) and KaKs_Calculator (its methods, \code{kaks_tool =
 #' "kaks_calculator"}) compute the gene pairs of a chunk (up to 100 pairs) with one process each instead of one per
-#' pair: the same files and values (a pair the batch does not compute is computed on its own; also with the settings
-#' of 0.4.3, \code{\link{orthologr_legacy_options}}). \code{FALSE}: one process per gene pair. The option changes
-#' no result and is not part of the record of a run.}
+#' pair: the same files and values (a pair the batch does not compute is computed on its own). Not with the
+#' settings of 0.4.3 (\code{\link{orthologr_legacy_options}}), which compute one pair at a time as 0.4.3 did.
+#' \code{FALSE}: one process per gene pair. The option changes no result and is not part of the record of a run.}
 #' \item{\code{orthologr.keep_tmp}}{\code{FALSE} (default): the folder with the intermediate files of a call (FASTA
 #' files of the pairs, alignments, program output) is removed when the call ends. \code{TRUE}: it is kept, and a
 #' message names it; it is inside \code{tempdir()}, which R removes when the session ends (so after

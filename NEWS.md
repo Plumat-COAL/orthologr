@@ -22,6 +22,15 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - Per gene pair: no `data.table` sub-assignments (`:=`), the working files written with one `writeLines()` (the
   same bytes as `seqinr::write.fasta()`); the checks of coding sequences for non-ACGT characters use PCRE (the
   same answers, about 50 times faster on long sequences).
+- PAL2NAL and KaKs_Calculator: one process for a chunk of up to 100 gene pairs instead of one per pair.
+  KaKs_Calculator gets one AXT file with a record per pair (it computes every record on its own) and its rows are
+  split by record; PAL2NAL runs through `inst/pal2nal/pal2nal_batch.pl`, which compiles `pal2nal.pl` once and
+  computes every pair in a forked child process (a fresh copy of the script's state, the arguments and output file
+  of a single call; not on Windows). A pair the batch does not compute - its job failed, its rows cannot be matched
+  to its record one to one, the program failed - is computed on its own as before, which also gives its error.
+  Not under `orthologr_legacy_options()` (one pair at a time, as in 0.4.3); `options(orthologr.batch_tools =
+  FALSE)` switches it off. Using COAL for the codon step of `codon_aln_tool = "pal2nal"` (its codon alignments
+  are the same) was not done: that they are the same for a pair can only be known by running PAL2NAL.
 - Measured: the whole `dNdS()` call including DIAMOND, CPU seconds (user + system, with child processes; the
   machine was shared, so elapsed times varied by a factor of 2), 0.5.0 -> 0.6.0:
 
@@ -37,7 +46,8 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 
   The dN/dS step alone (`compute_dnds()`, 1,000-gene example, 1 core): 27.4 s -> 10.4 s before the change of
   `gestimator()`. What is left per pair is mostly the alignments themselves (pwalign), the estimate, and for
-  PAL2NAL / KaKs_Calculator the start of one process per gene pair.
+  PAL2NAL / KaKs_Calculator the work of the programs themselves (the start of one process per gene pair is gone:
+  BATCH_TIMINGS).
 - `stringr` (and with it `stringi`) is no longer imported: its 27 calls were splitting and matching of file names
   and are base R now.
 
@@ -77,7 +87,10 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 
 - Tests (`test-perf.R`): the batched code paths against the per-pair code (alignments, codon alignments, tables of
   `compute_dnds()` for Comeron, Li and YN with COAL and PAL2NAL), independence of the chunk size and of the number
-  of processes, progress messages.
+  of processes, progress messages. `test-perf-tools.R`: PAL2NAL and KaKs_Calculator per chunk against one process
+  per pair (every method of KaKs_Calculator that takes seconds, a pair that fails inside a chunk, a batch whose output
+  cannot be matched, that fails or whose program is missing, chunk sizes, two processes, legacy mode), the driver
+  against one `perl pal2nal.pl` per job.
 
 ## `orthologr` 0.5.0
 
