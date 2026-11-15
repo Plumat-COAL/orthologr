@@ -150,6 +150,10 @@ cds2aa <- function(dt, delete_corrupt_cds = TRUE){
                 )
         })
         
+        # inside a dNdS() / dNdS_coal() call: the sequences with in-frame stop codons before the last codon (L6)
+        if (!is.null(.orthologr_state$stops) && nrow(dt) > 0)
+                stop_codon_record(dt[ , geneids], dt[ , aa], .orthologr_state$current_file)
+        
         return(dt)
 }
 
@@ -257,6 +261,35 @@ ambiguous_table <- function() {
         res
 }
 
+# Collect the coding sequences with in-frame stop codons before their last codon while a dNdS() call runs (L6 of
+# REVIEW-OL-1): their IDs and the number of such codons, counted in the translation ('*' before the last residue).
+# Nothing is changed: the sequences are used as before (COAL and PAL2NAL do not compare the codon; see ?dNdS).
+stop_codon_record <- function(ids, aa, file) {
+        aa <- as.character(aa)
+        inner <- substr(aa, 1L, pmax(nchar(aa) - 1L, 0L))
+        n <- nchar(inner) - nchar(gsub("*", "", inner, fixed = TRUE))
+        has <- !is.na(n) & n > 0
+        if (!any(has))
+                return(invisible(NULL))
+        .orthologr_state$stops[[length(.orthologr_state$stops) + 1L]] <- data.frame(
+                file        = if (is.null(file)) NA_character_ else as.character(file),
+                id          = as.character(ids[has]),
+                stop_codons = as.integer(n[has]),
+                stringsAsFactors = FALSE
+        )
+        invisible(NULL)
+}
+
+# The table of the sequences with in-frame stop codons so far in this call (file, id, stop_codons), or NULL.
+stop_codon_table <- function() {
+        res <- .orthologr_state$stops
+        if (length(res) == 0)
+                return(NULL)
+        res <- unique(do.call(rbind, res))
+        rownames(res) <- NULL
+        res
+}
+
 # Collect the coding sequences that read.cds() trimmed to a multiple of 3 (delete_corrupt_cds = FALSE) while a
 # dNdS() call runs; `corrupted_file` holds them as they were read.
 trimmed_record <- function(ids, removed, file, corrupted_file) {
@@ -306,12 +339,14 @@ dropped_start <- function(quiet = FALSE) {
         .orthologr_state$dropped <- list()
         .orthologr_state$trimmed <- list()
         .orthologr_state$ambiguous <- list()
+        .orthologr_state$stops <- list()
         .orthologr_state$sequence_messages_quiet <- isTRUE(quiet)
         function() {
                 res <- .orthologr_state$dropped
                 .orthologr_state$dropped <- NULL
                 .orthologr_state$trimmed <- NULL
                 .orthologr_state$ambiguous <- NULL
+                .orthologr_state$stops <- NULL
                 .orthologr_state$sequence_messages_quiet <- NULL
                 if (length(res) == 0)
                         return(data.frame(file = character(0), id = character(0), reason = character(0),

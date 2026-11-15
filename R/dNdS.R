@@ -250,7 +250,11 @@
 #' whose start is not annotated (\code{cds_start_NF}). Sequences whose length is not a multiple of 3 (97 of 2,048
 #' and 934 of 7,728 in the same files) are trimmed by default (\code{delete_corrupt_cds = FALSE}); they are listed in
 #' \code{attr(result, "trimmed_sequences")} (\code{file}, \code{id}, \code{removed_nt}, \code{corrupted_file}: the
-#' sequences as read) and counted in the summary message.
+#' sequences as read) and counted in the summary message. Coding sequences with in-frame stop codons before their last
+#' codon are used as they are (how such a codon is treated is up to the alignment and estimation programs; COAL does
+#' not compare it) and listed in
+#' \code{attr(result, "stop_codon_sequences")} (\code{file}, \code{id}, \code{stop_codons}: their number), with a
+#' line in the summary message (also with \code{engine = "coal"}).
 #' 
 #' @section Status of a gene pair:
 #' The last column of the result, \code{status}, says how each gene pair came out. The same words are used by
@@ -647,8 +651,10 @@ dNdS <- function(query_file,
         kaks_used <- is.element(dnds_est.method, kaks_calculator_methods()) && !kaks_by_coal
         trimmed <- trimmed_table()
         ambiguous <- ambiguous_table()
+        stops <- stop_codon_table()
         res <- dnds_finish(
                 res, failed_pairs = attr(dNdS_tbl, "failed_pairs"), dropped = end_dropped(), ambiguous = ambiguous, trimmed = trimmed,
+                stops = stops,
                 record = list(fun = "dNdS", args = run_args, engine = "orthologr",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path,
                                                           aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path,

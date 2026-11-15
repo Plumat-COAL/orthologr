@@ -132,6 +132,10 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   `suppressPackageStartupMessages()`); the option is not part of the record of a run.
 - README: the links to pages that the package site (drostlab.github.io/orthologr) does not have yet - the
   articles "Upgrading from 0.4.3" and "Orthogroups" and `?orthologr_options` - point to the files in the repository.
+- Coding sequences with in-frame stop codons before their last codon are reported like the sequences that were
+  trimmed, left out or kept with ambiguous bases: `attr(result, "stop_codon_sequences")` (`file`, `id`,
+  `stop_codons`) and a line of the summary message (`dNdS()`, both engines). The sequences are used as before; no
+  value changes.
 
 ### Internal
 
