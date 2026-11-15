@@ -39,9 +39,11 @@ Suggests:
     tidyr,
     biomartr,
     metablastr,
-    jsonlite
+    jsonlite,
+    coalr
 Remotes:
-    drostlab/metablastr
+    drostlab/metablastr,
+    coalr=Plumat-COAL/COAL/packaging/r/coalr
 LinkingTo: Rcpp
 URL: https://drostlab.github.io/orthologr, https://github.com/drostlab/orthologr
 BugReports: https://github.com/drostlab/orthologr/issues

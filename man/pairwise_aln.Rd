@@ -65,7 +65,7 @@ function implemented in the \pkg{pwalign} package.
 
 The default pairwise alignment method is based on the \emph{Needleman-Wunsch Algorithm}.
 
-Since \pkg{orthologr} 0.4.4 (see \code{NEWS.md}):
+Since \pkg{orthologr} 0.5.0 (see \code{NEWS.md}):
 \itemize{
 \item amino acid sequences are scored with \code{BLOSUM62} by default (argument \code{aa_sub_matrix});
 \item the alignment that is written is full length: every residue of both sequences is in it, and the overhanging
@@ -81,9 +81,15 @@ written) can be restored for reproducing earlier results with \code{options(orth
 \strong{Memory.} \code{\link[pwalign]{pairwiseAlignment}} keeps the whole dynamic-programming matrix: about 3 bytes
 per cell, i.e. per pair of residues (two proteins of 10,000 residues: 0.3 GB; a titin pair of 36,000 x 35,400
 residues: 3.9 GB). An alignment of more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
-1.5 GB) is not computed: \code{pairwise_aln()} stops with an error of class
-\code{orthologr_error_alignment_too_large}, and \code{\link{dNdS}} returns the pair with status \code{"failed"}.
-\code{options(orthologr.max_aln_cells = Inf)} removes the limit (see \code{\link{orthologr_options}}).
+1.5 GB) is not computed by \pkg{pwalign}. With the R package \pkg{coalr} installed (and the default
+\code{aa_sub_matrix = "BLOSUM62"}) such a pair is aligned by COAL's aligner with its \code{"pwalign"} preset instead
+(a message names the pair), which returns the alignment \pkg{pwalign} would return - the same scoring and
+tie-break; titin: identical rows and score - in a fraction of the memory (titin, 35,991 x 35,390 residues: 424 MB
+for the R process and 49 s, against 3.9 GB and 18 s with \pkg{pwalign}). Without
+\pkg{coalr} (or with \code{options(orthologr.large_pair_aligner = "none")}, or with \code{get_aln = TRUE})
+\code{pairwise_aln()} stops with an error of class \code{orthologr_error_alignment_too_large}, and \code{\link{dNdS}}
+returns the pair with status \code{"failed"}. \code{options(orthologr.max_aln_cells = Inf)} removes the limit:
+\pkg{pwalign} aligns every pair (see \code{\link{orthologr_options}}).
 }
 \examples{
 # Needleman-Wunsch alignment of the two proteins of a file

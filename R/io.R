@@ -201,7 +201,7 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
         })
         
         if (!all(all_triplets)) {
-                # inside dNdS() with quiet = TRUE these messages are left to the summary of the run
+                # inside dNdS() / dNdS_coal() with quiet = TRUE these messages are left to the summary of the run
                 # (the sequences are listed in attr(<result>, "dropped_sequences") / "trimmed_sequences")
                 quiet_run <- sequence_messages_quiet()
                 if (!quiet_run) message(
@@ -353,7 +353,7 @@ fasta_looks_like_protein <- function(file) {
 # read properly"), and old-Mac line ends (CR without LF) made the whole file one line, which reached DIAMOND as one
 # sequence. For such a file the mark is removed and every CR becomes LF, in a copy inside orthologr_tmpdir(), whose
 # path is returned (the caller removes it); any other file is returned as it is. The sequences read are those of
-# the same file without the mark and with LF line ends.
+# the same file without the mark and with LF line ends, as COAL reads them.
 readable_seq_file <- function(file) {
         con <- gzfile(file, "rb")
         head <- tryCatch(readBin(con, "raw", n = 1048576), error = function(e) raw(0), finally = close(con))

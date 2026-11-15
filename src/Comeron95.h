@@ -263,11 +263,12 @@ void omega(const pair<string,string> *seq1,
     // A class without sites (L = 0) has weight 0 in As / Aa: an undefined logarithm there says nothing about
     // the estimate and is not a saturation ('none' takes the flag). (Differences can be counted in a class
     // without sites because the sites of a column are the mean of the two codons, while a change on a pathway
-    // between codons that differ at several positions is classified by an intermediate codon.)
+    // between codons that differ at several positions is classified by an intermediate codon.) This is the
+    // rule of COAL's Comeron (cpp/src/kaks_comeron.cpp), so both give the same NA pattern.
     // A class with fewer than min_sites sites (options(orthologr.comeron_min_sites), default 3) does not make the
     // estimate NA either: its undefined logarithm stays 0, as in libsequence ('small' takes the flag). The
     // 2-fold transversional class has 1 - 2 sites in a 30-codon alignment, and one change there made the
-    // whole dN NA (3.7 % of simulated 30-codon pairs).
+    // whole dN NA (3.7 % of simulated 30-codon pairs). COAL: --comeron-min-sites, the same rule.
     bool none = false, small = false;
     bool &s2S = sites->L2S() > 0 ? (sites->L2S() < min_sites ? small : saturated_s) : none;
     bool &s4 = sites->L4() > 0 ? (sites->L4() < min_sites ? small : saturated_s) : none;

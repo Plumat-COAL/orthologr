@@ -33,7 +33,7 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 # needs R >= 4.4 and Bioconductor >= 3.19
 BiocManager::install(c("Biostrings", "pwalign"))
 install.packages("remotes")
-remotes::install_github("drostlab/orthologr")   # also installs the CRAN dependencies
+remotes::install_github("Plumat-COAL/orthologr@integration/all")   # also installs the CRAN dependencies
 
 # optional, for some functions only:
 # BiocManager::install("rtracklayer")            # annotation files (select_orthologs(), retrieve_longest_isoforms())

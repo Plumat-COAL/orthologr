@@ -10,7 +10,7 @@
 #' @param format a character string specifying the file format in which the alignment is stored:  
 #' "mase", "clustal", "phylip", "fasta" , "msf"
 #' @param quiet a logical value specifying whether the output of the coresponding interface shall be printed out.
-#' @param kaks_calc.params a character string storing additional parameters for KaKs_Calculator. Default is \code{NULL}.
+#' @param kaks_calc.params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string storing additional parameters for KaKs_Calculator. Default is \code{NULL}.
 #' The parameters are added to the method chosen with \code{est.method} (e.g. \code{est.method = "YN"},
 #' \code{kaks_calc.params = "-c 11"} runs \code{-m YN -c 11}; up to orthologr 0.4.3 they replaced the method).
 #' With \code{est.method = "kaks_calc"} the methods themselves are given here, e.g.
@@ -19,6 +19,18 @@
 #' (meaning that KaKs_Calculator is stored and executable in your default \code{PATH}).
 #' @param subst_name a character string specifying the substitution name that shall be added to the internal folder path naming. 
 #' Default is \code{subst_name} = \code{NULL}.
+#' @param kaks_tool the program that computes the KaKs_Calculator methods (\code{est.method} = \code{"NG"}, \code{"LWL"},
+#' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the
+#' external program KaKs_Calculator) or \code{"coal"} (COAL's implementation of the same methods, which gives
+#' KaKs_Calculator 2.0's values for the same alignment and runs inside R when the package \pkg{coalr} is installed;
+#' see \code{\link{codon_aln}} for how to install COAL). With \code{"coal"} a dN or dS of exactly 0 is returned as
+#' 0 (KaKs_Calculator prints \code{NA} for values below 1e-6) and a saturated estimate is \code{NA}.
+#' The methods \code{"MA"}, \code{"MS"}, \code{"GY"}, \code{"GMYN"} and \code{"ALL"} need KaKs_Calculator.
+#' With a COAL that computes them (\pkg{coalr} >= 0.5.0 listing them in \code{coalr::coal_info()$methods}),
+#' \code{kaks_tool = "coal"} also computes \code{est.method = "Comeron"} and \code{"Li"}: COAL's ports of gestimator
+#' and of \code{seqinr::kaks()}, with the saturation rule of this page, rounded to the 4 significant digits
+#' gestimator writes (Comeron) - the same table as the built-in code gives for the alignment. With an older COAL
+#' these two methods are computed by the built-in code.
 #' @author Hajk-Georg Drost and Sarah Scharfenberg
 #' @details This function takes a pairwise alignments file as input and estimates dNdS ratios
 #' of the corresponding alignments using predefined dNdS estimation methods.
@@ -121,7 +133,8 @@
 #' difference is synonymous (methods NG, YN, MYN: "S-Substitutions"; LWL, MLWL, LPB, MLPB: no transition at
 #' 2-fold and no difference at 4-fold sites).
 #' }
-#' When Ka/Ks is \code{NA} for another reason (a model that failed) the values stay \code{NA}.
+#' These are the values and the status the COAL engine (\code{kaks_tool = "coal"}, \code{engine = "coal"}) gives
+#' for the same pairs. When Ka/Ks is \code{NA} for another reason (a model that failed) the values stay \code{NA}.
 #' \code{options(orthologr.legacy_kaks_zero_dn = TRUE)} restores the old table.
 #'
 #' @section Saturation (KaKs_Calculator methods):
@@ -130,7 +143,7 @@
 #' JC69's distance at P = 0.75 (n - 1) / n, i.e. 0.75 log(n) for n synonymous or nonsynonymous sites (Ks of 3 - 5
 #' for typical genes); for LWL, MLWL, LPB and MLPB 0 substitutions for a class of sites whose correction is not
 #' defined (an underestimate). Since 0.5.0 these estimates are \code{NA} (and \code{dNdS} with them; status
-#' \code{"saturated"}); they are recognised in the columns KaKs_Calculator prints (sites
+#' \code{"saturated"}), as with the COAL engine; they are recognised in the columns KaKs_Calculator prints (sites
 #' and differences by class), so the other values are unchanged. The methods GY, MA, MS and GMYN are not checked.
 #' Up to 0.4.3 such a value was returned as an estimate: e.g. dS = 99, which makes dN/dS look like strong
 #' purifying selection, put the pair into the most conserved stratum of \code{\link{divergence_map}} and passed
@@ -153,14 +166,17 @@
 #' most 10 rounds and prints the values of the last round without saying whether they converged. Such a pair
 #' cannot be told from an estimate and has status \code{"ok"}: S. cerevisiae / C. glabrata 18 of 605 YN estimates
 #' (3\%) and 7 of 352 MYN estimates, S. cerevisiae / K. lactis 17 of 597 YN estimates, E. coli K-12 / O157 3 of
-#' 3,412 YN estimates; all of them with dS above 1.4. Treat dS above about 1.5 from KaKs_Calculator with caution.
+#' 3,412 YN estimates; all of them with dS above 1.4. \code{kaks_tool = "coal"} (and \code{dNdS(engine = "coal")})
+#' computes the same methods and reports these pairs (\code{NA}; counted as "not converged" in the summary message
+#' of \code{dNdS(engine = "coal")}); for the other pairs its values agree with KaKs_Calculator's within 5e-6. Treat
+#' dS above about 1.5 from KaKs_Calculator with caution, or use COAL where the status matters.
 #'
 #' \strong{Estimates that failed (\code{nan}).} When KaKs_Calculator prints \code{nan} for Ka or Ks (MYN:
 #' S. cerevisiae / C. glabrata 50 of 4,164 pairs, all of them iterations that did not converge), the row is
 #' \code{NA} and is a failed estimate: \code{substitutionrate()} names it in \code{attr(result, "kaks_failed")}
 #' (method, reason), and \code{\link{dNdS}} gives the pair the status \code{"failed"} with the reason in
-#' \code{attr(result, "failed_pairs")}. It is not saturated: the iteration failed. Up to this version the row was
-#' \code{NaN} (in one of the 50 pairs dN a number) with status \code{"saturated"};
+#' \code{attr(result, "failed_pairs")}. It is not saturated (COAL estimates 43 of these 50 pairs). Up to this
+#' version the row was \code{NaN} (in one of the 50 pairs dN a number) with status \code{"saturated"};
 #' \code{options(orthologr.legacy_kaks_saturation = TRUE)} returns it as printed.
 #'
 #' @section Saturation (Comeron's method):
@@ -175,7 +191,8 @@
 #' \code{options(orthologr.legacy_comeron_saturation = TRUE)} reproduces those values. Values of gene pairs
 #' without such a term are the same in both modes.
 #'
-#' A class of sites that has no sites (weight 0 in the estimate) never makes an estimate \code{NA}.
+#' A class of sites that has no sites (weight 0 in the estimate) never makes an estimate \code{NA}; this is also
+#' the rule of COAL's Comeron method, so \code{engine = "coal"} gives the same \code{NA} pattern.
 #' \strong{Short alignments:} with few codons a class with very few sites (typically the twofold sites whose
 #' synonymous change is a transversion: a median of 1.75 sites in 30-codon alignments) is easily "saturated" by one
 #' or two differences. Since 0.5.0 a class with fewer than \code{options(orthologr.comeron_min_sites)} sites
@@ -192,7 +209,8 @@
 #' codon 2 and codon 2 - intermediate 2 instead, with which the estimate depends on which sequence is first
 #' (swapping the two sequences of 300 random pairs changed Ka in 279 of them). Since 0.5.0 the two pathways are
 #' counted (\code{options(orthologr.comeron_twosubs = "comeron")}, the default); \code{"libsequence"} gives the
-#' numbers of 0.4.3 (set by \code{\link{orthologr_legacy_options}}).
+#' numbers of 0.4.3 (set by \code{\link{orthologr_legacy_options}}). The COAL engine
+#' (\code{engine = "coal"}, \code{kaks_tool = "coal"}) follows both options.
 #' Effect on dS (same alignments): 1,000-gene example median 0 \%, 95th percentile 2.9 \%; human / mouse median
 #' 1.0 \%, 95th percentile 5.0 \%.
 #' 
@@ -211,7 +229,8 @@ substitutionrate <- function(file,
                              quiet            = FALSE, 
                              kaks_calc.params = NULL,
                              kaks_calc_path   = NULL, 
-                             subst_name       = NULL){
+                             subst_name       = NULL,
+                             kaks_tool        = "kaks_calculator"){
         
         # dNdS estimation methods provided by the KaKs_Calculator program
         if (!is.null(kaks_calc_path))
@@ -221,6 +240,13 @@ substitutionrate <- function(file,
         
         if (!is.dnds_est_method(est.method))
                 orthologr_abort(class = "bad_argument", "Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+        
+        if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
+                orthologr_abort(class = "bad_argument", "Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
+        
+        if (kaks_tool == "coal" && !is.element(est.method, c("Comeron", "Li", coal_methods())))
+                orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" computes the methods ", paste(coal_methods(), collapse = ", "),
+                     "; est.method = \"", est.method, "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
         
         if (!is.element(format, c("mase", "clustal", "phylip", "fasta" , "msf")))
                 orthologr_abort(class = "bad_argument", "Please choose a format that is supported by seqinr::read.alignment.", call. = FALSE)
@@ -331,6 +357,16 @@ substitutionrate <- function(file,
                         message("Substitutionrate successfully calculated using Li's method.")
                 }
                 
+                return(res)
+        }
+        
+        # the KaKs_Calculator methods computed by COAL (in process, or by the coal-cpp program): no KaKs_Calculator
+        if (kaks_tool == "coal" && is.element(est.method, coal_methods())) {
+                if (format != "fasta")
+                        orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" needs the codon alignment in fasta format.", call. = FALSE)
+                res <- coal_kaks_file(file = file, est.method = est.method, subst_name = subst_name)
+                if (!quiet)
+                        message("Substitutionrate successfully calculated by COAL.")
                 return(res)
         }
         

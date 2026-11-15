@@ -16,7 +16,7 @@ example (Comeron, YN) are reproduced exactly with it. Measurements: the table "C
 | best hits by bit score | e-value, then alignment length | `best_hit_rule = "evalue"`, `options(orthologr.best_hit_rule = "evalue")` | yes |
 | DIAMOND `sensitivity_mode = "default"` | `"fast"` | `sensitivity_mode = "fast"`, `options(orthologr.sensitivity_mode = "fast")` | yes |
 | pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | no matrix, aligned range, stop aligned | `options(orthologr.legacy_pairwise_aln = TRUE)` | yes |
-| no pwalign alignment above 5e8 cells | no limit | `options(orthologr.max_aln_cells = Inf)` | yes |
+| no pwalign alignment above 5e8 cells (with `coalr` installed such a pair is aligned by COAL with pwalign's scoring: the same alignment) | no limit | `options(orthologr.max_aln_cells = Inf)` | yes |
 | coding sequences with IUPAC ambiguity codes (N, ...) are kept, codons with them not compared | left out | `options(orthologr.ambiguous_cds = "drop")` | yes |
 | Comeron: `NA` for a saturated dN / dS | a finite, too small value | `options(orthologr.legacy_comeron_saturation = TRUE)` | yes |
 | Comeron: codons that differ at two positions counted along Comeron's two pathways | libsequence's branches (the estimate depended on which sequence is first) | `options(orthologr.comeron_twosubs = "libsequence")` | yes |
@@ -28,6 +28,7 @@ example (Comeron, YN) are reproduced exactly with it. Measurements: the table "C
 | `divergence_stratigraphy(quiet = TRUE)` (progress line in interactive sessions) | `quiet = FALSE` | `quiet = FALSE` | no (messages only) |
 | T-Coffee in its default mode | `-mode accurate` | `aa_aln_params = "-mode accurate"` | no (argument) |
 | `aa_aln_params` passed to the alignment program | ignored | do not set it | no (argument) |
+| with `coalr` installed, codon alignments by COAL (byte-identical to PAL2NAL's) | PAL2NAL | `options(orthologr.codon_aln_tool = "pal2nal")` | no (same result) |
 
 ### New
 
@@ -35,30 +36,46 @@ example (Comeron, YN) are reproduced exactly with it. Measurements: the table "C
   best hits, connected components) or from DIAMOND DeepClust clusters; `print()`, `summary()`,
   `write_orthogroups()`. **`dNdS_orthogroups()`**: dN/dS for the gene pairs within the groups, with a summary per
   group. OrthoFinder is no longer needed for more than two species; `orthofinder2()` is soft-deprecated.
+- **Engine COAL** (optional R package `coalr`): `dNdS(engine = "coal")` / **`dNdS_coal()`** hand all gene pairs to
+  [COAL](https://github.com/Plumat-COAL/COAL) in one call (protein alignment, codon alignment and estimation in
+  memory, on `comp_cores` threads; 1,000-gene example, 1 core: about 6 s against 50 s); **`dNdS_clusters()`** computes
+  dN/dS within DeepClust clusters. `codon_aln(tool = "coal")` and `substitutionrate(kaks_tool = "coal")` replace
+  PAL2NAL / KaKs_Calculator for single steps. Methods: NG, LWL, MLWL, LPB, MLPB, YN, MYN, and Comeron and Li with
+  a `coalr` that has them.
 - **Column `status`** (last column of every dN/dS table): `"ok"`, `"dS_zero"`, `"saturated"`, `"no_data"` or
   `"failed"` for each gene pair - the same words with both engines and in the `pairs` tables of
   `dNdS_clusters()` / `dNdS_orthogroups()` (see `?dNdS`). `options(orthologr.status_column = FALSE)` leaves it out.
 - **One summary message at the end of a run**: gene pairs by status, median dS, sequences left out before the
   search, and a note when most pairs are saturated or the median dS is above 1.5 (species too distant for
   pairwise dN/dS). With `quiet = FALSE`, a progress message about every tenth of the gene pairs.
-- **Record of the run**: `attr(result, "orthologr_run")` on results of `dNdS()`, `dNdS_orthogroups()` and
-  `divergence_stratigraphy()`: package version, arguments, every `orthologr.*` option in force (with its default
-  when it is not set, `orthologr.ambiguous_cds` included), engine, program versions (KaKs_Calculator's from the
-  "Version:" line of its `-h`), date, size and MD5 of the input files, counts by status; the call as written
-  (`call`) and, when it is of another function, its name and all its arguments (`called_as`); the DIAMOND /
-  BLAST+ command lines of the run (`commands`). **`write_dNdS()`** writes a table as TSV with this record in
-  `<file>.run.json`; **`read_dNdS()`** reads both back (needs `jsonlite`). `orthogroups()$params` holds the package version.
+- **Record of the run**: `attr(result, "orthologr_run")` on results of `dNdS()`, `dNdS_coal()`, `dNdS_clusters()`,
+  `dNdS_orthogroups()` and `divergence_stratigraphy()`: package version, arguments, every `orthologr.*` option in
+  force (with its default when it is not set, `orthologr.ambiguous_cds` included), engine (and the COAL backend
+  used: `coalr` or the coal-cpp program), program versions (KaKs_Calculator's from the "Version:" line of its
+  `-h`), date, size and MD5 of the input files, counts by status; the call as written (`call`) and, when it is of
+  another function (`dNdS(engine = "coal")` runs `dNdS_coal()`), its name and all its arguments (`called_as`);
+  the DIAMOND / BLAST+ command lines of the run (`commands`); with `engine = "coal"` what orthologr gave COAL
+  (`engine_settings`: preset, matrix, tie-break, Comeron / Li flavour, terminal stops) and the equivalent
+  `coal pipeline` command line (`engine_settings$coal_command`; `?dNdS_coal`, "The same run with the COAL
+  command line").
+  **`write_dNdS()`** writes a table as TSV with this record in `<file>.run.json`; **`read_dNdS()`** reads both back
+  (needs `jsonlite`). `orthogroups()$params` holds the package version.
 - **`orthologr_legacy_options()`** and `options(orthologr.legacy = TRUE)`: all settings of 0.4.3 at once. A test
-  compares the result with tables stored from 0.4.3 (20-gene example, Comeron and YN).
+  compares the result with tables stored from 0.4.3 (20-gene example, Comeron and YN). Only the default engine
+  gives the numbers of 0.4.3: the COAL engine cannot make the pairwise alignments of 0.4.3 and with these settings
+  warns (`orthologr_warning_legacy_engine`; 20-gene example: 10 of 20 pairs differ from 0.4.3, largest
+  difference in dN/dS 0.147, r = 0.984).
 - **`?orthologr_options`**: every option and environment variable the package reads.
 - **Classed errors and warnings**: the common failures have the class `orthologr_error` plus one for their kind -
   `orthologr_error_tool_missing`, `_package_missing`, `_tool_failed` (with `_alignment_failed` for an alignment
   program), `_no_hits`, `_bad_input`, `_bad_argument` - and the warnings about failed gene pairs and isoforms the
-  classes `orthologr_warning_failed_pairs` / `_isoforms`, so that they can be handled with `tryCatch()` without
-  matching message text (`?orthologr_options`, section "Errors and warnings"). Messages are unchanged. The
-  argument and input-file checks of `dNdS()`, `orthogroups()`, `dNdS_orthogroups()`, `divergence_stratigraphy()`,
-  `filter_dNdS()`, the alignment functions, `substitutionrate()` and the readers are classed; `dNdS()` checks
-  that its input files exist before any program runs.
+  classes `orthologr_warning_failed_pairs` / `_isoforms` (and `_legacy_engine`, above), so that they can be handled
+  with `tryCatch()` without matching message text (`?orthologr_options`, section "Errors and warnings"). Messages
+  are unchanged. The argument and input-file checks of `dNdS()`, `dNdS_coal()`, `dNdS_clusters()`, `orthogroups()`,
+  `dNdS_orthogroups()`, `divergence_stratigraphy()`, `filter_dNdS()`, the alignment functions, `substitutionrate()`
+  and the readers are classed (17 probes of the review: 0 classed before, 17 after); a missing COAL is
+  `orthologr_error_package_missing` (with `_tool_missing` when neither `coalr` nor coal-cpp is there); `dNdS()` and
+  `dNdS_coal()` check that their input files exist before any program runs.
 - `divergence_left_out()`: the gene pairs that are not in a divergence map, with the reason.
 - `attr(result, "failed_pairs")` and `attr(result, "dropped_sequences")` on dN/dS tables: gene pairs that could
   not be processed and input sequences that were left out, each with the reason.
@@ -82,21 +99,21 @@ example (Comeron, YN) are reproduced exactly with it. Measurements: the table "C
 
 | Change | Effect (measured) | Old behaviour |
 |---|---|---|
-| DIAMOND's sensitivity mode is `"default"` in `dNdS()`, `orthologs()`, `orthogroups()`, `divergence_stratigraphy()`, `diamond()`, `diamond_best()`, `diamond_rec()` (was `"fast"`, which DIAMOND designs for hits of more than 90 % identity; DIAMOND's own default mode is for hits of more than 60 %); the hint for distant species now suggests `"sensitive"` | reciprocal best hits as `dNdS()` searches (e-value 1e-5, 2 threads), references OrthoFinder 3.2 (four yeasts) and Ensembl Compara 115 (human / mouse): S. cerevisiae against C. glabrata / K. lactis / A. gossypii 4,165 / 3,846 / 3,695 -> 4,385 / 4,206 / 4,044 pairs (+5.3 to +9.4 %), recall of the 1:1 orthologs 88.9 / 85.7 / 84.7 % -> 93.8 / 94.3 / 93.2 %, precision 99.45 / 99.66 / 99.70 % -> 99.38 / 99.67 / 99.78 %; human / mouse 16,943 -> 17,104 (+0.9 %), recall 97.45 -> 98.14 %; CPU time of the search x 1.3 - 1.6 (human / mouse 81 -> 131 CPU s). Re-measured with this version's `diamond_rec()`: S. cerevisiae / C. glabrata 4,164 -> 4,384 pairs, 9.7 -> 13.6 CPU s; 1,000-gene example 985 -> 987 | `sensitivity_mode = "fast"` or `options(orthologr.sensitivity_mode = "fast")` |
+| DIAMOND's sensitivity mode is `"default"` in `dNdS()`, `orthologs()`, `orthogroups()`, `dNdS_coal()`, `divergence_stratigraphy()`, `diamond()`, `diamond_best()`, `diamond_rec()` (was `"fast"`, which DIAMOND designs for hits of more than 90 % identity; DIAMOND's own default mode is for hits of more than 60 %); the hint for distant species now suggests `"sensitive"` | reciprocal best hits as `dNdS()` searches (e-value 1e-5, 2 threads), references OrthoFinder 3.2 (four yeasts) and Ensembl Compara 115 (human / mouse): S. cerevisiae against C. glabrata / K. lactis / A. gossypii 4,165 / 3,846 / 3,695 -> 4,385 / 4,206 / 4,044 pairs (+5.3 to +9.4 %), recall of the 1:1 orthologs 88.9 / 85.7 / 84.7 % -> 93.8 / 94.3 / 93.2 %, precision 99.45 / 99.66 / 99.70 % -> 99.38 / 99.67 / 99.78 %; human / mouse 16,943 -> 17,104 (+0.9 %), recall 97.45 -> 98.14 %; CPU time of the search x 1.3 - 1.6 (human / mouse 81 -> 131 CPU s). Re-measured with this version's `diamond_rec()`: S. cerevisiae / C. glabrata 4,164 -> 4,384 pairs, 9.7 -> 13.6 CPU s; 1,000-gene example 985 -> 987 | `sensitivity_mode = "fast"` or `options(orthologr.sensitivity_mode = "fast")` |
 | Best hits are chosen by bit score (was: e-value, then alignment length) | human / mouse: 3.2 % of the best hits change; pairs that contradict Ensembl Compara fall from 2.0 % to 0.4 % | `best_hit_rule = "evalue"` or `options(orthologr.best_hit_rule = "evalue")` |
 | Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | 1,000-gene example: dN or dS changes for a third of the gene pairs, mostly slightly (r of dN/dS old vs new 0.988) | `options(orthologr.legacy_pairwise_aln = TRUE)` |
 | Comeron's method: `NA` for a saturated dN or dS (was: a finite, too small value) | 1 dN of 995 pairs (example); 17 dN and 1 dS of 1,500 pairs (human / mouse) | `options(orthologr.legacy_comeron_saturation = TRUE)` |
 | KaKs_Calculator methods: `dN = 0` for a pair without nonsynonymous change (was `NA`, with `dNdS = 0`) | 11 of 995 pairs; `filter_dNdS()` keeps them | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
-| KaKs_Calculator methods: dN and dS that are 0 are 0 (KaKs_Calculator prints `NA` below 1e-6): identical sequences have dN = dS = 0 and status `"dS_zero"` (was `NA` and `"saturated"`), a pair with nonsynonymous differences only has dS = 0 | E. coli K-12 / O157, YN (3,663 pairs): 230 pairs `"saturated"` -> `"dS_zero"` (the summary no longer counts them as saturated), 12 dN of about 1e-12 -> 0; a file against itself (20 genes): "20 saturated" and the note that the species are probably too distant -> "20 with dS = 0"; 1,000-gene example: 0 pairs | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
+| KaKs_Calculator methods: dN and dS that are 0 are 0 (KaKs_Calculator prints `NA` below 1e-6): identical sequences have dN = dS = 0 and status `"dS_zero"` (was `NA` and `"saturated"`), a pair with nonsynonymous differences only has dS = 0 - the values and status of the COAL engine | E. coli K-12 / O157, YN (3,663 pairs): 230 pairs `"saturated"` -> `"dS_zero"` (the summary no longer counts them as saturated), 12 dN of about 1e-12 -> 0; a file against itself (20 genes): "20 saturated" and the note that the species are probably too distant -> "20 with dS = 0"; 1,000-gene example: 0 pairs | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
 | KaKs_Calculator methods: an estimate that KaKs_Calculator replaced with a capped value because the correction for multiple substitutions is not defined is `NA`, status `"saturated"` (was returned as an estimate, status `"ok"`): Ka or Ks = 99, JC69's cap 0.75 log(sites) of YN / MYN, a class of sites counted with 0 substitutions in LWL / MLWL / LPB / MLPB (`?substitutionrate`; where the printed counts are within rounding of 0, the counts are computed again from the codon alignment with KaKs_Calculator's arithmetic, so that the status is what KaKs_Calculator did) | S. cerevisiae / C. glabrata, YN (4,164 pairs): `"ok"` 4,164 -> 605, `"saturated"` 0 -> 3,559 (172 with dS = 99, whose median dN/dS was 0.0028 against 0.081 overall, and 3,387 at JC69's cap, dS 2.56 - 5.99); `filter_dNdS(dnds.threshold = 2)` kept 4,164 rows (the 172 with dS = 99 included) -> 605; E. coli K-12 / O157, YN: 21 of 3,663 pairs (divergent pairs of 35 - 88 % identity, dS 2.8 - 4.8); 1,000-gene example: YN 1 of 995, NG 0; LWL family, S. cerevisiae / C. glabrata: Ks `NA` for 1,925 (LWL, LPB) and 2,100 (MLWL, MLPB) of 4,164 pairs - every pair whose class KaKs_Calculator found undefined, and no other (checked against a KaKs_Calculator that reports its decision, also on S. cerevisiae / K. lactis MLPB and E. coli; with the printed counts alone an intermediate version took 21 pairs the wrong way, among them 2 MLPB Ks of 0.97 and 2.26 that are underestimates) | `options(orthologr.legacy_kaks_saturation = TRUE)` |
 | KaKs_Calculator methods: an estimate printed as `nan` (Ka or Ks) is a failed estimate - `NA`, status `"failed"`, the reason with the method in `attr(result, "failed_pairs")` and the failed-pairs warning (was `NaN`, in one pair with a dN, and status `"saturated"`); `substitutionrate()` lists it in `attr(, "kaks_failed")` | S. cerevisiae / C. glabrata, MYN (4,164 pairs): 50 pairs `"saturated"` -> `"failed"` (all of them iterations that did not converge, not saturation: COAL estimates 43 of them, dS 0.12 - 4.1), the dN of one pair 0.0547 -> `NA`; YN, NG and the LWL family on the same pairs, and E. coli K-12 / O157: no `nan` | `options(orthologr.legacy_kaks_saturation = TRUE)` |
 | dN/dS tables end with the column `status` | one more column | `options(orthologr.status_column = FALSE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
-| A pairwise protein alignment of more than 5e8 cells (length x length; pwalign needs about 3 bytes per cell, so about 1.5 GB) is not computed: the gene pair is returned with status `"failed"` and the reason (was: aligned whatever the memory; `options(orthologr.max_aln_cells)`, `?pairwise_aln`) | human 1,000 transcripts / all mouse CDS, 2 cores: 1 of 946 pairs (titin, 35,991 x 35,390 residues, 1.27e9 cells) failed instead of dS 0.50; peak memory 4.3 GB -> 0.79 GB, run time 87 s -> 42 s; 1,000-gene example: 0 pairs | `options(orthologr.max_aln_cells = Inf)` |
+| A pairwise protein alignment of more than 5e8 cells (length x length; pwalign needs about 3 bytes per cell, so about 1.5 GB) is not computed by pwalign (was: aligned whatever the memory; `options(orthologr.max_aln_cells)`, `?pairwise_aln`). With `coalr` installed such a pair is aligned by COAL's aligner with its `"pwalign"` preset (pwalign's scoring and tie-break; a message names the pair); without it the pair is returned with status `"failed"` and the reason | titin (35,991 x 35,390 residues, 1.27e9 cells) through `pairwise_aln()`: COAL (coalr) 49 s and a peak of 424 MB for the R process against pwalign (`max_aln_cells = Inf`) 18 s and 3,938 MB, identical rows (and score, 166,805); COAL's command line takes 7 s for it (coalr is compiled with R's flags, here `-O2`); human 1,000 transcripts / all mouse CDS: 1 of 946 pairs (titin); without `coalr` it fails instead of dS 0.50 (peak memory 4.3 GB -> 0.79 GB); 1,000-gene example: 0 pairs | `options(orthologr.max_aln_cells = Inf)` (pwalign for every pair); `options(orthologr.large_pair_aligner = "none")` keeps failing such pairs with `coalr` |
 | `divergence_stratigraphy(quiet = TRUE)`, as `dNdS()` (was `FALSE`); in an interactive session it still shows a progress line about every tenth of the gene pairs (stratigraphy runs are long) | 1,000-gene example: 10 messages instead of 45 (in scripts); same result | `quiet = FALSE` |
 | Coding sequences with IUPAC ambiguity codes (N, R, Y, ...) are kept (`options(orthologr.ambiguous_cds = "keep")`): a codon with such a base is translated to X and not compared (was: the sequence was left out); `dNdS()` lists them in `attr(, "ambiguous_sequences")` with the number of such codons and counts their rows in the summary, `dNdS_orthogroups()` (which left them out whatever the option) adds a note to their pairs | Ensembl, one transcript per gene: 87 of 19,746 human and 75 of 21,584 mouse coding sequences contain such characters (median share of ambiguous codons 0.4 %); one N in about 1 % of the codons of every human gene: Comeron's dS within 5 % of the N-free value for 99.1 % of 946 human / mouse pairs (YN 95.3 %); 1,000-gene example: 2 more pairs (with `sensitivity_mode = "default"` 999 pairs instead of 995) | `options(orthologr.ambiguous_cds = "drop")` |
-| Comeron's method counts codons that differ at two positions along Comeron's two pathways (libsequence's `TwoSubs`, and so 0.4.3, passes its arguments in another order and counts codon1 - int1, int1 - int2, codon1 - codon2 and codon2 - int2, with which the estimate depends on which sequence is first; libsequence's repository is archived). | swapping the two sequences of 300 random 150-codon pairs changed Ka in 279 and Ks in 190 of them; now in none. dS of the same alignments: 1,000-gene example 474 of 995 pairs change, median 0 %, p95 2.9 %, max 12 %, no status changes; human / mouse 813 of 946, median 1.0 %, p95 5.0 %, 4 status changes; S. cerevisiae / C. glabrata (mostly saturated) median 8.8 %, p95 56 %, 493 status changes. The corrected dS is slightly closer to YN's (median difference 7.68 -> 7.53 % on the 1,000-gene example) | `options(orthologr.comeron_twosubs = "libsequence")` |
+| Comeron's method counts codons that differ at two positions along Comeron's two pathways (libsequence's `TwoSubs`, and so 0.4.3, passes its arguments in another order and counts codon1 - int1, int1 - int2, codon1 - codon2 and codon2 - int2, with which the estimate depends on which sequence is first; libsequence's repository is archived). The COAL engine does the same (`coalr` with `comeron_twosubs`) | swapping the two sequences of 300 random 150-codon pairs changed Ka in 279 and Ks in 190 of them; now in none. dS of the same alignments (COAL's gestimator flavour = this code): 1,000-gene example 474 of 995 pairs change, median 0 %, p95 2.9 %, max 12 %, no status changes; human / mouse 813 of 946, median 1.0 %, p95 5.0 %, 4 status changes; S. cerevisiae / C. glabrata (mostly saturated) median 8.8 %, p95 56 %, 493 status changes. The corrected dS is slightly closer to YN's (median difference 7.68 -> 7.53 % on the 1,000-gene example) | `options(orthologr.comeron_twosubs = "libsequence")` |
 | Comeron's method: a site class with fewer than 3 sites (the 2-fold transversional class of short alignments) cannot make dN or dS `NA`; its undefined logarithm is 0, as in 0.4.3 | simulated 30-codon pairs: dN `NA` 3.7 % -> 0 %, the recovered values' mean absolute error 8.8 % (all 30-codon pairs 11.2 %); real data: 1,000-gene example 0 pairs, human / mouse 3, yeasts 14. Never changes a value that is not `NA` otherwise | `options(orthologr.comeron_min_sites = 0)` |
 | `orthogroups()` and `dNdS_orthogroups()` trim coding sequences whose length is not a multiple of 3 (`delete_corrupt_cds = FALSE`, as `dNdS()` does) | - (new functions) | `delete_corrupt_cds = TRUE` |
 
@@ -117,8 +134,8 @@ Further behaviour that differs from 0.4.3 and cannot be switched back:
   summary at the end (31 messages before); the citation note is a message shown once per session. Input sequences
   that are left out or trimmed to a multiple of 3 are counted in the summary (listed in
   `attr(, "dropped_sequences")` / `attr(, "trimmed_sequences")`) instead of a block of messages about each kind:
-  1,000-gene example, 12 messages before (8 about the 12 trimmed sequences), 2 after; `quiet = FALSE` shows the
-  old messages.
+  1,000-gene example, 12 messages before (8 about the 12 trimmed sequences), 2 after (also with
+  `engine = "coal"`); `quiet = FALSE` shows the old messages.
 - Coding sequences with characters other than A, C, G, T and the IUPAC ambiguity codes (or, with
   `options(orthologr.ambiguous_cds = "drop")`, with any character other than A, C, G, T) are left out before the
   search, as before, but no longer without a word: they are counted in the summary and listed in
@@ -186,25 +203,40 @@ Running programs:
 - An unknown `aa_sub_matrix` name (`dNdS()`, `pairwise_aln()`) is an error (`orthologr_error_bad_argument`)
   before the search; it ran the whole search and then failed every gene pair (1,000-gene example,
   `aa_sub_matrix = "FOO"`: before 6.4 s and 995 of 995 pairs `NA` with one warning; after an error at once).
+  With `engine = "coal"` the name is checked against the matrices of COAL (BLOSUM62, BLOSUM45, BLOSUM80, PAM250).
 - A protein file given where coding sequences are expected is an error that says so (was: a DIAMOND error about
   memory).
 - `orthogroups()` runs the check for several transcripts per gene; the check no longer warns for a bacterial
   genome with a handful of genes that have two coding sequences.
 - FASTA files with a UTF-8 byte-order mark were rejected ("could not be read properly"), and files with old-Mac
   line ends (CR only) reached DIAMOND as one sequence and failed after about 10 s with a memory error. Both are now
-  read like the plain file (same result as for the file without the mark / with LF line ends; also gzipped).
+  read like the plain file (same result as for the file without the mark / with LF line ends; also gzipped), as
+  COAL reads them.
 - `dnds_est.method = "kaks_calc"` in `dNdS()` / `dNdS_orthogroups()` is an error before the search (it ran the
   search and failed every gene pair: `kaks_calc.params` exists only in `substitutionrate()`); `"GY"`, `"GMYN"`,
   `"MS"`, `"MA"` and `"ALL"` are documented in `?dNdS` (MA and MS take about 6.5 s per gene pair); with `"ALL"`
   the summary counts gene pairs x methods (20-gene example: "340 rows (20 gene pairs x 17 methods)", was "340 gene
   pairs").
+- `dNdS_orthogroups(engine = "coal")` no longer warns that saturated pairs "could not be processed" (4 yeasts, 60
+  groups: a warning for 322 of 360 pairs, none of which failed): the warning (`orthologr_warning_failed_pairs`)
+  counts pairs with status `"failed"` only; saturated pairs are counted in the summary message, as in `dNdS()`.
 - `dNdS_orthogroups()` summary: `n_saturated` counted pairs with dS above `dS_saturation`, while the status
   `"saturated"` means that dN or dS could not be estimated (60 yeast groups: 296 pairs with status "saturated",
-  `sum(n_saturated)` 30). `n_saturated` now counts status `"saturated"`; the new columns
+  `sum(n_saturated)` 30). `n_saturated` now counts status `"saturated"`, as in `dNdS_clusters()`; the new columns
   `n_dS_zero`, `n_no_data` and `n_failed` count the other statuses, and `n_dS_above` is the old count.
 - `dNdS_orthogroups()` summary: the quartile columns are `dN_q25`, `dN_q75`, `dS_q25`, `dS_q75`, `dNdS_q25`,
-  `dNdS_q75` (they were `_q1` / `_q3` in development versions of 0.5.0; `dNdS_orthogroups()` is new in 0.5.0, so
-  no release had the old names).
+  `dNdS_q75`, as in `dNdS_clusters()`, coalr and COAL's command line (they were `_q1` / `_q3` in development
+  versions of 0.5.0; `dNdS_orthogroups()` is new in 0.5.0, so no release had the old names).
+- With COAL (`engine = "coal"`, or `codon_aln(tool = "coal")`), a codon alignment that cannot be built is an error
+  of class `orthologr_error_alignment_failed` (with `_tool_failed`), as with PAL2NAL; it was a plain error.
+- `codon_aln(tool = "pal2nal")` with selenocysteine (`U`) in a protein: PAL2NAL v14 has no codon for it and failed
+  ("inconsistency between pep and nuc"), while COAL accepts any codon there. PAL2NAL now gets the protein alignment
+  with `U` as `X` (which it matches with any codon): both tools give the same codon alignment (byte-identical FASTA;
+  checked with the input as FASTA and CLUSTAL). Inside `dNdS()` the proteins are orthologr's own translations and
+  never hold `U`.
+- `dNdS_clusters()` summary: a cluster none of whose pairs has an estimate because they are saturated (or have no
+  codons to compare) has the status `"saturated"` (`"no_data"`) and a note with the numbers; it was `"failed"` with
+  an empty note and `n_failed = 0` (E. coli K-12 + O157: 37 clusters).
 - `read_dNdS()` returns IDs with a double quote as written (`d"q` came back as `d""q`), and non-ASCII text with
   the bytes and the encoding marks it had when it was written (kept in `<file>.run.json`), so that IDs read back
   equal those of `dNdS()` in every locale. (An intermediate version marked all text as UTF-8: in a C / POSIX
@@ -214,8 +246,9 @@ Running programs:
   (`orthologr_error_bad_argument`, naming the value) before the search in `dNdS()` and `dNdS_orthogroups()`; it ran
   the search and then failed every gene pair with the message about the option (20-gene example: 20 of 20 pairs
   "failed"). `options(orthologr.keep_tmp)` of `NA` or of several values is an error as well (was taken for
-  `FALSE`), and a folder that cannot be created is `orthologr_error_bad_argument` (was an unclassed error). A run of
-  one gene pair is summarised as "1 gene pair".
+  `FALSE`), and a folder that cannot be created is `orthologr_error_bad_argument` (was an unclassed error). The
+  reason of a pair above `orthologr.max_aln_cells` mentions `engine = "coal"`; a run of one gene pair is summarised
+  as "1 gene pair".
 - A DIAMOND older than 2.1.0 is used with a warning (`orthologr_warning_tool_version`; it was used without a word);
   a program that is there but crashes when asked for its version is `orthologr_error_tool_failed` ("could not be
   started ... exit status 139"), no longer "not installed"; a failed DIAMOND search is `orthologr_error_tool_failed`
@@ -231,6 +264,81 @@ Running programs:
   translation and best-hit selection, and not writing a second copy of every alignment.
 - `select_orthologs()`, `retrieve_longest_isoforms()` and `deepclust()` read annotations and sequences in one
   pass.
+- When the R package `coalr` is installed, `dNdS()` and `divergence_stratigraphy()` build the codon alignments
+  with COAL instead of starting PAL2NAL (Perl) once per gene pair (`codon_aln_tool = NULL`, the new default;
+  `options(orthologr.codon_aln_tool = "pal2nal")` or `codon_aln_tool = "pal2nal"` keeps PAL2NAL; the record of the
+  run names the tool used). The codon alignments are byte-identical: 12,605 of 12,605 gene pairs (1,000-gene
+  example 995, E. coli K-12 / O157 3,663, Salmonella LT2 / Shigella flexneri 2,820, S. cerevisiae / C. glabrata
+  4,164, human 1,000 transcripts / all mouse CDS 945, a file of edited sequences 18), the 20-gene example with
+  each of Clustal Omega, MAFFT, MUSCLE, ClustalW and T-Coffee, and the 1,000-gene example with each of Comeron,
+  Li, NG, LWL, MLWL, LPB, MLPB, YN and MYN give identical tables; with and without `coalr` installed the
+  default run gives the same table (checked on two of these sets), also under `orthologr_legacy_options()`.
+  `codon_aln_tool = "coal"` where COAL is not installed uses PAL2NAL, with a message (so the arguments of a run
+  record from a machine with `coalr`, which name `"coal"`, can be used again elsewhere; this was an
+  `orthologr_error_package_missing`). `dNdS_orthogroups(engine = "orthologr")` builds its codon alignments with
+  PAL2NAL in any case (same alignments).
+  Default run, 2 cores (Comeron): 37 -> 17 s (1,000-gene example), 99 -> 69 s (E. coli), 79 -> 56 s
+  (Salmonella / Shigella), 156 -> 84 s (yeasts), 61 -> 41 s (human / mouse); the deep test measured 178 -> 94 s
+  for the yeasts with YN on 1 core.
+
+### Checked against other programs
+
+`dNdS()` (default engine: gestimator for Comeron, KaKs_Calculator 2.0 for YN) against the COAL engine
+(`engine = "coal"`), on 300 sampled reciprocal-best-hit pairs of each of three species pairs (NCBI RefSeq coding
+sequences; 2026-11-13). Columns: gene pairs in both results, pairs with dS > 0 from both, share of these whose dS
+agrees within 1 %, median relative difference of dS, Pearson r of dS and of dN/dS, pairs with dS from one engine
+only.
+
+| Species pair | Method (default engine) | pairs | dS both | within 1 % | median rel. diff. | r dS | r dN/dS | one only |
+|---|---|---|---|---|---|---|---|---|
+| S. cerevisiae / C. glabrata | Comeron (gestimator) | 283 | 73 | 63.0 % | 0.0018 | 0.952 | 0.989 | 3 |
+| S. cerevisiae / C. glabrata | YN (KaKs_Calculator) | 283 | 38 | 65.8 % | 2e-06 | 0.883 | 0.965 | 245 |
+| S. cerevisiae / K. lactis | Comeron (gestimator) | 265 | 68 | 69.1 % | 0.0023 | 0.977 | 0.999 | 1 |
+| S. cerevisiae / K. lactis | YN (KaKs_Calculator) | 265 | 31 | 71.0 % | 2.3e-06 | 0.965 | 0.999 | 234 |
+| Salmonella LT2 / Shigella flexneri | Comeron (gestimator) | 294 | 274 | 95.3 % | 0 | 0.999 | 0.998 | 0 |
+| Salmonella LT2 / Shigella flexneri | YN (KaKs_Calculator) | 294 | 278 | 92.4 % | 1.2e-06 | 0.972 | 0.987 | 16 |
+
+For the close pair the engines agree (median difference 0, r >= 0.97). The differences in this table come from
+the protein alignments: where several alignments score the same, the COAL of that day placed a gap otherwise
+than pwalign. **With a `coalr` that has COAL's pwalign tie-break** (`tie_break`; `coalr` from COAL main since 009bdd5,
+pull request #64 of 2026-11-14), `engine = "coal"` computes pwalign's protein alignments row for row and the engines agree
+to the digits orthologr prints. All reciprocal-best-hit pairs, native engine against `engine = "coal"` (coalr from
+COAL main 009bdd5), before / after (dS where both engines give one, equal to 6 significant digits, 4 for Comeron; pairs with the same status):
+
+| Species pair | Method | pairs | dS equal | dS > 1 % apart | same status |
+|---|---|---|---|---|---|
+| A. thaliana / A. lyrata | YN | 995 | 677 / 994 -> 994 / 994 | 267 -> 0 | 995 -> 995 |
+| A. thaliana / A. lyrata | Comeron | 995 | 692 / 994 -> 994 / 994 | 258 -> 0 | 995 -> 995 |
+| A. thaliana / A. lyrata | LWL | 995 | 687 / 994 -> 994 / 994 | 245 -> 0 | 995 -> 995 |
+| S. cerevisiae / C. glabrata | YN | 4,164 | 322 / 565 -> 587 / 587 | 206 -> 0 | 4,107 -> 4,146 |
+| S. cerevisiae / C. glabrata | Comeron | 4,164 | 563 / 1,120 -> 1,155 / 1,155 | 363 -> 0 | 4,097 -> 4,164 |
+| S. cerevisiae / C. glabrata | LWL | 4,164 | 821 / 2,166 -> 2,239 / 2,239 | 873 -> 0 | 4,021 -> 4,164 |
+
+Re-measured with the defaults of the decisions of 2026-11-14 (`sensitivity_mode = "default"`, `ambiguous_cds =
+"keep"`, Comeron's two-position pathways and minimum class size in both engines; `coalr` from COAL main 956a458,
+pull request #65): A. thaliana / A. lyrata 999 pairs, YN, Comeron and LWL: dS equal 998 / 998, dN equal 999 / 999
+(Comeron 998 / 998), same status 999 / 999; S. cerevisiae / C. glabrata 4,384 pairs: Comeron dS 862 / 862, dN
+1,246 / 1,246, same status 4,384; LWL dS 2,301 / 2,301, same status 4,384; YN dS 619 / 619, dN 4,351 / 4,352, same
+status 4,361 (the 23 others are YN iterations that do not converge, as below); no dS more than 1 % apart.
+
+dN agrees in the same way (one yeast YN pair: dN 2.5e-12 from COAL, 0 from KaKs_Calculator, which prints values
+below 1e-6 as 0). The 18 yeast YN pairs with another status are iterations that do not converge: COAL gives no
+estimate (`"saturated"`), KaKs_Calculator its last round (`"ok"`). The yeast pairs are saturated at synonymous sites (median dS above 2): there COAL returns `NA` (status "saturated")
+for most YN estimates for which KaKs_Calculator still prints a number (dS 4 - 5); where both give a value they
+agree. (This table was measured before the default engine returned `NA` for KaKs_Calculator's capped values as
+well - see "Changed defaults". Since then, on the same codon alignments, the status of `kaks_tool =
+"kaks_calculator"` and of `kaks_tool = "coal"` agrees for 150 of 150 E. coli K-12 / O157 pairs with each of NG,
+LWL, MLWL, LPB, MLPB, YN and MYN (before 140 - 141), and for S. cerevisiae / C. glabrata in 150 (YN, before 20),
+148 (MYN, before 10; 2 pairs for which KaKs_Calculator prints `nan`), 149 (LWL / LPB, before 105; MLWL / MLPB,
+before 101) and 150 (NG) of 150 - on these 150-pair samples. On all 4,164 S. cerevisiae / C. glabrata pairs, YN:
+4,138 (18 YN iterations that did not converge, which KaKs_Calculator returns as estimates with status `"ok"`
+because it does not report convergence, and 8 saturated pairs that COAL calls not converged); MYN: the `nan`
+pairs are `"failed"`, 7 non-converged pairs are `"ok"`; the LWL family: all pairs. `kaks_tool = "coal"` /
+`engine = "coal"` report the iterations that do not converge (`?substitutionrate`, section "Saturation
+(KaKs_Calculator methods)").) DIAMOND `sensitivity_mode`: "fast" (default) finds 5.0 % (S. cerevisiae /
+C. glabrata), 8.6 % (S. cerevisiae / K. lactis) and 1.5 % (Salmonella / Shigella) fewer reciprocal best hits than
+"default", at about the same run time on these genomes; the default is unchanged, and `dNdS()` suggests
+"default" when the median identity of the best hits is below 70 %.
 
 ### Internal
 

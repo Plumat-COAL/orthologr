@@ -11,7 +11,7 @@ dnds_status_levels <- function() {
 # The status of gene pairs from their values.
 #   dN, dS, dNdS  : the values of the result
 #   failed        : logical, TRUE for pairs that could not be processed (a program failed; attr "failed_pairs")
-#   engine_status : NULL, or what the engine said about the pair ("ok", "saturated", "no_data", "error", ...)
+#   engine_status : NULL, or what the engine said about the pair (COAL: "ok", "saturated", "no_data", "error", ...)
 # Both engines are read by the same rule, so that the same pair has the same status with either:
 #   failed    - the pair could not be processed
 #   ok        - there is a dN/dS value
@@ -148,7 +148,7 @@ dnds_ambiguous_rows <- function(tbl, ambiguous) {
         is.element(as.character(tbl$query_id), ambiguous$id) | is.element(as.character(tbl$subject_id), ambiguous$id)
 }
 
-# The end of a dN/dS run of dNdS(): the column 'status' (last column; not with
+# The end of a dN/dS run of dNdS() / dNdS_coal(): the column 'status' (last column; not with
 # options(orthologr.status_column = FALSE)), the attributes, one summary message, the record of the run and the
 # citation note.
 #   res           : the result table (query_id, subject_id, dN, dS, dNdS, ...)
@@ -298,9 +298,9 @@ log_command <- function(cmd, args) {
         invisible(NULL)
 }
 
-# The user's call: the outermost call of a function of the package that records its runs (when one runs another,
-# divergence_stratigraphy() runs dNdS(), the record says how it was called; C07 of the integration pass).
-RECORDED_FUNCTIONS <- c("dNdS", "dNdS_orthogroups", "divergence_stratigraphy")
+# The user's call: the outermost call of a function of the package that records its runs (dNdS(engine = "coal")
+# runs dNdS_coal(), whose record then says how it was called; C07 of the integration pass).
+RECORDED_FUNCTIONS <- c("dNdS", "dNdS_coal", "dNdS_clusters", "dNdS_orthogroups", "divergence_stratigraphy")
 run_user_call <- function() {
         calls <- sys.calls()
         frames <- sys.frames()
@@ -332,6 +332,7 @@ orthologr_options_in_force <- function() {
                 orthologr.legacy_kaks_zero_dn       = FALSE,
                 orthologr.legacy_kaks_saturation    = FALSE,
                 orthologr.max_aln_cells             = 5e8,
+                orthologr.large_pair_aligner        = "coal",
                 orthologr.dS_zero                   = "drop",
                 orthologr.ambiguous_cds             = "keep",
                 orthologr.status_column             = TRUE,
@@ -432,11 +433,11 @@ run_input_files <- function(files) {
 # result, and how the gene pairs came out.
 #   fun      : the name of the function
 #   args     : its arguments (run_arguments())
-#   engine   : "orthologr"
+#   engine   : "orthologr" or "coal"
 #   tools    : versions (run_tool_versions())
 #   files    : the input files
 #   status   : the status of every gene pair, or NULL
-#   settings : what the engine was given (a list), or NULL
+#   settings : what the engine was given (dNdS_coal(): the arguments of coalr), or NULL
 run_record <- function(fun, args, engine, tools, files, status = NULL, settings = NULL) {
         mark <- attr(args, "command_mark")
         attr(args, "command_mark") <- NULL
@@ -466,31 +467,33 @@ run_record <- function(fun, args, engine, tools, files, status = NULL, settings 
 # ---- writing and reading a result ------------------------------------------------------------------------------
 
 #' @title Write and read a dN/dS table together with the record of its run
-#' @description \code{write_dNdS()} writes the table returned by \code{\link{dNdS}} (or the
-#' \code{pairs} table of \code{\link{dNdS_orthogroups}}, or the table in
+#' @description \code{write_dNdS()} writes the table returned by \code{\link{dNdS}} (or \code{\link{dNdS_coal}}, the
+#' \code{pairs} table of \code{\link{dNdS_clusters}} / \code{\link{dNdS_orthogroups}}, or the table in
 #' \code{attr(, "dNdS_tbl")} of a \code{\link{divergence_stratigraphy}} result) as a tab-separated file and, next to
 #' it, the file \code{<file>.run.json} with what a plain table file loses: the record of the run
 #' (\code{attr(x, "orthologr_run")}), the tables \code{attr(x, "failed_pairs")} and
 #' \code{attr(x, "dropped_sequences")}, and the type of every column. \code{read_dNdS()} reads both files back.
-#' @param x a dN/dS table (a \code{data.frame}), or the list returned by \code{dNdS_orthogroups()} (its
-#' \code{pairs} table is written).
+#' @param x a dN/dS table (a \code{data.frame}), or the list returned by \code{dNdS_clusters()} /
+#' \code{dNdS_orthogroups()} (its \code{pairs} table is written).
 #' @param file the path of the tab-separated file. The record is written to \code{paste0(file, ".run.json")}.
 #' @details
-#' \strong{The record of a run.} Every result of \code{dNdS()},
+#' \strong{The record of a run.} Every result of \code{dNdS()}, \code{dNdS_coal()}, \code{dNdS_clusters()},
 #' \code{dNdS_orthogroups()} and \code{divergence_stratigraphy()} carries the attribute \code{"orthologr_run"}, a
 #' list with
 #' \describe{
 #' \item{\code{orthologr}}{the version of the package;}
 #' \item{\code{function}, \code{arguments}}{the function and the values of its arguments;}
-#' \item{\code{call}}{the call as it was written (the outermost of \code{dNdS()}, \code{dNdS_orthogroups()},
-#' \code{divergence_stratigraphy()});}
-#' \item{\code{called_as}}{when that call is of another function than \code{function}: its name and the values of
-#' all its arguments;}
+#' \item{\code{call}}{the call as it was written (the outermost of \code{dNdS()}, \code{dNdS_coal()},
+#' \code{dNdS_clusters()}, \code{dNdS_orthogroups()}, \code{divergence_stratigraphy()});}
+#' \item{\code{called_as}}{when that call is of another function than \code{function} (\code{dNdS(engine = "coal")}
+#' runs \code{dNdS_coal()}): its name and the values of all its arguments, also of those the engine does not use;}
 #' \item{\code{commands}}{the command lines of the sequence searches the run started (DIAMOND, BLAST+), with the
 #' file names of the working folder;}
+#' \item{\code{engine_settings}}{with \code{engine = "coal"}: what orthologr gave COAL (the arguments of
+#' \pkg{coalr}) and the equivalent \code{coal pipeline} command line (see \code{\link{dNdS_coal}});}
 #' \item{\code{options}}{every \code{orthologr.*} option with the value in force (see \code{\link{orthologr_options}});
 #' this shows whether a result was computed with the settings of 0.4.3;}
-#' \item{\code{engine}}{\code{"orthologr"};}
+#' \item{\code{engine}}{\code{"orthologr"} or \code{"coal"};}
 #' \item{\code{tools}}{the versions of the programs and packages used (DIAMOND or BLAST+, the alignment program or
 #' \pkg{pwalign}, PAL2NAL and Perl, KaKs_Calculator, \pkg{Biostrings}, \pkg{seqinr}, R);}
 #' \item{\code{date}}{when the run ended;}
@@ -530,7 +533,7 @@ write_dNdS <- function(x, file) {
         } else if (is.data.frame(x)) {
                 tbl <- x
         } else {
-                stop("'x' must be a dN/dS table (a data.frame) or the list returned by dNdS_orthogroups().",
+                stop("'x' must be a dN/dS table (a data.frame) or the list returned by dNdS_clusters() / dNdS_orthogroups().",
                      call. = FALSE)
         }
         failed <- attr(x, "failed_pairs")
@@ -793,6 +796,12 @@ orthologr_option <- function(name, default = NULL) {
 #' (\code{aa_aln_params = "-mode accurate"} restores it), and \code{aa_aln_params} was ignored for all alignment
 #' programs (do not set it). With these settings the 20-gene and the 1,000-gene example of the package give the
 #' tables of 0.4.3 (tested against a stored table; see the article "Upgrading from 0.4.3").
+#'
+#' Only \code{engine = "orthologr"} (the default) gives the numbers of 0.4.3. The COAL engine
+#' (\code{dNdS(engine = "coal")}, \code{\link{dNdS_coal}}, \code{dNdS_orthogroups(engine = "coal")},
+#' \code{\link{dNdS_clusters}}) makes its own pairwise alignments and cannot make those of 0.4.3; with these
+#' settings it warns (class \code{orthologr_warning_legacy_engine}). 20-gene example with these settings: 10 of 20
+#' pairs differ from 0.4.3, largest difference in dN/dS 0.147.
 #' @return With \code{set = TRUE}: the previous values of the options, invisibly, as \code{options()} returns
 #' them - \code{old <- orthologr_legacy_options(); ...; options(old)} restores the settings.
 #' With \code{set = FALSE}: the named list of legacy options.

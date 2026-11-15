@@ -15,3 +15,4 @@ LICENSE
 ^environment\.yml$
 ^MAINTAINER_NOTES\.md$
 ^MAINTAINER_CHANGELOG\.md$
+^STACK\.md$

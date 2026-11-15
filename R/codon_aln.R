@@ -4,9 +4,11 @@
 #' @param file_aln a character string specifying the path to the file storing the protein alignment in CLUSTAL or FASTA format.
 #' @param file_nuc a character string specifying the path to the file storing the coding sequences in multiple FASTA format.
 #' @param format a character string specifying the file format used to store the codon alignment, e.g. "fasta", "clustal".
-#' @param tool a character string specifying the program that should be used e.g. "pal2nal". 
+#' @param tool a character string specifying the program that should be used: \code{"pal2nal"} (Default; needs Perl)
+#' or \code{"coal"} (COAL, \url{https://github.com/Plumat-COAL/COAL}: the same codon alignment without Perl, computed inside R
+#' when the package \pkg{coalr} is installed and otherwise by the \code{coal-cpp} program). 
 #' @param codon_aln_name a character string specifying the name of the stored alignment file. 
-#' @param params a character string specifying additional parameters that shall be passed to PAL2NAL. For example
+#' @param params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string specifying additional parameters that shall be passed to PAL2NAL. For example
 #' \code{params} = \code{"-codontable 2"} would specify a codon table: \emph{vertebrate mitochondrial code}
 #' instead if the \emph{universal code} (default). The default value is \code{params} = \code{NULL}.
 #' Default is \code{codon_aln_name} = \code{NULL} denoting a default name: 'tool_name.aln' .
@@ -20,6 +22,13 @@
 #' a codon-based DNA alignment. The output codon-based DNA alignment can then be used for \code{\link{dNdS}} estimation.
 #' 
 #' The popular codon alignment tool PAL2NAL is included in this package and is being called when choosing \code{tool} = \code{"pal2nal"}.
+#' 
+#' \code{tool} = \code{"coal"} builds the codon alignment with COAL, a re-implementation of PAL2NAL's algorithm that does
+#' not need Perl and has no limit on the protein length (PAL2NAL fails for proteins of more than about 21,800 residues).
+#' COAL is optional: install its R package with
+#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}, or put the \code{coal-cpp} program on
+#' the \code{PATH} (\code{pip install coal-align}; \code{options(orthologr.coal_path = )} names another location).
+#' The PAL2NAL parameters in \code{params} are not available with \code{tool = "coal"}.
 #' @note
 #' 
 #' The PAL2NAL program automatically checks
@@ -84,16 +93,18 @@ codon_aln <- function(file_aln,
         # this is not an elegant version, only motivated by this discussion:
         # http://stackoverflow.com/questions/13463103/inst-and-extdata-folders-in-r-packaging
         # is there a better choice?
-        path <-
-                system.file(
-                        file.path("pal2nal", "pal2nal.v14", "pal2nal.pl"),
-                        package = "orthologr",
-                        mustWork = TRUE
-                )
-        #path <- "/exec/pal2nal.v14/"
+        if (!is.element(tool, c("pal2nal", "coal")))
+                orthologr_abort(class = "bad_argument", "Please choose a tool that is supported by this function: 'pal2nal' or 'coal'.", call. = FALSE)
         
-        if (!is.element(tool, c("pal2nal")))
-                orthologr_abort(class = "bad_argument", "Please choose a tool that is supported by this function.", call. = FALSE)
+        # the Pal2Nal program is stored as executable within
+        # the R package environment
+        if (tool == "pal2nal")
+                path <-
+                        system.file(
+                                file.path("pal2nal", "pal2nal.v14", "pal2nal.pl"),
+                                package = "orthologr",
+                                mustWork = TRUE
+                        )
         
         if (!is.element(format, c("clustal", "fasta")))
                 orthologr_abort(class = "bad_argument", "Please choose a format that is supported by this function.", call. = FALSE)
@@ -126,6 +137,17 @@ codon_aln <- function(file_aln,
                 tmp.out <- tempfile("aln_", tmpdir = dirname(file.out), fileext = ".tmp")
                 on.exit(unlink(tmp.out), add = TRUE)
                 
+                # Selenocysteine (U) in a protein: PAL2NAL v14 has no codon for it and fails ("inconsistency
+                # between pep and nuc"), COAL accepts any codon there. PAL2NAL gets a copy of the protein alignment
+                # with U as X, which it also matches with any codon, so that both tools give the same codon
+                # alignment (decision D4 of 2026-11-14: identical output in all formats). Inside dNdS() the proteins
+                # are orthologr's own translations, which never hold U.
+                sec_aln <- pal2nal_selenocysteine_input(file_aln)
+                if (!identical(sec_aln, file_aln)) {
+                        on.exit(unlink(sec_aln), add = TRUE)
+                        file_aln <- sec_aln
+                }
+                
                 # PAL2NAL reports a protein that does not fit its CDS on stderr, exits with status 0 and writes
                 # nothing: both the exit status and the output are checked.
                 run_tool(
@@ -138,6 +160,15 @@ codon_aln <- function(file_aln,
                         output  = tmp.out
                 )
                 publish_file(tmp.out, file.out)
+        }
+        
+        # COAL: the same codon alignment without Perl: in process through the R package 'coalr' when it is
+        # installed, otherwise with the coal-cpp program
+        if (tool == "coal") {
+                if (!is.null(params))
+                        orthologr_abort(class = "bad_argument", "'params' are PAL2NAL command-line parameters; they cannot be used with tool = \"coal\".", call. = FALSE)
+                coal_codon_aln_file(file_aln = file_aln, file_nuc = file_nuc, file.out = file.out, format = format,
+                                    context = pair_context(file_nuc, codon_aln_name))
         }
         
         if (!quiet) {
@@ -158,7 +189,7 @@ codon_aln <- function(file_aln,
                         aln
                 }, error = function(e) {
                         stop(
-                                "Something went wront with Pal2Nal.pl .",
+                                "Something went wront with ", tool, " .",
                                 "\n",
                                 file.out,
                                 " could not be read properly.", call. = FALSE
@@ -168,4 +199,46 @@ codon_aln <- function(file_aln,
         }
         
         invisible(file.out)
+}
+
+# The codon alignment tool of dNdS() when none is given: options(orthologr.codon_aln_tool), otherwise "coal" when the
+# R package coalr is installed (in process, no Perl; the same codon alignments as PAL2NAL) and "pal2nal" otherwise.
+default_codon_aln_tool <- function(codon_aln_tool = NULL) {
+        if (!is.null(codon_aln_tool))
+                return(codon_aln_tool)
+        opt <- getOption("orthologr.codon_aln_tool", NULL)
+        if (!is.null(opt))
+                return(opt)
+        if (!identical(getOption("orthologr.coal_backend", NULL), "none") && requireNamespace("coalr", quietly = TRUE))
+                return("coal")
+        "pal2nal"
+}
+
+
+# The protein alignment for PAL2NAL: `file_aln` itself, or - when a protein row holds U (selenocysteine) - a copy in
+# orthologr's working folder with U as X (u as x), the letter PAL2NAL matches with any codon, as COAL does with U.
+# FASTA (header lines start with '>') and CLUSTAL (the sequence is the second field of a row; the first line, blank
+# lines and conservation lines are kept as they are) are handled; names are never changed.
+pal2nal_selenocysteine_input <- function(file_aln) {
+        x <- readLines(file_aln, warn = FALSE)
+        first <- x[nzchar(trimws(x))][1]
+        clustal <- !is.na(first) && startsWith(first, "CLUSTAL")
+        if (clustal) {
+                row <- grepl("^\\S+\\s+\\S", x) & !startsWith(x, "CLUSTAL")
+                field <- sub("^(\\S+\\s+)(\\S+)(.*)$", "\\2", x[row])
+                if (!any(grepl("[Uu]", field)))
+                        return(file_aln)
+                x[row] <- paste0(sub("^(\\S+\\s+)(\\S+)(.*)$", "\\1", x[row]), chartr("Uu", "Xx", field),
+                                 sub("^(\\S+\\s+)(\\S+)(.*)$", "\\3", x[row]))
+        } else {
+                seq_line <- !startsWith(x, ">")
+                if (!any(grepl("[Uu]", x[seq_line])))
+                        return(file_aln)
+                x[seq_line] <- chartr("Uu", "Xx", x[seq_line])
+        }
+        dir <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln")
+        dir.create(dir, recursive = TRUE, showWarnings = FALSE)
+        out <- tempfile("pep_sec_", tmpdir = dir, fileext = if (clustal) ".aln" else ".fasta")
+        writeLines(x, out)
+        out
 }

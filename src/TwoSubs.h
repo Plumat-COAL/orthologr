@@ -147,8 +147,9 @@ class TwoSubs{
     // in name only: codon1 - int1, int1 - int2, codon1 - codon2 and codon2 - int2. With them the estimate depends
     // on which sequence is first (Ka changed in 279 of 300 random pairs when the two were swapped). By default the
     // two pathways of Comeron (1995), codon1 - int1 - codon2 and codon1 - int2 - codon2, are counted;
-    // libsequence_order = true (options(orthologr.comeron_twosubs = "libsequence")) keeps libsequence's call and
-    // the numbers of orthologr 0.4.3.
+    // libsequence_order = true (options(orthologr.comeron_twosubs = "libsequence"), set by
+    // orthologr_legacy_options()) keeps libsequence's call and the numbers of orthologr 0.4.3. COAL
+    // (cpp/src/kaks_comeron.cpp, --comeron-twosubs) does the same.
     if (libsequence_order)
       Calculate (sitesObj, codon1, intermediates[0], codon2, intermediates[1], weights[0], weights[1]);
     else
