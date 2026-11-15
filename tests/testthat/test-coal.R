@@ -409,5 +409,8 @@ test_that("the record of a run names the COAL backend that was used", {
                 v <- coal_versions()
                 expect_identical(v$coal_backend, b)
                 expect_true(if (b == "coalr") nzchar(v$coalr) else nzchar(v$`coal-cpp`))
+                # the version of COAL's engine inside coalr (coal_info()$coal_version; was never recorded)
+                if (b == "coalr")
+                        expect_identical(v$coal, as.character(coalr::coal_info()$coal_version))
         })
 })
