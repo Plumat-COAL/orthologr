@@ -297,6 +297,35 @@ test_that("coal_flavour_args() warns when a coalr without COAL's Comeron refinem
                                                "terminal_stops")))
 })
 
+test_that("the recorded COAL command line gives coalr's Comeron numbers (M1 of REVIEW-OL-1)", {
+        skip_if_not_installed("coalr")
+        skip_if_not(is.element("comeron_twosubs", names(formals(coalr::coal_dnds_pairs))), "coalr predates comeron_twosubs")
+        exe <- coal_binary()
+        skip_if(is.null(exe), "the coal-cpp program is not installed")
+        help <- tryCatch(system2(exe, c("dnds", "--help"), stdout = TRUE, stderr = TRUE), error = function(e) "")
+        skip_if_not(any(grepl("comeron-twosubs", help, fixed = TRUE)), "coal-cpp predates --comeron-twosubs")
+        # a pair whose Comeron estimate depends on the two-position pathways (0.112383 with libsequence's branches)
+        a <- "ATGGCTAAAGATCTGTTACGTAGCACCATTGGACCCGAAGCTAAGCTGTCTGAT"
+        b <- "ATGGCCAAGGACTTATTGAGATCTACTATAGGTCCAGAGGCAAAATTAAGCGAC"
+        cmd <- coal_engine_settings("coal_dnds_pairs", coalr::coal_dnds_pairs,
+                                    list(methods = "Comeron", preset = "pwalign"))$coal_command
+        tok <- strsplit(cmd, " ", fixed = TRUE)[[1]]
+        at <- which(grepl("^--(comeron-|li-flavour)", tok))
+        flags <- as.vector(rbind(tok[at], tok[at + 1]))
+        expect_true(all(c("--comeron-twosubs", "--comeron-min-sites") %in% flags))
+        d <- tempfile("m1_"); dir.create(d); on.exit(unlink(d, recursive = TRUE), add = TRUE)
+        axt <- file.path(d, "p.axt"); out <- file.path(d, "o.tsv")
+        writeLines(c("p", a, b, ""), axt)
+        system2(exe, c("dnds", axt, "-o", out, "-m", "Comeron", "-q", "--digits", "17", flags))
+        cli <- utils::read.delim(out)
+        k <- do.call(coalr::coal_kaks, c(list(a, b, method = "Comeron"), coal_flavour_args(coalr::coal_kaks, "Comeron")))
+        expect_equal(as.numeric(cli$dN[1]), k$dN[1], tolerance = 1e-10)
+        expect_equal(as.numeric(cli$dS[1]), as.numeric(k$dS[1]), tolerance = 1e-10)
+        # without the two flags the command line computes another number
+        system2(exe, c("dnds", axt, "-o", out, "-m", "Comeron", "-q", "--digits", "17", "--comeron-flavour", "gestimator"))
+        expect_false(isTRUE(all.equal(utils::read.delim(out)$dN[1], k$dN[1], tolerance = 1e-6)))
+})
+
 test_that("coal_features() reads coalr::coal_info()$features", {
         skip_if_not_installed("coalr")
         f <- coal_features()
@@ -325,6 +354,24 @@ test_that("coal_engine_settings() records the coalr call and the matching COAL c
         expect_identical(s$tie_break, "leftmost")
         expect_identical(s$matrix, "PAM250")
         expect_match(s$coal_command, "^coal pipeline clusters --cds CDS --clusters CLUSTERS.tsv -m YN --preset needle --matrix PAM250")
+
+        # (M1 of REVIEW-OL-1) Comeron's two options are part of the command line and of the settings
+        f_new <- function(query_cds, methods, preset, matrix, tie_break, comeron_flavour, comeron_twosubs,
+                          comeron_min_sites, li_flavour, terminal_stops) NULL
+        s <- coal_engine_settings("coal_dnds_pairs", f_new, list(methods = "Comeron", preset = "pwalign"))
+        expect_identical(s$comeron_twosubs, "comeron")
+        expect_identical(s$comeron_min_sites, 3)
+        expect_match(s$coal_command, paste("--comeron-flavour gestimator --comeron-twosubs comeron --comeron-min-sites 3",
+                                           "--li-flavour seqinr --terminal-stops drop -o OUT_DIR"), fixed = TRUE)
+        old <- options(orthologr.comeron_twosubs = "libsequence", orthologr.comeron_min_sites = 0.5)
+        s <- coal_engine_settings("coal_dnds_pairs", f_new, list(methods = "Comeron", preset = "pwalign"))
+        options(old)
+        expect_identical(s$comeron_twosubs, "libsequence")
+        expect_match(s$coal_command, "--comeron-twosubs libsequence --comeron-min-sites 0.5 ", fixed = TRUE)
+        # a coalr without them: neither in the command line nor in the settings
+        s <- coal_engine_settings("coal_dnds_pairs", f_tie, list(methods = "Comeron", preset = "pwalign"))
+        expect_false(grepl("--comeron-twosubs", s$coal_command, fixed = TRUE))
+        expect_null(s$comeron_twosubs)
 
         s <- coal_engine_settings("coal_dnds_pairs", f_old, list(methods = "YN", preset = "pwalign"))
         expect_identical(s$tie_break, "leftmost (coalr without tie_break)")

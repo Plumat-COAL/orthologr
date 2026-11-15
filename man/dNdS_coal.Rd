@@ -129,7 +129,8 @@ This function needs the R package \pkg{coalr}:
 
 \strong{The same run with the COAL command line, and the other way.} The record of the run,
 \code{attr(result, "orthologr_run")}, has in \code{engine_settings} what orthologr gave COAL (\code{preset},
-\code{matrix}, \code{tie_break}, \code{comeron_flavour}, \code{li_flavour}, \code{terminal_stops}) and in
+\code{matrix}, \code{tie_break}, \code{comeron_flavour}, \code{comeron_twosubs}, \code{comeron_min_sites},
+\code{li_flavour}, \code{terminal_stops}) and in
 \code{engine_settings$coal_command} the \code{coal pipeline pairs} command line with these settings; its
 \code{commands} are the DIAMOND (or BLAST+) searches of the run. With the gene pairs of the result as
 \code{--pairs}, the command line computes the same pairs with the same alignments:
@@ -139,8 +140,8 @@ pairs <- unique(as.data.frame(res)[, c("query_id", "subject_id")])
 write.table(pairs, "pairs.tsv", sep = "\\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
 attr(res, "orthologr_run")$engine_settings$coal_command
 # coal pipeline pairs --query QUERY_CDS --subject SUBJECT_CDS --pairs PAIRS.tsv -m YN --preset pwalign
-#   --matrix BLOSUM62-PWALIGN --tie-break pwalign --comeron-flavour gestimator --li-flavour seqinr
-#   --terminal-stops drop -o OUT_DIR
+#   --matrix BLOSUM62-PWALIGN --tie-break pwalign --comeron-flavour gestimator --comeron-twosubs comeron
+#   --comeron-min-sites 3 --li-flavour seqinr --terminal-stops drop -o OUT_DIR
 }
 Its \code{dnds.tsv} holds COAL's own values, which \code{attr(result, "coal")} keeps too; orthologr's
 result applies its rules to Comeron and Li (above). The pairs must come from the result: COAL's own search

@@ -94,6 +94,11 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   `comeron_twosubs` / `comeron_min_sites` (e.g. dS = 0 instead of `NA` for `ATGGCTAAA` / `ATGGCCAAA`). The
   warning of class `orthologr_warning_coal_version` is now given whenever that feature is missing and Comeron is
   computed by COAL (`engine = "coal"`, `dNdS_coal()`, `dNdS_clusters()`, `dNdS_orthogroups(engine = "coal")`).
+- The `coal pipeline` command line recorded by `engine = "coal"` (`attr(result, "orthologr_run")$engine_settings$coal_command`)
+  lacked `--comeron-twosubs` and `--comeron-min-sites`. With `--comeron-flavour gestimator` COAL's command line
+  then counts codons that differ at two positions along libsequence's branches, so the recorded command computed
+  other Comeron values than the run (e.g. dN 0.112383 instead of 0.123081). Both flags are now part of the command,
+  and `engine_settings` has `comeron_twosubs` and `comeron_min_sites`.
 
 ### Other changes
 
