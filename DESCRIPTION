@@ -6,7 +6,8 @@ Date: 2026-11-12
 Authors@R: c(
             person("Hajk-Georg", "Drost", , "hajk-georg.drost@tuebingen.mpg.de", c("aut", "cre")),
             person("Sarah", "Scharfenberg", , "Sarah.Scharfenberg@ipb-halle.de", role = "ctb"),
-            person("Jaruwatana Sodai", "Lotharukpong", , "jaruwatana.lotharukpong@tuebingen.mpg.de", role = "ctb", comment = c(ORCID = "0000-0002-3475-0980"))
+            person("Jaruwatana Sodai", "Lotharukpong", , "jaruwatana.lotharukpong@tuebingen.mpg.de", role = "ctb", comment = c(ORCID = "0000-0002-3475-0980")),
+            person("Chloe", "Newton", , "chloenewton2323@gmail.com", role = "ctb", comment = "COAL integration, orthogroups")
             )
 Description: Genome-wide orthology inference and dN/dS estimation between multiple genomes.
 License: GPL-2
