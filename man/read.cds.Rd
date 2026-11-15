@@ -9,7 +9,7 @@ read.cds(file, format, delete_corrupt_cds = TRUE, ...)
 \arguments{
 \item{file}{a character string specifying the path to the file storing the CDS.}
 
-\item{format}{a character string specifying the file format used to store the CDS, e.g. "fasta", "fatsq".}
+\item{format}{a character string specifying the file format used to store the CDS, e.g. "fasta", "fastq".}
 
 \item{delete_corrupt_cds}{a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet.}
 

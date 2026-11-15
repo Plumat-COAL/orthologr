@@ -78,3 +78,39 @@ test_that("R07: ordinary parameter strings still reach the program", {
         expect_true(nrow(b) < nrow(a))
         expect_true(all(b$perc_identity >= 99.5))
 })
+
+# ---------------------------------------------------------------- R09: a missing program is an error before the search
+
+test_that("R09: a missing program stops dNdS() and dNdS_orthogroups() before the search", {
+        skip_on_cran()
+        skip_on_os("windows")
+        skip_if_not(perl_available, "perl is not installed")
+        # a PATH with perl only
+        bin <- new_test_dir("r09_bin_")
+        file.symlink(Sys.which("perl"), file.path(bin, "perl"))
+        old <- Sys.getenv("PATH")
+        on.exit({ Sys.setenv(PATH = old); tool_cache_reset() }, add = TRUE)
+        Sys.setenv(PATH = bin)
+        tool_cache_reset()
+        searched <- FALSE
+        testthat::local_mocked_bindings(
+                diamond_rec = function(...) { searched <<- TRUE; stop("the search was started") },
+                .package = "orthologr")
+        expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "YN", print_citation = FALSE)),
+                     "KaKs_Calculator.*needed for dnds_est.method = \"YN\"")
+        expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), aa_aln_type = "multiple", aa_aln_tool = "clustalo", print_citation = FALSE)),
+                     "Clustal.Omega")
+        expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), aa_aln_type = "multiple", aa_aln_tool = "mafft", print_citation = FALSE)),
+                     "MAFFT")
+        expect_error(suppressMessages(divergence_stratigraphy(thal_cds(), lyra_cds(), dnds_est.method = "YN")), "KaKs_Calculator")
+        expect_false(searched)
+        # no perl: PAL2NAL cannot run
+        Sys.setenv(PATH = new_test_dir("r09_empty_"))
+        tool_cache_reset()
+        expect_error(suppressMessages(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE)), "'perl' was not found")
+        expect_false(searched)
+        # what is needed and there passes
+        Sys.setenv(PATH = old); tool_cache_reset()
+        expect_true(dnds_require_programs(aa_aln_tool = "NW", dnds_est.method = "Comeron"))
+        expect_true(dnds_require_programs(aa_aln_tool = "pairwise", dnds_est.method = "Li"))
+})

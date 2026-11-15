@@ -150,11 +150,16 @@ codon_aln <- function(file_aln,
         
         
         if (get_aln) {
-                tryCatch({
-                        dna_aln <-
-                                seqinr::read.alignment(file = file.out, format = "clustal")
-                        return(dna_aln)
-                        
+                dna_aln <- tryCatch({
+                        aln <- suppressWarnings(seqinr::read.alignment(file = file.out, format = format))
+                        if (format == "clustal" && (is.null(aln$nb) || aln$nb == 0)) {
+                                # seqinr does not read the CLUSTAL format PAL2NAL writes (it returned an empty
+                                # alignment)
+                                seqs <- read_clustal(file.out)
+                                aln <- seqinr::as.alignment(nb = length(seqs), nam = names(seqs),
+                                                            seq = as.list(tolower(unname(seqs))), com = NA)
+                        }
+                        aln
                 }, error = function(e) {
                         stop(
                                 "Something went wront with Pal2Nal.pl .",
@@ -163,6 +168,7 @@ codon_aln <- function(file_aln,
                                 " could not be read properly.", call. = FALSE
                         )
                 })
+                return(dna_aln)
         }
         
         invisible(file.out)

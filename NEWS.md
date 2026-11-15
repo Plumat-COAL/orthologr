@@ -1,14 +1,30 @@
 ## `orthologr` 0.5.0
 
+### New
+
+- MUSCLE 5 is supported; `"MLPB"` is an accepted `dnds_est.method`.
+
 ### Changed defaults (and how to get the old behaviour)
+
+| Change | Effect (measured) | Old behaviour |
+|---|---|---|
+| T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
+| `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
 
 Further behaviour that differs from 0.4.3 and cannot be switched back:
 
 - A gene pair whose alignment or estimation fails no longer ends the run: it is a row of `NA` and its reason
   is in `attr(, "failed_pairs")`.
+- A missing program (perl, the alignment program, KaKs_Calculator) and unsupported argument values are errors
+  before the search starts.
 - Parameter strings (`aa_aln_params`, `aligner_params`, `diamond_params`, `blast_params`, `params`,
   `kaks_calc.params`, ...) are lists of arguments, not shell text: `;`, pipes and redirections inside them no
   longer work.
+- Intermediate files are kept in a folder of the call inside `tempdir()` and removed afterwards
+  (`options(orthologr.keep_tmp = TRUE)` keeps them); no function changes the working directory or writes into it
+  unasked (`read.cds()` wrote `<file>_corrupted_cds_seqs.fasta` there).
+- `cdd.path` and `ortho_path` of `dNdS()` are deprecated (never used); `ortho_detection = "Orthofinder2"`, `"PO"`
+  and `"DELTA"` are errors with an explanation.
 
 ### Fixed
 
@@ -16,12 +32,29 @@ Results:
 
 - `dNdS()` mixed up the two species when query and subject file had the same file name in different folders.
 - Li's method returned text columns and took small values (`9.95e-05`) for the saturation marker.
+- `dnds_est.method = "MLPB"` (default engine, KaKs_Calculator) works: `substitutionrate()` returned `NULL` for it
+  and `dNdS()` ended after the whole search with an error about a missing column (20-gene example: before an
+  error after 4 s; after 20 pairs, the values KaKs_Calculator gives for `-m MLPB`). There is one list of the
+  KaKs_Calculator methods for the whole package, and a method that `substitutionrate()` does not handle is an
+  error instead of `NULL`.
 
 Running programs:
 
 - Stale results can no longer be returned: `blast()`, `diamond()`, `deepclust()` and the functions built on them
   check the exit status and the output of every program and work in files of their own.
 - File and folder names with spaces work. Programs are looked up once per session.
+- `multi_aln()`: T-Coffee and MUSCLE examples run with current versions; CLUSTAL files of T-Coffee are read;
+  the MAFFT check uses `mafft --version`.
+- `multi_aln(tool = "t_coffee")` and `dNdS(aa_aln_tool = "t_coffee")` returned unaligned rows in development
+  versions of 0.5.0 (a bug, no option restores it): T-Coffee 12 was given the sequences with `-infile` and took a
+  file whose sequences end in `*` (as the translated coding sequences do) for a finished alignment. They are now
+  given with `-seq`. 20-gene example, `aa_aln_type = "multiple"`: before 10 of 20 pairs `"saturated"` (dN/dS
+  `NA`), 7 of 20 within 0.1 of ClustalW, r = 0.743 (max difference 0.553); after 0 saturated, 20 of 20 within 0.1
+  of ClustalW, r = 0.993 (max difference 0.094). 0.4.3 used `-mode accurate`, which fails without network.
+- `pairwise_aln()`, `read.genome(format = "fastq")`, `codon_aln(get_aln = TRUE)`,
+  `promotor_divergence_estimation()`, `lnc_map_counts()`, `map_generator_dnds()` with one subject file: errors
+  on valid input fixed. `check_annotation(remove_annotation_outliers = TRUE)` no longer overwrites the
+  annotation file.
 
 ### Internal
 

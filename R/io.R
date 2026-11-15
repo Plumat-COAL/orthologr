@@ -30,25 +30,23 @@ read.genome <- function(file, format, ...){
         
         geneids <- seqs <- NULL
         
-        if(format == "fasta"){
+        # fasta and fastq are read in the same way (Biostrings::readDNAStringSet(format = ...))
+        tryCatch({
                 
-                tryCatch({
-                        
-                        genome <- Biostrings::readDNAStringSet(filepath = file, format = format, ...)
-                        
-                        if (length(genome) == 0)
-                                stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
-                        
-                        genome_names <- as.vector(unlist(sapply(genome@ranges@NAMES, function(x){return(strsplit(x, " ")[[1]][1])})))
-                        genome.dt <- data.table::data.table(geneids = genome_names,
-                                                            seqs = toupper(as.character(genome)))
-                        
-                        data.table::setkey(genome.dt,geneids)
-                        
-                }, error = function(e){ stop(paste0("File ",file, " could not be read properly. \n",
-                                                    "Please make sure that ",file," contains only DNA sequences and is in ",format," format."))}
-                )
-        }
+                genome <- Biostrings::readDNAStringSet(filepath = file, format = format, ...)
+                
+                if (length(genome) == 0)
+                        stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
+                
+                genome_names <- as.vector(unlist(sapply(names(genome), function(x){return(strsplit(x, " ")[[1]][1])})))
+                genome.dt <- data.table::data.table(geneids = genome_names,
+                                                    seqs = toupper(as.character(genome)))
+                
+                data.table::setkey(genome.dt,geneids)
+                
+        }, error = function(e){ stop(paste0("File ",file, " could not be read properly. \n",
+                                            "Please make sure that ",file," contains only DNA sequences and is in ",format," format."))}
+        )
         
         return(genome.dt)
 }
@@ -112,7 +110,7 @@ read.proteome <- function(file, format, ...){
 #' @title Read the CDS of a given organism
 #' @description This function reads an organism specific CDS stored in a defined file format.
 #' @param file a character string specifying the path to the file storing the CDS.
-#' @param format a character string specifying the file format used to store the CDS, e.g. "fasta", "fatsq".
+#' @param format a character string specifying the file format used to store the CDS, e.g. "fasta", "fastq".
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet.
 #' @param ... additional arguments that are used by the \code{\link[Biostrings]{readDNAStringSet}} function.
 #' @author Hajk-Georg Drost
@@ -190,12 +188,20 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                         length(which(!all_triplets)),
                         " coding sequences in your input dataset which cannot be properly divided in base triplets, because their sequence length cannot be divided by 3."
                 )
+                # The file with the corrupted sequences is written to the folder given in
+                # options(orthologr.corrupted_cds_dir = ), by default to tempdir() - no longer to the working
+                # directory.
+                corrupted_dir <- getOption("orthologr.corrupted_cds_dir", NULL)
+                if (is.null(corrupted_dir))
+                        corrupted_dir <- tempdir()
+                if (!dir.exists(corrupted_dir))
+                        dir.create(corrupted_dir, recursive = TRUE)
                 corrupted_file <-
-                        paste0(basename(file), "_corrupted_cds_seqs.fasta")
+                        file.path(corrupted_dir, paste0(basename(file), "_corrupted_cds_seqs.fasta"))
                 
                 message(
                         "A fasta file storing all corrupted coding sequences for inspection was generated and stored at '",
-                        file.path(getwd(), corrupted_file),
+                        corrupted_file,
                         "'."
                 )
                 message("\n")

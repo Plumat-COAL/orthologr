@@ -2,7 +2,7 @@
 % Please edit documentation in R/orthofinder2.R
 \name{orthofinder2}
 \alias{orthofinder2}
-\title{Interface function to Orthofinder2}
+\title{Interface function to OrthoFinder (soft-deprecated)}
 \usage{
 orthofinder2(
   proteome_folder,
@@ -16,18 +16,18 @@ orthofinder2(
 \arguments{
 \item{proteome_folder}{file path to a folder storing the proteome sequences of the species for which orthology inference shall be performed.}
 
-\item{use_existing_output}{a logical value indicating whether or not an existing \code{Orthofinder2}
-output folder shall be used fo further import and processing. If \code{use_existing_output = TRUE}
-is selected then please specify the file path to the in \code{proteome_folder} where the \code{Orthofinder2} output folder can be found.}
+\item{use_existing_output}{a logical value indicating whether or not an existing \code{OrthoFinder}
+output folder (\code{<proteome_folder>/OrthoFinder/Results_<name of proteome_folder>}) shall be used for import
+instead of running OrthoFinder.}
 
-\item{import_type}{type of \code{Orthofinder2} output that shall be imported after running \code{Orthofinder2}.
+\item{import_type}{type of \code{OrthoFinder} output that shall be imported after running \code{OrthoFinder}.
 Options are:
 \itemize{
-\item \code{import_type = "orthogroups_core"}
-\item \code{import_type = "orthogroups_pairwise"}
-\item \code{import_type = ""}
-\item \code{import_type = ""}
-}}
+\item \code{import_type = NULL} (Default): nothing is imported; the path of the results folder is returned invisibly.
+\item \code{import_type = "orthogroups_core"}: the single-copy orthogroups, see \code{\link{orthofinder2_retrieve_core_orthologs}}.
+They are only written by a full OrthoFinder run (\code{orthogroup_only = FALSE}).
+}
+\code{import_type = "orthogroups_pairwise"} was never implemented and is an error.}
 
 \item{comp_cores}{number of cores that shall be used for parallel processing. Default is \code{cores = 1}.}
 
@@ -36,17 +36,22 @@ Options are:
 computationally expensive gene-tree and orthologue inference steps. Set to \code{FALSE} to
 run the full OrthoFinder pipeline.}
 
-\item{of_path}{a character string specifying the path to the locally installed \code{orthofinder} executable.
-A possible specification could be \code{of_path = "/opt/miniconda3/bin/"} which internally will translate to
-\code{/opt/miniconda3/bin/orthofinder}. The default is \code{of_path = NULL} which means that orthofinder assumes
-users have their \code{orthofinder} executable stored at \code{/opt/miniconda3/bin/orthofinder}.}
+\item{of_path}{a character string specifying the folder that holds the \code{orthofinder} executable, e.g.
+\code{of_path = "/opt/miniconda3/bin/"}. The default \code{of_path = NULL} looks for \code{orthofinder} on the
+\code{PATH} (until version 0.4.3 the path \code{/opt/miniconda3/bin/orthofinder} was hard-coded).}
+}
+\value{
+invisibly, the path of the OrthoFinder results folder; with \code{import_type = "orthogroups_core"} the
+table of single-copy orthogroups.
 }
 \description{
-Run Orthofinder2 from R.
+Run OrthoFinder from R. \strong{This function is soft-deprecated}: it is a thin, unmaintained
+wrapper that starts \code{orthofinder -f <proteome_folder>} and gives a warning when it is called. For
+anything beyond that, run OrthoFinder on the command line and import its tables, e.g. with
+\code{\link{orthofinder2_retrieve_core_orthologs}}.
 }
 \note{
-This function assumes that users have \code{OrthoFinder} installed via \code{miniconda} and stored at \code{~/opt/miniconda3/bin/}.
-In addition, DIAMOND needs to be installed as executable tool (/usr/local/bin).
+OrthoFinder and the programs it uses (DIAMOND, MCL, ...) must be installed. Tested with OrthoFinder 3.
 }
 \examples{
 \dontrun{
@@ -62,7 +67,7 @@ retrieve_longest_isoforms_all(proteome_folder = "of_proteomes",
                               annotation_folder = "of_gff",
                               annotation_format = "gff",
                               output_folder = "of_proteomes_longest_sv")
-# run orthofinder2 to infer ortho groups for the specified species
+# run OrthoFinder to infer ortho groups for the specified species
 orthofinder2(proteome_folder = "of_proteomes_longest_sv", comp_cores = 4)
 }
 }

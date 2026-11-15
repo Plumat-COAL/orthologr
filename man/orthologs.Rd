@@ -48,7 +48,7 @@ Available methods:
   \item \code{"DIAMOND_BH"}: DIAMOND2 best hit
   \item \code{"RBH"}: BLAST reciprocal best hit
   \item \code{"BH"}: BLAST best hit
-  \item \code{"Orthofinder2"}: OrthoFinder2 (currently under development)
+  \item \code{"Orthofinder2"}: not implemented (an error; run OrthoFinder yourself and import its tables)
 }}
 
 \item{sensitivity_mode}{a character string specifying the DIAMOND2 sensitivity level.

@@ -73,7 +73,7 @@ promotor_divergence_estimation <-
                 # import query part of alignment into ape
                 qry_seqs_with_gaps_ape <-
                         ape::read.dna(file.path(tmp_dir, paste0(tmp_file_name_qry, "_query_seqs_with_gaps.fasta")),
-                                      format = "fasta")
+                                      format = "fasta", as.matrix = FALSE)
                 
                 # retrieve subject part of alignment sequences
                 sbj_seqs_with_gaps <-
@@ -89,7 +89,7 @@ promotor_divergence_estimation <-
                 # import subject part of alignment sequences into ape
                 sbj_seqs_with_gaps_ape <-
                         ape::read.dna(file.path(tmp_dir, paste0(tmp_file_name_sbj, "_subject_seqs_with_gaps.fasta")),
-                                      format = "fasta")
+                                      format = "fasta", as.matrix = FALSE)
                 
                 dist_vals <- vector("numeric", length(sbj_seqs_with_gaps_ape))
                 indel_blocks <- vector("numeric", length(sbj_seqs_with_gaps_ape))
