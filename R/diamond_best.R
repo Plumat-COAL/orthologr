@@ -94,7 +94,6 @@
 #' @return A data.table as returned by the \code{diamond} function, storing the geneids
 #' of orthologous genes (best hit) in the first column and the amino acid sequences in the second column.
 #' @seealso \code{\link{diamond}}, \code{\link{diamond_rec}}, \code{\link{set_diamond}}, \code{\link{blast_best}}
-#' @import data.table
 #' @export
 diamond_best <- function(
                 query_file, 

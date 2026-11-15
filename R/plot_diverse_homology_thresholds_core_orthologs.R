@@ -23,6 +23,8 @@ plot_diverse_homology_thresholds_core_orthologs <-
                  xlab = "Parameter set for selecting core orthologs",
                  ylab = "Number of corresponding core orthologs",
                  title = "") {
+                need_package("ggplot2", "plot_diverse_homology_thresholds_core_orthologs()")
+                need_package("scales", "plot_diverse_homology_thresholds_core_orthologs()")
                 if (!is.element(type, c("gene_locus", "both")))
                         stop(
                                 "Please provide a valid 'type' argument: type = 'gene_locus' or type = 'both'.",

@@ -23,7 +23,7 @@ Options are: "cds" (Default; the sequences are translated to protein sequences),
 "dna" sequences are read as they are (no gene prediction): they can be used for a nucleotide database
 (\code{makedb_type = "nucleotide"}), not for a protein database.}
 
-\item{format}{a character string specifying the file format used to store the genome, e.g. "fasta", "gbk".}
+\item{format}{a character string specifying the file format used to store the genome, only "fasta" is supported.}
 
 \item{makedb}{TRUE or FALSE whether a database should be created or not (BLAST parameter 'makeblastdb').}
 

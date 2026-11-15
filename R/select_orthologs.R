@@ -17,6 +17,7 @@ select_orthologs <-
                  annotation_file_subject,
                  collapse_by = "gene_locus",
                  format = c("gtf", "gtf")) {
+                need_package("rtracklayer", "select_orthologs()", bioc = TRUE)
                 if (!is.element(collapse_by, c("gene_locus", "splice_variant")))
                         stop(
                                 "Please specify a collapse method provided by this function: collapse_by = 'gene_locus' or collapse_by = 'splice_variant'.",

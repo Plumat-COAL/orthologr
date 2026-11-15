@@ -230,3 +230,40 @@ test_that("R10: longest_per_group_do() is not misled by a column named 'pos'", {
         best <- vapply(split(x, x$gene_id), function(g) g$id[which.max(g$width)[1]], character(1))
         expect_setequal(res$id, best)
 })
+
+# ---------------------------------------------------------------- R11: the pkgdown reference index is complete
+
+test_that("R11: every exported function and every help topic is in the reference index of _pkgdown.yml", {
+        yml <- test_path("..", "..", "_pkgdown.yml")
+        man <- test_path("..", "..", "man")
+        skip_if_not(file.exists(yml) && dir.exists(man), "the package sources (_pkgdown.yml, man/) are not available")
+        lines <- readLines(yml, warn = FALSE)
+        from <- grep("^reference:", lines)
+        to <- c(grep("^[a-z]+:", lines), length(lines) + 1L)
+        lines <- lines[from:(min(to[to > from]) - 1L)]
+        listed <- trimws(sub("^\\s*-\\s+", "", grep("^\\s+-\\s+[A-Za-z._0-9]+\\s*$", lines, value = TRUE)))
+        expect_false(any(duplicated(listed)))
+        topics <- list()
+        for (f in list.files(man, pattern = "\\.Rd$", full.names = TRUE)) {
+                rd <- readLines(f, warn = FALSE)
+                if (any(grepl("^\\\\keyword\\{internal\\}", rd)))
+                        next
+                name <- sub("^\\\\name\\{(.*)\\}\\s*$", "\\1", grep("^\\\\name\\{", rd, value = TRUE)[1])
+                topics[[name]] <- sub("^\\\\alias\\{(.*)\\}\\s*$", "\\1", grep("^\\\\alias\\{", rd, value = TRUE))
+        }
+        # pkgdown stops with "topics missing from index" unless every topic is listed (by name or alias)
+        is_listed <- vapply(names(topics), function(n) any(is.element(c(n, topics[[n]]), listed)), logical(1))
+        expect_identical(names(topics)[!is_listed], character(0))
+        # every exported function is documented in a listed topic
+        exported <- getNamespaceExports("orthologr")
+        aliases <- unlist(topics, use.names = FALSE)
+        internal_ok <- character(0)
+        for (f in list.files(man, pattern = "\\.Rd$", full.names = TRUE)) {
+                rd <- readLines(f, warn = FALSE)
+                if (any(grepl("^\\\\keyword\\{internal\\}", rd)))
+                        internal_ok <- c(internal_ok, sub("^\\\\alias\\{(.*)\\}\\s*$", "\\1", grep("^\\\\alias\\{", rd, value = TRUE)))
+        }
+        expect_identical(sort(setdiff(exported, c(aliases, internal_ok))), character(0))
+        # and nothing is listed that does not exist
+        expect_identical(setdiff(listed, c(names(topics), aliases)), character(0))
+})

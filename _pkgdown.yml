@@ -1,0 +1,111 @@
+url: https://drostlab.github.io/orthologr
+
+template:
+  bootstrap: 5
+
+reference:
+- title: "dN/dS estimation"
+  desc: "Synonymous and non-synonymous substitution rates of orthologous genes."
+  contents:
+  - dNdS
+  - substitutionrate
+  - filter_dNdS
+  - map_generator_dnds
+  - read.dnds.tbl
+- title: "Divergence stratigraphy"
+  contents:
+  - divergence_stratigraphy
+  - divergence_map
+- title: "Orthology inference"
+  contents:
+  - orthologs
+  - diamond_rec
+  - diamond_best
+  - blast_rec
+  - blast_best
+- title: "Sequence searches with DIAMOND2 and BLAST+"
+  contents:
+  - diamond
+  - set_diamond
+  - diamond_install
+  - diamond_path
+  - blast
+  - set_blast
+- title: "Protein clustering with DIAMOND DeepClust"
+  contents:
+  - deepclust
+  - deepclust_annotate
+  - deepclust_realign
+- title: "Sequence alignments"
+  contents:
+  - pairwise_aln
+  - multi_aln
+  - codon_aln
+- title: "Gene loci, isoforms and ortholog tables"
+  contents:
+  - retrieve_longest_isoforms
+  - retrieve_longest_isoforms_all
+  - check_annotation
+  - extract_features
+  - select_orthologs
+  - generate_ortholog_tables
+  - generate_ortholog_tables_all
+  - import_ortholog_tables_all
+  - retrieve_core_orthologs
+- title: "Plots"
+  desc: "These functions need the packages ggplot2 and scales."
+  contents:
+  - plot_pairwise_orthologs
+  - plot_diverse_homology_thresholds
+  - plot_diverse_homology_thresholds_core_orthologs
+- title: "lncRNA homologs"
+  desc: "These functions need the package metablastr."
+  contents:
+  - orthologs_lnc
+  - map_generator_lnc
+  - lnc_map_counts
+  - lnc_map_core_orthologs
+- title: "Promotor divergence"
+  contents:
+  - promotor_divergence_estimation
+  - promotor_divergence_of_orthologous_genes
+- title: "Reading, writing and translating sequences"
+  contents:
+  - read.cds
+  - read.genome
+  - read.proteome
+  - write.proteome
+  - transl
+  - translate_cds_to_protein
+  - translate_cds_to_protein_all
+- title: "OrthoFinder"
+  desc: "orthofinder2() is soft-deprecated."
+  contents:
+  - orthofinder2
+  - orthofinder2_retrieve_core_orthologs
+- title: internal
+  contents:
+  - cds2aa
+  - clean_all_folders
+  - compute_dnds
+  - filter_best_hits
+  - filter_core_set
+  - filter_core_set_lnc
+  - testCoreOrthoParamsGeneLocus
+  - testCoreOrthoParamsSpliceVariant
+
+articles:
+- title: Get started
+  navbar: ~
+  contents:
+  - Install
+  - setup_windows
+- title: Workflows
+  navbar: Workflows
+  contents:
+  - dNdS_estimation
+  - divergence_stratigraphy
+  - orthology_inference
+  - deepclust
+  - blast
+  - sequence_alignments

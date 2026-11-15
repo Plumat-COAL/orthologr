@@ -25,7 +25,7 @@ Options are: "cds" (Default; the sequences are translated to protein sequences),
 "dna" sequences are read as they are (no gene prediction) and cannot be used to build a DIAMOND database
 (\code{makedb = TRUE} is an error).}
 
-\item{format}{a character string specifying the file format used to store the genome, e.g. "fasta", "gbk".}
+\item{format}{a character string specifying the file format used to store the genome, only "fasta" is supported.}
 
 \item{makedb}{TRUE or FALSE whether a database should be created or not (\code{diamond makedb}).}
 

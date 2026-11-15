@@ -33,7 +33,7 @@ promotor_divergence_of_orthologous_genes <-
                  model = "K80",
                  ortholog_promotor_seq_output = NULL) {
                 
-                if (!fs::dir_exists(promotor_folder))
+                if (!dir.exists(promotor_folder))
                         stop(
                                 "Please provide valid 'promotor_folder' path. The provided directory '",
                                 promotor_folder,
@@ -41,7 +41,7 @@ promotor_divergence_of_orthologous_genes <-
                                 call. = FALSE
                         )
                 
-                if (!fs::dir_exists(ortholog_tables_folder))
+                if (!dir.exists(ortholog_tables_folder))
                         stop(
                                 "Please provide valid 'ortholog_tables_folder' path. The provided directory '",
                                 ortholog_tables_folder,
@@ -53,7 +53,7 @@ promotor_divergence_of_orthologous_genes <-
                         ortholog_promotor_seq_output <-
                                 file.path(getwd(), "ortholog_genes_promotor_seqs")
                 
-                if (!fs::dir_exists(ortholog_promotor_seq_output)) {
+                if (!dir.exists(ortholog_promotor_seq_output)) {
                         message("Creating output folder '",
                                 ortholog_promotor_seq_output,
                                 "' ...")

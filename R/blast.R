@@ -24,8 +24,10 @@
 #' used to run BLAST searches.
 #' @param blast_params a character string listing the input parameters that shall be passed to the executing BLAST program. Default is \code{NULL}, implicating
 #' that a set of default parameters is used when running BLAST.
-#' @param clean_folders a boolean value specifying whether all internal folders storing the output of used programs
-#' shall be removed. Default is \code{clean_folders} = \code{FALSE}.
+#' @param clean_folders a boolean value specifying whether the folder \code{file.path(tempdir(), "_blast_db")}, in which
+#' the hit table of the call is kept (\code{blastresult_<query file name>.csv}), shall be removed.
+#' Default is \code{clean_folders} = \code{FALSE}. The database and the other intermediate files of a call are
+#' written to a folder of its own that is always removed.
 #' @param save.output a path to the location were the BLAST output shall be stored. E.g. \code{save.output} = \code{getwd()}
 #' to store it in the current working directory, or \code{save.output} = \code{file.path(put,your,path,here)}.
 #' @details This function provides a fast communication between R and BLAST+. It is mainly used as internal functions
@@ -89,16 +91,22 @@
 #'       comp_cores   = 2)
 #'
 #'
+#'  # keeping one aligned sequence per query: use the max.target.seqs argument
+#'  # (blast() sets -max_target_seqs itself; passing it again in blast_params makes BLAST stop)
+#'  blast(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
+#'        subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
+#'        max.target.seqs = 1)
+#'
 #'  # running blastp using additional parameters
 #'  blast(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'        subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'        blast_params = "-max_target_seqs 1")
+#'        blast_params = "-seg yes -word_size 3")
 #'
 #'
 #' # running blastp using additional parameters and an external blastp path
 #'  blast(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'        subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'        blast_params = "-max_target_seqs 1", path = "path/to/blastp/")
+#'        blast_params = "-seg yes", path = "path/to/blastp/")
 #' }
 #'
 #' @return A data.table storing the BLAST hit table returned by BLAST.

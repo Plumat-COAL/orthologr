@@ -8,7 +8,7 @@
 #' Options are: "cds" (Default; the sequences are translated to protein sequences), "protein", or "dna".
 #' "dna" sequences are read as they are (no gene prediction) and cannot be used to build a DIAMOND database
 #' (\code{makedb = TRUE} is an error).
-#' @param format a character string specifying the file format used to store the genome, e.g. "fasta", "gbk".
+#' @param format a character string specifying the file format used to store the genome, only "fasta" is supported.
 #' @param makedb TRUE or FALSE whether a database should be created or not (\code{diamond makedb}).
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet.
 #' @param path a character string specifying the path to the DIAMOND2 program (in case you don't use the default path).
@@ -33,7 +33,6 @@
 #'  head(set_diamond(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))[[1]] , 2)
 #' }
 #' @seealso \code{\link{diamond_best}}, \code{\link{diamond_rec}}, \code{\link{diamond}}, \code{\link{set_blast}}
-#' @import data.table
 #' @export
 
 set_diamond <- function(

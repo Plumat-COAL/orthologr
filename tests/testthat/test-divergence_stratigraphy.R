@@ -134,10 +134,10 @@ test_that("divergence_stratigraphy() works with NG method ...", {
 test_that("divergence_stratigraphy() works with comp_cores = 2 ...", {
         skip_if_not(diamond_available, "DIAMOND2 is not installed or not on PATH")
         # PSOCK workers need an installed package; skip when loaded via load_all()
-        skip_if(
-                isTRUE(tryCatch(pkgload::is_dev_package("orthologr"), error = function(e) FALSE)),
-                "orthologr loaded via load_all(); PSOCK workers require an installed package"
-        )
+        skip_if(loaded_with_load_all(), "orthologr loaded via load_all(); PSOCK workers require an installed package")
+        # comp_cores = 2 on a machine with one core was an error in 0.4.3 and is a warning now ("using comp_cores =
+        # 1"): there the test would no longer test a parallel run, so it is skipped
+        skip_if(isTRUE(parallel::detectCores() < 2), "fewer than 2 cores")
         result <- divergence_stratigraphy(
                 query_file      = query_cds,
                 subject_file    = subject_cds,

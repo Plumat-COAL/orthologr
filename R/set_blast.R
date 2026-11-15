@@ -8,7 +8,7 @@
 #' Options are: "cds" (Default; the sequences are translated to protein sequences), "protein", or "dna".
 #' "dna" sequences are read as they are (no gene prediction): they can be used for a nucleotide database
 #' (\code{makedb_type = "nucleotide"}), not for a protein database.
-#' @param format a character string specifying the file format used to store the genome, e.g. "fasta", "gbk".
+#' @param format a character string specifying the file format used to store the genome, only "fasta" is supported.
 #' @param makedb TRUE or FALSE whether a database should be created or not (BLAST parameter 'makeblastdb').
 #' @param delete_corrupt_cds a logical value indicating whether sequences with corrupt base triplets should be removed from the input \code{file}. This is the case when the length of coding sequences cannot be divided by 3 and thus the coding sequence contains at least one corrupt base triplet.
 #' @param path a character string specifying the path to the BLAST program (in case you don't use the default path).
@@ -42,7 +42,6 @@
 #'  head(set_blast(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))[[1]] , 2)
 #' }
 #' @seealso \code{\link{blast_best}}, \code{\link{blast_rec}}, \code{\link{blast}}
-#' @import data.table
 #' @export
 
 set_blast <- function(file, 

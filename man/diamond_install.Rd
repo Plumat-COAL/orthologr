@@ -33,6 +33,12 @@ Pre-compiled binaries are provided upstream for Linux (x86_64), macOS and Window
 On other platforms (e.g. Linux ARM) please install DIAMOND via conda:
 \code{conda install -c bioconda diamond}.
 }
+\note{
+Pre-built DIAMOND2 releases exist for Linux x86_64, macOS and Windows; on other platforms (e.g. Linux
+aarch64) the function stops with a hint to install DIAMOND2 with a package manager. The downloaded archive is
+not verified against a checksum (the DIAMOND2 releases do not publish one); it is fetched over HTTPS from the
+GitHub releases of \url{https://github.com/bbuchfink/diamond}.
+}
 \examples{
 \dontrun{
 diamond_install()
