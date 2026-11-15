@@ -177,23 +177,20 @@ deepclust_realign <- function(
                 )
         }
         
-        # if multiple files are provided, merge them into one temporary FASTA
-        input_file <- merge_fasta_files(input_file, seq_type = seq_type, dir = work)
-        
-        filename <- basename(input_file)
+        filename <- if (length(input_file) > 1)
+                paste0("deepclust_merged_", length(input_file), "_files.fasta")
+        else
+                basename(input_file)
         output   <- file.path(work, paste0("deepclust_realign_", safe_file_name(filename), ".tsv"))
         
         message("Building DIAMOND2 database for realign ...")
         
-        db_dt <- set_diamond(
-                file               = input_file,
+        db_dt <- deepclust_protein_table(
+                input_file         = input_file,
                 seq_type           = seq_type,
-                format             = format,
                 delete_corrupt_cds = delete_corrupt_cds,
-                path               = path,
-                comp_cores         = comp_cores,
-                quiet              = quiet
-        )[[1]]
+                dir                = work
+        )
         database <- make_diamond_db(db_dt, db_file = file.path(work, "deepclust_db.fasta"), path = path,
                                     comp_cores = comp_cores, quiet = quiet)
         

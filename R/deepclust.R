@@ -41,6 +41,13 @@
 #' directory).
 #' @param quiet a logical value indicating whether DIAMOND2 should run in quiet
 #' mode. Default is \code{quiet = TRUE}.
+#' @param direct_input a logical value. \code{FALSE} (Default): the sequences are read into R, sorted by their IDs
+#' and written to one FASTA file from which the DIAMOND2 database is built (as in earlier versions). \code{TRUE}:
+#' the input files are handed to \code{diamond makedb} as they are (several files are copied one after the other
+#' into one file, without being parsed), so no sequence is held in R memory - meant for very large protein sets.
+#' The sequence IDs are the same, but the sequences reach DIAMOND2 in file order instead of sorted by ID, and
+#' \code{diamond deepclust} is sensitive to that order: \strong{cluster representatives and cluster membership
+#' can differ from the default}. Only for \code{seq_type = "protein"}.
 #' @details
 #' This function wraps \code{diamond deepclust}, the graph-based sequence clustering
 #' algorithm available in DIAMOND2 v2.1.0 and later. The output is a two-column
@@ -124,7 +131,8 @@ deepclust <- function(
         eval               = NULL,
         deepclust_params   = NULL,
         save.output        = NULL,
-        quiet              = TRUE) {
+        quiet              = TRUE,
+        direct_input       = FALSE) {
 
         # validate that all supplied files exist before doing any work
         missing_files <- input_file[!file.exists(input_file)]
@@ -148,25 +156,32 @@ deepclust <- function(
         work <- call_dir_start("deepclust_")
         on.exit(call_dir_end(work), add = TRUE)
         
-        # if multiple files are provided, merge them into one temporary FASTA
-        input_file <- merge_fasta_files(input_file, seq_type = seq_type, dir = work, warn_duplicates = TRUE)
-        
-        filename <- basename(input_file)
+        filename <- if (length(input_file) > 1)
+                paste0("deepclust_merged_", length(input_file), "_files.fasta")
+        else
+                basename(input_file)
         output   <- file.path(work, paste0("deepclust_", safe_file_name(filename), ".tsv"))
         
         message("Building DIAMOND2 database for deepclust ...")
         
-        db_dt <- set_diamond(
-                file               = input_file,
-                seq_type           = seq_type,
-                format             = format,
-                delete_corrupt_cds = delete_corrupt_cds,
-                path               = path,
-                comp_cores         = comp_cores,
-                quiet              = quiet
-        )[[1]]
-        database <- make_diamond_db(db_dt, db_file = file.path(work, "deepclust_db.fasta"), path = path,
-                                    comp_cores = comp_cores, quiet = quiet)
+        if (isTRUE(direct_input)) {
+                if (seq_type != "protein")
+                        stop("direct_input = TRUE needs protein sequences (seq_type = 'protein').", call. = FALSE)
+                # the files go to DIAMOND as they are
+                db_in <- concatenate_files(input_file, file.path(work, "deepclust_input.fasta"))
+                database <- diamond_makedb(in_file = db_in, db_file = file.path(work, "deepclust_db.fasta"),
+                                           path = path, comp_cores = comp_cores, quiet = quiet)
+        } else {
+                db_dt <- deepclust_protein_table(
+                        input_file         = input_file,
+                        seq_type           = seq_type,
+                        delete_corrupt_cds = delete_corrupt_cds,
+                        dir                = work,
+                        warn_duplicates    = TRUE
+                )
+                database <- make_diamond_db(db_dt, db_file = file.path(work, "deepclust_db.fasta"), path = path,
+                                            comp_cores = comp_cores, quiet = quiet)
+        }
         
         message("Running diamond deepclust ...")
         t_deepclust_start   <- proc.time()["elapsed"]
@@ -199,6 +214,7 @@ deepclust <- function(
         tryCatch({
                 cluster_table <- data.table::fread(
                         file    = output,
+                        sep     = "\t",
                         header  = FALSE,
                         col.names = c("representative_id", "member_id"),
                         colClasses = "character"
@@ -220,6 +236,62 @@ deepclust <- function(
                         call. = FALSE
                 )
         })
+}
+
+# The proteins deepclust() and deepclust_realign() build their database from: a data.table (geneids, aa) sorted by
+# ID - the table set_diamond() returned for the merged input file in earlier versions.
+#   proteins : every file is read once with Biostrings and the tables are put together (several files used to be
+#              read sequence by sequence with seqinr, written to one file and read again)
+#   cds      : several files are merged into one FASTA file first, as before, and translated
+deepclust_protein_table <- function(input_file, seq_type, delete_corrupt_cds = TRUE, dir, warn_duplicates = FALSE) {
+        geneids <- NULL
+        if (seq_type != "protein" || length(input_file) == 1) {
+                merged <- merge_fasta_files(input_file, seq_type = seq_type, dir = dir, warn_duplicates = warn_duplicates)
+                return(protein_table(file = merged, seq_type = seq_type, delete_corrupt_cds = delete_corrupt_cds))
+        }
+        
+        message("Merging ", length(input_file), " input files ...")
+        dt <- data.table::rbindlist(lapply(input_file, function(f) protein_table(file = f, seq_type = "protein")))
+        message("Merged ", nrow(dt), " sequences into: ", paste0("deepclust_merged_", length(input_file), "_files.fasta"))
+        
+        if (warn_duplicates)
+                warn_duplicate_ids(dt[ , geneids])
+        
+        data.table::setkey(dt, geneids)
+        dt
+}
+
+warn_duplicate_ids <- function(all_names) {
+        dup_ids <- all_names[duplicated(all_names)]
+        if (length(dup_ids) > 0) {
+                warning(
+                        "Duplicate sequence IDs found across input files. ",
+                        "DIAMOND2 may produce unexpected results.\n",
+                        "Affected IDs include: ",
+                        paste(utils::head(unique(dup_ids)), collapse = ", "),
+                        call. = FALSE
+                )
+        }
+        invisible(NULL)
+}
+
+# Copy files one after the other into `out` without parsing them (gzip-compressed files are decompressed).
+concatenate_files <- function(files, out) {
+        if (length(files) == 1 && !grepl("\\.gz$", files))
+                return(files)
+        con_out <- file(out, open = "w")
+        on.exit(close(con_out), add = TRUE)
+        for (f in files) {
+                con_in <- gzfile(f, open = "r")
+                repeat {
+                        lines <- readLines(con_in, n = 100000L, warn = FALSE)
+                        if (length(lines) == 0)
+                                break
+                        writeLines(lines, con_out)
+                }
+                close(con_in)
+        }
+        out
 }
 
 # Several FASTA files as one file in `dir` (one file is returned as it is). Used by deepclust() and
@@ -259,18 +331,8 @@ merge_fasta_files <- function(input_file, seq_type, dir, warn_duplicates = FALSE
         
         message("Merged ", length(all_names), " sequences into: ", merged_filename)
         
-        if (warn_duplicates) {
-                dup_ids <- all_names[duplicated(all_names)]
-                if (length(dup_ids) > 0) {
-                        warning(
-                                "Duplicate sequence IDs found across input files. ",
-                                "DIAMOND2 may produce unexpected results.\n",
-                                "Affected IDs include: ",
-                                paste(utils::head(unique(dup_ids)), collapse = ", "),
-                                call. = FALSE
-                        )
-                }
-        }
+        if (warn_duplicates)
+                warn_duplicate_ids(all_names)
         
         merged_file
 }

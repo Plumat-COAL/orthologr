@@ -46,9 +46,7 @@
 #' the attribute \code{"failed_pairs"} of the result (a \code{data.frame} with \code{query_id}, \code{subject_id} and
 #' \code{reason}), and a warning reports how many pairs failed.
 #' 
-#' @references \url{https://www.r-bloggers.com/2013/08/the-wonders-of-foreach/}
 #' @seealso \code{\link{multi_aln}}, \code{\link{substitutionrate}}, \code{\link{dNdS}}
-#' @import foreach 
 #' @import data.table
 compute_dnds <- function(complete_tbl,
                          aa_aln_type     = "multiple", 
@@ -63,6 +61,8 @@ compute_dnds <- function(complete_tbl,
                          comp_cores      = 1, 
                          clean_folders   = FALSE){
         
+        # every argument is evaluated here: the gene pairs may be computed in other R processes (see force_args())
+        force_args()
         comp_cores <- check_comp_cores(comp_cores)
         
         
@@ -227,20 +227,15 @@ compute_dnds <- function(complete_tbl,
         }
         
         if (multicore) {
-                ### Parallellizing the sampling process using the 'doParallel' and 'parallel' package
-                ### register all given cores for parallelization
-                par_cores <- parallel::makeForkCluster(comp_cores)
-                on.exit(parallel::stopCluster(par_cores), add = TRUE)
-                doParallel::registerDoParallel(par_cores)
+                # The gene pairs are spread over 'comp_cores' R processes of the 'parallel' package: forked
+                # processes where the operating system can fork, otherwise (Windows) processes that are started
+                # anew and get the package, the options and the working folder of this call.
+                par_cores <- dnds_cluster(comp_cores)
+                finished <- FALSE
+                on.exit(dnds_cluster_stop(par_cores, finished = finished), add = TRUE)
                 
-                dNdS_values <-
-                        foreach::foreach(
-                                i              = seq_len(nrow(complete_tbl)),
-                                .packages      = c("seqinr", "data.table"),
-                                .errorhandling = "stop"
-                        ) %dopar% {
-                                safe_pair(i)
-                        }
+                dNdS_values <- parallel::parLapply(par_cores, seq_len(nrow(complete_tbl)), safe_pair)
+                finished <- TRUE
         }
         
         dNdS_tbl <- data.table::rbindlist(dNdS_values, use.names = TRUE, fill = TRUE)
@@ -290,4 +285,62 @@ dnds_na_row <- function(query_id, subject_id, est.method, reason) {
                 row[["method"]] <- est.method
         row[[".reason"]] <- as.character(reason)
         return(row)
+}
+
+# A cluster of `n` R processes for compute_dnds().
+#   "FORK"  : forked processes (not on Windows); they share the data and the state of this R session
+#   "PSOCK" : new R processes; orthologr is loaded in each of them and the orthologr options of this session
+#             (working folder of the call, legacy switches, ...) are set there
+# options(orthologr.cluster_type = "PSOCK") chooses the second kind where both are possible.
+dnds_cluster <- function(n) {
+        type <- getOption("orthologr.cluster_type", if (.Platform$OS.type == "windows") "PSOCK" else "FORK")
+        if (!is.element(type, c("FORK", "PSOCK")))
+                stop("options(orthologr.cluster_type = ) must be \"FORK\" or \"PSOCK\".", call. = FALSE)
+        if (type == "FORK" && .Platform$OS.type == "windows")
+                type <- "PSOCK"
+        if (type == "FORK") {
+                cl <- parallel::makeForkCluster(n)
+                attr(cl, "orthologr_pids") <- tryCatch(unlist(parallel::clusterCall(cl, Sys.getpid)), error = function(e) integer(0))
+                return(cl)
+        }
+        
+        cl <- parallel::makePSOCKcluster(n)
+        ok <- tryCatch({
+                opts <- options()
+                opts <- opts[startsWith(names(opts), "orthologr.")]
+                # the new processes have a tempdir() of their own: they must work in the folder of this session
+                # (it was not handed over when the caller had not set one, and every pair failed with
+                # "cannot open the connection")
+                opts[["orthologr.tmpdir"]] <- orthologr_tmpdir()
+                parallel::clusterCall(cl, function(lib_paths, opts, path) {
+                        .libPaths(lib_paths)
+                        Sys.setenv(PATH = path)
+                        loadNamespace("orthologr")
+                        options(opts)
+                        TRUE
+                }, .libPaths(), opts, Sys.getenv("PATH"))
+                TRUE
+        }, error = function(e) {
+                parallel::stopCluster(cl)
+                stop("The R processes for comp_cores = ", n, " could not be started: ", conditionMessage(e), call. = FALSE)
+        })
+        attr(cl, "orthologr_pids") <- tryCatch(unlist(parallel::clusterCall(cl, Sys.getpid)), error = function(e) integer(0))
+        cl
+}
+
+# Stop the processes of dnds_cluster(). When the work did not finish (error, interrupt) the workers may still be
+# busy with a gene pair - a forked worker only reads the request to stop after its current task - and would go on
+# writing into the working folder of the call after the caller has removed it (the folder 'orthologr_dNdS_*' was
+# left in tempdir() after an interrupt). They are therefore ended, and given a moment to do so, before the
+# caller's on.exit() removes the folder.
+dnds_cluster_stop <- function(cl, finished = TRUE) {
+        pids <- attr(cl, "orthologr_pids")
+        try(parallel::stopCluster(cl), silent = TRUE)
+        if (!isTRUE(finished) && length(pids) > 0) {
+                try(tools::pskill(pids, tools::SIGTERM), silent = TRUE)
+                Sys.sleep(0.3)
+                try(tools::pskill(pids, tools::SIGKILL), silent = TRUE)
+                Sys.sleep(0.1)
+        }
+        invisible(TRUE)
 }

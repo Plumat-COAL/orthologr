@@ -106,6 +106,10 @@ blast_rec <- function(query_file,
                       clean_folders   = FALSE,
                       save.output     = NULL){
         
+        # both files are needed for both search directions: read and translate each of them once
+        end_seq_cache <- seq_cache_start()
+        on.exit(end_seq_cache(), add = TRUE)
+        
         orthoA <- blast_best( query_file      = query_file,
                               subject_file    = subject_file, 
                               eval            = eval,

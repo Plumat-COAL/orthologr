@@ -90,8 +90,6 @@ test_that("compute_dnds() returns an NA row with a reason for a pair that fails,
         )
         for (cores in c(1, 2)) {
                 skip_if(cores > parallel::detectCores(), "one core only")
-                # several cores use a FORK cluster in this version, which Windows does not have
-                skip_if(cores > 1 && .Platform$OS.type == "windows", "FORK cluster (not on Windows)")
                 expect_warning(
                         res <- compute_dnds(tbl, aa_aln_type = "pairwise", aa_aln_tool = "NW", codon_aln_tool = "pal2nal",
                                             dnds_est.method = "Comeron", quiet = TRUE, comp_cores = cores),
@@ -114,6 +112,21 @@ test_that("compute_dnds() returns an NA row with a reason for a pair that fails,
         # nothing failed: no warning, an empty table of failures
         expect_silent(res <- compute_dnds(tbl[c(1, 3), ], aa_aln_type = "pairwise", aa_aln_tool = "NW",
                                           dnds_est.method = "Comeron", quiet = TRUE, comp_cores = 1))
+        expect_equal(nrow(attr(res, "failed_pairs")), 0)
+        expect_false(anyNA(res$dNdS))
+})
+
+test_that("compute_dnds() with new R processes (PSOCK) works in the folder of the caller (Windows: every pair failed)", {
+        skip_if_not(perl_available, "perl is not installed")
+        skip_if(parallel::detectCores() < 2, "one core only")
+        skip_on_cran()
+        tbl <- data.table::data.table(query_id = c("q1", "q2"), subject_id = c("s1", "s2"),
+                                      query_cds = c(cds_a, cds_b), subject_cds = c(cds_b, cds_a),
+                                      query_aa = c(aa_a, aa_b), subject_aa = c(aa_b, aa_a))
+        old <- options(orthologr.cluster_type = "PSOCK", orthologr.tmpdir = NULL)
+        on.exit(options(old), add = TRUE)
+        res <- compute_dnds(tbl, aa_aln_type = "pairwise", aa_aln_tool = "NW", dnds_est.method = "Comeron",
+                            quiet = TRUE, comp_cores = 2)
         expect_equal(nrow(attr(res, "failed_pairs")), 0)
         expect_false(anyNA(res$dNdS))
 })

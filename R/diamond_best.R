@@ -136,7 +136,7 @@ diamond_best <- function(
                 save.output     = save.output)
         
         query_id <- '.' <- NULL
-        hit_tbl <- dplyr::do(dplyr::group_by(hit_tbl, query_id), filter_best_hits(.))
+        hit_tbl <- best_hits(hit_tbl, "query_id")
         return(hit_tbl)
 }
 
