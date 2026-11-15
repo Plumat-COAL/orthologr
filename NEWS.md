@@ -22,6 +22,24 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - Per gene pair: no `data.table` sub-assignments (`:=`), the working files written with one `writeLines()` (the
   same bytes as `seqinr::write.fasta()`); the checks of coding sequences for non-ACGT characters use PCRE (the
   same answers, about 50 times faster on long sequences).
+- PAL2NAL and KaKs_Calculator: one process for a chunk of up to 100 gene pairs instead of one per pair.
+  KaKs_Calculator gets one AXT file with a record per pair (it computes every record on its own) and its rows are
+  split by record; PAL2NAL runs through `inst/pal2nal/pal2nal_batch.pl`, which compiles `pal2nal.pl` once and
+  computes every pair in a forked child process (a fresh copy of the script's state, the arguments and output file
+  of a single call; not on Windows). A pair the batch does not compute - its job failed, its rows cannot be matched
+  to its record one to one, the program failed - is computed on its own as before, which also gives its error.
+  Not under `orthologr_legacy_options()` (one pair at a time, as in 0.4.3); `options(orthologr.batch_tools =
+  FALSE)` switches it off. Not for GMYN: KaKs_Calculator 2.0 (bioconda 2.0.1) decides whether it writes the header
+  line of that method with a class member it never initialises (`tempt`), so its output depends on that memory
+  (on a CI runner most pairs came back without a result with one process per pair, and other pairs in a batch).
+  Using COAL for the codon step of `codon_aln_tool = "pal2nal"` (its codon alignments are the same) was not done:
+  that they are the same for a pair can only be known by running PAL2NAL.
+  Compared with one process per pair (all columns, attributes, `failed_pairs`, the record of the run), identical
+  with 1 and 2 cores: the 20-gene example for every method of KaKs_Calculator (NG, LWL, LPB, MLWL, MLPB, YN, MYN,
+  GY, MS, MA, ALL), PAL2NAL with Comeron and YN, and the legacy settings; the 1,000-gene example and
+  S. cerevisiae / C. glabrata for NG, LWL, LPB, MLWL, MLPB, YN, MYN (with GY on the 1,000-gene example; yeast:
+  the 53 MYN pairs that fail with `nan` included) and PAL2NAL with Comeron and YN; the dN/dS step on
+  40 pairs of the 1,000-gene example for MS, MA and ALL, and on yeast pairs for GY (200) and MA (12).
 - Measured: the whole `dNdS()` call including DIAMOND, CPU seconds (user + system, with child processes; the
   machine was shared, so elapsed times varied by a factor of 2), 0.5.0 -> 0.6.0:
 
@@ -37,7 +55,21 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 
   The dN/dS step alone (`compute_dnds()`, 1,000-gene example, 1 core): 27.4 s -> 10.4 s before the change of
   `gestimator()`. What is left per pair is mostly the alignments themselves (pwalign), the estimate, and for
-  PAL2NAL / KaKs_Calculator the start of one process per gene pair.
+  PAL2NAL / KaKs_Calculator the work of the programs themselves. One process per chunk instead of one per pair
+  (CPU seconds of the whole `dNdS()` call, mean of 2 runs, before -> after; tables identical):
+
+  | data, settings | CPU s |
+  |---|---|
+  | 1,000-gene example, YN (KaKs_Calculator), 1 core | 21.0 -> 14.6 |
+  | 1,000-gene example, NG, 2 cores | 21.3 -> 14.2 |
+  | 1,000-gene example, `codon_aln_tool = "pal2nal"` (Comeron), 1 core | 29.1 -> 19.7 |
+  | 1,000-gene example, `codon_aln_tool = "pal2nal"`, YN, 1 core | 38.0 -> 21.7 |
+  | S. cerevisiae / C. glabrata, YN, 2 cores | 90.0 -> 64.2 |
+  | S. cerevisiae / C. glabrata, `codon_aln_tool = "pal2nal"`, 2 cores | 131.5 -> 90.0 |
+  | 20-gene example, MA, 2 cores (the estimates take the time) | 125.8 -> 126.5 |
+
+  The dN/dS step alone (`compute_dnds()`, 1,000-gene example, 1 core): YN 17.7 s -> 10.6 s, PAL2NAL 25.5 s ->
+  16.7 s; what is left of PAL2NAL is its own work (about 9 ms per pair).
 - `stringr` (and with it `stringi`) is no longer imported: its 27 calls were splitting and matching of file names
   and are base R now.
 
@@ -77,7 +109,10 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 
 - Tests (`test-perf.R`): the batched code paths against the per-pair code (alignments, codon alignments, tables of
   `compute_dnds()` for Comeron, Li and YN with COAL and PAL2NAL), independence of the chunk size and of the number
-  of processes, progress messages.
+  of processes, progress messages. `test-perf-tools.R`: PAL2NAL and KaKs_Calculator per chunk against one process
+  per pair (every method of KaKs_Calculator that takes seconds, a pair that fails inside a chunk, a batch whose output
+  cannot be matched, that fails or whose program is missing, chunk sizes, two processes, legacy mode), the driver
+  against one `perl pal2nal.pl` per job.
 
 ## `orthologr` 0.5.0
 

@@ -201,6 +201,74 @@ codon_aln <- function(file_aln,
         invisible(file.out)
 }
 
+# Can pal2nal_batch() be used here? It needs fork() in Perl (not on Windows, where Perl emulates it with threads).
+pal2nal_batch_possible <- function() {
+        .Platform$OS.type == "unix"
+}
+
+# PAL2NAL for the gene pairs of a chunk in one Perl process (compute_dnds()): the script inst/pal2nal/pal2nal_batch.pl
+# compiles pal2nal.pl once and computes every pair in a forked child process that starts from the compiled script
+# as a new 'perl pal2nal.pl' would (PAL2NAL keeps its state in global variables; a child never sees those of
+# another pair), with the arguments and the output file of codon_aln(file_aln[k], file_nuc[k], format = format,
+# codon_aln_name = codon_aln_name[k], tool = "pal2nal", quiet = TRUE). A pair is done when its job exited with
+# status 0 and wrote output - what codon_aln() checks - and its output is then moved to the file codon_aln() writes.
+# Returns a logical vector: TRUE for the pairs done; the caller calls codon_aln() for the others (which also gives
+# the error of a pair that failed). Nothing is done when the batch itself fails.
+pal2nal_batch <- function(file_aln, file_nuc, codon_aln_name, format = "fasta") {
+        n <- length(file_aln)
+        done <- logical(n)
+        if (n == 0 || !pal2nal_batch_possible())
+                return(done)
+        out_dir <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln")
+        file.out <- file.path(out_dir, paste0(codon_aln_name, "_pal2nal.aln"))
+        tmp.out <- character(n)
+        cleanup <- character(0)
+        on.exit(unlink(c(tmp.out[nzchar(tmp.out)], cleanup)), add = TRUE)
+        ok <- tryCatch({
+                path <- system.file(file.path("pal2nal", "pal2nal.v14", "pal2nal.pl"), package = "orthologr", mustWork = TRUE)
+                driver <- system.file(file.path("pal2nal", "pal2nal_batch.pl"), package = "orthologr", mustWork = TRUE)
+                if (!file.exists(out_dir))
+                        dir.create(out_dir, recursive = TRUE)
+                aln_in <- rep(NA_character_, n)
+                for (k in seq_len(n)) {
+                        if (!file.exists(file_aln[k]) || !file.exists(file_nuc[k]))
+                                next
+                        # the protein alignment with U as X, as codon_aln() hands it to PAL2NAL
+                        a <- pal2nal_selenocysteine_input(file_aln[k])
+                        if (!identical(a, file_aln[k]))
+                                cleanup <- c(cleanup, a)
+                        aln_in[k] <- a
+                        tmp.out[k] <- tempfile("aln_", tmpdir = out_dir, fileext = ".tmp")
+                }
+                # (the fields of a job are separated by tabs, one job per line)
+                use <- !is.na(aln_in) & !grepl("[\t\n\r]", paste(aln_in, file_nuc, tmp.out))
+                if (!any(use))
+                        return(done)
+                for (f in file.out[use & file.exists(file.out)])
+                        unlink(f)
+                jobs <- tempfile("pal2nal_jobs_", tmpdir = out_dir)
+                status <- tempfile("pal2nal_status_", tmpdir = out_dir)
+                cleanup <- c(cleanup, jobs, status)
+                writeLines(paste(tmp.out[use], aln_in[use], file_nuc[use], "-output", format, sep = "\t"), jobs)
+                run_tool("perl", args = list(driver, path, jobs, status), tool = "PAL2NAL",
+                         context = paste0(sum(use), " gene pairs"), output = status)
+                st <- readLines(status, warn = FALSE)
+                if (length(st) != sum(use))
+                        return(done)
+                ok <- use
+                ok[use] <- st == "0"
+                ok[ok] <- !is.na(file.size(tmp.out[ok])) & file.size(tmp.out[ok]) > 0
+                ok
+        }, error = function(e) done)
+        for (k in which(ok)) {
+                done[k] <- tryCatch({
+                        publish_file(tmp.out[k], file.out[k])
+                        TRUE
+                }, error = function(e) FALSE)
+        }
+        done
+}
+
 # The codon alignment tool of dNdS() when none is given: options(orthologr.codon_aln_tool), otherwise "coal" when the
 # R package coalr is installed (in process, no Perl; the same codon alignments as PAL2NAL) and "pal2nal" otherwise.
 default_codon_aln_tool <- function(codon_aln_tool = NULL) {

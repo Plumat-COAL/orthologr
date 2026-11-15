@@ -344,9 +344,10 @@ orthologr_options_in_force <- function() {
         set <- options()
         set <- set[startsWith(names(set), "orthologr.")]
         # (the working folder of the call is not a setting of the user; whether the note of library(orthologr) is
-        # shown changes no result)
+        # shown, and whether PAL2NAL / KaKs_Calculator handle a chunk of gene pairs per process, change no result)
         set[["orthologr.tmpdir"]] <- NULL
         set[["orthologr.quiet_upgrade"]] <- NULL
+        set[["orthologr.batch_tools"]] <- NULL
         for (n in setdiff(names(set), names(out)))
                 out[[n]] <- set[[n]]
         out[order(names(out))]

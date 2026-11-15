@@ -920,3 +920,90 @@ kaks_counts_agree <- function(exact, L, Si, Vi) {
         close <- function(a, b) all(is.finite(a) & is.finite(b) & abs(a - b) <= 1e-5 * pmax(1, abs(a)))
         close(exact$L, L) && close(exact$Si, Si) && close(exact$Vi, Vi)
 }
+
+# KaKs_Calculator for the codon alignments of several gene pairs with one process (compute_dnds()): one AXT file
+# with a record per pair, named 'subst_name', and one output table. Returns a list with, for every pair, the table
+# substitutionrate(file = files[k], est.method = est.method, quiet = TRUE, kaks_calc_path = kaks_calc_path,
+# subst_name = subst_name[k]) returns - or NULL where this function cannot be sure of it; the caller then calls
+# substitutionrate() for that pair, which also gives its error.
+# KaKs_Calculator (2.0) computes every record of an AXT file on its own: the objects of the methods are made anew for
+# each record, and its output is the header line and then the rows of each record, which start with the name of
+# the record. The rows of a pair are read as the table of a call for that pair alone (the header line and these
+# rows, read by read.csv() as substitutionrate() reads its file) and go through kaks_result_table() as there.
+# Every pair is NULL when the program fails or its rows do not belong to the records one to one and in their order
+# (a record that KaKs_Calculator rejects is left out of its output); a pair whose alignment does not have two
+# sequences of letters, '*' and '-' (an empty sequence or a line break would shift the records) is not handed over.
+kaks_calc_batch <- function(files, subst_name, est.method, kaks_calc_path = NULL) {
+        n <- length(files)
+        out <- vector("list", n)
+        if (n == 0)
+                return(out)
+        tryCatch({
+                if (!is.null(kaks_calc_path))
+                        kaks_calc_path <- normalizePath(kaks_calc_path, mustWork = FALSE)
+                if (is.null(kaks_calc_path))
+                        is_installed_kaks_calculator()
+                calc_dir <- file.path(orthologr_tmpdir(), "_calculation")
+                if (!file.exists(calc_dir))
+                        dir.create(calc_dir, recursive = TRUE)
+                seqs <- vector("list", n)
+                for (k in seq_len(n)) {
+                        s <- tryCatch(seqinr::read.fasta(files[k], as.string = TRUE, set.attributes = FALSE,
+                                                         forceDNAtolower = FALSE), error = function(e) NULL)
+                        if (length(s) != 2)
+                                next
+                        s <- c(as.character(s[[1]]), as.character(s[[2]]))
+                        if (!all(grepl("^[A-Za-z*-]+\\z", s, perl = TRUE)) || !grepl("^[A-Za-z0-9_.-]+\\z", subst_name[k], perl = TRUE))
+                                next
+                        seqs[[k]] <- s
+                }
+                use <- which(!vapply(seqs, is.null, TRUE))
+                if (length(use) == 0 || anyDuplicated(subst_name[use]))
+                        return(out)
+                axt_file <- tempfile("batch_", tmpdir = calc_dir, fileext = ".axt")
+                kaks_file <- paste0(axt_file, ".kaks")
+                on.exit(unlink(c(axt_file, kaks_file)), add = TRUE)
+                writeLines(as.vector(rbind(subst_name[use], vapply(seqs[use], `[`, "", 1), vapply(seqs[use], `[`, "", 2), "")),
+                           axt_file)
+                run_tool(
+                        "KaKs_Calculator",
+                        args    = c(list("-i", axt_file, "-o", kaks_file), kaks_calc_args(est.method, NULL)),
+                        path    = kaks_calc_path,
+                        tool    = "KaKs_Calculator",
+                        context = paste0(length(use), " gene pairs"),
+                        output  = kaks_file
+                )
+                lines <- readLines(kaks_file, warn = FALSE)
+                if (length(lines) < 2)
+                        return(out)
+                key <- sub("\t.*$", "", lines[-1])
+                blocks <- rle(key)
+                if (!identical(blocks$values, subst_name[use]))
+                        return(out)
+                ends <- cumsum(blocks$lengths)
+                starts <- ends - blocks$lengths + 1L
+                genetic_code <- kaks_genetic_code(NULL)
+                # The table is read once when every line has the same number of fields and there is no quote
+                # character; the rows of a pair are then a table with the values of read.csv() for its rows alone:
+                # kaks_result_table() takes every column as character or numbers (as.numeric(as.character())),
+                # so a column that read.csv() types differently for all rows than for the rows of one pair (e.g.
+                # numbers instead of logical NA, double instead of integer) gives the same values. Otherwise the rows
+                # of each pair are read on their own.
+                n_tabs <- lengths(regmatches(lines, gregexpr("\t", lines, fixed = TRUE)))
+                whole <- if (length(unique(n_tabs)) == 1 && !any(grepl("\"", lines, fixed = TRUE)))
+                        utils::read.csv(text = lines, sep = "\t", header = TRUE) else NULL
+                if (!is.null(whole) && nrow(whole) != length(lines) - 1L)
+                        whole <- NULL
+                for (j in seq_along(use)) {
+                        k <- use[j]
+                        out[k] <- list(tryCatch({
+                                kaks_tbl <- if (!is.null(whole)) whole[starts[j]:ends[j], , drop = FALSE] else
+                                        utils::read.csv(text = c(lines[1], lines[-1][starts[j]:ends[j]]), sep = "\t", header = TRUE)
+                                context <- pair_context(files[k], subst_name[k])
+                                kaks_result_table(kaks_tbl, fasta_ids(files[k])[1:2], paste0(context, " (method ", est.method, ")"),
+                                                  aln = seqs[[k]], genetic_code = genetic_code)
+                        }, error = function(e) NULL))
+                }
+                out
+        }, error = function(e) vector("list", n))
+}
