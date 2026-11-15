@@ -1,9 +1,26 @@
 # Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
+#
+# The external programs the tests need are installed before the check, so that the tests that are skipped
+# without them (DIAMOND: most of the suite; BLAST+; Clustal Omega, MAFFT, KaKs_Calculator) run:
+#   Linux / macOS : from bioconda into a micromamba environment whose bin folder is put on the PATH
+#   Windows       : DIAMOND from its GitHub release (bioconda has no Windows builds; the BLAST+ and
+#                   alignment-program tests are skipped there)
+#
+# Triggers: pushes to the default branch and to the working branches of a fork (integration/**, upstream/**,
+# upstream-v2/**, fix/**), pull requests, and a manual start (Actions tab > R-CMD-check.yaml > "Run workflow").
+# Actions must be enabled in the repository settings of a fork for any of them to run.
 on:
   push:
-    branches: [main, master]
+    branches:
+      - main
+      - master
+      - 'integration/**'
+      - 'upstream/**'
+      - 'upstream-v2/**'
+      - 'fix/**'
   pull_request:
+  workflow_dispatch:
 
 name: R-CMD-check.yaml
 
@@ -13,7 +30,7 @@ jobs:
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
 
-    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }}${{ matrix.config.tools == 'none' && ', no optional tools' || '' }})
 
     strategy:
       fail-fast: false
@@ -23,7 +40,10 @@ jobs:
           - {os: windows-latest, r: 'release'}
           - {os: ubuntu-latest,  r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,  r: 'release'}
-          - {os: ubuntu-latest,   r: 'oldrel-1'}
+          - {os: ubuntu-latest,  r: 'oldrel-1'}
+          # no optional tools: no DIAMOND, BLAST+, aligners, KaKs_Calculator (perl is on the runner). Every
+          # test that needs one of them must skip; none may fail.
+          - {os: ubuntu-latest,  r: 'release', tools: 'none'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -32,12 +52,54 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Install DIAMOND, BLAST+ and the optional programs (Linux, macOS)
+        if: runner.os != 'Windows' && matrix.config.tools != 'none'
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: orthologr-tools
+          create-args: >-
+            -c conda-forge -c bioconda
+            diamond>=2.1
+            blast
+            clustalo
+            mafft
+            kakscalculator2
+          cache-environment: true
+          init-shell: none
+          generate-run-shell: false
+
+      - name: Put the programs on the PATH (Linux, macOS)
+        if: runner.os != 'Windows' && matrix.config.tools != 'none'
+        shell: bash
+        run: |
+          echo "$MAMBA_ROOT_PREFIX/envs/orthologr-tools/bin" >> "$GITHUB_PATH"
+
+      - name: Install DIAMOND (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "diamond"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/bbuchfink/diamond/releases/latest/download/diamond-windows.zip" -OutFile (Join-Path $dir "diamond.zip")
+          Expand-Archive -Path (Join-Path $dir "diamond.zip") -DestinationPath $dir -Force
+          Add-Content -Path $env:GITHUB_PATH -Value $dir
+
+      - name: Show the versions of the external programs
+        shell: bash
+        run: |
+          if command -v diamond > /dev/null; then diamond version; else echo "no DIAMOND (leg without optional tools)"; fi
+          perl -v | head -n 2
+          if command -v blastp > /dev/null; then blastp -version; fi
+          if command -v clustalo > /dev/null; then clustalo --version; fi
+          if command -v mafft > /dev/null; then mafft --version; fi
+
       - uses: r-lib/actions/setup-pandoc@v2
 
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
+          use-public-rspm: true
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
