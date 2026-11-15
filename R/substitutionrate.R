@@ -481,7 +481,24 @@ check_codon_alignment_file <- function(file) {
 
 # The table gestimator writes (tab-separated, no header: query id, subject id, dN, dS, dN/dS), with the IDs read
 # as character whatever they look like.
+# (P2 of REVIEW-OL-1) The table of one gene pair is a single line: it is split with strsplit() and the numbers are
+# converted with as.numeric(), which is much faster than starting fread() for it. Only where fread() reads the
+# fields the same way (5 fields per line, no empty line; plain decimal numbers; IDs of printable ASCII without white
+# space - fread() strips white space at their ends - and not empty); anything else is read by fread() as before.
 read_gestimator_table <- function(file) {
+        lines <- tryCatch(readLines(file, warn = FALSE), error = function(e) NULL)
+        if (length(lines) > 0 && all(nzchar(lines))) {
+                parts <- strsplit(lines, "\t", fixed = TRUE)
+                if (all(lengths(parts) == 5L)) {
+                        m <- matrix(unlist(parts, use.names = FALSE), nrow = 5)
+                        ids <- m[1:2, , drop = FALSE]
+                        if (all(nzchar(ids)) && !any(grepl("[^!-~]", ids, perl = TRUE)) &&
+                            all(grepl("^-?[0-9]+(\\.[0-9]+)?([eE][-+]?[0-9]+)?$", m[3:5, ], perl = TRUE)))
+                                return(data.table::data.table(query_id = m[1, ], subject_id = m[2, ],
+                                                              dN = as.numeric(m[3, ]), dS = as.numeric(m[4, ]),
+                                                              dNdS = as.numeric(m[5, ])))
+                }
+        }
         res <- data.table::fread(
                 file       = file,
                 sep        = "\t",
