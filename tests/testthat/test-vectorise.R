@@ -250,3 +250,23 @@ test_that("dnds_cluster() rejects an unknown cluster type and the package no lon
         desc <- utils::packageDescription("orthologr")$Imports
         expect_false(grepl("foreach|doParallel", desc))
 })
+
+test_that("fasta_looks_like_protein() counts as the two gsub() calls did (P3 of REVIEW-OL-1)", {
+        old <- function(file) {
+                x <- tryCatch(readLines(file, n = 2000, warn = FALSE), error = function(e) character(0))
+                x <- toupper(paste(x[!startsWith(x, ">")], collapse = ""))
+                x <- gsub("[^A-Z*]", "", x)
+                if (nchar(x) < 30) return(FALSE)
+                nchar(gsub("[ACGTUNRYKMSWBDHV]", "", x)) / nchar(x) > 0.1
+        }
+        fs <- list.files(system.file("seqs", package = "orthologr"), full.names = TRUE)
+        d <- new_test_dir("p3_")
+        extra <- file.path(d, c("short.fa", "mixed.fa", "aa.fa", "empty.fa"))
+        writeLines(c(">a", "ACGT"), extra[1])
+        writeLines(c(">a", "acgtnnryk-*..12 ACGTACGTACGTACGTACGTACGTACGTACGTQ"), extra[2])
+        writeLines(c(">p", "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ*"), extra[3])
+        file.create(extra[4])
+        for (f in c(fs, extra))
+                expect_identical(fasta_looks_like_protein(f), old(f), info = basename(f))
+        expect_true(fasta_looks_like_protein(extra[3]))
+})

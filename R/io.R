@@ -341,11 +341,14 @@ fasta_looks_like_protein <- function(file) {
         x <- tryCatch(readLines(file, n = 2000, warn = FALSE), error = function(e) character(0))
         x <- x[!startsWith(x, ">")]
         x <- toupper(paste(x, collapse = ""))
-        x <- gsub("[^A-Z*]", "", x)
-        if (nchar(x) < 30)
+        # (P3 of REVIEW-OL-1) the letters A-Z and '*' are counted as bytes, instead of two gsub() calls over the
+        # text (the same counts: other characters, also those of more than one byte, are not counted either)
+        n <- tabulate(as.integer(charToRaw(x)), 255L)
+        total <- sum(n[c(65:90, 42L)])
+        if (total < 30)
                 return(FALSE)
-        other <- nchar(gsub("[ACGTUNRYKMSWBDHV]", "", x))
-        other / nchar(x) > 0.1
+        nucleotide <- sum(n[as.integer(charToRaw("ACGTUNRYKMSWBDHV"))])
+        (total - nucleotide) / total > 0.1
 }
 
 # A sequence file (FASTA / FASTQ, plain or gzip) as Biostrings can read it. A UTF-8 byte-order mark at the start of
