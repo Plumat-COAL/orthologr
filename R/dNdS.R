@@ -141,15 +141,16 @@
 #' This function takes the CDS files of two organisms of interest (\code{query_file} and \code{subject_file}) 
 #' and computes the dNdS estimation values for orthologous gene pairs between these organisms.
 #' 
-#' The following pipieline resembles the dNdS estimation process:
+#' The following pipeline resembles the dNdS estimation process:
 #' 
 #' \itemize{
 #'                 
 #' \item 1) Orthology Inference: e.g. DIAMOND or BLAST reciprocal best hit (RBH)
 #' 
-#' \item 2) Pairwise sequence alignment: e.g. clustalw for pairwise amino acid sequence alignments
+#' \item 2) Protein alignment of each gene pair: Needleman-Wunsch (\code{aa_aln_tool = "NW"}, the default, with
+#' \code{aa_aln_type = "pairwise"}) or a multiple alignment program (\code{aa_aln_type = "multiple"})
 #' 
-#' \item 3) Codon Alignment: e.g. pal2nal program
+#' \item 3) Codon Alignment: COAL or PAL2NAL (\code{codon_aln_tool})
 #' 
 #' \item 4) dNdS estimation: e.g. Yang, Z. and Nielsen, R. (2000) \url{http://mbe.oxfordjournals.org/content/17/1/32.short}
 #' 
@@ -166,7 +167,6 @@
 #'    \itemize{  
 #'    \item \code{"RBH"} (DIAMOND or BLAST best reciprocal hit)
 #'    \item \code{"BH"} (DIAMOND or BLAST best hit)
-#'    \item \code{"Orthofinder2"}
 #'      }
 #'      
 #' \item \code{aa_aln_type} : 
@@ -177,12 +177,9 @@
 #' 
 #' \item \code{aa_aln_tool} :
 #' \itemize{
-#'  \item \code{"clustalw"}
-#'  \item \code{"t_coffee"}
-#'  \item \code{"muscle"}
-#'  \item \code{"clustalo"}
-#'  \item \code{"mafft"}
-#'  \item \code{"NW"} (in case \code{aa_aln_type = "pairwise"})
+#'  \item \code{"NW"} (with \code{aa_aln_type = "pairwise"})
+#'  \item \code{"clustalw"}, \code{"t_coffee"}, \code{"muscle"}, \code{"clustalo"}, \code{"mafft"} (with
+#'  \code{aa_aln_type = "multiple"})
 #' }
 #' 
 #' \item \code{codon_aln_tool} :
@@ -200,7 +197,7 @@
 #' \item "MLWL" (Modified LWL), MLPB (Modified LPB): Tzeng, Y.H., et al. (2004)
 #' \item "YN": Yang, Z. and Nielsen, R. (2000)
 #' \item "MYN" (Modified YN): Zhang, Z., et al. (2006)
-#' 
+#' \item "GY", "GMYN", "MS", "MA" and "ALL" (KaKs_Calculator only; see the argument \code{dnds_est.method})
 #' }
 #' 
 #' }
