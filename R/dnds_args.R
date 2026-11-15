@@ -50,6 +50,10 @@ dnds_check_args <- function(aligner, sensitivity_mode, seq_type, format, ortho_d
         
         check_choice(aa_aln_type, c("pairwise", "multiple"), "aa_aln_type")
         
+        # options(orthologr.max_aln_cells) is checked now: an invalid value (-1, "5e8") ran the search and then
+        # failed every gene pair with the message about the option
+        max_aln_cells()
+        
         if (aa_aln_type == "pairwise") {
                 check_choice(aa_aln_tool, "NW", "aa_aln_tool",
                              hint = "(with aa_aln_type = 'pairwise'; the tools 'clustalw', 'clustalo', 'mafft', 'muscle' and 't_coffee' need aa_aln_type = 'multiple').")

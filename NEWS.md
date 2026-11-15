@@ -6,6 +6,7 @@
   not be processed and input sequences that were left out, each with the reason.
 - A warning when an input file of `dNdS()`, `divergence_stratigraphy()`, `orthologs()` or `orthogroups()` seems
   to hold several transcripts per gene (`options(orthologr.isoform_warning = FALSE)` switches it off).
+- `aa_sub_matrix` (`dNdS()`, `pairwise_aln()`): the substitution matrix of pairwise protein alignments.
 - MUSCLE 5 is supported; `"MLPB"` is an accepted `dnds_est.method`.
 - `environment.yml` (conda environment with R, the R packages and the external programs); a pkgdown site
   configuration; an article on the setup on Windows.
@@ -14,8 +15,10 @@
 
 | Change | Effect (measured) | Old behaviour |
 |---|---|---|
+| Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | 1,000-gene example: dN or dS changes for a third of the gene pairs, mostly slightly (r of dN/dS old vs new 0.988) | `options(orthologr.legacy_pairwise_aln = TRUE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
+| A pairwise protein alignment of more than 5e8 cells (length x length; pwalign needs about 3 bytes per cell, so about 1.5 GB) is not computed: the gene pair is returned with `NA` values and the reason in `attr(, "failed_pairs")` (was: aligned whatever the memory; `options(orthologr.max_aln_cells)`, `?pairwise_aln`) | human 1,000 transcripts / all mouse CDS, 2 cores: 1 of 946 pairs (titin, 35,991 x 35,390 residues, 1.27e9 cells) not aligned instead of dS 0.50; peak memory 4.3 GB -> 0.79 GB, run time 87 s -> 42 s; 1,000-gene example: 0 pairs | `options(orthologr.max_aln_cells = Inf)` |
 
 Further behaviour that differs from 0.4.3 and cannot be switched back:
 
@@ -76,9 +79,16 @@ Running programs:
   `promotor_divergence_estimation()`, `lnc_map_counts()`, `map_generator_dnds()` with one subject file: errors
   on valid input fixed. `check_annotation(remove_annotation_outliers = TRUE)` no longer overwrites the
   annotation file.
+- An invalid `options(orthologr.max_aln_cells)` (`-1`, `"5e8"` as text, `NA`, several values) is an error
+  (naming the value) before the search in `dNdS()`; it ran the search and then failed every gene pair with the
+  message about the option (20-gene example: 20 of 20 pairs failed).
 
 ### Speed (results unchanged)
 
+- Default `dNdS()` on the 1,000-gene example, 1 core: 744 s (0.4.3) -> 50 s; with 2 cores 27 s. Half of the last
+  step comes from building the full-length alignment rows directly instead of with `pwalign::alignedPattern()`
+  (97 s -> 50 s); the rest from BLOSUM62 scoring, reading and translating every file once, vectorised
+  translation and best-hit selection, and not writing a second copy of every alignment.
 - `select_orthologs()`, `retrieve_longest_isoforms()` and `deepclust()` read annotations and sequences in one
   pass.
 

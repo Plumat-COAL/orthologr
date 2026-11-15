@@ -12,6 +12,15 @@
 #' @param path a character string specifying the path to the pairwise alignment program (in case you don't use the default path).
 #' @param quiet a logical value specifying whether a successful interface call shall be printed out.
 #' @param store_locally a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.
+#' If \code{store_locally = TRUE}, the alignment is also written with its score to
+#' \code{orthologr_alignment_files/_pairwise_alignment_with_score} (\code{\link[pwalign]{writePairwiseAlignments}}).
+#' This score file is no longer written when \code{store_locally = FALSE}.
+#' @param aa_sub_matrix the substitution matrix used to score amino acid alignments (\code{seq_type = "protein"}):
+#' the name of a matrix shipped with \pkg{pwalign} (\code{"BLOSUM62"} (Default), \code{"BLOSUM45"}, \code{"BLOSUM50"},
+#' \code{"BLOSUM80"}, \code{"BLOSUM100"}, \code{"PAM30"}, \code{"PAM40"}, \code{"PAM70"}, \code{"PAM120"}, \code{"PAM250"}),
+#' or a numeric substitution matrix. \code{aa_sub_matrix = NULL} gives the scoring of \pkg{orthologr} <= 0.4.3
+#' (\code{\link[pwalign]{pairwiseAlignment}} without a substitution matrix, i.e. a match/mismatch score that ignores which
+#' amino acids are exchanged). The argument is ignored for DNA sequences.
 #' @author Sarah Scharfenberg and Hajk-Georg Drost
 #' @details This function provides an interface between R and common pairwise alignment computation methods.
 #' 
@@ -19,6 +28,26 @@
 #' function implemented in the \pkg{pwalign} package.
 #' 
 #' The default pairwise alignment method is based on the \emph{Needleman-Wunsch Algorithm}.
+#' 
+#' Since \pkg{orthologr} 0.4.4 (see \code{NEWS.md}):
+#' \itemize{
+#' \item amino acid sequences are scored with \code{BLOSUM62} by default (argument \code{aa_sub_matrix});
+#' \item the alignment that is written is full length: every residue of both sequences is in it, and the overhanging
+#' ends of the longer sequence are aligned against gaps. Earlier versions wrote only the aligned range and thereby cut
+#' the overhangs off;
+#' \item a stop codon symbol (\code{*}) at the end of an amino acid sequence is removed before aligning, so that the
+#' stop codon is not part of the alignment (and of the codon alignment and dN/dS estimate derived from it).
+#' }
+#' All three change the alignments and therefore, slightly, the dN/dS values computed from them.
+#' The behaviour of \pkg{orthologr} <= 0.4.3 (old scoring, truncated overhangs, stop codon aligned, score file always
+#' written) can be restored for reproducing earlier results with \code{options(orthologr.legacy_pairwise_aln = TRUE)}.
+#'
+#' \strong{Memory.} \code{\link[pwalign]{pairwiseAlignment}} keeps the whole dynamic-programming matrix: about 3 bytes
+#' per cell, i.e. per pair of residues (two proteins of 10,000 residues: 0.3 GB; a titin pair of 36,000 x 35,400
+#' residues: 3.9 GB). An alignment of more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
+#' 1.5 GB) is not computed: \code{pairwise_aln()} stops with an error, and \code{\link{dNdS}} returns the pair
+#' with \code{NA} values and the reason in \code{attr(result, "failed_pairs")}.
+#' \code{options(orthologr.max_aln_cells = Inf)} removes the limit.
 #' 
 #' @examples \dontrun{        
 #'                                             
@@ -42,7 +71,8 @@ pairwise_aln <- function(file,
                          pairwise_aln_name = NULL,
                          path              = NULL, 
                          quiet             = FALSE,
-                         store_locally     = FALSE){
+                         store_locally     = FALSE,
+                         aa_sub_matrix     = "BLOSUM62"){
         
         
         if (!is.pairwise_aln_tool(tool))
@@ -56,14 +86,19 @@ pairwise_aln <- function(file,
         
         if (seq_type == "protein")
                 seqtype <- "AA"
-                
         
-        if (!file.exists(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment"))) {
-                dir.create(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment"))
-        }
+        # options(orthologr.legacy_pairwise_aln = TRUE): the behaviour of orthologr <= 0.4.3
+        legacy <- isTRUE(getOption("orthologr.legacy_pairwise_aln", FALSE))
+        
+        if (legacy)
+                aa_sub_matrix <- NULL
+        
+        check_aa_sub_matrix(aa_sub_matrix)
+        
         
         if (!file.exists(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment", "pairwise_aln"))) {
-                dir.create(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment", "pairwise_aln"))
+                dir.create(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment", "pairwise_aln"),
+                           recursive = TRUE)
         }
         
         if (is.null(pairwise_aln_name)) {
@@ -119,27 +154,65 @@ pairwise_aln <- function(file,
                                 })
                 }
                 
-                # align
-                aln  <-
-                        pwalign::pairwiseAlignment(pattern = seqs[[1]],
-                                                   subject = seqs[[2]],
-                                                   type    = "global")
+                if (length(seqs) < 2)
+                        stop("The file '", file, "' must store two sequences to compute a pairwise alignment.", call. = FALSE)
                 
-                #write file -> comment Hajk: what does pattern() and subject() do in pattern(aln), subject(aln) ?
-                # pattern(aln) == get aligned sequence that was set as pattern input
-                # subject(aln) == get aligned sequence that was set as subject input
+                # a stop codon symbol at the end of a protein is not aligned (it would otherwise become a column
+                # of the codon alignment and be scored in the dN/dS estimate)
+                if (seq_type == "protein" && !legacy) {
+                        seqs <- lapply(seqs, function(x) {
+                                n <- length(x)
+                                if (n > 1 && as.character(Biostrings::subseq(x, n, n)) == "*")
+                                        x <- Biostrings::subseq(x, 1, n - 1)
+                                return(x)
+                        })
+                }
+                
+                # The dynamic programming of pwalign::pairwiseAlignment() needs about 3 bytes per cell of the
+                # n x m matrix (measured: 1e8 cells 0.31 GB; a titin pair of 36,000 x 35,400 residues 3.9 GB), with
+                # comp_cores > 1 once per running pair. Above options(orthologr.max_aln_cells) the pair is not
+                # aligned (an error, which dNdS() reports as a failed pair).
+                check_aln_cells(length(seqs[[1]]), length(seqs[[2]]))
+                
+                # align
+                if (seq_type == "protein" && !is.null(aa_sub_matrix)) {
+                        aln  <-
+                                pwalign::pairwiseAlignment(pattern = seqs[[1]],
+                                                           subject = seqs[[2]],
+                                                           type    = "global",
+                                                           substitutionMatrix = aa_sub_matrix)
+                } else {
+                        aln  <-
+                                pwalign::pairwiseAlignment(pattern = seqs[[1]],
+                                                           subject = seqs[[2]],
+                                                           type    = "global")
+                }
+                
+                # write file
+                # pwalign::pattern(aln) / pwalign::subject(aln) only hold the aligned range of each sequence:
+                # for a global alignment the overhanging ends of the longer sequence are cut off.
+                # The full-length rows (overhangs aligned against gaps) are what
+                # pwalign::alignedPattern(aln) / pwalign::alignedSubject(aln) return; aligned_rows() builds the
+                # same two strings from the aligned ranges, which takes about a hundredth of the time.
+                if (legacy) {
+                        aln_seqs <- list(pwalign::pattern(aln), pwalign::subject(aln))
+                } else {
+                        aln_seqs <- as.list(aligned_rows(aln, as.character(seqs[[1]]), as.character(seqs[[2]])))
+                }
+                
                 seqinr::write.fasta(
-                        sequences = list(pwalign::pattern(aln), pwalign::subject(aln)),
+                        sequences = aln_seqs,
                         names     = names,
                         file.out  = file.out
                 )
                 
+                # the alignment with its score: only when alignment files are stored locally
                 if (store_locally) {
                         local_store_path <- file.path("orthologr_alignment_files", "_pairwise_alignment_with_score")
                         if (!file.exists(local_store_path))
                                 dir.create(local_store_path, recursive = TRUE)
                         pwalign::writePairwiseAlignments(aln, file.path(local_store_path, paste0(pairwise_aln_name, "_", tool, "_", seqtype, ".aln")))
-                } else {
+                } else if (legacy) {
                         local_store_path <- file.path(orthologr_tmpdir(), "_pairwise_alignment_with_score")
                         if (!file.exists(local_store_path))
                                 dir.create(local_store_path, recursive = TRUE)
@@ -159,3 +232,53 @@ pairwise_aln <- function(file,
 
 
 
+
+# The two full-length rows of a global pairwise alignment as character strings: what
+# as.character(pwalign::alignedPattern(aln)) and as.character(pwalign::alignedSubject(aln)) return, built from the
+# aligned ranges (pwalign::pattern(aln), pwalign::subject(aln)) and the ends of the two sequences that lie outside
+# them. An unaligned end of the pattern stands against gaps in the subject row and the other way round. (Only
+# for type = "global": for local and overlap alignments pwalign's functions leave the unaligned ends out.)
+#   aln         : a PairwiseAlignments object holding one alignment
+#   pattern_seq : the complete (unaligned) pattern sequence, one string
+#   subject_seq : the complete (unaligned) subject sequence, one string
+aligned_rows <- function(aln, pattern_seq, subject_seq) {
+        p_range <- pwalign::pattern(aln)
+        s_range <- pwalign::subject(aln)
+        p_start <- pwalign::start(p_range)
+        p_end   <- pwalign::end(p_range)
+        s_start <- pwalign::start(s_range)
+        s_end   <- pwalign::end(s_range)
+        n_p <- nchar(pattern_seq)
+        n_s <- nchar(subject_seq)
+        gaps <- function(n) strrep("-", max(n, 0))
+        c(paste0(gaps(s_start - 1), substr(pattern_seq, 1, p_start - 1), as.character(p_range),
+                 substr(pattern_seq, p_end + 1, n_p), gaps(n_s - s_end)),
+          paste0(substr(subject_seq, 1, s_start - 1), gaps(p_start - 1), as.character(s_range),
+                 gaps(n_p - p_end), substr(subject_seq, s_end + 1, n_s)))
+}
+
+# The largest pairwise alignment (n x m cells) that pairwise_aln() computes: options(orthologr.max_aln_cells), by
+# default 5e8 cells (about 1.5 GB of memory in pwalign::pairwiseAlignment(), e.g. two proteins of 22,000 residues).
+# Inf (the value of 0.4.3) has no limit.
+max_aln_cells <- function() {
+        v <- getOption("orthologr.max_aln_cells", 5e8)
+        if (!is.numeric(v) || length(v) != 1 || is.na(v) || v <= 0)
+                stop("options(orthologr.max_aln_cells) must be one positive number (Inf: no limit), not ",
+                     if (is.character(v)) paste0("'", paste(v, collapse = "', '"), "' (text)") else paste(format(v), collapse = ", "),
+                     ".", call. = FALSE)
+        v
+}
+
+# Stop when the alignment of two sequences of n and m residues has more cells than max_aln_cells() allows.
+check_aln_cells <- function(n, m) {
+        limit <- max_aln_cells()
+        cells <- as.numeric(n) * as.numeric(m)
+        if (is.finite(limit) && cells > limit)
+                stop("the pairwise alignment of two sequences of ", n, " and ", m, " residues has ",
+                     format(cells, big.mark = ",", scientific = FALSE), " cells and would need about ",
+                     signif(3 * cells / 1e9, 2), " GB of memory; options(orthologr.max_aln_cells) is ",
+                     format(limit, big.mark = ",", scientific = FALSE), ". The pair is not aligned; ",
+                     "options(orthologr.max_aln_cells = Inf) aligns it anyway (about 3 bytes per cell, with comp_cores > 1 for every pair aligned at the same time).",
+                     call. = FALSE)
+        invisible(cells)
+}

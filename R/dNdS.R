@@ -54,6 +54,10 @@
 #' with \code{aa_aln_type = "pairwise"}. Until version 0.4.3 the argument was accepted but never passed on.
 #' Note: this controls the amino acid alignment step only, not the initial DIAMOND or BLAST homology search
 #' (use \code{aligner_params} for that). Default is \code{aa_aln_params} = \code{NULL} (the default parameters).
+#' @param aa_sub_matrix the substitution matrix used to score pairwise amino acid alignments (\code{aa_aln_type = "pairwise"}):
+#' the name of a matrix shipped with \pkg{pwalign}, e.g. \code{"BLOSUM62"} (Default), a numeric substitution matrix, or \code{NULL}
+#' for the scoring of \pkg{orthologr} <= 0.4.3 (no substitution matrix). See \code{\link{pairwise_aln}} for details and for how to
+#' reproduce dN/dS values computed with earlier versions.
 #' @param codon_aln_tool a character string specifying the codon alignment tool that shall be used. Default is \code{codon_aln_tool} = \code{"pal2nal"}.
 #' Right now only "pal2nal" can be selected as codon alignment tool.
 #' @param kaks_calc_path a character string specifying the execution path to KaKs_Calculator. Default is \code{kaks_calc_path} = \code{NULL}
@@ -176,6 +180,12 @@
 #' \code{attr(result, "failed_pairs")} is a \code{data.frame} (\code{query_id}, \code{subject_id}, \code{reason})
 #' naming the pair, the program and its message.
 #' 
+#' \strong{Memory} (default engine): the pairwise protein alignment of a gene pair needs about 3 bytes per pair of
+#' residues (\code{\link{pairwise_aln}}), with \code{comp_cores > 1} once for every pair aligned at the same time.
+#' A pair whose alignment would have more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
+#' 1.5 GB; e.g. a titin pair of 36,000 residues each would need about 4 GB) is not aligned and is returned with
+#' \code{NA} values and the reason in \code{attr(result, "failed_pairs")}.
+#'
 #' Each call keeps its intermediate files (search database, alignments, KaKs_Calculator files) in a folder of its own
 #' inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it.
 #' 
@@ -273,7 +283,8 @@ dNdS <- function(query_file,
                  comp_cores      = 1, 
                  quiet           = TRUE, 
                  clean_folders   = FALSE,
-                 print_citation = TRUE
+                 print_citation = TRUE,
+                 aa_sub_matrix   = "BLOSUM62"
                  ){
         
         # what is not supported is rejected now, before any program is started
@@ -300,6 +311,8 @@ dNdS <- function(query_file,
         }
         
         comp_cores <- check_comp_cores(comp_cores)
+        
+        check_aa_sub_matrix(aa_sub_matrix)
         
         # the programs of the chosen pipeline must be there before the search starts
         dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = codon_aln_tool,
@@ -349,15 +362,11 @@ dNdS <- function(query_file,
                 } else {
                         message("Creating folder 'orthologr_alignment_files' to store alignment files ...")
                         dir.create("orthologr_alignment_files")
-                        if (!file.exists(file.path("orthologr_alignment_files", "_pairwise_alignment_with_score")))
-                                dir.create(file.path("orthologr_alignment_files", "_pairwise_alignment_with_score"))
                 }
+                if (!file.exists(file.path("orthologr_alignment_files", "_pairwise_alignment_with_score")))
+                        dir.create(file.path("orthologr_alignment_files", "_pairwise_alignment_with_score"))
         }
         
-        if (!store_locally) {
-                if (!file.exists(file.path(orthologr_tmpdir(), "_pairwise_alignment_with_score")))
-                        dir.create(file.path(orthologr_tmpdir(), "_pairwise_alignment_with_score"))
-        }
                 
         aa <- geneids <- NULL
         
@@ -455,7 +464,8 @@ dNdS <- function(query_file,
                                   dnds_est.method = dnds_est.method, 
                                   quiet           = quiet,
                                   comp_cores      = comp_cores, 
-                                  clean_folders   = clean_folders )
+                                  clean_folders   = clean_folders,
+                                  aa_sub_matrix   = aa_sub_matrix )
         
         # the dN/dS rows are joined with the hit table by the pair (query_id and subject_id; it was query_id only)
         res <- dplyr::inner_join(dNdS_tbl, tibble::as_tibble(hit.table), by = c("query_id", "subject_id"))

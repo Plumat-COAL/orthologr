@@ -29,7 +29,8 @@ dNdS(
   comp_cores = 1,
   quiet = TRUE,
   clean_folders = FALSE,
-  print_citation = TRUE
+  print_citation = TRUE,
+  aa_sub_matrix = "BLOSUM62"
 )
 }
 \arguments{
@@ -133,6 +134,11 @@ Default is \code{quiet} = \code{FALSE}.}
 \code{tempdir()}, which is always removed when the call ends (see Details), so there is nothing left to clean.}
 
 \item{print_citation}{a logical value indicating whether or not the citation message shall be printed.}
+
+\item{aa_sub_matrix}{the substitution matrix used to score pairwise amino acid alignments (\code{aa_aln_type = "pairwise"}):
+the name of a matrix shipped with \pkg{pwalign}, e.g. \code{"BLOSUM62"} (Default), a numeric substitution matrix, or \code{NULL}
+for the scoring of \pkg{orthologr} <= 0.4.3 (no substitution matrix). See \code{\link{pairwise_aln}} for details and for how to
+reproduce dN/dS values computed with earlier versions.}
 }
 \value{
 A data.table storing the dNdS values of the correspnding genes.
@@ -141,6 +147,12 @@ A gene pair for which a step of the pipeline fails (e.g. PAL2NAL or KaKs_Calcula
 the run: it is returned with \code{NA} for dN, dS and dNdS, a warning reports how many pairs failed, and
 \code{attr(result, "failed_pairs")} is a \code{data.frame} (\code{query_id}, \code{subject_id}, \code{reason})
 naming the pair, the program and its message.
+
+\strong{Memory} (default engine): the pairwise protein alignment of a gene pair needs about 3 bytes per pair of
+residues (\code{\link{pairwise_aln}}), with \code{comp_cores > 1} once for every pair aligned at the same time.
+A pair whose alignment would have more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
+1.5 GB; e.g. a titin pair of 36,000 residues each would need about 4 GB) is not aligned and is returned with
+\code{NA} values and the reason in \code{attr(result, "failed_pairs")}.
 
 Each call keeps its intermediate files (search database, alignments, KaKs_Calculator files) in a folder of its own
 inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it.
