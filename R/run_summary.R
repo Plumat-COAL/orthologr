@@ -93,7 +93,7 @@ dnds_failed_reason <- function(tbl, failed_pairs) {
 #   what          : the unit, e.g. "gene pairs"
 dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged = 0, what = "gene pairs", fun = "dNdS()",
                               failed_where = "attr(<result>, \"failed_pairs\")", trimmed = NULL, ambiguous_rows = 0,
-                              ambiguous_where = "attr(<result>, \"ambiguous_sequences\")") {
+                              ambiguous_where = "attr(<result>, \"ambiguous_sequences\")", stops = NULL) {
         n <- length(status)
         counts <- dnds_status_counts(status)
         parts <- c(
@@ -136,6 +136,11 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
                               " a coding sequence with ambiguous bases (e.g. N; options(orthologr.ambiguous_cds = \"keep\"), ",
                               "the default): codons with such a base were not compared (see ", ambiguous_where, "); ",
                               "options(orthologr.ambiguous_cds = \"drop\") leaves them out, as 0.4.3 did.")
+        if (!is.null(stops) && NROW(stops) > 0)
+                txt <- paste0(txt, "\n", nrow(stops), " coding sequence", if (nrow(stops) > 1) "s have" else " has",
+                              " in-frame stop codons before the last codon (a pseudogene, a wrong frame or another ",
+                              "genetic code?); they were used as they are. They are listed in ",
+                              "attr(<result>, \"stop_codon_sequences\").")
         if (dnds_saturation_hint(status, med))
                 txt <- paste0(txt, "\n", saturation_hint_text(counts[["saturated"]], n, med))
         txt
@@ -159,7 +164,7 @@ dnds_ambiguous_rows <- function(tbl, ambiguous) {
 #   trimmed       : data.frame (file, id, removed_nt, corrupted_file) of the sequences trimmed to a multiple of 3,
 #                   or NULL
 dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_converged = 0, record,
-                        print_citation = TRUE, extra_attr = list(), trimmed = NULL, ambiguous = NULL) {
+                        print_citation = TRUE, extra_attr = list(), trimmed = NULL, ambiguous = NULL, stops = NULL) {
         status <- dnds_status(res$dN, res$dS, res$dNdS, failed = dnds_is_failed(res, failed_pairs),
                               engine_status = engine_status)
         if (dnds_status_column())
@@ -173,6 +178,9 @@ dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_co
         # codons hold such a base (those codons are not compared)
         if (!is.null(ambiguous) && nrow(ambiguous) > 0)
                 attr(res, "ambiguous_sequences") <- ambiguous
+        # coding sequences with in-frame stop codons (file, id, stop_codons); their values are unchanged
+        if (!is.null(stops) && nrow(stops) > 0)
+                attr(res, "stop_codon_sequences") <- stops
         for (n in names(extra_attr))
                 attr(res, n) <- extra_attr[[n]]
         attr(res, "orthologr_run") <- run_record(fun = record$fun, args = record$args, engine = record$engine,
@@ -188,7 +196,7 @@ dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_co
                 })
         message(dnds_summary_text(status, dS = res$dS, dropped = dropped, not_converged = not_converged,
                                   fun = paste0(record$fun, "()"), trimmed = trimmed, what = what,
-                                  ambiguous_rows = sum(dnds_ambiguous_rows(res, ambiguous))))
+                                  ambiguous_rows = sum(dnds_ambiguous_rows(res, ambiguous)), stops = stops))
         citation_message(print_citation)
         res
 }
@@ -344,9 +352,10 @@ orthologr_options_in_force <- function() {
         set <- options()
         set <- set[startsWith(names(set), "orthologr.")]
         # (the working folder of the call is not a setting of the user; whether the note of library(orthologr) is
-        # shown changes no result)
+        # shown, and whether PAL2NAL / KaKs_Calculator handle a chunk of gene pairs per process, change no result)
         set[["orthologr.tmpdir"]] <- NULL
         set[["orthologr.quiet_upgrade"]] <- NULL
+        set[["orthologr.batch_tools"]] <- NULL
         for (n in setdiff(names(set), names(out)))
                 out[[n]] <- set[[n]]
         out[order(names(out))]

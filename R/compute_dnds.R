@@ -110,17 +110,35 @@ compute_dnds <- function(complete_tbl,
         q_aa  <- complete_tbl[["query_aa"]]
         s_aa  <- complete_tbl[["subject_aa"]]
         
-        # the complete pipeline for gene pair i: write the two FASTA files, align the proteins,
-        # build the codon alignment, estimate dN/dS
+        # The pipeline for gene pair i, in four steps: pair_files() writes the two FASTA files and aligns the
+        # proteins, pair_codon() builds the codon alignment, pair_rates() estimates dN/dS, pair_finish() makes the
+        # result rows. one_pair() runs them one after the other; run_pairs_staged() runs each step for a chunk of
+        # pairs, with one PAL2NAL / KaKs_Calculator process for the chunk where it can.
         #   aln_rows : NULL, or the two rows of the pairwise protein alignment of the pair computed beforehand by
         #              pairwise_aln_rows() (they are written to the file pairwise_aln() would write)
+        # (each step is evaluated before the next is called: a step handed over as an argument would be evaluated
+        # inside the next one, and the error of PAL2NAL became one of gestimator)
         one_pair <- function(i, aln_rows = NULL) {
-                # the IDs, coding sequences and amino acid sequences of the gene pair
-                orthologs_names <- list(q_ids[i], s_ids[i])
+                f <- pair_files(i, aln_rows)
+                codon_file <- pair_codon(i, f, aln_rows)
+                rates <- pair_rates(i, codon_file)
+                pair_finish(i, rates)
+        }
+        
+        # step 1: the FASTA files of the pair and its protein alignment; list(name, cds = <CDS FASTA file>,
+        # aa = <protein alignment file>)
+        pair_files <- function(i, aln_rows = NULL) {
+                # the coding sequences and amino acid sequences of the gene pair
                 cds_seqs <- list(q_cds[i], s_cds[i])
                 aa_seqs <- list(q_aa[i], s_aa[i])
                 
                 aa_aln_name <- paste0("q", i)
+                
+                # (P1 of REVIEW-OL-1) the codon alignment is built from the rows in memory (pair_codon(), same
+                # condition): the two FASTA files and the protein alignment file would never be read, so they are
+                # not written - unless the folder of the call is kept (options(orthologr.keep_tmp))
+                if (skip_pair_files && !is.null(aln_rows) && plain_seqs(c(q_cds[i], s_cds[i])))
+                        return(list(name = aa_aln_name, cds = NA_character_, aa = NA_character_))
                 
                 # create cds fasta of orthologous gene pair having session name: 'aa_aln_name'
                 cds_session_fasta <-
@@ -196,7 +214,12 @@ compute_dnds <- function(complete_tbl,
                                         paste0(aa_aln_name, "_", aa_aln_tool, "_AA.aln")
                                 )
                 }
-                
+                list(name = aa_aln_name, cds = cds_session_fasta, aa = aa_aln_file)
+        }
+        
+        # step 2: the codon alignment of the pair (files 'f' of pair_files()); returns the file that holds it
+        pair_codon <- function(i, f, aln_rows = NULL) {
+                aa_aln_name <- f$name
                 # align codon -> cds.aln
                 if (codon_in_memory && !is.null(aln_rows) && plain_seqs(c(q_cds[i], s_cds[i]))) {
                         # COAL in process with the rows and coding sequences at hand: the file codon_aln() writes,
@@ -212,8 +235,8 @@ compute_dnds <- function(complete_tbl,
                         write_alignment(codon, codon_file, format = "fasta")
                 } else {
                         codon_aln(
-                                file_aln       = aa_aln_file,
-                                file_nuc       = cds_session_fasta,
+                                file_aln       = f$aa,
+                                file_nuc       = f$cds,
                                 tool           = codon_aln_tool,
                                 format         = "fasta",
                                 codon_aln_name = aa_aln_name,
@@ -221,22 +244,24 @@ compute_dnds <- function(complete_tbl,
                                 quiet          = TRUE
                         )
                 }
-                
+                file.path(orthologr_tmpdir(), "_alignment", "codon_aln", paste0(aa_aln_name, "_", codon_aln_tool, ".aln"))
+        }
+        
+        # step 3: dN/dS of the codon alignment in 'codon_file'
+        pair_rates <- function(i, codon_file) {
                 # compute kaks
-                rates <- substitutionrate(
-                        file           = file.path(
-                                orthologr_tmpdir(),
-                                "_alignment",
-                                "codon_aln",
-                                paste0(aa_aln_name, "_", codon_aln_tool, ".aln")
-                        ),
-                        subst_name     = aa_aln_name,
+                substitutionrate(
+                        file           = codon_file,
+                        subst_name     = paste0("q", i),
                         kaks_calc_path = kaks_calc_path,
                         est.method     = dnds_est.method,
                         quiet          = TRUE,
                         kaks_tool      = kaks_tool
                 )
-                
+        }
+        
+        # step 4: the result rows of the pair from the table 'rates' of pair_rates()
+        pair_finish <- function(i, rates) {
                 # The IDs of the pair are those of the pair table - not what came back from the programs.
                 # Alignment programs and file readers change IDs (MAFFT cuts them to 15 characters in CLUSTAL
                 # output, fread() turned '007' into 7, KaKs_Calculator labels were split at '-'), and the result
@@ -244,8 +269,8 @@ compute_dnds <- function(complete_tbl,
                 # no input file.
                 kaks_failed <- attr(rates, "kaks_failed")
                 rates <- data.table::as.data.table(rates)
-                data.table::set(rates, j = "query_id", value = as.character(orthologs_names[[1]]))
-                data.table::set(rates, j = "subject_id", value = as.character(orthologs_names[[2]]))
+                data.table::set(rates, j = "query_id", value = as.character(q_ids[i]))
+                data.table::set(rates, j = "subject_id", value = as.character(s_ids[i]))
                 # an estimate of KaKs_Calculator that failed ('nan'): the row is a failed gene pair (with the method);
                 # otherwise the column '.reason' is NA (set here with data.table::set(): ':=' in safe_pair() took
                 # about 1 ms per pair)
@@ -264,18 +289,20 @@ compute_dnds <- function(complete_tbl,
         safe_pair <- function(i, aln_rows = NULL) {
                 res <- tryCatch(
                         one_pair(i, aln_rows),
-                        error = function(e) {
-                                dnds_na_row(
-                                        query_id   = q_ids[i],
-                                        subject_id = s_ids[i],
-                                        est.method = dnds_est.method,
-                                        # (the messages name the pair by the names in its files)
-                                        reason     = dnds_pair_reason(conditionMessage(e), q_ids[i], s_ids[i])
-                                )
-                        }
+                        error = function(e) pair_failed(i, e)
                 )
                 # (both one_pair() and dnds_na_row() return a data.table with the column '.reason')
                 return(res)
+        }
+        # the result row of gene pair i whose pipeline stopped with the error 'e'
+        pair_failed <- function(i, e) {
+                dnds_na_row(
+                        query_id   = q_ids[i],
+                        subject_id = s_ids[i],
+                        est.method = dnds_est.method,
+                        # (the messages name the pair by the names in its files)
+                        reason     = dnds_pair_reason(conditionMessage(e), q_ids[i], s_ids[i])
+                )
         }
         
         # The pairwise protein alignments (aa_aln_type = "pairwise", Needleman-Wunsch with a substitution matrix)
@@ -294,15 +321,78 @@ compute_dnds <- function(complete_tbl,
         # rows in memory (coal_codon_rows(), what codon_aln() does after reading the two files back).
         codon_in_memory <- batch_aln && identical(codon_aln_tool, "coal") &&
                 isTRUE(tryCatch(identical(coal_backend()$type, "coalr"), error = function(e) FALSE))
+        skip_pair_files <- codon_in_memory && !isTRUE(keep_tmp_setting()$keep)
         if (codon_in_memory) {
                 d <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln")
                 if (!file.exists(d))
                         dir.create(d, recursive = TRUE)
         }
+        # PAL2NAL and KaKs_Calculator for a chunk of gene pairs in one process each (pal2nal_batch(),
+        # kaks_calc_batch()) instead of one process per pair: the same files and tables. A pair that the batch
+        # does not compute, or that failed in it, goes through codon_aln() / substitutionrate() on its own, which
+        # then also gives its error. Not with the settings of 0.4.3 (orthologr_legacy_options()), which handle one
+        # pair at a time as 0.4.3 did, or with options(orthologr.batch_tools = FALSE).
+        batch_tools <- isTRUE(getOption("orthologr.batch_tools", TRUE)) &&
+                !isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))
+        batch_p2n <- batch_tools && identical(codon_aln_tool, "pal2nal") && pal2nal_batch_possible()
+        # (GMYN too: KaKs_Calculator 2.0 decides whether the header line is written for the gamma methods with a
+        # member that is never initialised, 'tempt'; kaks_output_lines() supplies a missing header and drops repeated
+        # ones, for one pair and for a chunk alike)
+        batch_kc <- batch_tools && identical(kaks_tool, "kaks_calculator") &&
+                is.element(dnds_est.method, setdiff(kaks_calculator_methods(), "kaks_calc"))
+        
         # the gene pairs 'idx' (a chunk): a list with the result table of each pair
         run_pairs <- function(idx) {
                 rows <- if (batch_aln) pairwise_aln_rows(q_aa[idx], s_aa[idx], aa_sub_matrix) else vector("list", length(idx))
+                if (batch_p2n || batch_kc)
+                        return(run_pairs_staged(idx, rows))
                 lapply(seq_along(idx), function(k) safe_pair(idx[k], rows[[k]]))
+        }
+        
+        # run_pairs() step by step: every step of one_pair() for all pairs of the chunk before the next step, the
+        # codon alignments with PAL2NAL and the estimates of KaKs_Calculator with one process for the chunk. A pair
+        # whose step stops with an error is the row of pair_failed() with that error, as in safe_pair().
+        run_pairs_staged <- function(idx, rows) {
+                n <- length(idx)
+                res <- vector("list", n)
+                files <- vector("list", n)
+                for (k in seq_len(n)) {
+                        files[[k]] <- tryCatch(pair_files(idx[k], rows[[k]]), error = function(e) e)
+                        if (inherits(files[[k]], "error"))
+                                res[[k]] <- pair_failed(idx[k], files[[k]])
+                }
+                todo <- which(vapply(res, is.null, TRUE))
+                # the codon alignments
+                codon <- rep(NA_character_, n)
+                if (batch_p2n && length(todo) > 0) {
+                        done <- pal2nal_batch(file_aln = vapply(files[todo], `[[`, "", "aa"),
+                                              file_nuc = vapply(files[todo], `[[`, "", "cds"),
+                                              codon_aln_name = vapply(files[todo], `[[`, "", "name"))
+                        codon[todo[done]] <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln",
+                                                       paste0(paste0("q", idx[todo[done]]), "_", codon_aln_tool, ".aln"))
+                }
+                for (k in todo[is.na(codon[todo])]) {
+                        x <- tryCatch(pair_codon(idx[k], files[[k]], rows[[k]]), error = function(e) e)
+                        if (inherits(x, "error"))
+                                res[[k]] <- pair_failed(idx[k], x)
+                        else
+                                codon[k] <- x
+                }
+                todo <- which(vapply(res, is.null, TRUE))
+                # the estimates
+                rates <- vector("list", n)
+                if (batch_kc && length(todo) > 0)
+                        rates[todo] <- kaks_calc_batch(files = codon[todo], subst_name = paste0("q", idx[todo]),
+                                                       est.method = dnds_est.method, kaks_calc_path = kaks_calc_path)
+                for (k in todo) {
+                        res[[k]] <- tryCatch({
+                                r <- rates[[k]]
+                                if (is.null(r))
+                                        r <- pair_rates(idx[k], codon[k])
+                                pair_finish(idx[k], r)
+                        }, error = function(e) pair_failed(idx[k], e))
+                }
+                res
         }
         
         .reason <- NULL

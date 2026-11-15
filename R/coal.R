@@ -84,7 +84,9 @@ coal_versions <- function() {
         v$coal_backend <- backend$type
         if (backend$type == "coalr") {
                 v$coalr <- package_version_text("coalr")
-                engine <- tryCatch(coalr::coal_info()$version, error = function(e) NULL)
+                # (coalr names the version of its engine coal_version; there is no field 'version', so the engine's
+                # version was never recorded - M3 of REVIEW-OL-1)
+                engine <- tryCatch(coalr::coal_info()$coal_version, error = function(e) NULL)
                 if (!is.null(engine) && length(engine) == 1)
                         v$coal <- as.character(engine)
         } else {
@@ -111,13 +113,27 @@ coal_flavour_args <- function(fun, methods = NULL) {
                 terminal_stops    = if (isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))) "compare" else "drop"
         )
         have <- names(formals(fun))
-        if (is.element("Comeron", methods) && !is.element("comeron_twosubs", have))
+        # A coalr whose coal_info()$features lacks "comeron_min_sites_positive" (COAL before #76) computes Comeron
+        # otherwise than engine = "orthologr": without comeron_twosubs / comeron_min_sites (older still) along
+        # libsequence's branches and with NA for small site classes, and with them a 0 where the rule of the
+        # smallest site class gives 0 (e.g. dS = 0 for ATGGCTAAA / ATGGCCAAA, NA with engine = "orthologr").
+        # The numbers are still computed (as by every coalr since 0.5.0), so this is a warning, of the class that
+        # documents an old coalr, not an error.
+        if (is.element("Comeron", methods) && !is.element("comeron_min_sites_positive", coal_features()))
                 orthologr_warn(class = "coal_version",
-                               "This version of coalr predates the options comeron_twosubs and comeron_min_sites: its ",
-                               "Comeron counts codons that differ at two positions along libsequence's branches and ",
-                               "makes dN / dS NA for small site classes, so it can differ from engine = \"orthologr\". ",
-                               "Install a current coalr.", call. = FALSE)
+                               "This version of coalr predates COAL's Comeron refinements (coalr::coal_info()$features ",
+                               "does not list \"comeron_min_sites_positive\"): its Comeron can differ from engine = ",
+                               "\"orthologr\" (codons that differ at two positions, small site classes; e.g. dS = 0 ",
+                               "instead of NA). Install a current coalr: ",
+                               "remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\").", call. = FALSE)
         args[intersect(names(args), have)]
+}
+
+# The features the installed coalr reports (coalr::coal_info()$features; character(0) for a coalr without that
+# field or without coalr).
+coal_features <- function() {
+        f <- tryCatch(coalr::coal_info()$features, error = function(e) NULL)
+        if (is.character(f)) f else character(0)
 }
 
 # The matrix to give COAL: with aa_aln_scoring = "pwalign" and BLOSUM62, pwalign's copy of BLOSUM62 (it scores B, Z
@@ -147,6 +163,12 @@ coal_engine_settings <- function(fun_name, fun, args, mode = c("pairs", "cluster
         flags <- c(paste("-m", args$methods), "--preset", args$preset, "--matrix", matrix,
                    if (is.element("tie_break", has)) c("--tie-break", tie),
                    if (!is.null(args$comeron_flavour)) c("--comeron-flavour", args$comeron_flavour),
+                   # (M1 of REVIEW-OL-1) with --comeron-flavour gestimator COAL's command line counts the codons
+                   # that differ at two positions along libsequence's branches unless it is told otherwise, and
+                   # orthologr's default is Comeron's two pathways: without these two flags the command gave other
+                   # numbers than the run it records
+                   if (!is.null(args$comeron_twosubs)) c("--comeron-twosubs", args$comeron_twosubs),
+                   if (!is.null(args$comeron_min_sites)) c("--comeron-min-sites", format(args$comeron_min_sites)),
                    if (!is.null(args$li_flavour)) c("--li-flavour", args$li_flavour),
                    if (!is.null(args$terminal_stops)) c("--terminal-stops", args$terminal_stops))
         cmd <- if (mode == "pairs") {
@@ -158,7 +180,8 @@ coal_engine_settings <- function(fun_name, fun, args, mode = c("pairs", "cluster
         list(coalr_function = fun_name,
              coalr = package_version_text("coalr"),
              preset = args$preset, matrix = matrix, tie_break = tie,
-             comeron_flavour = args$comeron_flavour, li_flavour = args$li_flavour,
+             comeron_flavour = args$comeron_flavour, comeron_twosubs = args$comeron_twosubs,
+             comeron_min_sites = args$comeron_min_sites, li_flavour = args$li_flavour,
              terminal_stops = args$terminal_stops,
              coal_command = paste(cmd, collapse = " "))
 }
@@ -245,7 +268,7 @@ coal_install_message <- function() {
 coal_backend <- function(need = NULL) {
         forced <- getOption("orthologr.coal_backend", NULL)
         if (!is.null(forced) && !is.element(forced, c("coalr", "binary", "none")))
-                orthologr_abort(class = "bad_argument", "options(orthologr.coal_backend) must be \"coalr\" or \"binary\".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "options(orthologr.coal_backend) must be \"coalr\", \"binary\" or \"none\" (as if COAL were not installed; for tests).", call. = FALSE)
         if (identical(forced, "none"))
                 orthologr_abort(class = c("package_missing", "tool_missing"), coal_install_message())
 
@@ -389,11 +412,25 @@ coal_codon_rows <- function(rows, cds, context) {
         )
 }
 
+# kaks_tool = "coal" with a method that is neither one of the seven KaKs_Calculator methods COAL computes nor one
+# of orthologr's own (Comeron, Li, which are computed by orthologr whatever kaks_tool is).
+kaks_tool_coal_abort <- function(arg, method) {
+        orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" computes the methods ",
+                        paste(coal_kaks_calculator_methods(), collapse = ", "), " (Comeron and Li are computed by ",
+                        "orthologr itself, with either kaks_tool); ", arg, " = \"", paste(method, collapse = "\", \""),
+                        "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
+}
+
 # Ka/Ks of a two-sequence codon alignment file with COAL: the table substitutionrate() returns for the
-# KaKs_Calculator methods (query_id, subject_id, dN, dS, dNdS, method).
+# KaKs_Calculator methods (query_id, subject_id, dN, dS, dNdS, method). Only for these seven methods:
+# substitutionrate() computes Comeron and Li with orthologr's own code whatever kaks_tool is.
 coal_kaks_file <- function(file, est.method, subst_name = NULL) {
-        query_id <- method <- NULL
+        query_id <- NULL
         coal_check_methods(est.method, "kaks_tool = \"coal\"", other = "kaks_tool = \"kaks_calculator\"")
+        if (!is.element(est.method, coal_kaks_calculator_methods()))
+                orthologr_abort(class = "bad_argument", "coal_kaks_file() computes the KaKs_Calculator methods ",
+                                paste(coal_kaks_calculator_methods(), collapse = ", "), "; \"", est.method,
+                                "\" is computed by substitutionrate() itself.", call. = FALSE)
         backend <- coal_backend()
         context <- pair_context(file, subst_name)
         seqs <- read_fasta_strings(file)
@@ -419,10 +456,8 @@ coal_kaks_file <- function(file, est.method, subst_name = NULL) {
                 on.exit(unlink(c(axt_file, out_file)), add = TRUE)
                 writeLines(c(if (is.null(subst_name)) "pair" else subst_name, seqs[[1]], seqs[[2]], ""), axt_file)
                 coal_run_binary(backend$path,
-                                c(list("dnds", axt_file, "-o", out_file, "-m", est.method, "-j", "1", "-q",
-                                       "--digits", "17"),
-                                  if (is.element(est.method, coal_native_methods()))
-                                          list("--comeron-flavour", "gestimator", "--li-flavour", "seqinr")),
+                                list("dnds", axt_file, "-o", out_file, "-m", est.method, "-j", "1", "-q",
+                                     "--digits", "17"),
                                 context = context, output = out_file)
                 k <- utils::read.delim(out_file, sep = "\t", quote = "", na.strings = "NA", stringsAsFactors = FALSE)
                 if (nrow(k) < 1)
@@ -434,9 +469,6 @@ coal_kaks_file <- function(file, est.method, subst_name = NULL) {
                                               dN = as.numeric(k$dN[1]), dS = as.numeric(k$dS[1]),
                                               dNdS = as.numeric(k$dNdS[1]), method = as.character(k$method[1]))
         }
-        # (substitutionrate() returns no 'method' column for its own two methods)
-        if (is.element(est.method, coal_native_methods()))
-                res[ , method := NULL]
         data.table::setkey(res, query_id)
         return(res)
 }
@@ -527,7 +559,8 @@ cds_vector <- function(cds_dt) {
 #'
 #' \strong{The same run with the COAL command line, and the other way.} The record of the run,
 #' \code{attr(result, "orthologr_run")}, has in \code{engine_settings} what orthologr gave COAL (\code{preset},
-#' \code{matrix}, \code{tie_break}, \code{comeron_flavour}, \code{li_flavour}, \code{terminal_stops}) and in
+#' \code{matrix}, \code{tie_break}, \code{comeron_flavour}, \code{comeron_twosubs}, \code{comeron_min_sites},
+#' \code{li_flavour}, \code{terminal_stops}) and in
 #' \code{engine_settings$coal_command} the \code{coal pipeline pairs} command line with these settings; its
 #' \code{commands} are the DIAMOND (or BLAST+) searches of the run. With the gene pairs of the result as
 #' \code{--pairs}, the command line computes the same pairs with the same alignments:
@@ -537,8 +570,8 @@ cds_vector <- function(cds_dt) {
 #' write.table(pairs, "pairs.tsv", sep = "\\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
 #' attr(res, "orthologr_run")$engine_settings$coal_command
 #' # coal pipeline pairs --query QUERY_CDS --subject SUBJECT_CDS --pairs PAIRS.tsv -m YN --preset pwalign
-#' #   --matrix BLOSUM62-PWALIGN --tie-break pwalign --comeron-flavour gestimator --li-flavour seqinr
-#' #   --terminal-stops drop -o OUT_DIR
+#' #   --matrix BLOSUM62-PWALIGN --tie-break pwalign --comeron-flavour gestimator --comeron-twosubs comeron
+#' #   --comeron-min-sites 3 --li-flavour seqinr --terminal-stops drop -o OUT_DIR
 #' }
 #' Its \code{dnds.tsv} holds COAL's own values, which \code{attr(result, "coal")} keeps too; orthologr's
 #' result applies its rules to Comeron and Li (above). The pairs must come from the result: COAL's own search
@@ -709,8 +742,10 @@ dNdS_coal <- function(query_file,
         res[[".coal_note"]] <- NULL
         trimmed <- trimmed_table()
         ambiguous <- ambiguous_table()
+        stops <- stop_codon_table()
         res <- dnds_finish(
                 res, failed_pairs = failed, dropped = end_dropped(), ambiguous = ambiguous, engine_status = engine_status, trimmed = trimmed,
+                stops = stops,
                 not_converged = sum(grepl("not converge|did not converge|no convergence", note, ignore.case = TRUE)),
                 record = list(fun = "dNdS_coal", args = run_args, engine = "coal",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path), coal_versions()),
@@ -1018,7 +1053,8 @@ dnds_cluster_summary_stats <- function(summary, pairs) {
 #' \code{substitutionrate(kaks_tool = "coal")}.
 #' \describe{
 #' \item{\code{orthologr.coal_backend}}{\code{NULL} (default: the R package \pkg{coalr} when it is installed, else
-#' the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}.}
+#' the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}. \code{"none"} (internal, for tests) behaves as
+#' if COAL were not installed.}
 #' \item{\code{orthologr.coal_path}}{the full path of the program \code{coal-cpp} (default \code{""}: the
 #' environment variable \code{COAL_CPP}, then the \code{PATH}).}
 #' \item{environment variable \code{COAL_CPP}}{the full path of the program \code{coal-cpp}, used when it is not on

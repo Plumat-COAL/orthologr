@@ -66,8 +66,11 @@ test_that("inside dNdS() / diamond_rec() a file is read once; the tables are the
         data.table::setnames(p1, "aa", "changed")
         expect_true("aa" %in% names(p2))
         expect_true("aa" %in% names(protein_table(f, seq_type = "cds", delete_corrupt_cds = FALSE)))
-        expect_equal(cds_protein_table_file(f, delete_corrupt_cds = FALSE),
-                     cds_protein_table(direct_cds, delete_corrupt_cds = FALSE))
+        # (the proteins of the CDS read directly, translated with cds2aa())
+        direct_aa <- cds2aa(data.table::copy(direct_cds), delete_corrupt_cds = FALSE)
+        direct_aa <- data.table::data.table(geneids = direct_aa$geneids, seqs = toupper(direct_aa$aa))
+        data.table::setkey(direct_aa, geneids)
+        expect_equal(cds_protein_table_file(f, delete_corrupt_cds = FALSE), direct_aa)
         end()
         expect_false(seq_cache_active())
 })
@@ -246,4 +249,25 @@ test_that("dnds_cluster() rejects an unknown cluster type and the package no lon
         expect_error(dnds_cluster(2), "FORK.*PSOCK")
         desc <- utils::packageDescription("orthologr")$Imports
         expect_false(grepl("foreach|doParallel", desc))
+})
+
+test_that("fasta_looks_like_protein() counts as the two gsub() calls did (P3 of REVIEW-OL-1)", {
+        old <- function(file) {
+                x <- tryCatch(readLines(file, n = 2000, warn = FALSE), error = function(e) character(0))
+                x <- toupper(paste(x[!startsWith(x, ">")], collapse = ""))
+                x <- gsub("[^A-Z*]", "", x)
+                if (nchar(x) < 30) return(FALSE)
+                nchar(gsub("[ACGTUNRYKMSWBDHV]", "", x)) / nchar(x) > 0.1
+        }
+        fs <- list.files(system.file("seqs", package = "orthologr"), full.names = TRUE)
+        fs <- fs[!dir.exists(fs)]
+        d <- new_test_dir("p3_")
+        extra <- file.path(d, c("short.fa", "mixed.fa", "aa.fa", "empty.fa"))
+        writeLines(c(">a", "ACGT"), extra[1])
+        writeLines(c(">a", "acgtnnryk-*..12 ACGTACGTACGTACGTACGTACGTACGTACGTQ"), extra[2])
+        writeLines(c(">p", "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ*"), extra[3])
+        file.create(extra[4])
+        for (f in c(fs, extra))
+                expect_identical(fasta_looks_like_protein(f), old(f), info = basename(f))
+        expect_true(fasta_looks_like_protein(extra[3]))
 })

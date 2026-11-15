@@ -11,7 +11,7 @@ Notes that need a decision by the maintainer of `drostlab/orthologr`. This file 
 | `LICENSE`, `COPYING` | text of the GNU GPL version 2 |
 | `src/Comeron95.h:11`, `src/Comparisons.h:11`, `src/Grantham.h:11`, `src/GranthamWeights.h:11`, `src/Kimura80.h:11`, `src/RedundancyCom95.h:11`, `src/Sequence.h:11`, `src/SingleSub.h:11`, `src/Sites.h:11`, `src/TwoSubs.h:11` (also `src/ThreeSubs.h`, `src/gestimator.cpp`) | libsequence: "GNU General Public License [...] either **version 3** of the License, or (at your option) any later version" |
 | the same files, line 27 | the orthologr changes to them: "version 2 of the License, or any later version" |
-| `inst/pal2nal/pal2nal.v14/` | PAL2NAL v14 (GPL; see its README) |
+| `inst/pal2nal/pal2nal.v14/` | PAL2NAL v14: **no licence statement** in any of its files (`README`, `pal2nal.pl`, `for_paml/`, test files; only "Mikita Suyama" in the header of `pal2nal.pl`). Debian's package records `License: GPL-2`, "Copyright: 2004-2011 Mikita Suyama, David Torrents, and Peer Bork and their respective employing institute" (`debian/copyright` of pal2nal 14.1-3, https://metadata.ftp-master.debian.org/changelogs/main/p/pal2nal/pal2nal_14.1-3_copyright), after a Debian Med thread "Lack of license for pal2nal" (2017-2018). The upstream statement itself (PAL2NAL web site, Suyama, Torrents & Bork 2006, NAR 34:W609) was **not verified** for these notes |
 | `README.md`, section "Licenses" | quotes the libsequence header |
 
 Code under "GPL version 3 or later" cannot be distributed as part of a work that is licensed "GPL-2 only": the
@@ -38,8 +38,13 @@ A GPL-2-only orthologr that calls a GPL-3 package at run time is a second reason
   Sarah Scharfenberg and Hajk-Georg Drost (2014) and by the orthologr contributors (2026: memory, input checks,
   saturation flags), modifications under GPL version 2 or any later version.
 
-  inst/pal2nal/pal2nal.v14: PAL2NAL v14, Copyright (C) Mikita Suyama, GNU GPL (see inst/pal2nal/pal2nal.v14/README).
+  inst/pal2nal/pal2nal.v14: PAL2NAL v14, Copyright (C) 2004-2011 Mikita Suyama, David Torrents, Peer Bork.
+  Its files carry no licence statement; Debian distributes it under GPL-2 (see the table above).
   ```
+
+  The PAL2NAL line is **unverified**: before it is used, the licence should be confirmed from PAL2NAL's own
+  distribution or from its authors (Debian's `debian/copyright` is the only statement found), and it must be
+  compatible with the licence chosen for the package.
 
 ## 2. Defaults and results that differ from orthologr 0.4.3, and the option that restores each
 

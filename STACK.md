@@ -5,10 +5,10 @@ previous one and is meant to pass R CMD check on its own. Each was checked local
 full test suite with the external programs); GitHub Actions (Linux release / devel / oldrel, Linux without any
 optional program, Windows, macOS) passed only on the branches and commits named under "CI evidence" below. The
 least controversial changes come first; the branches that change
-results come after the ones that do not; COAL appears first in branch 15. Branches 16 - 18 (version 0.6.0 in
+results come after the ones that do not; COAL appears first in branch 15. Branches 16 - 19 (version 0.6.0 in
 development: tests, performance, fixes) were appended after 15 when `integration/all` had moved on; the existing
-branches 01 - 15 were not changed. The tree of the last branch (`upstream-v2/18-fixes`) is the tree of
-`integration/all` plus this file.
+branches 01 - 15 (and later 01 - 18) were not changed. The tree of `upstream-v2/19-tool-batching-and-fixes` is the
+tree of `integration/all` (736fc5c) plus this file.
 
 `tests/testthat/test-legacy.R` (from branch 01 on) compares `dNdS()` on the 20-gene example with tables stored
 from 0.4.3 (Comeron and YN). Every branch keeps it passing: a branch that changes a default adds the option that
@@ -34,6 +34,7 @@ restores it to that test, so the test shows that the old numbers can still be ha
 | `upstream-v2/16-coverage-tests` | tests only: the COAL glue (`R/coal.R`, with a fake `coal-cpp` script), `map_generator_dnds()` / `map.generator.lnc()`, `orthologs_lnc()`, Kimura80, `orthologs()` dispatch, `orthofinder2()`'s run path (fake OrthoFinder), `gestimator()` output modes, readers' error paths, small helpers; two tests of known bugs (B1, B2) are skipped here and run from 18 on | no (tests only) | - |
 | `upstream-v2/17-performance` | `dNdS()` about 2 - 2.5 times faster (whole call, 1,000-gene example: 29.2 -> 12.1 CPU s; S. cerevisiae / C. glabrata 106.6 -> 53.9): protein alignments of up to 100 pairs in one `pwalign::pairwiseAlignment()` call, COAL codon alignments from the rows in memory, `gestimator()`'s redundancy and Grantham tables built once per process, no `data.table` sub-assignment per pair, sequence checks with PCRE; `stringr` (and `stringi`) no longer imported; `test-perf.R` (batched against per-pair code); NEWS 0.6.0 with the measured times | no: every table identical to 0.5.0 (all columns, attributes, run record; 20-gene, 1,000-gene, S. cerevisiae / C. glabrata; default, `engine = "coal"`, PAL2NAL, Comeron / Li / YN, 1 and 2 cores, legacy switch) | - |
 | `upstream-v2/18-fixes` | Comeron's min-sites rule (D9 of 10) only where the value that results is > 0 (D9 refinement; COAL #76); `dNdS_clusters()` with a named `cds_file` vector (B1) and `codon_aln(tool = "coal")` on CLUSTAL files without a conservation line (B2), both bugs of 15; `dNdS_orthogroups()` summary `_min` / `_max` (K04); errors for an unknown `dnds_est.method` list each engine's methods and suggest the likely one (U09); a note on `library(orthologr)` that results differ from 0.4.3, once per session (U06); README links to the repository's articles (U14); docs: titin timing of the large-pair route (K02), D8's and D9's measured effects (K03) | **yes** (D9 refinement): a Comeron dN or dS that the min-sites rule of 10 left at exactly 0 although a change was seen is `NA` (status `"saturated"`) instead of 0 (`"dS_zero"`); no value > 0 changes; real data (20-gene, 1,000-gene, S. cerevisiae / C. glabrata): no value changes; seeded short pairs of 5 - 20 codons: 2 of 160 dS 0 -> NA. Otherwise new summary columns, new messages | `options(orthologr.comeron_min_sites = 0)` (NA for every undefined small class); 0.4.3's numbers: `orthologr_legacy_options()` (unaffected); `options(orthologr.quiet_upgrade = TRUE)` hides the note |
+| `upstream-v2/19-tool-batching-and-fixes` | PAL2NAL and KaKs_Calculator with one process per chunk of up to 100 gene pairs instead of one per pair (`inst/pal2nal/pal2nal_batch.pl` compiles `pal2nal.pl` once and forks per pair; one AXT file per chunk for KaKs_Calculator; a pair the batch does not compute is computed on its own; not under the legacy switch; `options(orthologr.batch_tools)`); KaKs_Calculator output read with its known header (KaKs_Calculator 2.0 may leave out or repeat the header line of the gamma methods), so GMYN is batched too; rows and fields of a chunk checked per record (AUDIT-OLP2 M1, L1); fixes of the review REVIEW-OL-1: a warning for a `coalr` without COAL #76 by its feature flag (H4), Comeron's two flags in the recorded `coal pipeline` command (M1), `kaks_tool = "coal"` chooses the program of the seven KaKs_Calculator methods only and the unreachable COAL branch for Comeron / Li is removed (M2), COAL's engine version in the run record (M3), `engine = "coal"` with several methods and `kaks_tool` (L1), `comp_cores` a whole number >= 1 (L2), coding sequences with in-frame stop codons reported (L6), unused internal functions removed and `benchmarkme` out of Suggests (L4), a test that skipped on any error (L5), docs (L3, L7, L8, M4, M5), Chloe Newton in Authors@R (L10); CI: no `coalr` on the leg without tools, `coalr` pinned to COAL commit 03612da, an R 4.4 leg (M6); faster input-type check, gestimator reader and no unread per-pair files with COAL in memory (P1 - P3) | no for the values of a table except GMYN: PAL2NAL / KaKs_Calculator per chunk give the tables of one process per pair (all columns, attributes, `failed_pairs`, run record; every KaKs_Calculator method, 1 and 2 cores, 20-gene, 1,000-gene and yeast data; NEWS 0.6.0, Performance), and the review fixes gave identical tables on 40 of 40 runs. **Yes** (from NEWS 0.6.0, Fixed / Other changes): GMYN (and `"ALL"`) pairs whose header line KaKs_Calculator left out now have values instead of failing (f64de0f; output with one header line first reads as before); run record of the COAL engine: `engine_settings$coal_command` has `--comeron-twosubs` / `--comeron-min-sites` and `engine_settings` the fields `comeron_twosubs`, `comeron_min_sites`, so the recorded command reproduces the run's Comeron values (8e46d2a, M1), `tools$coal` recorded (ae448f0, M3), COAL neither required nor recorded for Comeron / Li with `kaks_tool = "coal"` (a93711e, M2); Comeron with an old `coalr`: the `orthologr_warning_coal_version` warning where it was silent (f67fb5c, H4; values unchanged); new attribute `stop_codon_sequences` and summary line (a320e69, L6); `comp_cores = 1.5` is an error (b51353e, L2) | `options(orthologr.batch_tools = FALSE)` (one process per pair, the same tables); the GMYN reading and the run-record fields are fixes without a switch |
 
 The fixes of the deep test of 2026-11-14 (O01 - O14) were added in the same way: O01 in 04 (with the test of every
 method in 06), O12 in 09, O02 / O03 in 10, the parts that use the classed conditions, the run summary and the
@@ -64,7 +65,7 @@ classed COAL error) in 15. The legacy switch still reproduces the stored tables 
 The fixes of the third review (R01 - R23) are in the branches they correct (named in the table and in the
 commit messages); there is no separate fix-up branch.
 
-Branches 16 - 18 are different: they were appended after 15 instead of being folded into the branches they touch,
+Branches 16 - 19 are different: they were appended after 15 instead of being folded into the branches they touch,
 because folding them in would have meant merging forward through every later branch for changes that leave no
 earlier branch broken (each of 01 - 15 still passes its own check). Where they correct an earlier branch:
 
@@ -77,10 +78,22 @@ earlier branch broken (each of 01 - 15 still passes its own check). Where they c
 - 17 changes no result. Its first commit is the net effect of two commits of `integration/all` (5a35092, which
   removed unused internal functions, and 329e65c, which restored them because 16's tests call them): only the
   `stringr` calls are replaced. Each commit of 16 - 18 names the commit of `integration/all` it was taken from.
+- 19 corrects 15 (and 18) in places: the documentation of `kaks_tool = "coal"` and the COAL requirement for
+  Comeron / Li (M2), the recorded COAL version (M3) and `coal pipeline` command (M1, of C05), the `kaks_tool` check
+  with `engine = "coal"` (L1), and the `coalr` version check (H4, which 18's D9 refinement needs). A maintainer who
+  takes 15 without 19 gets correct values but an incomplete run record and documentation that claims COAL computes
+  Comeron / Li with `kaks_tool = "coal"`.
+- In 19, "KaKs_Calculator per chunk: not for GMYN" (5b36cff) takes GMYN out of the batch and
+  f64de0f puts it back once the output is read with its known header; both are kept, because the first message
+  explains the KaKs_Calculator 2.0 behaviour that the second handles.
+- The commits of 19 are those of `integration/all` from 62545f6 to 90d2863 (the merges of `perf/0.6-kc` and
+  `fix/review-ol-1`), in order and with their authorship. Five are one commit of `integration/all` together with a
+  later follow-up of it (the NEWS placeholder filled by 2d969ff; test fixes 816420a, 2d5d2db; the CI fix 90d2863);
+  their messages name both. The other commits are unchanged.
 - NEWS has a 0.6.0 section from 17 on; the `Version` field stays 0.5.0 (as on `integration/all`), to be raised at
   release.
 
-CI evidence (GitHub Actions, all six legs green), by branch and commit, as of 2026-11-14:
+CI evidence (GitHub Actions, all six legs green; seven from 19 on), by branch and commit, as of 2026-11-15:
 
 - `upstream-v2/01-ci-and-tests` at 0445681 (run 43493418485);
 - `upstream-v2/04-options-and-inputs` at 2897cd9 (run 43531501018) and `upstream-v2/05-vectorise` at b70fd05 (run
@@ -99,6 +112,11 @@ CI evidence (GitHub Actions, all six legs green), by branch and commit, as of 20
   16 the two tests of B1 / B2); R CMD check --as-cran --no-manual on 18: 0 ERROR, 0 WARNING, 6 NOTEs (`Remotes`,
   the time server, `-march`, an `\examples` line of `?diamond_install` over 100 characters, the `metablastr`
   cross-reference, a 6 s example; none new since 15).
+- the tree of the tip of 19 without this file: `fix/review-ol-1` at 90d2863 (run 43711434023, all seven legs: the
+  six above and R 4.4, the oldest R that `DESCRIPTION` allows), whose tree `integration/all` 736fc5c has; before the
+  review fixes, `integration/all` at 6a764a6 (run 43698427951; the merge of `perf/0.6-kc`). The runs of the tips of
+  19 and 20 themselves are on the Actions page (19's was cancelled to save runner time; 20 differs from 19 only in
+  install commands, CI triggers and notes).
 
 The run of `upstream-v2/15-coal` at aa43248 (43563309087; the same tree as `integration/all` da9c518) failed on
 its Ubuntu release leg in `test-substitutionrate.R`: KaKs_Calculator wrote no result line for one of its methods,

@@ -71,6 +71,12 @@
 #' \item{\code{orthologr.codon_aln_tool}}{\code{NULL} (default): \code{dNdS()} and \code{divergence_stratigraphy()}
 #' build codon alignments with COAL when \pkg{coalr} is installed and with PAL2NAL otherwise (identical alignments).
 #' \code{"pal2nal"} or \code{"coal"}: that tool, when the argument \code{codon_aln_tool} is not given.}
+#' \item{\code{orthologr.batch_tools}}{\code{TRUE} (default): in \code{dNdS()} and the functions that call it, PAL2NAL
+#' (\code{codon_aln_tool = "pal2nal"}, not on Windows) and KaKs_Calculator (its methods, \code{kaks_tool =
+#' "kaks_calculator"}) compute the gene pairs of a chunk (up to 100 pairs) with one process each instead of one per
+#' pair: the same files and values (a pair the batch does not compute is computed on its own). Not with the
+#' settings of 0.4.3 (\code{\link{orthologr_legacy_options}}), which compute one pair at a time as 0.4.3 did.
+#' \code{FALSE}: one process per gene pair. The option changes no result and is not part of the record of a run.}
 #' \item{\code{orthologr.keep_tmp}}{\code{FALSE} (default): the folder with the intermediate files of a call (FASTA
 #' files of the pairs, alignments, program output) is removed when the call ends. \code{TRUE}: it is kept, and a
 #' message names it; it is inside \code{tempdir()}, which R removes when the session ends (so after
@@ -146,8 +152,11 @@
 #' \item{\code{orthologr_warning_legacy_engine}}{the settings of 0.4.3 are in force
 #' (\code{orthologr.legacy_pairwise_aln}, \code{\link{orthologr_legacy_options}}) but the COAL engine was asked for,
 #' which cannot reproduce the numbers of 0.4.3;}
-#' \item{\code{orthologr_warning_coal_version}}{the installed \pkg{coalr} predates the options
-#' \code{comeron_twosubs} / \code{comeron_min_sites}, so its Comeron can differ from \code{engine = "orthologr"}.}
+#' \item{\code{orthologr_warning_coal_version}}{the installed \pkg{coalr} predates COAL's Comeron refinements
+#' (\code{coalr::coal_info()$features} does not list \code{"comeron_min_sites_positive"}; the options
+#' \code{comeron_twosubs} / \code{comeron_min_sites} and the rule for the smallest site classes), so its Comeron can
+#' differ from \code{engine = "orthologr"} (given when Comeron is computed by \code{engine = "coal"},
+#' \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}} or \code{dNdS_orthogroups(engine = "coal")}).}
 #' }
 #' These classes are given by the checks of the arguments and input files of \code{\link{dNdS}},
 #' \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}}, \code{\link{orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{divergence_stratigraphy}},

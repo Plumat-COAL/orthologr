@@ -106,3 +106,39 @@ test_that("options(orthologr.ambiguous_cds = 'keep') (the default) keeps a CDS w
         expect_false(any(grepl("are kept|is kept", msgs)))
         expect_true(any(grepl("ambiguous bases", msgs)))
 })
+
+test_that("coding sequences with in-frame stop codons are reported, their values unchanged (L6 of REVIEW-OL-1)", {
+        # the record alone
+        end <- dropped_start(quiet = TRUE)
+        stop_codon_record(c("a", "b", "c", "d"), c("MK*L*", "MKL*", "M*KL", ""), "f.fa")
+        stop_codon_record("a", "MK*L*", "f.fa")
+        expect_identical(stop_codon_table(), data.frame(file = "f.fa", id = c("a", "c"), stop_codons = c(1L, 1L),
+                                                        stringsAsFactors = FALSE))
+        end()
+        expect_null(stop_codon_table())
+        expect_match(dnds_summary_text("ok", stops = data.frame(file = "f", id = "a", stop_codons = 2L)),
+                     "1 coding sequence has in-frame stop codons before the last codon", fixed = TRUE)
+
+        skip_on_cran()
+        skip_if_not(diamond_available, "DIAMOND2 is not installed")
+        d <- new_test_dir("stops_")
+        q <- readLines(thal_cds())
+        k <- which(!startsWith(q, ">"))[3]
+        id <- sub("^>(\\S+).*", "\\1", q[k - 1])
+        # (one-line sequences in the example file) codon 21 becomes TAA
+        q[k] <- paste0(substr(q[k], 1, 60), "TAA", substr(q[k], 64, nchar(q[k])))
+        qf <- file.path(d, "q.fa")
+        writeLines(q, qf)
+        for (engine in c("orthologr", if (requireNamespace("coalr", quietly = TRUE)) "coal")) {
+                msgs <- character()
+                res <- withCallingHandlers(suppressWarnings(dNdS(qf, lyra_cds(), engine = engine, print_citation = FALSE,
+                                                                 dnds_est.method = if (engine == "coal") "YN" else "Comeron")),
+                                           message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+                st <- attr(res, "stop_codon_sequences")
+                expect_identical(st$id, id, info = engine)
+                expect_identical(st$stop_codons, 1L, info = engine)
+                expect_true(any(grepl("1 coding sequence has in-frame stop codons", msgs, fixed = TRUE)), info = engine)
+        }
+        # the example files have none: no attribute
+        expect_null(attr(suppressMessages(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE)), "stop_codon_sequences"))
+})
