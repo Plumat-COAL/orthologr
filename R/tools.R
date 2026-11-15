@@ -210,8 +210,11 @@ safe_file_name <- function(x) {
 # Number of threads / processes to use: when more cores are asked for than the machine has, the number of
 # available cores is used and a warning says so (this used to be an error).
 check_comp_cores <- function(comp_cores) {
-        if (!is.numeric(comp_cores) || length(comp_cores) != 1 || is.na(comp_cores) || comp_cores < 1)
-                orthologr_abort("comp_cores must be a positive number.", class = "bad_argument")
+        # a whole number (L2 of REVIEW-OL-1: 1.5 and 2.7 were accepted and recorded as given, while the cluster
+        # and COAL's threads truncated them)
+        if (!is.numeric(comp_cores) || length(comp_cores) != 1 || is.na(comp_cores) || !is.finite(comp_cores) ||
+            comp_cores < 1 || comp_cores != round(comp_cores))
+                orthologr_abort("comp_cores must be a positive whole number (1, 2, ...).", class = "bad_argument")
         cores <- parallel::detectCores()
         if (!is.na(cores) && comp_cores > cores) {
                 orthologr_warn(class = "comp_cores", "comp_cores = ", comp_cores, " is more than the ", cores, " core", if (cores != 1) "s",
