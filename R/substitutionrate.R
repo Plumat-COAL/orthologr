@@ -185,10 +185,8 @@
 #' positive, the observed differences exceed what the model can correct for and the distance is not defined. In
 #' that case \code{dS} (synonymous classes) or \code{dN} (nonsynonymous classes) and \code{dNdS} are returned as
 #' \code{NA}. Up to orthologr 0.4.3 the logarithm was replaced by 0 and a finite, too small value was returned
-#' (e.g. \code{dS = 0} for \code{ATGGCTAAA} / \code{ATGGCCAAA}, which differ by one synonymous substitution - a pair
-#' whose fourfold class has a single site, so that by default (see "Short alignments" below) it still gets
-#' \code{dS = 0}; with \code{options(orthologr.comeron_min_sites = 0)} it is \code{NA});
-#' \code{options(orthologr.legacy_comeron_saturation = TRUE)} reproduces those values. Values of gene pairs
+#' (e.g. \code{dS = 0} for \code{ATGGCTAAA} / \code{ATGGCCAAA}, which differ by one synonymous substitution; now
+#' \code{NA}); \code{options(orthologr.legacy_comeron_saturation = TRUE)} reproduces those values. Values of gene pairs
 #' without such a term are the same in both modes.
 #'
 #' A class of sites that has no sites (weight 0 in the estimate) never makes an estimate \code{NA}; this is also
@@ -196,8 +194,10 @@
 #' \strong{Short alignments:} with few codons a class with very few sites (typically the twofold sites whose
 #' synonymous change is a transversion: a median of 1.75 sites in 30-codon alignments) is easily "saturated" by one
 #' or two differences. Since 0.5.0 a class with fewer than \code{options(orthologr.comeron_min_sites)} sites
-#' (default 3) cannot make \code{dN} or \code{dS} \code{NA}: its undefined logarithm is 0, as in 0.4.3. A value
-#' that is not \code{NA} otherwise never changes. In a simulation without selection this keeps \code{dN} for the
+#' (default 3) cannot make \code{dN} or \code{dS} \code{NA}: its undefined logarithm is 0, as in 0.4.3 - but only
+#' where the value that results is greater than 0 (since 0.6.0): a 0 from such a class would read as "no change"
+#' (e.g. \code{dS = 0} for \code{ATGGCTAAA} / \code{ATGGCCAAA}, whose fourfold class has a single site) and stays
+#' \code{NA}. A value that is not \code{NA} otherwise never changes. In a simulation without selection this keeps \code{dN} for the
 #' 3.7 \% of 30-codon pairs that lost it (their mean absolute error 8.8 \%, against 11.2 \% for all 30-codon pairs);
 #' \code{options(orthologr.comeron_min_sites = 0)} gives \code{NA} for them again. Comeron's method (like the
 #' others) is unreliable below about 50 - 100 codons.
@@ -211,8 +211,8 @@
 #' counted (\code{options(orthologr.comeron_twosubs = "comeron")}, the default); \code{"libsequence"} gives the
 #' numbers of 0.4.3 (set by \code{\link{orthologr_legacy_options}}). The COAL engine
 #' (\code{engine = "coal"}, \code{kaks_tool = "coal"}) follows both options.
-#' Effect on dS (same alignments): 1,000-gene example median 0 \%, 95th percentile 2.9 \%; human / mouse median
-#' 1.0 \%, 95th percentile 5.0 \%.
+#' Effect on dS (same alignments): 1,000-gene example median 0 \%, 95th percentile 2.9 \% (\code{dNdS()}); human / mouse
+#' median 1.0 \%, 95th percentile 5.0 \% (measured with the saturation rule of 0.4.3).
 #' 
 #' The alignment must be a codon alignment: at least two sequences of the same length, which is a multiple of 3.
 #' Anything else is an error.
@@ -238,8 +238,8 @@ substitutionrate <- function(file,
         
         kaks_calc_methods <- kaks_calculator_methods()
         
-        if (!is.dnds_est_method(est.method))
-                orthologr_abort(class = "bad_argument", "Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+        if (length(est.method) != 1 || !is.dnds_est_method(est.method))
+                dnds_method_abort(est.method, "substitutionrate()", kaks_calc = TRUE)
         
         if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
                 orthologr_abort(class = "bad_argument", "Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)

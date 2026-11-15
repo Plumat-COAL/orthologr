@@ -35,7 +35,8 @@
 #' \code{TwoSubs} counts, as 0.4.3 did (the estimate then depends on which sequence is first; see
 #' \code{\link{substitutionrate}}). The COAL engine follows it.}
 #' \item{\code{orthologr.comeron_min_sites}}{\code{3} (default since 0.5.0): a site class of Comeron's method with fewer
-#' sites cannot make dN or dS \code{NA} (its undefined logarithm is 0). \code{0}: every class with sites can. Not set
+#' sites cannot make dN or dS \code{NA} (its undefined logarithm is 0), unless the value would be 0 (since 0.6.0: a 0
+#' from such a class stays \code{NA}). \code{0}: every class with sites can. Not set
 #' by \code{\link{orthologr_legacy_options}}: with \code{orthologr.legacy_comeron_saturation = TRUE} nothing is \code{NA} anyway.}
 #' \item{\code{orthologr.dS_zero}}{\code{"drop"} (default, as in 0.4.3) or \code{"keep"}: the default of the
 #' argument \code{dS_zero} of \code{\link{filter_dNdS}} and \code{\link{divergence_stratigraphy}}.}
@@ -43,6 +44,11 @@
 #' (see \code{\link{dNdS}}, section "Status of a gene pair"). \code{FALSE}: no such column, as in 0.4.3.}
 #' \item{\code{orthologr.legacy}}{\code{FALSE} (default). \code{TRUE}: every option of this section that is not set
 #' itself has the value that gives the results of 0.4.3. \code{\link{orthologr_legacy_options}} sets them all.}
+#' \item{\code{orthologr.quiet_upgrade}}{\code{FALSE} (default): \code{library(orthologr)} shows a note that defaults
+#' that change results differ from those of 0.4.3 (once per session, when the package is attached; not while
+#' \pkg{knitr} runs, i.e. with \code{options(knitr.in.progress = TRUE)}, and not when any \code{orthologr.*} option is
+#' already set). \code{TRUE} (e.g. in
+#' \code{.Rprofile}) hides it; so does \code{suppressPackageStartupMessages(library(orthologr))}.}
 #' }
 #' @section Other options:
 #' \describe{

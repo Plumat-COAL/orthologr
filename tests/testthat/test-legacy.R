@@ -130,3 +130,27 @@ test_that("without the legacy settings the default result differs from 0.4.3 onl
         expect_identical(setdiff(names(res), names(ref)), "status")
         expect_identical(sort(res$query_id), sort(ref$query_id))
 })
+
+test_that("library(orthologr) notes once that results differ from 0.4.3; an option hides the note (U06)", {
+        without_orthologr_options()
+        note <- upgrade_note()
+        expect_match(note, "orthologr_legacy_options()", fixed = TRUE)
+        expect_match(note, "vignette(\"upgrading_from_0.4.3\", package = \"orthologr\")", fixed = TRUE)
+        expect_match(note, "options(orthologr.quiet_upgrade = TRUE)", fixed = TRUE)
+        expect_message(.onAttach("", "orthologr"), "orthologr_legacy_options", class = "packageStartupMessage")
+        expect_silent(suppressPackageStartupMessages(.onAttach("", "orthologr")))
+        options(orthologr.quiet_upgrade = TRUE)
+        expect_silent(.onAttach("", "orthologr"))
+        options(orthologr.quiet_upgrade = FALSE)
+        expect_message(.onAttach("", "orthologr"), class = "packageStartupMessage")
+        # a user who sets options (e.g. the legacy switch) is not told again; nor while knitr runs
+        options(orthologr.quiet_upgrade = NULL)
+        suppressMessages(orthologr_legacy_options())
+        expect_silent(.onAttach("", "orthologr"))
+        without_orthologr_options()
+        rlang::local_options(knitr.in.progress = TRUE)
+        expect_silent(.onAttach("", "orthologr"))
+        # the option is no setting of a run: it is not part of the record
+        options(orthologr.quiet_upgrade = TRUE)
+        expect_null(orthologr_options_in_force()[["orthologr.quiet_upgrade"]])
+})

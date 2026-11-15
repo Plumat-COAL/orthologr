@@ -143,7 +143,7 @@ test_that("coal_check_methods() checks the methods it is given", {
         expect_error(coal_check_methods(character(0), "x"), class = "orthologr_error_bad_argument")
         expect_error(coal_check_methods(NA_character_, "x"), class = "orthologr_error_bad_argument")
         expect_error(coal_check_methods(c("YN", "GY", "ML"), "engine = \"coal\"", other = "the other engine"),
-                     "\"GY\", \"ML\" is only available with the other engine", class = "orthologr_error_bad_argument")
+                     "\"GY\" is only available with the other engine. \"ML\" is not a method of either", class = "orthologr_error_bad_argument")
         expect_invisible(coal_check_methods(coal_kaks_calculator_methods(), "x"))
 })
 
@@ -531,21 +531,21 @@ test_that("dNdS_clusters(): a multiple alignment program that cannot be found su
 })
 
 # ---------------------------------------------------------------------------------------------------------------
-# known bugs (recorded in BUGS_FOUND.md of the coverage pass; skipped until they are fixed in R/coal.R)
+# bugs found by the coverage pass (B1, B2; fixed in R/coal.R)
 
-test_that("KNOWN BUG: dNdS_clusters() with a named vector of CDS files finds no coding sequence (coalr)", {
-        skip("known bug: names of cds_file prefix the gene ids (do.call(c, lapply(cds_file, ...))) - see BUGS_FOUND.md")
+test_that("B1: dNdS_clusters() with a named vector of CDS files finds the coding sequences (coalr)", {
         skip_if_not(cov_coalr, "the R package coalr is not installed")
         toy <- make_toy_species()
         cl <- cov_toy_clusters(toy, 1:2)
         named <- suppressMessages(dNdS_clusters(toy$files, clusters = cl, aa_aln_tool = "pairwise"))
         unnamed <- suppressMessages(dNdS_clusters(unname(toy$files), clusters = cl, aa_aln_tool = "pairwise"))
-        expect_identical(nrow(named$failed), 0L)
-        expect_equal(named$pairs$dN, unnamed$pairs$dN)
+        expect_false(is.null(names(toy$files)))
+        expect_identical(NROW(named$failed), 0L)
+        expect_gt(nrow(named$pairs), 0)
+        expect_identical(named$pairs, unnamed$pairs)
 })
 
-test_that("KNOWN BUG: coal_codon_aln_file() reads a CLUSTAL protein alignment without a conservation line (coalr)", {
-        skip("known bug: seqinr::read.alignment() reads 0 sequences; read_clustal() is not used as fallback - see BUGS_FOUND.md")
+test_that("B2: coal_codon_aln_file() reads a CLUSTAL protein alignment without a conservation line (coalr)", {
         skip_if_not(cov_coalr, "the R package coalr is not installed")
         restore <- cov_state()
         on.exit(restore(), add = TRUE)

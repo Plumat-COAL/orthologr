@@ -47,9 +47,19 @@ coal_check_methods <- function(methods, what, other = "engine = \"orthologr\"") 
                 orthologr_abort(class = "bad_argument", "dnds_est.method must be the name of a method.", call. = FALSE)
         known <- c(coal_kaks_calculator_methods(), coal_native_methods())
         unknown <- setdiff(methods, known)
-        if (length(unknown) > 0)
-                orthologr_abort(class = "bad_argument", what, " computes dnds_est.method = ", paste0("\"", known, "\"", collapse = ", "), ". \"",
-                     paste(unknown, collapse = "\", \""), "\" is only available with ", other, ".", call. = FALSE)
+        if (length(unknown) > 0) {
+                # (U09) "only available with <other>" only for the methods the other engine / tool has; a name that is
+                # no method at all is said to be one, with the method it probably meant
+                elsewhere <- unknown[is.element(unknown, c("Comeron", "Li", kaks_calculator_methods()))]
+                none <- setdiff(unknown, elsewhere)
+                q <- function(x) paste0("\"", x, "\"", collapse = ", ")
+                orthologr_abort(class = "bad_argument", what, " computes dnds_est.method = ", q(known), ".",
+                     if (length(elsewhere) > 0) paste0(" ", q(elsewhere), if (length(elsewhere) > 1) " are" else " is",
+                                                       " only available with ", other, "."),
+                     if (length(none) > 0) paste0(" ", q(none), if (length(none) > 1) " are not methods" else " is not a method",
+                                                  " of either.", if (length(none) == 1) dnds_method_hint(none) else ""),
+                     call. = FALSE)
+        }
         if (any(is.element(methods, coal_native_methods())) && !coal_has_native_methods()) {
                 have <- tryCatch(as.character(utils::packageVersion("coalr")), error = function(e) NULL)
                 orthologr_abort(class = "package_missing", what, ": dnds_est.method = \"", paste(intersect(methods, coal_native_methods()), collapse = "\", \""),
@@ -343,8 +353,15 @@ coal_codon_aln_file <- function(file_aln, file_nuc, file.out, format = "fasta", 
         if (length(first) > 0 && startsWith(first, ">")) {
                 rows <- read_fasta_strings(file_aln)
         } else {
-                aln <- seqinr::read.alignment(file_aln, format = "clustal", forceToLower = FALSE)
-                rows <- structure(toupper(unlist(aln$seq)), names = sub("\\s.*$", "", aln$nam))
+                aln <- tryCatch(suppressWarnings(seqinr::read.alignment(file_aln, format = "clustal", forceToLower = FALSE)),
+                                error = function(e) NULL)
+                if (!is.null(aln) && isTRUE(aln$nb > 0)) {
+                        rows <- structure(toupper(unlist(aln$seq)), names = sub("\\s.*$", "", aln$nam))
+                } else {
+                        # seqinr reads no sequence from a CLUSTAL file without a conservation line (the format
+                        # orthologr's write_alignment(), PAL2NAL, T-Coffee and MUSCLE write), as in codon_aln()
+                        rows <- toupper(read_clustal(file_aln))
+                }
         }
         cds <- read_fasta_strings(file_nuc)
         # PAL2NAL pairs the two files by position; so does orthologr (both files hold the pair in the same order)
@@ -834,7 +851,9 @@ dNdS_clusters <- function(cds_file,
                 clusters <- as.data.frame(clusters)[ , 1:2]
 
         geneids <- seqs <- NULL
-        cds <- do.call(c, lapply(cds_file, function(f) {
+        # (unname: c() on a named list would prefix every gene id with the name of its file, e.g.
+        # cds_file = c(A = "a.fasta", B = "b.fasta"), and no member would be found)
+        cds <- do.call(c, lapply(unname(cds_file), function(f) {
                 cds_vector(read.cds(file = f, format = "fasta", delete_corrupt_cds = delete_corrupt_cds))
         }))
 

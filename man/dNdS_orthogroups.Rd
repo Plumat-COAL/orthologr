@@ -100,11 +100,11 @@ A list of three tibbles:
 \code{n_dS_above} (pairs with dS above \code{dS_saturation}: estimated, but hardly informative; this column was
 called \code{n_saturated} in development versions of 0.5.0), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the
 numbers of pairs with a dN, a dS and a dN/dS value), and median, mean, first and third quartile (\code{_q25},
-\code{_q75}; called \code{_q1} / \code{_q3} in development versions of 0.5.0) of dN, dS and dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the group that have a dN (dS,
+\code{_q75}; called \code{_q1} / \code{_q3} in development versions of 0.5.0), minimum and maximum (\code{_min},
+\code{_max}, since 0.6.0) of dN, dS and dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the group that have a dN (dS,
 dN/dS) value - a pair without dS (e.g. saturated at synonymous sites) still counts with its dN, and a pair
 above \code{dS_saturation} counts with all its values. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the
-numbers behind the statistics. \code{\link{dNdS_clusters}} uses the same rule and the same column names (it adds
-minimum and maximum);
+numbers behind the statistics. \code{\link{dNdS_clusters}} uses the same rule and the same column names;
 \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 }
 }

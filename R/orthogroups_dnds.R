@@ -69,11 +69,11 @@
 #' \code{n_dS_above} (pairs with dS above \code{dS_saturation}: estimated, but hardly informative; this column was
 #' called \code{n_saturated} in development versions of 0.5.0), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the
 #' numbers of pairs with a dN, a dS and a dN/dS value), and median, mean, first and third quartile (\code{_q25},
-#' \code{_q75}; called \code{_q1} / \code{_q3} in development versions of 0.5.0) of dN, dS and dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the group that have a dN (dS,
+#' \code{_q75}; called \code{_q1} / \code{_q3} in development versions of 0.5.0), minimum and maximum (\code{_min},
+#' \code{_max}, since 0.6.0) of dN, dS and dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the group that have a dN (dS,
 #' dN/dS) value - a pair without dS (e.g. saturated at synonymous sites) still counts with its dN, and a pair
 #' above \code{dS_saturation} counts with all its values. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the
-#' numbers behind the statistics. \code{\link{dNdS_clusters}} uses the same rule and the same column names (it adds
-#' minimum and maximum);
+#' numbers behind the statistics. \code{\link{dNdS_clusters}} uses the same rule and the same column names;
 #' \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 #' }
 #' @author Chloe Newton
@@ -130,9 +130,7 @@ dNdS_orthogroups <- function(x,
                         dnds_est.method <- "Comeron"
                 if (!is.character(dnds_est.method) || length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method) ||
                     identical(dnds_est.method, "kaks_calc"))
-                        orthologr_abort(class = "bad_argument", "dnds_est.method = '", paste(dnds_est.method, collapse = "', '"), "' is not supported with engine = \"orthologr\". ",
-                             "Please choose one of: 'Comeron', 'Li', 'NG', 'LWL', 'LPB', 'MLWL', 'MLPB', 'YN', 'MYN', 'GY', 'MA', 'MS', 'GMYN', 'ALL'.",
-                             call. = FALSE)
+                        dnds_method_abort(dnds_est.method, "dNdS_orthogroups(engine = \"orthologr\") (one method per run)")
                 check_choice(aa_aln_tool, c("clustalo", "mafft", "muscle", "clustalw", "t_coffee", "pairwise"), "aa_aln_tool")
                 # the programs must be there before the search and the alignments start
                 dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = "pal2nal",
@@ -559,6 +557,8 @@ dnds_groups_summary <- function(pairs, members, dS_saturation = 2, status = NULL
         pairs[[".status"]] <- if (is.null(status)) dnds_status(pairs$dN, pairs$dS, pairs$dNdS) else status
         q <- function(v, p) if (all(is.na(v))) NA_real_ else unname(stats::quantile(v, p, na.rm = TRUE, names = FALSE))
         mn <- function(v) if (all(is.na(v))) NA_real_ else mean(v, na.rm = TRUE)
+        lo <- function(v) if (all(is.na(v))) NA_real_ else min(v, na.rm = TRUE)
+        hi <- function(v) if (all(is.na(v))) NA_real_ else max(v, na.rm = TRUE)
         size <- members[ , list(n_genes = .N, n_species = data.table::uniqueN(species)), by = orthogroup]
         s <- pairs[ , list(
                 n_pairs     = .N,
@@ -572,10 +572,14 @@ dnds_groups_summary <- function(pairs, members, dS_saturation = 2, status = NULL
                 n_dN        = sum(!is.na(dN)),
                 n_dS        = sum(!is.na(dS)),
                 n_dNdS      = sum(!is.na(dNdS)),
-                # quartiles named as in dNdS_clusters(), coalr and COAL's command line (_q25 / _q75)
+                # the statistics of dNdS_clusters(), coalr and COAL's command line, named as there (_q25 / _q75;
+                # _min / _max since 0.6.0)
                 dN_median = q(dN, 0.5), dN_mean = mn(dN), dN_q25 = q(dN, 0.25), dN_q75 = q(dN, 0.75),
+                dN_min = lo(dN), dN_max = hi(dN),
                 dS_median = q(dS, 0.5), dS_mean = mn(dS), dS_q25 = q(dS, 0.25), dS_q75 = q(dS, 0.75),
-                dNdS_median = q(dNdS, 0.5), dNdS_mean = mn(dNdS), dNdS_q25 = q(dNdS, 0.25), dNdS_q75 = q(dNdS, 0.75)
+                dS_min = lo(dS), dS_max = hi(dS),
+                dNdS_median = q(dNdS, 0.5), dNdS_mean = mn(dNdS), dNdS_q25 = q(dNdS, 0.25), dNdS_q75 = q(dNdS, 0.75),
+                dNdS_min = lo(dNdS), dNdS_max = hi(dNdS)
         ), by = list(orthogroup, method)]
         s <- merge(size, s, by = "orthogroup")
         data.table::setcolorder(s, c("orthogroup", "method"))

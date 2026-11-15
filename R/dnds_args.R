@@ -99,6 +99,38 @@ kaks_calculator_methods <- function() {
         c("MA", "MS", "NG", "LWL", "LPB", "MLWL", "MLPB", "YN", "MYN", "GY", "GMYN", "kaks_calc", "ALL")
 }
 
+# Messages for a dnds_est.method that is not a method (U09): the methods of each engine, and the method a mistyped
+# name probably meant - the one that matches it ignoring case ("comeron" -> "Comeron"), else the only one at an edit
+# distance of 1 ("YNN" -> "YN"). Method names stay case-sensitive: the hint only names the method.
+dnds_method_hint <- function(method, candidates = c("Comeron", "Li", kaks_calculator_methods())) {
+        if (!is.character(method) || length(method) != 1 || is.na(method) || !nzchar(method))
+                return("")
+        same <- candidates[tolower(candidates) == tolower(method)]
+        if (length(same) == 0) {
+                d <- utils::adist(tolower(method), tolower(candidates))[1, ]
+                same <- if (sum(d == 1) == 1) candidates[d == 1] else character(0)
+        }
+        if (length(same) == 0) "" else paste0(" Did you mean \"", same[1], "\"?")
+}
+
+# "Methods: ..." of engine = "orthologr" (both engines, and those of KaKs_Calculator only), for the messages of
+# dNdS(), substitutionrate() and dNdS_orthogroups(); `kaks_calc`: whether "kaks_calc" is a choice (substitutionrate())
+dnds_method_list <- function(kaks_calc = FALSE) {
+        q <- function(x) paste0("\"", x, "\"", collapse = ", ")
+        kc <- setdiff(kaks_calculator_methods(), c("kaks_calc", "ALL", coal_kaks_calculator_methods()))
+        paste0("Methods: ", q(coal_native_methods()), " (both engines), ", q(coal_kaks_calculator_methods()),
+               " (both engines; KaKs_Calculator or COAL), ", q(kc), ", \"ALL\"",
+               if (kaks_calc) ", \"kaks_calc\"", " (KaKs_Calculator only, engine = \"orthologr\").")
+}
+
+# The error for a dnds_est.method that engine = "orthologr" does not compute: `what` names the function.
+dnds_method_abort <- function(method, what, kaks_calc = FALSE) {
+        shown <- if (is.character(method) && length(method) == 1) paste0("\"", method, "\"") else
+                paste(utils::capture.output(dput(method)), collapse = " ")
+        orthologr_abort(class = "bad_argument", "dnds_est.method = ", shown, " is not a method of ", what, ". ",
+                        dnds_method_list(kaks_calc = kaks_calc), dnds_method_hint(method), call. = FALSE)
+}
+
 # Stop now when a program the chosen pipeline needs is not there: perl (PAL2NAL), the alignment program, and
 # KaKs_Calculator. Called before the search starts. (A missing program used to show only after the complete
 # search, as a table in which every gene pair was NA and one warning.)
