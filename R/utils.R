@@ -1,8 +1,6 @@
 # Suppress R CMD CHECK NOTEs for data.table's `.()` alias and other NSE symbols
 utils::globalVariables(".")
 
-test <- function(x){ print(paste0("Test ",x," passed.","\n"))}
-
 
 is.dnaSequence <- function(seq){
         
@@ -399,18 +397,6 @@ ambiguous_cds_mode <- function() {
         if (!is.character(m) || length(m) != 1 || !is.element(m, c("drop", "keep")))
                 orthologr_abort("options(orthologr.ambiguous_cds = ) must be \"drop\" or \"keep\".", class = "bad_argument")
         m
-}
-
-is.alignment_search_tool <- function(tool = NULL){
-        
-        provided <-  c("ggsearch","ssearch")
-        
-        if (is.null(tool)){
-                message("The following methods are provided: ", paste(provided, collapse = ", "))
-                return(FALSE)
-        }
-        
-        return(is.element(tool, provided))
 }
 
 # The part of each string in 'x' before the first 'sep' (a single character, taken literally); the whole string when

@@ -196,7 +196,7 @@ of the gene pairs. The citation note is shown once per session.
 * Li's method returns numbers (it returned text, and took values such as `9.95e-05` for the saturation marker).
 * Intermediate files live in a folder of the call inside `tempdir()`; nothing is written into the working
   directory unasked.
-* `ggplot2`, `scales`, `ape`, `rtracklayer`, `benchmarkme`, `tidyr`, `biomartr` and `metablastr` are in
+* `ggplot2`, `scales`, `ape`, `rtracklayer`, `tidyr`, `biomartr` and `metablastr` are in
   Suggests: install them when a function asks for them.
 
 ## New functions
