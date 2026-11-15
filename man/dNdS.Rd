@@ -175,8 +175,9 @@ reproduce dN/dS values computed with earlier versions.}
 \item{kaks_tool}{the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
 \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
 program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).
-With a COAL that computes them, \code{kaks_tool = "coal"} also computes \code{"Comeron"} and \code{"Li"} (same
-values as the built-in code for the same codon alignment).}
+\code{"Comeron"} and \code{"Li"} are computed by \pkg{orthologr}'s own code with either value (\code{kaks_tool}
+does not change them); \code{engine = "coal"} computes them with COAL's ports, which give the same values for the
+same codon alignment.}
 
 \item{engine}{\code{"orthologr"} (Default): each gene pair is processed on its own (protein alignment, codon alignment and
 dN/dS estimation with the tools chosen above, with intermediate files per pair). \code{"coal"}: the batched fast path

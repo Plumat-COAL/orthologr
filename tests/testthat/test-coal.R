@@ -167,9 +167,13 @@ test_that("substitutionrate(kaks_tool = \"coal\") computes the KaKs_Calculator m
                                 }
                         }
                 }
-                # Comeron and Li are not affected by kaks_tool
-                expect_equal(substitutionrate(f, est.method = "Comeron", quiet = TRUE, subst_name = "t", kaks_tool = "coal")$dN,
-                             substitutionrate(f, est.method = "Comeron", quiet = TRUE, subst_name = "t")$dN)
+                # Comeron and Li are not affected by kaks_tool: orthologr's own code computes them, COAL is not called
+                local({
+                        local_mocked_bindings(coal_kaks_file = function(...) stop("COAL called"), .package = "orthologr")
+                        for (m in c("Comeron", "Li"))
+                                expect_identical(substitutionrate(f, est.method = m, quiet = TRUE, subst_name = "t", kaks_tool = "coal"),
+                                                 substitutionrate(f, est.method = m, quiet = TRUE, subst_name = "t"))
+                })
                 expect_error(substitutionrate(f, est.method = "GY", quiet = TRUE, kaks_tool = "coal"), "kaks_calculator")
                 # sequences that are not a codon alignment: an error naming the pair
                 bad <- write_fasta(c("ATGAAAACCG", "ATGAAGACCGCC"), c("x", "y"))

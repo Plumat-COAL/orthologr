@@ -26,11 +26,10 @@
 #' see \code{\link{codon_aln}} for how to install COAL). With \code{"coal"} a dN or dS of exactly 0 is returned as
 #' 0 (KaKs_Calculator prints \code{NA} for values below 1e-6) and a saturated estimate is \code{NA}.
 #' The methods \code{"MA"}, \code{"MS"}, \code{"GY"}, \code{"GMYN"} and \code{"ALL"} need KaKs_Calculator.
-#' With a COAL that computes them (\pkg{coalr} >= 0.5.0 listing them in \code{coalr::coal_info()$methods}),
-#' \code{kaks_tool = "coal"} also computes \code{est.method = "Comeron"} and \code{"Li"}: COAL's ports of gestimator
-#' and of \code{seqinr::kaks()}, with the saturation rule of this page, rounded to the 4 significant digits
-#' gestimator writes (Comeron) - the same table as the built-in code gives for the alignment. With an older COAL
-#' these two methods are computed by the built-in code.
+#' \code{est.method = "Comeron"} and \code{"Li"} are always computed by \pkg{orthologr}'s own code (gestimator,
+#' \code{seqinr::kaks()}), whatever \code{kaks_tool} is: \code{kaks_tool} only chooses the program for the
+#' KaKs_Calculator methods. (COAL's ports of the two methods, which \code{dNdS(engine = "coal")} uses, give the same
+#' table for the same alignment.)
 #' @author Hajk-Georg Drost and Sarah Scharfenberg
 #' @details This function takes a pairwise alignments file as input and estimates dNdS ratios
 #' of the corresponding alignments using predefined dNdS estimation methods.
@@ -244,9 +243,8 @@ substitutionrate <- function(file,
         if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
                 orthologr_abort(class = "bad_argument", "Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
         
-        if (kaks_tool == "coal" && !is.element(est.method, c("Comeron", "Li", coal_methods())))
-                orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" computes the methods ", paste(coal_methods(), collapse = ", "),
-                     "; est.method = \"", est.method, "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
+        if (kaks_tool == "coal" && !is.element(est.method, c(coal_native_methods(), coal_kaks_calculator_methods())))
+                kaks_tool_coal_abort("est.method", est.method)
         
         if (!is.element(format, c("mase", "clustal", "phylip", "fasta" , "msf")))
                 orthologr_abort(class = "bad_argument", "Please choose a format that is supported by seqinr::read.alignment.", call. = FALSE)
@@ -361,7 +359,8 @@ substitutionrate <- function(file,
         }
         
         # the KaKs_Calculator methods computed by COAL (in process, or by the coal-cpp program): no KaKs_Calculator
-        if (kaks_tool == "coal" && is.element(est.method, coal_methods())) {
+        # (Comeron and Li were computed above, by orthologr's own code, whatever kaks_tool is)
+        if (kaks_tool == "coal" && is.element(est.method, coal_kaks_calculator_methods())) {
                 if (format != "fasta")
                         orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" needs the codon alignment in fasta format.", call. = FALSE)
                 res <- coal_kaks_file(file = file, est.method = est.method, subst_name = subst_name)

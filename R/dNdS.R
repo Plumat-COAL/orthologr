@@ -81,8 +81,9 @@
 #' @param kaks_tool the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
 #' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
 #' program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).
-#' With a COAL that computes them, \code{kaks_tool = "coal"} also computes \code{"Comeron"} and \code{"Li"} (same
-#' values as the built-in code for the same codon alignment).
+#' \code{"Comeron"} and \code{"Li"} are computed by \pkg{orthologr}'s own code with either value (\code{kaks_tool}
+#' does not change them); \code{engine = "coal"} computes them with COAL's ports, which give the same values for the
+#' same codon alignment.
 #' @param engine \code{"orthologr"} (Default): each gene pair is processed on its own (protein alignment, codon alignment and
 #' dN/dS estimation with the tools chosen above, with intermediate files per pair). \code{"coal"}: the batched fast path
 #' \code{\link{dNdS_coal}}: orthologs are detected as usual, then all gene pairs are aligned and estimated by COAL in one
@@ -462,9 +463,11 @@ dNdS <- function(query_file,
         if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
                 orthologr_abort(class = "bad_argument", "Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
         
-        if (kaks_tool == "coal" && !is.element(dnds_est.method, c("Comeron", "Li", coal_methods())))
-                orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" computes the methods ", paste(coal_methods(), collapse = ", "),
-                     "; dnds_est.method = \"", dnds_est.method, "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
+        # (Comeron and Li are computed by orthologr's own code whatever kaks_tool is; kaks_tool = "coal" only
+        # replaces KaKs_Calculator for the seven methods COAL computes)
+        kaks_by_coal <- kaks_tool == "coal" && is.element(dnds_est.method, coal_kaks_calculator_methods())
+        if (kaks_tool == "coal" && !is.element(dnds_est.method, c(coal_native_methods(), coal_kaks_calculator_methods())))
+                kaks_tool_coal_abort("dnds_est.method", dnds_est.method)
         
         check_aa_aln_scoring(aa_aln_scoring)
         if (engine == "orthologr" && aa_aln_scoring != "pwalign")
@@ -472,15 +475,14 @@ dNdS <- function(query_file,
                      "pairwise_aln(), i.e. \"pwalign\").", call. = FALSE)
         
         # COAL must be there before the search starts, not when the first gene pair needs it
-        if (engine == "orthologr" && (identical(codon_aln_tool, "coal") ||
-                                      (kaks_tool == "coal" && is.element(dnds_est.method, coal_methods()))))
+        if (engine == "orthologr" && (identical(codon_aln_tool, "coal") || kaks_by_coal))
                 coal_backend()
         
         # the programs of the chosen pipeline must be there before the search starts (engine = "coal" needs none)
         if (engine == "orthologr")
                 dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = codon_aln_tool,
                                       dnds_est.method = dnds_est.method, kaks_calc_path = kaks_calc_path,
-                                      need_kaks = !(kaks_tool == "coal" && is.element(dnds_est.method, coal_methods())))
+                                      need_kaks = !kaks_by_coal)
         
         # the batched fast path: all gene pairs in one call to COAL
         if (engine == "coal") {
@@ -641,8 +643,7 @@ dNdS <- function(query_file,
         # The end of the run: the status of every gene pair (last column), the sequences that were left out before
         # the search (attr "dropped_sequences": file, id, reason), the gene pairs that could not be processed
         # (attr "failed_pairs"), the record of the run (attr "orthologr_run") and one summary message.
-        kaks_used <- is.element(dnds_est.method, kaks_calculator_methods()) &&
-                !(kaks_tool == "coal" && is.element(dnds_est.method, coal_methods()))
+        kaks_used <- is.element(dnds_est.method, kaks_calculator_methods()) && !kaks_by_coal
         trimmed <- trimmed_table()
         ambiguous <- ambiguous_table()
         res <- dnds_finish(
@@ -652,7 +653,7 @@ dNdS <- function(query_file,
                                                           aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path,
                                                           codon_aln_tool = codon_aln_tool, kaks = kaks_used,
                                                           kaks_calc_path = kaks_calc_path),
-                                        if (identical(codon_aln_tool, "coal") || kaks_tool == "coal") coal_versions()),
+                                        if (identical(codon_aln_tool, "coal") || kaks_by_coal) coal_versions()),
                               files = c(query_file, subject_file)),
                 print_citation = print_citation
         )
