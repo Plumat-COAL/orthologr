@@ -983,10 +983,22 @@ kaks_calc_batch <- function(files, subst_name, est.method, kaks_calc_path = NULL
                 ends <- cumsum(blocks$lengths)
                 starts <- ends - blocks$lengths + 1L
                 genetic_code <- kaks_genetic_code(NULL)
+                # The table is read once when every line has the same number of fields and there is no quote
+                # character; the rows of a pair are then a table with the values of read.csv() for its rows alone:
+                # kaks_result_table() takes every column as character or numbers (as.numeric(as.character())),
+                # so a column that read.csv() types differently for all rows than for the rows of one pair (e.g.
+                # numbers instead of logical NA, double instead of integer) gives the same values. Otherwise the rows
+                # of each pair are read on their own.
+                n_tabs <- lengths(regmatches(lines, gregexpr("\t", lines, fixed = TRUE)))
+                whole <- if (length(unique(n_tabs)) == 1 && !any(grepl("\"", lines, fixed = TRUE)))
+                        utils::read.csv(text = lines, sep = "\t", header = TRUE) else NULL
+                if (!is.null(whole) && nrow(whole) != length(lines) - 1L)
+                        whole <- NULL
                 for (j in seq_along(use)) {
                         k <- use[j]
                         out[k] <- list(tryCatch({
-                                kaks_tbl <- utils::read.csv(text = c(lines[1], lines[-1][starts[j]:ends[j]]), sep = "\t", header = TRUE)
+                                kaks_tbl <- if (!is.null(whole)) whole[starts[j]:ends[j], , drop = FALSE] else
+                                        utils::read.csv(text = c(lines[1], lines[-1][starts[j]:ends[j]]), sep = "\t", header = TRUE)
                                 context <- pair_context(files[k], subst_name[k])
                                 kaks_result_table(kaks_tbl, fasta_ids(files[k])[1:2], paste0(context, " (method ", est.method, ")"),
                                                   aln = seqs[[k]], genetic_code = genetic_code)
