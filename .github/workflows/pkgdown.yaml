@@ -1,6 +1,9 @@
 # Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
 # Builds the pkgdown site and publishes it to the gh-pages branch.
 #
+# Every action is pinned to the full commit SHA of a release (the release in the comment; update both together).
+# The conda package of DIAMOND is verified by conda against the SHA-256 checksum of the channel's package index.
+#
 # Note for the maintainer: the site is currently served from the docs/ folder of the default branch, which is
 # built and committed by hand. To let this workflow publish the site, set Settings > Pages > Source to the
 # 'gh-pages' branch (root) after the first successful run; docs/ can then be removed from the repository.
@@ -19,6 +22,7 @@ permissions: read-all
 jobs:
   pkgdown:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # Only restrict concurrency for non-PR jobs
     concurrency:
       group: pkgdown-${{ github.event_name != 'pull_request' || github.run_id }}
@@ -27,11 +31,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       # the vignettes with evaluated chunks need DIAMOND
       - name: Install DIAMOND
-        uses: mamba-org/setup-micromamba@v2
+        timeout-minutes: 15
+        uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2.0.7
         with:
           environment-name: orthologr-tools
           create-args: >-
@@ -42,27 +47,33 @@ jobs:
           generate-run-shell: false
 
       - name: Put DIAMOND on the PATH
+        timeout-minutes: 2
         shell: bash
         run: echo "$MAMBA_ROOT_PREFIX/envs/orthologr-tools/bin" >> "$GITHUB_PATH"
 
-      - uses: r-lib/actions/setup-pandoc@v2
+      - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        timeout-minutes: 10
 
-      - uses: r-lib/actions/setup-r@v2
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        timeout-minutes: 15
         with:
           use-public-rspm: true
 
-      - uses: r-lib/actions/setup-r-dependencies@v2
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        timeout-minutes: 40
         with:
           extra-packages: any::pkgdown, local::.
           needs: website
 
       - name: Build site
+        timeout-minutes: 30
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
         shell: Rscript {0}
 
       - name: Deploy to GitHub pages
         if: github.event_name != 'pull_request'
-        uses: JamesIves/github-pages-deploy-action@v4.5.0
+        timeout-minutes: 10
+        uses: JamesIves/github-pages-deploy-action@65b5dfd4f5bcd3a7403bbc2959c144256167464e # v4.5.0
         with:
           clean: false
           branch: gh-pages
