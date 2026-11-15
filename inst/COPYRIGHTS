@@ -1,9 +1,13 @@
 orthologr: copyright and licences of the code it contains
 =========================================================
 
-orthologr
-    Copyright (C) Hajk-Georg Drost and the orthologr contributors.
-    Licence: see the License field of DESCRIPTION.
+orthologr: Copyright (C) Hajk-Georg Drost and the orthologr contributors. GPL-3.
+
+    The package as a whole is distributed under the GNU General Public License version 3 (License: GPL-3 in
+    DESCRIPTION; the text is in the files LICENSE and COPYING of the source repository and in
+    share/licenses/GPL-3 of every R installation). Up to version 0.5.0 the License field said
+    GPL-2; it was changed because the parts listed below as 1 and 2 are under GPL version 3 or later (1) and
+    GPL version 3 (2), which cannot be distributed under GPL version 2 only.
 
 The package contains or is derived in part from the following third-party works.
 
