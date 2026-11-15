@@ -106,6 +106,8 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   Comeron / Li with `kaks_tool = "coal"`, and the unreachable COAL code for them in `substitutionrate()` is removed.
   Results are unchanged (COAL's ports, used by `engine = "coal"`, give the same values; tested now against COAL
   itself rather than against the native code twice).
+- The record of a run with COAL (`attr(result, "orthologr_run")$tools`) never had the version of COAL's engine
+  inside `coalr` (`coal`): it read `coalr::coal_info()$version`, a field that does not exist (`coal_version`).
 
 ### Other changes
 

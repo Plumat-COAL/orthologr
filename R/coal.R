@@ -84,7 +84,9 @@ coal_versions <- function() {
         v$coal_backend <- backend$type
         if (backend$type == "coalr") {
                 v$coalr <- package_version_text("coalr")
-                engine <- tryCatch(coalr::coal_info()$version, error = function(e) NULL)
+                # (coalr names the version of its engine coal_version; there is no field 'version', so the engine's
+                # version was never recorded - M3 of REVIEW-OL-1)
+                engine <- tryCatch(coalr::coal_info()$coal_version, error = function(e) NULL)
                 if (!is.null(engine) && length(engine) == 1)
                         v$coal <- as.character(engine)
         } else {
