@@ -116,9 +116,13 @@ compute_dnds <- function(complete_tbl,
         # pairs, with one PAL2NAL / KaKs_Calculator process for the chunk where it can.
         #   aln_rows : NULL, or the two rows of the pairwise protein alignment of the pair computed beforehand by
         #              pairwise_aln_rows() (they are written to the file pairwise_aln() would write)
+        # (each step is evaluated before the next is called: a step handed over as an argument would be evaluated
+        # inside the next one, and the error of PAL2NAL became one of gestimator)
         one_pair <- function(i, aln_rows = NULL) {
                 f <- pair_files(i, aln_rows)
-                pair_finish(i, pair_rates(i, pair_codon(i, f, aln_rows)))
+                codon_file <- pair_codon(i, f, aln_rows)
+                rates <- pair_rates(i, codon_file)
+                pair_finish(i, rates)
         }
         
         # step 1: the FASTA files of the pair and its protein alignment; list(name, cds = <CDS FASTA file>,
