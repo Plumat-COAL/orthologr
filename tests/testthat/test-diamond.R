@@ -99,11 +99,22 @@ test_that("diamond() runs with sensitivity_mode = 'sensitive'", {
         expect_gt(nrow(result), 0L)
 })
 
-test_that("diamond() with 'more-sensitive' mode returns at least as many hits as 'fast' mode", {
+# (This test used to assert that 'more-sensitive' returns at least as many hits as 'fast'. That is a tendency of
+# DIAMOND's heuristics, not a property it guarantees, and it can fail with another DIAMOND version. What must hold:
+# both modes find the strong hits, here the ortholog of each of the 20 example genes, with the same alignment.)
+test_that("diamond() finds the same top hit of every example gene in 'fast' and 'more-sensitive' mode", {
         skip_if_not(diamond_available, "DIAMOND2 is not installed or not on PATH")
-        result_fast      <- diamond(query_file = cds_file, subject_file = subject_cds,
-                                    sensitivity_mode = "fast")
-        result_sensitive <- diamond(query_file = cds_file, subject_file = subject_cds,
-                                    sensitivity_mode = "more-sensitive")
-        expect_gte(nrow(result_sensitive), nrow(result_fast))
+        result_fast      <- suppressMessages(diamond(query_file = cds_file, subject_file = subject_cds,
+                                                     sensitivity_mode = "fast"))
+        result_sensitive <- suppressMessages(diamond(query_file = cds_file, subject_file = subject_cds,
+                                                     sensitivity_mode = "more-sensitive"))
+        top <- function(h) {
+                h <- h[order(h$query_id, -h$bit_score), ]
+                h[!duplicated(h$query_id), c("query_id", "subject_id", "bit_score")]
+        }
+        a <- top(result_fast); b <- top(result_sensitive)
+        expect_equal(nrow(a), 20)
+        expect_identical(a$query_id, b$query_id)
+        expect_identical(a$subject_id, b$subject_id)
+        expect_equal(a$bit_score, b$bit_score, tolerance = 0.02)
 })

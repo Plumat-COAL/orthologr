@@ -91,13 +91,40 @@ test_that("deepclust() errors informatively when a file does not exist", {
 
 # --- approx_id threshold -----------------------------------------------------
 
-test_that("stricter approx_id yields at least as many rows as a lenient threshold", {
+# (This test used to compare the numbers of rows, "stricter approx_id yields at least as many rows". deepclust()
+# returns one row per sequence whatever the threshold, so it compared 20 with 20 and could not fail. What a stricter
+# threshold changes is the number of clusters; it is tested on sequences that do cluster: every protein and a
+# copy of it with a few changed residues.)
+test_that("deepclust() returns one row per sequence; a stricter approx_id cannot give fewer clusters", {
         skip_if_not(diamond_available, "DIAMOND2 is not installed or not on PATH")
-
-        # Higher approx_id -> fewer sequences can cluster together -> more singleton rows
-        result_lenient <- deepclust(input_file = protein_file, approx_id = 30)
-        result_strict  <- deepclust(input_file = protein_file, approx_id = 90)
-        expect_gte(nrow(result_strict), nrow(result_lenient))
+        
+        aa <- Biostrings::readAAStringSet(protein_file)
+        names(aa) <- paste0("p", seq_along(aa))
+        variant <- as.character(aa)
+        # every 12th residue of the copy becomes alanine (or glycine): about 92% identity
+        variant <- vapply(variant, function(x) {
+                ch <- strsplit(x, "")[[1]]
+                i <- seq(6, length(ch) - 1, by = 12)
+                ch[i] <- ifelse(ch[i] == "A", "G", "A")
+                paste(ch, collapse = "")
+        }, "")
+        both <- c(aa, Biostrings::AAStringSet(stats::setNames(variant, paste0("v", seq_along(aa)))))
+        f <- tempfile(fileext = ".faa")
+        Biostrings::writeXStringSet(both, f)
+        
+        lenient <- suppressMessages(deepclust(input_file = f, approx_id = 50))
+        strict  <- suppressMessages(deepclust(input_file = f, approx_id = 99))
+        n <- length(both)
+        expect_equal(nrow(lenient), n)
+        expect_equal(nrow(strict), n)
+        expect_setequal(lenient$member_id, names(both))
+        n_lenient <- length(unique(lenient$representative_id))
+        n_strict  <- length(unique(strict$representative_id))
+        # the copies cluster with their originals at 50% identity ...
+        expect_lt(n_lenient, n)
+        expect_lte(n_lenient, length(aa) + 2)
+        # ... and not at 99%
+        expect_gt(n_strict, n_lenient)
 })
 
 # --- Duplicate ID warning (multi-file merge) ---------------------------------
@@ -152,10 +179,21 @@ test_that("deepclust() does not warn about duplicate IDs when all IDs are unique
 
 test_that("deepclust() writes a TSV when save.output is specified", {
         skip_if_not(diamond_available, "DIAMOND2 is not installed or not on PATH")
-        out_dir  <- tempdir()
+        # a folder of its own that holds a stale file of the same name. (The test used to write into the shared
+        # tempdir(), where the file of an earlier test existed already: it passed although file.copy() never
+        # overwrote, i.e. also when nothing was written.)
+        out_dir  <- new_test_dir("deepclust_out_")
         filename <- paste0("deepclust_", basename(protein_file), ".tsv")
+        writeLines("STALE", file.path(out_dir, filename))
 
-        deepclust(input_file = protein_file, save.output = out_dir)
+        res <- suppressMessages(deepclust(input_file = protein_file, save.output = out_dir))
 
         expect_true(file.exists(file.path(out_dir, filename)))
+        written <- utils::read.delim(file.path(out_dir, filename), header = FALSE, stringsAsFactors = FALSE)
+        expect_equal(nrow(written), nrow(res))
+        expect_setequal(written[[2]], res$member_id)
+        # a file path instead of a folder
+        one <- file.path(out_dir, "clusters.tsv")
+        suppressMessages(deepclust(input_file = protein_file, save.output = one))
+        expect_equal(length(readLines(one)), nrow(res))
 })
