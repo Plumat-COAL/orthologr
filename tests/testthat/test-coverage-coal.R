@@ -279,15 +279,29 @@ test_that("coal_legacy_warning() warns only with the 0.4.3 alignments", {
                        class = "orthologr_warning_legacy_engine")
 })
 
-test_that("coal_flavour_args() warns when a coalr without the Comeron options is asked for Comeron", {
+test_that("coal_flavour_args() warns when a coalr without COAL's Comeron refinements is asked for Comeron", {
         f_mid <- function(a, b, comeron_flavour, li_flavour, terminal_stops) NULL
+        f_new <- function(a, comeron_flavour, comeron_twosubs, comeron_min_sites, li_flavour, terminal_stops) NULL
+        # (H4 of REVIEW-OL-1) the flag is coalr::coal_info()$features, not the arguments of the function: the coalr
+        # between COAL #73 and #76 has comeron_twosubs / comeron_min_sites but gives dS = 0 where orthologr gives NA
+        local_mocked_bindings(coal_features = function() character(0), .package = "orthologr")
         expect_warning(a <- coal_flavour_args(f_mid, methods = "Comeron"), class = "orthologr_warning_coal_version")
         expect_identical(names(a), c("comeron_flavour", "li_flavour", "terminal_stops"))
+        expect_warning(coal_flavour_args(f_new, methods = "Comeron"), "comeron_min_sites_positive",
+                       class = "orthologr_warning_coal_version")
         expect_silent(coal_flavour_args(f_mid, methods = "YN"))
-        f_new <- function(a, comeron_flavour, comeron_twosubs, comeron_min_sites, li_flavour, terminal_stops) NULL
+        expect_silent(coal_flavour_args(f_new))
+        local_mocked_bindings(coal_features = function() c("comeron_twosubs", "comeron_min_sites", "comeron_min_sites_positive"), .package = "orthologr")
         expect_silent(a <- coal_flavour_args(f_new, methods = "Comeron"))
         expect_identical(sort(names(a)), sort(c("comeron_flavour", "comeron_twosubs", "comeron_min_sites", "li_flavour",
                                                "terminal_stops")))
+})
+
+test_that("coal_features() reads coalr::coal_info()$features", {
+        skip_if_not_installed("coalr")
+        f <- coal_features()
+        expect_type(f, "character")
+        expect_identical(f, if (is.character(coalr::coal_info()$features)) coalr::coal_info()$features else character(0))
 })
 
 test_that("coal_engine_settings() records the coalr call and the matching COAL command line", {
