@@ -29,13 +29,16 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   of a single call; not on Windows). A pair the batch does not compute - its job failed, its rows cannot be matched
   to its record one to one, the program failed - is computed on its own as before, which also gives its error.
   Not under `orthologr_legacy_options()` (one pair at a time, as in 0.4.3); `options(orthologr.batch_tools =
-  FALSE)` switches it off. Using COAL for the codon step of `codon_aln_tool = "pal2nal"` (its codon alignments
-  are the same) was not done: that they are the same for a pair can only be known by running PAL2NAL.
+  FALSE)` switches it off. Not for GMYN: KaKs_Calculator 2.0 (bioconda 2.0.1) decides whether it writes the header
+  line of that method with a class member it never initialises (`tempt`), so its output depends on that memory
+  (on a CI runner most pairs came back without a result with one process per pair, and other pairs in a batch).
+  Using COAL for the codon step of `codon_aln_tool = "pal2nal"` (its codon alignments are the same) was not done:
+  that they are the same for a pair can only be known by running PAL2NAL.
   Compared with one process per pair (all columns, attributes, `failed_pairs`, the record of the run), identical
   with 1 and 2 cores: the 20-gene example for every method of KaKs_Calculator (NG, LWL, LPB, MLWL, MLPB, YN, MYN,
-  GY, GMYN, MS, MA, ALL), PAL2NAL with Comeron and YN, and the legacy settings; the 1,000-gene example and
-  S. cerevisiae / C. glabrata for NG, LWL, LPB, MLWL, MLPB, YN, MYN, GMYN (with GY on the 1,000-gene example;
-  yeast: the 53 MYN / GMYN pairs that fail with `nan` included) and PAL2NAL with Comeron and YN; the dN/dS step on
+  GY, MS, MA, ALL), PAL2NAL with Comeron and YN, and the legacy settings; the 1,000-gene example and
+  S. cerevisiae / C. glabrata for NG, LWL, LPB, MLWL, MLPB, YN, MYN (with GY on the 1,000-gene example; yeast:
+  the 53 MYN pairs that fail with `nan` included) and PAL2NAL with Comeron and YN; the dN/dS step on
   40 pairs of the 1,000-gene example for MS, MA and ALL, and on yeast pairs for GY (200) and MA (12).
 - Measured: the whole `dNdS()` call including DIAMOND, CPU seconds (user + system, with child processes; the
   machine was shared, so elapsed times varied by a factor of 2), 0.5.0 -> 0.6.0:
