@@ -6,6 +6,9 @@ Further behaviour that differs from 0.4.3 and cannot be switched back:
 
 - A gene pair whose alignment or estimation fails no longer ends the run: it is a row of `NA` and its reason
   is in `attr(, "failed_pairs")`.
+- Parameter strings (`aa_aln_params`, `aligner_params`, `diamond_params`, `blast_params`, `params`,
+  `kaks_calc.params`, ...) are lists of arguments, not shell text: `;`, pipes and redirections inside them no
+  longer work.
 
 ### Fixed
 
@@ -14,8 +17,16 @@ Results:
 - `dNdS()` mixed up the two species when query and subject file had the same file name in different folders.
 - Li's method returned text columns and took small values (`9.95e-05`) for the saturation marker.
 
+Running programs:
+
+- Stale results can no longer be returned: `blast()`, `diamond()`, `deepclust()` and the functions built on them
+  check the exit status and the output of every program and work in files of their own.
+- File and folder names with spaces work. Programs are looked up once per session.
+
 ### Internal
 
+- External programs are started through one helper (`run_tool()`); `compute_dnds()` has one code path for serial
+  and parallel runs.
 - Tests: stored 0.4.3 tables (20-gene example, Comeron and YN) that `dNdS()` must reproduce (with the options
   named in this file where a default changed).
 - GitHub Actions: R CMD check on Linux, macOS and Windows with the external programs installed, one leg without

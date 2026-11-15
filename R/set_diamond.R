@@ -52,10 +52,6 @@ set_diamond <- function(
         if (!is.null(path))
                 path <- normalizePath(path, mustWork = FALSE)
         
-        # HERE WE NEED TO INSERT SOME QUALITY CONTROL
-        # CONCERNING THE CASE THAT A POTENTIAL USER
-        # COULD INSERT SOME NON-CDS SEQUENCES
-        
         if (!file.exists(file))
                 stop("The file '", file, "' seems not to exist. Please provide a valid file path." , call. = FALSE)
         
@@ -67,131 +63,21 @@ set_diamond <- function(
                 stop("Please choose a valid DIAMOND database type. Only 'protein' is available for this function.",
                      "For users who want to use nucleotide, use the function set_blast()", call. = FALSE)
         
+        dt <- protein_table(file = file, seq_type = seq_type, delete_corrupt_cds = delete_corrupt_cds, ...)
         
-        # due to the discussion of no visible binding for global variable for
-        # data.table objects see:
-        # http://stackoverflow.com/questions/8096313/no-visible-binding-for-global-variable-note-in-r-cmd-check?lq=1
-        seqs <- aa <- geneids <- NULL
-        
-        if(seq_type == "cds"){
-                # read cds file
-                # copy the data.table due to this discussion:
-                # http://stackoverflow.com/questions/8030452/pass-by-reference-the-operator-in-the-data-table-package
-                dt <- data.table::copy(read.cds(file = file, format = "fasta", delete_corrupt_cds = delete_corrupt_cds, ...))
-                
-                if(!is.data.table(dt))
-                        stop("Your CDS file was not corretly transformed into a data.table object.")
-                
-                # When using data.tables within packages, always make sure
-                # 'data.table' is included in the DESCRIPTION file as 'Imports' AND
-                # in the NAMESPACE file with 'imports(data.table)' -> @import when using roxygen2
-                # http://stackoverflow.com/questions/10527072/using-data-table-package-inside-my-own-package
-                # https://github.com/hadley/dplyr/issues/548
-                
-                # omit empty sequences
-                dt <- dt[ ,.SD[sapply(seqs,function(x){return(! (is.na(x) || x=="") )})]]
-                
-                if (delete_corrupt_cds) {
-                        # omit sequences that are not multiples of 3
-                        dt <- dt[ ,.SD[sapply(seqs,function(x){return(nchar(x)%%3==0)})]]
-                }
-                
-                # omit sequences consisting of others than ACGT
-                dt <- dt[ ,.SD[sapply(seqs,is.dnaSequence)]]
-                
-                # translate cds to protein sequences
-                tryCatch({
-                        
-                        dt[ , aa := transl(seqs), by = geneids]
-                        
-                }, error = function(e) {stop("The input coding sequences could not be translated properly to amino acid sequences.",
-                                             "\n"," Please check whether ",file, " stores valid coding sequences.")}
-                )
-                
-        }
-        
-        # read file storing protein sequence -> no translation needed
-        if(seq_type == "protein"){
-                
-                dt <- data.table::copy(read.proteome(file = file, format = "fasta", ...))
-                data.table::setnames(dt, old = "seqs", new = "aa")
-        }
-        
-        if(seq_type == "dna"){
-                
-                dt <- data.table::copy(read.genome(file = file, format = "fasta", ...))
-                
-                # here will come -> CDS prediction
-                # then CDS -> protein translation
-        }
-        
-        # WE COULD ALSO INSERT A IF-STATEMENT CHECKING THAT
-        # IN CASE THE USER INSERTS AN AA-FASTA FILE,
-        # THE TRANSLATION PROCESS IS BEING OMITTED
-        
-        
-        # makedb
         dbname <- vector(mode = "character", length = 1)
-        filename <- basename(file)
         
-        
-        if(makedb){
-                if(!file.exists(file.path(orthologr_tmpdir(),"_blast_db"))){ 
-                        
-                        dir.create(file.path(orthologr_tmpdir(),"_blast_db")) 
-                        
-                }
+        if (makedb) {
+                db_dir <- file.path(orthologr_tmpdir(), "_blast_db")
+                if (!file.exists(db_dir))
+                        dir.create(db_dir, recursive = TRUE)
                 
-                currwd <- getwd()
-                setwd(file.path(orthologr_tmpdir(),"_blast_db"))
-                on.exit(setwd(currwd), add = TRUE)
-                
-                dbname <- paste0("diamonddb_",filename,"_protein.fasta")
-                
-                seqinr::write.fasta( sequences = as.list(dt[ , aa]),
-                                     names     = dt[ , geneids],
-                                     nbchar    = 80, 
-                                     open      = "w",
-                                     file.out  = dbname )
-                
-                # configuring the diamond makedb run in the command line
-                diamonddb_run <- paste0(
-                        'diamond makedb', 
-                        ' --in ',
-                        dbname,
-                        ' --db ',
-                        dbname,
-                        ' --threads ',
-                        comp_cores
-                        )
-                
-                if(!is.null(path)){
-                        diamonddb_run <- paste0(path_prefix(path), diamonddb_run)
-                }
-                
-                if(quiet){
-                        diamonddb_run <- paste0(
-                                diamonddb_run,
-                                ' ',
-                                '--quiet'
-                        )
-                }
-                
-                ## running diamond makedb
-                status <- system(diamonddb_run)
-                if (!identical(status, 0L)) {
-                        stop(
-                                "diamond makedb exited with non-zero status: ", status,
-                                "\nPlease check the arguments of the function and: ", dbname,
-                                call. = FALSE
-                        )
-                }
-
-                # return to global working directory
-                setwd(file.path(currwd))
+                # the database keeps its documented place and name; characters that cannot be used safely in a
+                # database file name (spaces, ...) are replaced
+                dbname <- paste0("diamonddb_", safe_file_name(basename(file)), "_protein.fasta")
+                make_diamond_db(dt, db_file = file.path(db_dir, dbname), path = path, comp_cores = comp_cores,
+                                quiet = quiet)
         }
         
         return(list(stats::na.omit(dt), dbname))
 }
-
-

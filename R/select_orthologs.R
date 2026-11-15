@@ -53,25 +53,10 @@ select_orthologs <-
                 
                 '.' <- NULL
                 
-                temp_store <-
-                        file.path(tempdir(),
-                                  paste0(
-                                          "final_join_dnds_annotation_tbl_",
-                                          basename(annotation_file_query),
-                                          "_vs_",
-                                          basename(annotation_file_subject)
-                                  ))
-                
-                if (file.exists(temp_store)) {
-                        message("Start ortholog selection process by ",
-                                collapse_by,
-                                " ...")
-                        
-                        message("Import pre-computed file final_join_dnds_annotation_tbl ...")
-                        final_join_dnds_annotation_tbl <-
-                                readRDS(temp_store)
-                        
-                } else {
+                # (Earlier versions stored the joined table in tempdir() under a name made of the two annotation
+                # file names only and reused it in later calls - also for a different dnds_tbl. The table is
+                # now computed in every call.)
+                {
                         message("Start ortholog selection process by ",
                                 collapse_by,
                                 " ...")
@@ -258,10 +243,6 @@ select_orthologs <-
                         if (nrow(final_join_dnds_annotation_tbl) == 0)
                                 stop("When joining the 'joined_dnds_annotation_tbl_qry' and the 'joined_dnds_annotation_tbl_sbj' tables by 'query_id' and 'subject_id', no entries were retained. Thus, this join created an empty table. Please check what might have gone wrong during the joining process.", call. = FALSE)
                         
-                        if (!file.exists(temp_store)) {
-                                saveRDS(final_join_dnds_annotation_tbl,
-                                        temp_store)
-                        }
                 }
                 
                 if (collapse_by == "gene_locus") {

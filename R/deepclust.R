@@ -139,194 +139,138 @@ deepclust <- function(
         if (!is.null(path))
                 path <- normalizePath(path, mustWork = FALSE)
         
-        is_installed_diamond(diamond_exec_path = path)
-
-        if (is.null(path)) {
-                message("Running ",
-                        system("diamond --version", intern = TRUE)[1],
-                        " ...")
-        } else {
-                message("Running ",
-                        system(paste0(
-                                path_prefix(path),
-                                'diamond --version'), intern = TRUE)[1],
-                        " ...")
-        }
-
-        # determine the number of cores on a multicore machine
-        cores <- parallel::detectCores()
-        if (comp_cores > cores)
-                stop("You chose more cores than are available on your machine.",
-                     call. = FALSE)
-
-        # ensure the shared temp directory exists early (needed for merge step)
-        if (!file.exists(file.path(tempdir(), "_blast_db")))
-                dir.create(file.path(tempdir(), "_blast_db"))
-
-        # merge multiple input files into a single temporary FASTA before clustering
-        if (length(input_file) > 1) {
-
-                n_files     <- length(input_file)
-                seqtype_fasta <- if (seq_type == "protein") "AA" else "DNA"
-
-                message("Merging ", n_files, " input files ...")
-
-                all_seqs  <- list()
-                all_names <- character(0)
-
-                for (f in input_file) {
-                        seqs <- seqinr::read.fasta(
-                                file            = f,
-                                seqtype         = seqtype_fasta,
-                                as.string       = TRUE,
-                                forceDNAtolower = FALSE
-                        )
-                        all_seqs  <- c(all_seqs,  seqs)
-                        all_names <- c(all_names, names(seqs))
-                }
-
-                merged_filename <- paste0("deepclust_merged_", n_files, "_files.fasta")
-                merged_file     <- file.path(tempdir(), "_blast_db", merged_filename)
-
-                seqinr::write.fasta(
-                        sequences = all_seqs,
-                        names     = all_names,
-                        file.out  = merged_file,
-                        nbchar    = 80
-                )
-
-                message("Merged ", length(all_names), " sequences into: ", merged_filename)
-
-                dup_ids <- all_names[duplicated(all_names)]
-                if (length(dup_ids) > 0) {
-                        warning(
-                                "Duplicate sequence IDs found across input files. ",
-                                "DIAMOND2 may produce unexpected results.\n",
-                                "Affected IDs include: ",
-                                paste(head(unique(dup_ids)), collapse = ", "),
-                                call. = FALSE
-                        )
-                }
-
-                input_file <- merged_file
-        }
-
-        # derive an output filename from the (possibly merged) input file
+        message("Running ", diamond_version(path = path), " ...")
+        
+        # in case one tries to use more cores than are available
+        check_comp_cores(comp_cores)
+        
+        # every call works in a folder of its own, which is removed when the call ends
+        work <- call_dir_start("deepclust_")
+        on.exit(call_dir_end(work), add = TRUE)
+        
+        # if multiple files are provided, merge them into one temporary FASTA
+        input_file <- merge_fasta_files(input_file, seq_type = seq_type, dir = work, warn_duplicates = TRUE)
+        
         filename <- basename(input_file)
-        output   <- paste0("deepclust_", filename, ".tsv")
-
+        output   <- file.path(work, paste0("deepclust_", safe_file_name(filename), ".tsv"))
+        
         message("Building DIAMOND2 database for deepclust ...")
-
-        db_result <- set_diamond(
+        
+        db_dt <- set_diamond(
                 file               = input_file,
                 seq_type           = seq_type,
                 format             = format,
-                makedb             = TRUE,
                 delete_corrupt_cds = delete_corrupt_cds,
                 path               = path,
                 comp_cores         = comp_cores,
                 quiet              = quiet
-        )
-
-        database <- db_result[[2]]
-
-        # configure the diamond deepclust run
-        currwd <- getwd()
-        setwd(file.path(tempdir(), "_blast_db"))
-        on.exit(setwd(currwd), add = TRUE)
-
-        deepclust_run <- paste0(
-                'diamond deepclust',
-                ' --db ',      database,
-                ' --out ',     output,
-                ' --threads ', comp_cores
-        )
-
-        if (!is.null(approx_id))
-                deepclust_run <- paste0(deepclust_run,
-                                        ' --approx-id ', as.numeric(approx_id))
-
-        if (!is.null(mutual_cover))
-                deepclust_run <- paste0(deepclust_run,
-                                        ' --mutual-cover ', as.numeric(mutual_cover))
-
-        if (!is.null(eval))
-                deepclust_run <- paste0(deepclust_run,
-                                        ' --evalue ', as.numeric(eval))
-
-        if (!is.null(deepclust_params))
-                deepclust_run <- paste0(deepclust_run, ' ', deepclust_params)
-
-        if (!is.null(path))
-                deepclust_run <- paste0(path_prefix(path), deepclust_run)
-
-        if (quiet)
-                deepclust_run <- paste0(deepclust_run, ' --quiet')
-
+        )[[1]]
+        database <- make_diamond_db(db_dt, db_file = file.path(work, "deepclust_db.fasta"), path = path,
+                                    comp_cores = comp_cores, quiet = quiet)
+        
         message("Running diamond deepclust ...")
         t_deepclust_start   <- proc.time()["elapsed"]
-        status              <- run_system_quiet(deepclust_run, quiet = quiet)
-        t_deepclust_elapsed <- proc.time()["elapsed"] - t_deepclust_start
-        message(
-                "diamond deepclust completed in ",
-                if (t_deepclust_elapsed >= 60)
-                        paste0(round(t_deepclust_elapsed / 60, 2), " min.")
-                else
-                        paste0(round(t_deepclust_elapsed, 2), " sec.")
+        res <- run_tool(
+                "diamond",
+                args = list(
+                        "deepclust", "--db", database, "--out", output, "--threads", comp_cores,
+                        if (!is.null(approx_id)) c("--approx-id", as.numeric(approx_id)),
+                        if (!is.null(mutual_cover)) c("--mutual-cover", as.numeric(mutual_cover)),
+                        if (!is.null(eval)) c("--evalue", as.numeric(eval)),
+                        if (!is.null(deepclust_params)) I(deepclust_params),
+                        if (quiet) "--quiet"
+                ),
+                path = path, tool = "diamond deepclust", error = FALSE, echo = !quiet
         )
-        if (!identical(status, 0L)) {
+        t_deepclust_elapsed <- proc.time()["elapsed"] - t_deepclust_start
+        message("diamond deepclust completed in ", format_elapsed(t_deepclust_elapsed))
+        if (!identical(as.integer(res$status), 0L)) {
+                said <- utils::tail(res$stderr[nzchar(trimws(res$stderr))], 5)
                 stop(
-                        "diamond deepclust exited with non-zero status: ", status,
+                        "diamond deepclust exited with non-zero status: ", res$status,
                         "\nPlease check the path to the DIAMOND2 executable and the input file.",
+                        if (length(said) > 0) paste0("\ndiamond said: ", paste(said, collapse = "\n")) else "",
                         call. = FALSE
                 )
         }
-
+        if (!file.exists(output))
+                stop("diamond deepclust wrote no cluster table for '", filename, "'.", call. = FALSE)
+        
         tryCatch({
-                # cluster_table <- data.table::as.data.table(
-                #         readr::read_tsv(
-                #                 file           = output,
-                #                 col_names      = FALSE,
-                #                 col_types      = readr::cols(
-                #                         X1 = readr::col_character(),
-                #                         X2 = readr::col_character()
-                #                 ),
-                #                 show_col_types = FALSE
-                #         )
-                # )
-                # 
-                # data.table::setnames(
-                #         cluster_table,
-                #         old = c("X1", "X2"),
-                #         new = c("representative_id", "member_id")
-                # )
-                
                 cluster_table <- data.table::fread(
                         file    = output,
                         header  = FALSE,
                         col.names = c("representative_id", "member_id"),
                         colClasses = "character"
                 )
-
-                setwd(file.path(currwd))
-
+                
                 if (!is.null(save.output)) {
-                        file.copy(
-                                from = file.path(tempdir(), "_blast_db", output),
-                                to   = save.output
-                        )
+                        save_output_copy(output, save.output, paste0("deepclust_", filename, ".tsv"))
                         message("Cluster TSV saved to: ", save.output)
                 }
-
+                
                 return(tibble::as_tibble(cluster_table))
-
+                
         }, error = function(e) {
                 stop(
                         "The deepclust output file '", output, "' could not be read correctly.",
                         " Please verify that diamond deepclust produced output.",
                         "\n",
-                        "Error: ", e,
+                        "Error: ", conditionMessage(e),
                         call. = FALSE
                 )
         })
+}
+
+# Several FASTA files as one file in `dir` (one file is returned as it is). Used by deepclust() and
+# deepclust_realign(), which hand one database to DIAMOND.
+merge_fasta_files <- function(input_file, seq_type, dir, warn_duplicates = FALSE) {
+        if (length(input_file) <= 1)
+                return(input_file)
+        
+        n_files       <- length(input_file)
+        seqtype_fasta <- if (seq_type == "protein") "AA" else "DNA"
+        
+        message("Merging ", n_files, " input files ...")
+        
+        all_seqs  <- list()
+        all_names <- character(0)
+        
+        for (f in input_file) {
+                seqs <- seqinr::read.fasta(
+                        file            = f,
+                        seqtype         = seqtype_fasta,
+                        as.string       = TRUE,
+                        forceDNAtolower = FALSE
+                )
+                all_seqs  <- c(all_seqs,  seqs)
+                all_names <- c(all_names, names(seqs))
+        }
+        
+        merged_filename <- paste0("deepclust_merged_", n_files, "_files.fasta")
+        merged_file     <- file.path(dir, merged_filename)
+        
+        seqinr::write.fasta(
+                sequences = all_seqs,
+                names     = all_names,
+                file.out  = merged_file,
+                nbchar    = 80
+        )
+        
+        message("Merged ", length(all_names), " sequences into: ", merged_filename)
+        
+        if (warn_duplicates) {
+                dup_ids <- all_names[duplicated(all_names)]
+                if (length(dup_ids) > 0) {
+                        warning(
+                                "Duplicate sequence IDs found across input files. ",
+                                "DIAMOND2 may produce unexpected results.\n",
+                                "Affected IDs include: ",
+                                paste(utils::head(unique(dup_ids)), collapse = ", "),
+                                call. = FALSE
+                        )
+                }
+        }
+        
+        merged_file
 }

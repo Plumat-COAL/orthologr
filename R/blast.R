@@ -141,24 +141,15 @@ blast <- function(query_file,
         if (!is.null(path))
                 path <- normalizePath(path, mustWork = FALSE)
         
-        is_installed_blast(path = path)
+        message("Running ", blast_version(path = path), " ...")
         
-        if (is.null(path)) {
-                message("Running ",
-                        system("blastp -version", intern = TRUE)[1],
-                        " ...")
-        } else {
-                message("Running ",
-                        system(paste0(
-                                path_prefix(path),
-                                "blastp -version"), intern = TRUE)[1],
-                        " ...")
-        }
+        # in case one tries to use more cores than are available
+        check_comp_cores(comp_cores)
         
-        # due to the discussion of no visible binding for global variable for
-        # data.table objects see:
-        # http://stackoverflow.com/questions/8096313/no-visible-binding-for-global-variable-note-in-r-cmd-check?lq=1
-        aa <- geneids <- NULL
+        # every call works in a folder of its own, which is removed when the call ends: a table left by an
+        # earlier or failed call cannot be returned as the result of this one
+        work <- call_dir_start("blast_")
+        on.exit(call_dir_end(work), add = TRUE)
         
         # initialize the BLAST search
         query.dt <- set_blast(
@@ -168,192 +159,64 @@ blast <- function(query_file,
                 delete_corrupt_cds = delete_corrupt_cds
         )[[1]]
         
-        # make a BLASTable databse of the subject
-        database <- set_blast(
-                file     = subject_file,
-                seq_type = seq_type,
-                format   = format,
-                makedb   = TRUE ,
-                delete_corrupt_cds = delete_corrupt_cds
-        )[[2]]
-        
         filename <- basename(query_file)
+        input    <- file.path(work, "query.fasta")
+        output   <- file.path(work, "blastresult.tsv")
         
+        # where the hit table is kept after the call (as before); a table of an earlier call is removed now
+        db_dir <- file.path(orthologr_tmpdir(), "_blast_db")
+        kept   <- file.path(db_dir, paste0("blastresult_", filename, ".csv"))
+        if (file.exists(kept))
+                unlink(kept)
+        context  <- paste0("query '", filename, "'")
         
-        # create an internal folder structure for the BLAST process
-        input = paste0("query_", filename, ".fasta")
-        # input = "blastinput.fasta"
-        output = paste0("blastresult_", filename, ".csv")
+        tryCatch({
+                write_protein_fasta(query.dt, input)
+        }, error = function(e) {
+                stop("The query sequences of '", query_file, "' could not be written to '", input, "': ",
+                     conditionMessage(e), call. = FALSE)
+        })
         
-        
-        if (!file.exists(file.path(orthologr_tmpdir(), "_blast_db"))) {
-                dir.create(file.path(orthologr_tmpdir(), "_blast_db"))
+        if (remote) {
+                run_tool(
+                        "blastp",
+                        args = list("-db", db, "-query", input, "-remote", "-evalue", eval,
+                                    "-out", output, "-outfmt", "6"),
+                        path = path, tool = blast_algorithm, context = context
+                )
+        } else {
+                # make a BLASTable database of the subject
+                subject.dt <- set_blast(
+                        file     = subject_file,
+                        seq_type = seq_type,
+                        format   = format,
+                        delete_corrupt_cds = delete_corrupt_cds
+                )[[1]]
+                database <- make_blast_db(subject.dt, db_file = file.path(work, "subject_db.fasta"), path = path)
+                
+                # additional blast parameters can be found here:
+                # https://www.ncbi.nlm.nih.gov/books/NBK1763/table/CmdLineAppsManual.T.options_common_to_al/?report=objectonly
+                run_tool(
+                        "blastp",
+                        args = list(
+                                "-db", blast_db_arg(database),
+                                "-query", input,
+                                "-evalue", eval,
+                                "-max_target_seqs", format(max.target.seqs, scientific = FALSE),
+                                "-out", output,
+                                "-num_threads", comp_cores,
+                                if (!is.null(blast_params)) I(blast_params),
+                                "-outfmt",
+                                "6 qseqid sseqid pident nident length mismatch gapopen gaps positive ppos qstart qend qlen qcovs qcovhsp sstart send slen evalue bitscore score"
+                        ),
+                        path = path, tool = blast_algorithm, context = context
+                )
         }
         
-        currwd <- getwd()
-        setwd(file.path(orthologr_tmpdir(), "_blast_db"))
-        on.exit(setwd(currwd), add = TRUE)
+        # blastp must have written its table (an empty file when there is no hit)
+        if (!file.exists(output))
+                stop(blast_algorithm, " wrote no hit table for ", context, ".", call. = FALSE)
         
-        # determine the number of cores on a multicore machine
-        cores <- parallel::detectCores()
-        
-        # in case one tries to use more cores than are available
-        if (comp_cores > cores)
-                stop("You chose more cores than are available on your machine.",
-                     call. = FALSE)
-        
-        #         write_AA <- as.list(query.dt[ ,aa])
-        #         name <- query.dt[ ,geneids]
-        #
-        tryCatch({
-                seqinr::write.fasta(
-                        sequences = as.list(query.dt[ , aa]),
-                        names     = query.dt[ , geneids],
-                        nbchar    = 80,
-                        open      = "w",
-                        file.out  = input
-                )
-                
-        }, error = function(e) {
-                stop(
-                        "File ",
-                        input,
-                        " could not be written properly to the internal folder environment.",
-                        " Please check the path to ",
-                        input,
-                        "."
-                )
-        })
-        
-        blast_status <- 0L
-        # test whether the connection to BLAST+ works
-        tryCatch({
-                if (remote) {
-                        # use the default parameters when running blastp
-                        blast_status <- system(
-                                paste0(
-                                        "blastp -db ",
-                                        db,
-                                        " -query ",
-                                        input,
-                                        " -remote -evalue ",
-                                        eval,
-                                        " -out ",
-                                        output ,
-                                        " -outfmt 6"
-                                )
-                        )
-                        
-                } else {
-                        if (is.null(path)) {
-                                if (blast_algorithm == "blastp") {
-                                        if (is.null(blast_params)) {
-                                                # use the default parameters when running blastp
-                                                blast_status <- system(
-                                                        paste0(
-                                                                'blastp -db ',
-                                                                database,
-                                                                ' -query ',
-                                                                input,
-                                                                ' -evalue ',
-                                                                eval,
-                                                                ' -max_target_seqs ',
-                                                                max.target.seqs,
-                                                                ' -out ',
-                                                                output ,
-                                                                ' -num_threads ',
-                                                                comp_cores,
-                                                                ' -outfmt "6', ' qseqid sseqid pident nident length mismatch gapopen gaps positive ppos qstart qend qlen qcovs qcovhsp sstart send slen evalue bitscore score"'
-                                                        )
-                                                )
-                                        } else {
-                                                # add additional parameters when running blastp
-                                                blast_status <- system(
-                                                        paste0(
-                                                                'blastp -db ',
-                                                                database,
-                                                                ' -query ',
-                                                                input,
-                                                                ' -evalue ',
-                                                                eval,
-                                                                ' -max_target_seqs ',
-                                                                max.target.seqs,
-                                                                ' -out ',
-                                                                output ,
-                                                                ' -num_threads ',
-                                                                comp_cores,
-                                                                ' ',
-                                                                blast_params,
-                                                                ' -outfmt 6"',' qseqid sseqid pident nident length mismatch gapopen gaps positive ppos qstart qend qlen qcovs qcovhsp sstart send slen evalue bitscore score"'
-                                                        )
-                                                )
-                                                
-                                        }
-                                }
-                                
-                        } else {
-                                if (blast_algorithm == "blastp") {
-                                        if (is.null(blast_params)) {
-                                                # use the default parameters when running blastp
-                                                blast_status <- system(
-                                                        paste0(
-                                                                path_prefix(path),
-                                                                'blastp -db ',
-                                                                database,
-                                                                ' -query ',
-                                                                input,
-                                                                ' -evalue ',
-                                                                eval,
-                                                                ' -max_target_seqs ',
-                                                                max.target.seqs,
-                                                                ' -out ',
-                                                                output ,
-                                                                ' -num_threads ',
-                                                                comp_cores,
-                                                                ' -outfmt 6"',' qseqid sseqid pident nident length mismatch gapopen gaps positive ppos qstart qend qlen qcovs qcovhsp sstart send slen evalue bitscore score"'
-                                                        )
-                                                )
-                                        } else {
-                                                # add additional parameters when running blastp
-                                                blast_status <- system(
-                                                        paste0(
-                                                                path_prefix(path),
-                                                                'blastp -db ',
-                                                                database,
-                                                                ' -query ',
-                                                                input,
-                                                                ' -evalue ',
-                                                                eval,
-                                                                ' -max_target_seqs ',
-                                                                max.target.seqs,
-                                                                ' -out ',
-                                                                output ,
-                                                                ' -num_threads ',
-                                                                comp_cores,
-                                                                ' ',
-                                                                blast_params,
-                                                                ' -outfmt 6"',' qseqid sseqid pident nident length mismatch gapopen gaps positive ppos qstart qend qlen qcovs qcovhsp sstart send slen evalue bitscore score"'
-                                                        )
-                                                )
-                                        }
-                                }
-                        }
-                }
-                
-        }, error = function(e) {
-                stop(
-                        "Please check the correct path to ",
-                        blast_algorithm,
-                        "... the interface call did not work properly."
-                )
-        })
-        
-        # blastp must have finished successfully: its (possibly partial) output is read below
-        check_external(blast_status, tool = blast_algorithm, context = paste0("query '", basename(query_file), "'"))
-
-        
-        # additional blast parameters can be found here:
-        # https://www.ncbi.nlm.nih.gov/books/NBK1763/table/CmdLineAppsManual.T.options_common_to_al/?report=objectonly
         blast_table_names <-
                 c(
                         "query_id",
@@ -379,6 +242,32 @@ blast <- function(query_file,
                         "score_raw"
                 )
         
+        hit_table <- read_hit_table(output, blast_table_names, tool = "BLAST")
+        
+        # save the BLAST output file to path save.output
+        save_output_copy(output, save.output, paste0("blastresult_", filename, ".csv"))
+        
+        if (clean_folders) {
+                clean_all_folders(db_dir)
+        } else {
+                if (!file.exists(db_dir))
+                        dir.create(db_dir, recursive = TRUE)
+                publish_file(output, kept)
+        }
+        
+        return(hit_table)
+}
+
+# "blastp: 2.17.0+" - the BLAST+ version line; stops when blastp cannot be started. Asked once per session.
+blast_version <- function(path = NULL) {
+        tool_available(
+                "blastp", version_args = "-version", pattern = "blast", path = path,
+                not_found = "It seems like you don't have BLAST installed locally on your machine or the PATH variable to the BLAST program is not set correctly."
+        )
+}
+
+# Read a tabular hit table (BLAST / DIAMOND output format 6 with the 21 columns used in this package).
+read_hit_table <- function(file, col_names, tool) {
         # define the colClasses for faster file streaming
         col_Classes <- c(rep("character", 2),
                          "double",
@@ -391,80 +280,30 @@ blast <- function(query_file,
         
         tryCatch({
                 hit_table <- data.table::fread(
-                        input      = output,
+                        input      = file,
                         sep        = "\t",
                         header     = FALSE,
                         colClasses = col_Classes
                 )
                 
-                # hit_table <-  data.table::as.data.table(readr::read_delim(file = output, delim = "\t", 
-                #                                                           col_names = FALSE,
-                #                                                           col_types = readr::cols(
-                #                                                                   "X1" = readr::col_character(),
-                #                                                                   "X2" = readr::col_character(),
-                #                                                                   "X3" = readr::col_double(),
-                #                                                                   "X4" = readr::col_integer(),
-                #                                                                   "X5" = readr::col_integer(),
-                #                                                                   "X6" = readr::col_integer(),
-                #                                                                   "X7" = readr::col_integer(),
-                #                                                                   "X8" = readr::col_integer(),
-                #                                                                   "X9" = readr::col_integer(),
-                #                                                                   "X10" = readr::col_double(),
-                #                                                                   "X11" = readr::col_integer(),
-                #                                                                   "X12" = readr::col_integer(),
-                #                                                                   "X13" = readr::col_integer(),
-                #                                                                   "X14" = readr::col_double(),
-                #                                                                   "X15" = readr::col_double(),
-                #                                                                   "X16" = readr::col_integer(),
-                #                                                                   "X17" = readr::col_integer(),
-                #                                                                   "X18" = readr::col_integer(),
-                #                                                                   "X19" = readr::col_double(),
-                #                                                                   "X20" = readr::col_number(),          
-                #                                                                   "X21" = readr::col_double() )))
-                
                 data.table::setnames(
                         x   = hit_table,
-                        old = paste0("V", 1:length(blast_table_names)), # "X" if readr is used
-                        new = blast_table_names
+                        old = paste0("V", 1:length(col_names)),
+                        new = col_names
                 )
                 
                 data.table::setkeyv(hit_table, c("query_id", "subject_id"))
                 
-                setwd(file.path(currwd))
-                
-                
-                if (clean_folders) {
-                        # save the BLAST output file to path save.output
-                        if (!is.null(save.output))
-                                file.copy(file.path(orthologr_tmpdir(), "_blast_db", output),
-                                          save.output)
-                        
-                        clean_all_folders(file.path(orthologr_tmpdir(), "_blast_db"))
-                }
-                
-                if (!clean_folders) {
-                        # save the BLAST output file to path save.output
-                        if (!is.null(save.output))
-                                file.copy(file.path(orthologr_tmpdir(), "_blast_db", output),
-                                          save.output)
-                        
-                }
-                
-                
-                hit_table <-
-                        tibble::as_tibble(hit_table)
-                
-                return(hit_table)
+                tibble::as_tibble(hit_table)
                 
         }, error = function(e) {
                 stop(
-                        "File ",
-                        output,
-                        " could not be read correctly.",
-                        " Please check the correct path to ",
-                        output,
-                        " or whether BLAST did write the resulting hit table correctly."
+                        "The hit table written by ", tool, " could not be read",
+                        if (isTRUE(file.size(file) == 0)) " (it is empty: no hits were found)" else "",
+                        ". Please check the input files and the parameters handed to ", tool, ".",
+                        "\n",
+                        "Error: ", conditionMessage(e),
+                        call. = FALSE
                 )
         })
-        
 }

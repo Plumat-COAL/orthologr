@@ -57,135 +57,29 @@ set_blast <- function(file,
         if (!is.null(path))
                 path <- normalizePath(path, mustWork = FALSE)
         
-        # HERE WE NEED TO INSERT SOME QUALITY CONTROL
-        # CONCERNING THE CASE THAT A POTENTIAL USER
-        # COULD INSERT SOME NON-CDS SEQUENCES
-        
         if (!file.exists(file))
                 stop("The file '", file, "' seems not to exist. Please provide a valid file path." , call. = FALSE)
-                
+        
         if(!is.element(seq_type,c("cds","protein","dna")))
                 stop("Please choose either: 'cds', 'protein', or 'dna' as seq_type.", call. = FALSE)
         
         if(!is.element(makedb_type,c("protein","nucleotide")))
                 stop("Please choose either: 'protein' or 'nucleotide' as BLAST database type (makedb_type).", call. = FALSE)
         
-        if(makedb_type == "protein")
-                db_type <- "prot"
+        dt <- protein_table(file = file, seq_type = seq_type, delete_corrupt_cds = delete_corrupt_cds, ...)
         
-        if(makedb_type == "nucleotide")
-                db_type <- "nucl"
-        
-        # due to the discussion of no visible binding for global variable for
-        # data.table objects see:
-        # http://stackoverflow.com/questions/8096313/no-visible-binding-for-global-variable-note-in-r-cmd-check?lq=1
-        seqs <- aa <- geneids <- NULL
-        
-        if(seq_type == "cds"){
-                # read cds file
-                # copy the data.table due to this discussion:
-                # http://stackoverflow.com/questions/8030452/pass-by-reference-the-operator-in-the-data-table-package
-                dt <- data.table::copy(read.cds(file = file, format = "fasta", delete_corrupt_cds = delete_corrupt_cds, ...))
-                
-                if(!is.data.table(dt))
-                        stop("Your CDS file was not corretly transformed into a data.table object.")
-                
-                # When using data.tables within packaes, always make sure
-                # 'data.table' is included in the DESCRIPTION file as 'Imports' AND
-                # in the NAMESPACE file with 'imports(data.table)' -> @import when using roxygen2
-                # http://stackoverflow.com/questions/10527072/using-data-table-package-inside-my-own-package
-                # https://github.com/hadley/dplyr/issues/548
-                
-                # omit empty sequences
-                dt <- dt[ ,.SD[sapply(seqs,function(x){return(! (is.na(x) || x=="") )})]]
-                
-                if (delete_corrupt_cds) {
-                        # omit sequences that are not multiples of 3
-                        dt <- dt[ ,.SD[sapply(seqs,function(x){return(nchar(x)%%3==0)})]]
-                }
-                
-                # omit sequences consisting of others than ACGT
-                dt <- dt[ ,.SD[sapply(seqs,is.dnaSequence)]]
-                
-                # translate cds to protein sequences
-                tryCatch({
-                        
-                        dt[ , aa := transl(seqs), by = geneids]
-                        
-                        }, error = function(e) {stop("The input coding sequences could not be translated properly to amino acid sequences.",
-                                   ,"\n"," Please check whether ",file, " stores valid coding sequences.")}
-                )
-
-        }
-        
-        # read file storing protein sequence -> no translation needed
-        if(seq_type == "protein"){
-                
-                dt <- data.table::copy(read.proteome(file = file, format = "fasta", ...))
-                data.table::setnames(dt, old = "seqs", new = "aa")
-        }
-        
-        if(seq_type == "dna"){
-                
-                dt <- data.table::copy(read.genome(file = file, format = "fasta", ...))
-        
-                # here will come -> CDS prediction
-                # then CDS -> protein translation
-        }
-
-        # WE COULD ALSO INSERT A IF-STATEMENT CHECKING THAT
-        # IN CASE THE USER INSERTS AN AA-FASTA FILE,
-        # THE TRANSLATION PROCESS IS BEING OMITTED
-
-
-        # makedb
         dbname <- vector(mode = "character", length = 1)
-        filename <- basename(file)
-
-
-     if(makedb){
-        if(!file.exists(file.path(orthologr_tmpdir(),"_blast_db"))){ 
+        
+        if (makedb) {
+                db_dir <- file.path(orthologr_tmpdir(), "_blast_db")
+                if (!file.exists(db_dir))
+                        dir.create(db_dir, recursive = TRUE)
                 
-                dir.create(file.path(orthologr_tmpdir(),"_blast_db")) 
-                
+                # the database keeps its documented place and name; characters that makeblastdb cannot handle
+                # in a file name (spaces, ...) are replaced
+                dbname <- paste0("blastdb_", safe_file_name(basename(file)), "_protein.fasta")
+                make_blast_db(dt, db_file = file.path(db_dir, dbname), makedb_type = makedb_type, path = path)
         }
         
-        currwd <- getwd()
-        setwd(file.path(orthologr_tmpdir(),"_blast_db"))
-        on.exit(setwd(currwd), add = TRUE)
-        
-        dbname <- paste0("blastdb_",filename,"_protein.fasta")
-        
-        seqinr::write.fasta( sequences = as.list(dt[ , aa]),
-                             names     = dt[ , geneids],
-                             nbchar    = 80, 
-                             open      = "w",
-                             file.out  = dbname )
-        
-        makeblastdb_run <- if (is.null(path)) {
-                paste0("makeblastdb -in ", dbname,
-                       " -input_type fasta -dbtype ", db_type, " -hash_index")
-        } else {
-                paste0(path_prefix(path),
-                       "makeblastdb -in ", dbname,
-                       " -input_type fasta -dbtype ", db_type, " -hash_index")
-        }
-
-        status <- system(makeblastdb_run)
-        if (!identical(status, 0L)) {
-                stop(
-                        "makeblastdb exited with non-zero status: ", status,
-                        "\nDefault parameters are: -input_type fasta -dbtype prot .",
-                        "\nAdditionally check: ", dbname,
-                        call. = FALSE
-                )
-        }
-        
-        # return to global working directory
-        setwd(file.path(currwd))
-     }
-
-     return(list(stats::na.omit(dt), dbname))
+        return(list(stats::na.omit(dt), dbname))
 }
-
-
