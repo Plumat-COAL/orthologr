@@ -21,7 +21,8 @@ divergence_stratigraphy(
   ds.values = TRUE,
   subject.id = FALSE,
   n_quantile = 10,
-  sensitivity_mode = "fast"
+  sensitivity_mode = "fast",
+  dS_zero = getOption("orthologr.dS_zero", "drop")
 )
 }
 \arguments{
@@ -74,7 +75,9 @@ by \code{divergence_stratigraphy}. Default is \code{ds.values} = \code{TRUE}.}
 
 \item{subject.id}{a logical value indicating whether \code{query_id} AND \code{subject_id} should be returned.}
 
-\item{n_quantile}{a numeric value specifying the number of quantiles that should be returned.}
+\item{n_quantile}{a numeric value specifying the number of quantiles that should be returned. Many equal dN/dS
+values (e.g. dN/dS = 0 for more than \code{1/n_quantile} of the genes of two closely related genomes) no longer
+stop the function after the run: see the section on ties in \code{\link{divergence_map}}.}
 
 \item{sensitivity_mode}{specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 \itemize{
@@ -88,9 +91,29 @@ by \code{divergence_stratigraphy}. Default is \code{ds.values} = \code{TRUE}.}
 \item \code{sensitivity_mode = "ultra-sensitive"}: most sensitive alignment mode (sensitivity as high as BLASTP).
 }
 Any other value is an error.}
+
+\item{dS_zero}{what to do with gene pairs whose dS is 0 (dN/dS not defined): \code{"drop"} (default) leaves
+them out of the divergence map, as every released version of orthologr did - now with a message, and listed in
+\code{attr(result, "left_out")}; \code{"keep"} keeps them as rows with the stratum (or dNdS value) \code{NA}
+(only choose this when the code that uses the map can deal with \code{NA} strata).
+See \code{\link{filter_dNdS}}; \code{options(orthologr.dS_zero = "keep")} sets the default.}
 }
 \value{
-A data.table storing the divergence map of the query organism.
+A \code{data.frame} with the divergence stratum (column \code{DS}; or \code{dNdS} with
+\code{ds.values = FALSE}) and the \code{query_id} (and \code{subject_id}) of every gene pair that has a dN/dS
+value of at most \code{dnds.threshold}. With the default \code{dS_zero = "drop"} no stratum is \code{NA}, as in
+earlier versions; the function always returns this type of table.
+
+Two attributes come with it:
+\itemize{
+\item \code{"dNdS_tbl"}: the complete dN/dS table of the run as returned by \code{\link{dNdS}},
+before filtering and binning, so that a finished run can be binned again (\code{\link{divergence_map}}) without
+computing it again;
+\item \code{"left_out"}: the gene pairs of that table that are not in the map (\code{query_id},
+\code{subject_id}, \code{dN}, \code{dS}, \code{dNdS}, \code{reason}): pairs without dN or dS, pairs with
+dS = 0 (identical coding sequences, or nonsynonymous changes only), pairs above \code{dnds.threshold}. A message
+gives their numbers. \code{\link{divergence_left_out}} returns this table.
+}
 }
 \description{
 This function takes a query organism and performs

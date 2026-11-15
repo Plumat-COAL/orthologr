@@ -223,6 +223,7 @@ The complete list of functions is in the [reference](https://drostlab.github.io/
 * `dNdS()`: Compute dN/dS values for the orthologous genes of two organisms
 * `divergence_stratigraphy()`, `divergence_map()`, `filter_dNdS()`: divergence strata from dN/dS values
 * `map_generator_dnds()`, `read.dnds.tbl()`: dN/dS tables of one query against many subject organisms
+* `divergence_left_out()`: the gene pairs a divergence map does not hold, and why
 * `substitutionrate()`: dN/dS of one codon alignment
 
 ### Sequence searches and orthology inference

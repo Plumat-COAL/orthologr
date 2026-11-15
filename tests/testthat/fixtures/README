@@ -35,6 +35,15 @@ ensembl_human_chr21.gtf, ensembl_human_chr21.gff3, ensembl_human_chr21_pep.fa, e
 The pieces were cut from the copies of these files that the second audit of the package downloaded
 (/home/claude/audit2/work/r05 and /home/claude/audit2/work/iso on the machine of the audit).
 
+codon_aln/
+----------
+lwl_exact_zero_scer_cgla.fa, lwl_exact_zero_scer_klac.fa
+    Two codon alignments (as dNdS() builds them, default settings) of reciprocal-best-hit pairs of NCBI RefSeq
+    coding sequences: S. cerevisiae NP_012431.1 / C. glabrata XP_446556.1 and S. cerevisiae NP_013326.1 /
+    K. lactis XP_455674.1. In both, the 4-fold class of the LWL family has 1 - 2P - Q = 0 exactly, so that the
+    printed counts of KaKs_Calculator cannot tell whether it computed the class (test-kaks_values.R). Source:
+    https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/ (NCBI RefSeq; no restrictions on use, see above).
+
 dnds_0.4.3/
 -----------
 comeron_20.rds, yn_20.rds

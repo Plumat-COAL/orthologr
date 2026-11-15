@@ -2,11 +2,14 @@
 
 ### New
 
+- `divergence_left_out()`: the gene pairs that are not in a divergence map, with the reason.
 - `attr(result, "failed_pairs")` and `attr(result, "dropped_sequences")` on dN/dS tables: gene pairs that could
   not be processed and input sequences that were left out, each with the reason.
 - A warning when an input file of `dNdS()`, `divergence_stratigraphy()`, `orthologs()` or `orthogroups()` seems
   to hold several transcripts per gene (`options(orthologr.isoform_warning = FALSE)` switches it off).
 - `aa_sub_matrix` (`dNdS()`, `pairwise_aln()`): the substitution matrix of pairwise protein alignments.
+- `dS_zero` (`filter_dNdS()`, `divergence_stratigraphy()`): `"keep"` returns gene pairs with dS = 0 instead of
+  leaving them out.
 - MUSCLE 5 is supported; `"MLPB"` is an accepted `dnds_est.method`.
 - `environment.yml` (conda environment with R, the R packages and the external programs); a pkgdown site
   configuration; an article on the setup on Windows.
@@ -16,6 +19,13 @@
 | Change | Effect (measured) | Old behaviour |
 |---|---|---|
 | Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | 1,000-gene example: dN or dS changes for a third of the gene pairs, mostly slightly (r of dN/dS old vs new 0.988) | `options(orthologr.legacy_pairwise_aln = TRUE)` |
+| Comeron's method: `NA` for a saturated dN or dS (was: a finite, too small value) | 1 dN of 995 pairs (example); 17 dN and 1 dS of 1,500 pairs (human / mouse) | `options(orthologr.legacy_comeron_saturation = TRUE)` |
+| Comeron's method counts codons that differ at two positions along Comeron's two pathways (libsequence's `TwoSubs`, and so 0.4.3, passes its arguments in another order, with which the estimate depends on which sequence is first) | swapping the two sequences of 300 random 150-codon pairs changed Ka in 279 and Ks in 190 of them; now in none. dS: 1,000-gene example 474 of 995 pairs change (median 0 %, p95 2.9 %, max 12 %), human / mouse median 1.0 %, p95 5.0 % | `options(orthologr.comeron_twosubs = "libsequence")` |
+| Comeron's method: a site class with fewer than 3 sites cannot make dN or dS `NA` (its undefined logarithm is 0, as in 0.4.3) | simulated 30-codon pairs: dN `NA` 3.7 % -> 0 %; 1,000-gene example 0 pairs, human / mouse 3, yeasts 14 | `options(orthologr.comeron_min_sites = 0)` |
+| KaKs_Calculator methods: `dN = 0` for a pair without nonsynonymous change (was `NA`, with `dNdS = 0`) | 11 of 995 pairs; `filter_dNdS()` keeps them | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
+| KaKs_Calculator methods: dN and dS that are 0 are 0 (KaKs_Calculator prints `NA` below 1e-6): identical sequences have dN = dS = 0 (was `NA` for dN, dS and dNdS), a pair with nonsynonymous differences only has dS = 0 | E. coli K-12 / O157, YN (3,663 pairs): 230 pairs `NA` -> dN = dS = 0, 12 dN of about 1e-12 -> 0; 1,000-gene example: 0 pairs | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
+| KaKs_Calculator methods: an estimate that KaKs_Calculator replaced with a capped value because the correction for multiple substitutions is not defined is `NA` (was returned as an estimate): Ka or Ks = 99, JC69's cap 0.75 log(sites) of YN / MYN, a class of sites counted with 0 substitutions in LWL / MLWL / LPB / MLPB (`?substitutionrate`; where the printed counts are within rounding of 0, the counts are computed again from the codon alignment with KaKs_Calculator's arithmetic, so that the result is what KaKs_Calculator did) | S. cerevisiae / C. glabrata, YN (4,164 pairs): 3,559 dS -> `NA` (172 with dS = 99, whose median dN/dS was 0.0028 against 0.081 overall, and 3,387 at JC69's cap, dS 2.56 - 5.99); `filter_dNdS(dnds.threshold = 2)` kept 4,164 rows (the 172 with dS = 99 included) -> 605; E. coli K-12 / O157, YN: 21 of 3,663 pairs (divergent pairs of 35 - 88 % identity, dS 2.8 - 4.8); 1,000-gene example: YN 1 of 995, NG 0; LWL family, S. cerevisiae / C. glabrata: Ks `NA` for 1,925 (LWL, LPB) and 2,100 (MLWL, MLPB) of 4,164 pairs - every pair whose class KaKs_Calculator found undefined, and no other (checked against a KaKs_Calculator that reports its decision, also on S. cerevisiae / K. lactis MLPB and E. coli; with the printed counts alone an intermediate version took 21 pairs the wrong way, among them 2 MLPB Ks of 0.97 and 2.26 that are underestimates) | `options(orthologr.legacy_kaks_saturation = TRUE)` |
+| KaKs_Calculator methods: an estimate printed as `nan` (Ka or Ks) is a failed estimate - `NA`, the gene pair is reported as failed with the reason and the method in `attr(result, "failed_pairs")` and the failed-pairs warning (was `NaN`, in one pair with a dN, like a saturated estimate); `substitutionrate()` lists it in `attr(, "kaks_failed")` | S. cerevisiae / C. glabrata, MYN (4,164 pairs): 50 pairs failed (all of them iterations that did not converge, not saturation), the dN of one pair 0.0547 -> `NA`; YN, NG and the LWL family on the same pairs, and E. coli K-12 / O157: no `nan` | `options(orthologr.legacy_kaks_saturation = TRUE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
 | A pairwise protein alignment of more than 5e8 cells (length x length; pwalign needs about 3 bytes per cell, so about 1.5 GB) is not computed: the gene pair is returned with `NA` values and the reason in `attr(, "failed_pairs")` (was: aligned whatever the memory; `options(orthologr.max_aln_cells)`, `?pairwise_aln`) | human 1,000 transcripts / all mouse CDS, 2 cores: 1 of 946 pairs (titin, 35,991 x 35,390 residues, 1.27e9 cells) not aligned instead of dS 0.50; peak memory 4.3 GB -> 0.79 GB, run time 87 s -> 42 s; 1,000-gene example: 0 pairs | `options(orthologr.max_aln_cells = Inf)` |
@@ -46,9 +56,16 @@ Results:
   (`007`, `1e5`), IDs of more than 15 characters (MAFFT) and the same ID in both files lost rows, came back
   changed or gave `NA`. The dN/dS rows are joined with the hit table by gene pair (was: by query only).
 - Li's method returned text columns and took small values (`9.95e-05`) for the saturation marker.
+- `filter_dNdS()` and `divergence_stratigraphy()` say how many gene pairs they leave out and why
+  (`divergence_left_out()`); gene pairs with dS = 0 are left out as before unless `dS_zero = "keep"`.
+- `divergence_map()`: strata are tie-safe, `n_quantile = 49` or `98` no longer gives `NA` for the largest value,
+  a failed binning no longer loses the finished dN/dS run, and the caller's table is not changed.
+- Comeron's method (gestimator): input that is not a codon alignment is an R error (a sequence shorter than one
+  codon ended the R session; sequences of unequal length gave numbers).
 - `retrieve_longest_isoforms()` and `select_orthologs()` work on real NCBI and Ensembl GFF3 / GTF files
   (proteins were lost without notice, annotation lines of more than 65,000 characters were deleted, GFF3 loci
   were grouped by name).
+- `promotor_divergence_of_orthologous_genes()` pairs promoters by ortholog pair.
 - `substitutionrate(kaks_calc.params = )` is added to the method instead of replacing it.
 - `dnds_est.method = "MLPB"` (default engine, KaKs_Calculator) works: `substitutionrate()` returned `NULL` for it
   and `dNdS()` ended after the whole search with an error about a missing column (20-gene example: before an

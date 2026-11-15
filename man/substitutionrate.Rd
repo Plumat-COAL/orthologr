@@ -89,6 +89,106 @@ Maximum-Likelihood Methods:
 \item GY: Goldman, N. and Yang, Z. (1994)
 }
 }
+\section{Gene pairs without nonsynonymous change (KaKs_Calculator methods)}{
+
+KaKs_Calculator prints \code{NA} for every Ka or Ks below 1e-6, also when the estimate is exactly 0. Up to
+orthologr 0.4.3 these \code{NA} were returned as they are: a pair without nonsynonymous change had
+\code{dN = NA} and \code{dNdS = 0} (and \code{\link{filter_dNdS}} / \code{\link{divergence_stratigraphy}}
+removed it - the most conserved genes of a comparison), and a pair of identical sequences had \code{NA} for dN,
+dS and dNdS. Since 0.5.0:
+\itemize{
+\item \code{dN = 0} when Ka is \code{NA}, Ks is a positive number and Ka/Ks is 0;
+\item \code{dN = 0} and \code{dS = 0} (\code{dNdS = NA}) when no nucleotide differs
+(column "Substitutions" of KaKs_Calculator 0);
+\item \code{dS = 0} (\code{dNdS = NA}) when Ks is \code{NA}, Ka is a number and no
+difference is synonymous (methods NG, YN, MYN: "S-Substitutions"; LWL, MLWL, LPB, MLPB: no transition at
+2-fold and no difference at 4-fold sites).
+}
+When Ka/Ks is \code{NA} for another reason (a model that failed) the values stay \code{NA}.
+\code{options(orthologr.legacy_kaks_zero_dn = TRUE)} restores the old table.
+}
+
+\section{Saturation (KaKs_Calculator methods)}{
+
+Where the correction for multiple substitutions is not defined, KaKs_Calculator prints a capped number instead
+of \code{NA}: Ka or Ks = 99 (YN family, when the proportion of differences P + Q exceeds 1); for YN and MYN
+JC69's distance at P = 0.75 (n - 1) / n, i.e. 0.75 log(n) for n synonymous or nonsynonymous sites (Ks of 3 - 5
+for typical genes); for LWL, MLWL, LPB and MLPB 0 substitutions for a class of sites whose correction is not
+defined (an underestimate). Since 0.5.0 these estimates are \code{NA} (and \code{dNdS} with them); they are
+recognised in the columns KaKs_Calculator prints (sites
+and differences by class), so the other values are unchanged. The methods GY, MA, MS and GMYN are not checked.
+Up to 0.4.3 such a value was returned as an estimate: e.g. dS = 99, which makes dN/dS look like strong
+purifying selection, put the pair into the most conserved stratum of \code{\link{divergence_map}} and passed
+\code{\link{filter_dNdS}}. \code{options(orthologr.legacy_kaks_saturation = TRUE)} restores the old values.
+
+For the LWL family the printed counts (6 significant digits) cannot tell the sign of \code{1 - 2P - Q} when it
+is within about 1e-5 of 0 - typically exactly 0, where KaKs_Calculator's own rounding decides. For such pairs
+(an argument within 1e-3 of 0 by the printed counts) the counts are computed again from the codon alignment, with
+the operations of KaKs_Calculator 2.0 in the same order, and its own test is applied to them; so the status
+follows what KaKs_Calculator did (checked on all LWL, MLWL, LPB and MLPB pairs of S. cerevisiae / C. glabrata,
+S. cerevisiae / K. lactis and E. coli K-12 / O157 against a KaKs_Calculator that reports its decision: no pair
+differs; with the printed counts alone 21 pairs differed, among them 2 MLPB pairs whose undefined 4-fold class
+gave underestimated Ks of 0.97 and 2.26 that passed as estimates). Where KaKs_Calculator computed such a class
+its Ks is large and unreliable (9 - 19 on these pairs). The recount needs the genetic code: it is read from
+\code{-c} in \code{kaks_calc.params} (default 1); with a code KaKs_Calculator 2.0 does not have, or a
+KaKs_Calculator whose counts differ from the recount, the printed counts decide. A build of KaKs_Calculator
+that rounds differently (e.g. with fused multiply-add on arm64) may decide an exact 0 the other way.
+
+\strong{Iterations that do not converge (YN, MYN).} KaKs_Calculator iterates the estimates of YN and MYN for at
+most 10 rounds and prints the values of the last round without saying whether they converged. Such a pair
+cannot be told from an estimate and is returned as one: S. cerevisiae / C. glabrata 18 of 605 YN estimates
+(3\%) and 7 of 352 MYN estimates, S. cerevisiae / K. lactis 17 of 597 YN estimates, E. coli K-12 / O157 3 of
+3,412 YN estimates; all of them with dS above 1.4. Treat dS above about 1.5 from KaKs_Calculator with caution.
+
+\strong{Estimates that failed (\code{nan}).} When KaKs_Calculator prints \code{nan} for Ka or Ks (MYN:
+S. cerevisiae / C. glabrata 50 of 4,164 pairs, all of them iterations that did not converge), the row is
+\code{NA} and is a failed estimate: \code{substitutionrate()} names it in \code{attr(result, "kaks_failed")}
+(method, reason), and \code{\link{dNdS}} reports the pair as failed, with the reason in
+\code{attr(result, "failed_pairs")}. It is not saturated: the iteration failed. Up to this version the row was
+\code{NaN} (in one of the 50 pairs dN a number), like a saturated estimate;
+\code{options(orthologr.legacy_kaks_saturation = TRUE)} returns it as printed.
+}
+
+\section{Saturation (Comeron's method)}{
+
+The corrections of Comeron (1995) take logarithms of \code{1 - 2P - Q} and \code{1 - 2Q} (\code{P}, \code{Q}:
+proportions of transitional and transversional differences in a class of sites). When such an argument is not
+positive, the observed differences exceed what the model can correct for and the distance is not defined. In
+that case \code{dS} (synonymous classes) or \code{dN} (nonsynonymous classes) and \code{dNdS} are returned as
+\code{NA}. Up to orthologr 0.4.3 the logarithm was replaced by 0 and a finite, too small value was returned
+(e.g. \code{dS = 0} for \code{ATGGCTAAA} / \code{ATGGCCAAA}, which differ by one synonymous substitution - a pair
+whose fourfold class has a single site, so that by default (see "Short alignments" below) it still gets
+\code{dS = 0}; with \code{options(orthologr.comeron_min_sites = 0)} it is \code{NA});
+\code{options(orthologr.legacy_comeron_saturation = TRUE)} reproduces those values. Values of gene pairs
+without such a term are the same in both modes.
+
+A class of sites that has no sites (weight 0 in the estimate) never makes an estimate \code{NA}.
+\strong{Short alignments:} with few codons a class with very few sites (typically the twofold sites whose
+synonymous change is a transversion: a median of 1.75 sites in 30-codon alignments) is easily "saturated" by one
+or two differences. Since 0.5.0 a class with fewer than \code{options(orthologr.comeron_min_sites)} sites
+(default 3) cannot make \code{dN} or \code{dS} \code{NA}: its undefined logarithm is 0, as in 0.4.3. A value
+that is not \code{NA} otherwise never changes. In a simulation without selection this keeps \code{dN} for the
+3.7 \% of 30-codon pairs that lost it (their mean absolute error 8.8 \%, against 11.2 \% for all 30-codon pairs);
+\code{options(orthologr.comeron_min_sites = 0)} gives \code{NA} for them again. Comeron's method (like the
+others) is unreliable below about 50 - 100 codons.
+}
+
+\section{Codons that differ at two positions (Comeron's method)}{
+
+For such codons Comeron (1995) counts the changes along the two pathways codon 1 - intermediate 1 - codon 2 and
+codon 1 - intermediate 2 - codon 2. libsequence's \code{TwoSubs}, from which this code comes, passes its
+arguments in another order and counts codon 1 - intermediate 1, intermediate 1 - intermediate 2, codon 1 -
+codon 2 and codon 2 - intermediate 2 instead, with which the estimate depends on which sequence is first
+(swapping the two sequences of 300 random pairs changed Ka in 279 of them). Since 0.5.0 the two pathways are
+counted (\code{options(orthologr.comeron_twosubs = "comeron")}, the default); \code{"libsequence"} gives the
+numbers of 0.4.3.
+Effect on dS (same alignments): 1,000-gene example median 0 \%, 95th percentile 2.9 \%; human / mouse median
+1.0 \%, 95th percentile 5.0 \%.
+
+The alignment must be a codon alignment: at least two sequences of the same length, which is a multiple of 3.
+Anything else is an error.
+}
+
 \examples{
 \dontrun{
 

@@ -48,6 +48,38 @@ private:
       double dN;
       double dS;
       int maxhits;
+      // orthologr: the object owns 'sites' (and 'sitesObj' when it created it); both are freed in the destructor
+      bool owns_sitesObj;
+      // orthologr: saturation. The corrections of Comeron (1995) take logarithms of 1 - 2P - Q and 1 - 2Q. When
+      // such an argument is <= 0 the observed differences exceed what the model can correct for: the distance
+      // is undefined. libsequence set these logarithms to 0 and returned a finite (too small) distance.
+      // legacy_saturation = true keeps that behaviour; otherwise the distance concerned is flagged and
+      // returned as 999 (which orthologr turns into NA).
+      bool legacy_saturation;
+      bool saturated_s;
+      bool saturated_a;
+      // orthologr: codons that differ at two positions are counted along libsequence's branches (true; 0.4.3) or
+      // along Comeron's two pathways (false, the default; TwoSubs.h)
+      bool twosubs_libsequence;
+      // orthologr: a site class with fewer than min_sites sites cannot make dN or dS NA: its undefined logarithm
+      // stays 0, as in libsequence (options(orthologr.comeron_min_sites); 0 = every class with sites can)
+      double min_sites;
+
+// log(x) as used in omega(): a NaN argument (0/0: no sites of a class) gives 0 as before; an argument <= 0
+// sets the saturation flag (and gives 0, so that the legacy value can still be computed)
+double checked_log(double x, bool &flag){
+    if (x != x)
+      return 0.0;
+    if (x <= 0.0)
+      {
+        flag = true;
+        return 0.0;
+      }
+    double l = log (x);
+    if (!isfinite (l))
+      return 0.0;
+    return l;
+}
         
         
 void diverge(const pair<string,string> *seq1, 
@@ -61,13 +93,16 @@ void diverge(const pair<string,string> *seq1,
  //
     size_t i, j, ndiff;
     size_t length = seq1->second.length();
+    // orthologr: 'length - 3' is unsigned and wraps around for sequences shorter than one codon
+    if (length < 3)
+      return;
 
     //the for loop iterates over codons (block of 3 sites)
     std::string codon1, codon2;
     codon1.resize (3);
     codon2.resize (3);
 
-    for (i = 0; i <= (length - 3); i += 3)
+    for (i = 0; i + 3 <= length; i += 3)
       {
         for (j = 0; j <= 2; ++j)
           {
@@ -114,7 +149,7 @@ void diverge(const pair<string,string> *seq1,
                           {	//if codons differ at 2 sites,
                             //use rules of class TwoSubstitutions
                             TwoSubs Double;
-                            Double(sitesObj, codon1, codon2, _weights2);
+                            Double(sitesObj, codon1, codon2, _weights2, twosubs_libsequence);
                             p0 += Double.P0();
                             p2S += Double.P2S ();
                             p2V += Double.P2V ();
@@ -206,9 +241,13 @@ void omega(const pair<string,string> *seq1,
         //it is likely that Ba is nan due to too few changes, and thus Ba should equal 0.0
         //otherwise it is due to too many changes.
         //NOTE--this is an ad-hoc treatment of the analysis!!!
-        Kimura80 *K80 = new Kimura80 (seq1, seq2);
-        if (K80->K () < 1.0)
+        // orthologr: an object on the stack (it was allocated with new and never freed)
+        Kimura80 K80 (seq1, seq2);
+        if (K80.K () < 1.0)
           Ba = 0.0;
+        // orthologr: 1 - 2 Qa <= 0 is transversion saturation at nonsynonymous sites
+        if (!legacy_saturation && (1.0 - (2.0 * Qa)) <= 0.0)
+          saturated_a = true;
       }
 
     //calculate numbers of mutation per site type
@@ -219,45 +258,41 @@ void omega(const pair<string,string> *seq1,
     double P4_site = p4 / sites->L4();
     double Q4_site = q4 / sites->L4();
 
-    log1 = log (1.0 - (2.0 * P2S_site) - Qa);
-    log2 = log (1.0 - (2.0 * Qa));
-
-    if (!isfinite (log1))	//set value to 0 if nan
-      log1 = 0.0;
-    if (!isfinite (log2))
-      log2 = 0.0;
+    // orthologr: checked_log() gives what the code gave before (0 where the logarithm is not finite) and
+    // records whether an argument was <= 0 (saturation) on the synonymous or the nonsynonymous side.
+    // A class without sites (L = 0) has weight 0 in As / Aa: an undefined logarithm there says nothing about
+    // the estimate and is not a saturation ('none' takes the flag). (Differences can be counted in a class
+    // without sites because the sites of a column are the mean of the two codons, while a change on a pathway
+    // between codons that differ at several positions is classified by an intermediate codon.)
+    // A class with fewer than min_sites sites (options(orthologr.comeron_min_sites), default 3) does not make the
+    // estimate NA either: its undefined logarithm stays 0, as in libsequence ('small' takes the flag). The
+    // 2-fold transversional class has 1 - 2 sites in a 30-codon alignment, and one change there made the
+    // whole dN NA (3.7 % of simulated 30-codon pairs).
+    bool none = false, small = false;
+    bool &s2S = sites->L2S() > 0 ? (sites->L2S() < min_sites ? small : saturated_s) : none;
+    bool &s4 = sites->L4() > 0 ? (sites->L4() < min_sites ? small : saturated_s) : none;
+    bool &a2V = sites->L2V() > 0 ? (sites->L2V() < min_sites ? small : saturated_a) : none;
+    bool &a0 = sites->L0() > 0 ? (sites->L0() < min_sites ? small : saturated_a) : none;
+    log1 = checked_log (1.0 - (2.0 * P2S_site) - Qa, s2S);
+    log2 = checked_log (1.0 - (2.0 * Qa), s2S);
 
     A2S = (-0.5) * log1 + (0.25) * log2;
 
-    log1 = log (1.0 - (2.0 * P4_site) - Q4_site);
-    log2 = log (1.0 - (2.0 * Q4_site));
-
-    if (!isfinite (log1))
-      log1 = 0.0;
-    if (!isfinite (log2))
-      log2 = 0.0;
+    log1 = checked_log (1.0 - (2.0 * P4_site) - Q4_site, s4);
+    log2 = checked_log (1.0 - (2.0 * Q4_site), s4);
 
     A4 = (-0.5) * log1 + (0.25) * log2;
 
     As = (sites->L2S() * A2S + sites->L4() * A4) / (sites->L2S() +
          sites->L4());
 
-    log1 = log (1.0 - (2.0 * P2V_site) - Qs);
-    log2 = log (1.0 - (2.0 * Qs));
-
-    if (!isfinite (log1))
-      log1 = 0.0;
-    if (!isfinite (log2))
-      log2 = 0.0;
+    log1 = checked_log (1.0 - (2.0 * P2V_site) - Qs, a2V);
+    log2 = checked_log (1.0 - (2.0 * Qs), a2V);
 
     A2V = (-0.5) * log1 + (0.25) * log2;
 
-    log1 = log (1.0 - (2.0 * P0_site) - Q0_site);
-    log2 = log (1.0 - (2.0 * Q0_site));
-    if (!isfinite (log1))
-      log1 = 0.;
-    if (!isfinite (log2))
-      log2 = 0.0;
+    log1 = checked_log (1.0 - (2.0 * P0_site) - Q0_site, a0);
+    log2 = checked_log (1.0 - (2.0 * Q0_site), a0);
 
     A0 = (-0.5) * log1 + (0.25) * log2;
 
@@ -280,6 +315,15 @@ void omega(const pair<string,string> *seq1,
       dS = 999;
     if (!isfinite (dN))
       dN = 999;
+
+    // orthologr: an undefined correction is not a distance
+    if (!legacy_saturation)
+      {
+        if (saturated_s)
+          dS = 999;
+        if (saturated_a)
+          dN = 999;
+      }
 }
 
 
@@ -294,7 +338,32 @@ public:
 //
 Comeron95(const pair<string,string> *seq1, 
 	const pair<string,string> *seq2, int max, 
-	const RedundancyCom95 *genetic_code_redundancy){
+	const RedundancyCom95 *genetic_code_redundancy,
+	bool legacy_saturation_ = false, bool twosubs_libsequence_ = false, double min_sites_ = 3.0){
+                
+	sites = NULL;
+	sitesObj = NULL;
+	owns_sitesObj = false;
+	legacy_saturation = legacy_saturation_;
+	twosubs_libsequence = twosubs_libsequence_;
+	min_sites = min_sites_ > 0.0 ? min_sites_ : 0.0;
+	saturated_s = false;
+	saturated_a = false;
+	Qs = Bs = Qa = Ba = A2S = A4 = As = A2V = A0 = Aa = 0.0;
+	dN = dS = 999;
+                
+	// orthologr: the input is checked here (the assert() calls of libsequence are compiled out in R packages:
+	// a sequence shorter than one codon made 'length - 3' wrap around and R abort, sequences of unequal
+	// length were read beyond their end)
+	if (seq1->second.length() != seq2->second.length())
+		Rcpp::stop("The two aligned sequences '%s' and '%s' have unequal lengths (%d and %d).",
+		           seq1->first, seq2->first, (int) seq1->second.length(), (int) seq2->second.length());
+	if (seq1->second.length() < 3)
+		Rcpp::stop("The aligned sequences '%s' and '%s' are shorter than one codon (length %d).",
+		           seq1->first, seq2->first, (int) seq1->second.length());
+	if (seq1->second.length() % 3 != 0)
+		Rcpp::stop("The length of the aligned sequences '%s' and '%s' (%d) is not a multiple of 3.",
+		           seq1->first, seq2->first, (int) seq1->second.length());
                 
 	//check that data are sane
 	assert(max>=1 && max <=3);
@@ -335,6 +404,7 @@ Comeron95(const pair<string,string> *seq1,
 		//sitesObj = new RedundancyCom95(code);
 		// code used directly where needed
 		sitesObj = new RedundancyCom95();
+		owns_sitesObj = true;
 	}
 	else sitesObj = genetic_code_redundancy;                     
      
@@ -344,6 +414,18 @@ Comeron95(const pair<string,string> *seq1,
 	
 	diverge(seq1, seq2);
 	omega( seq1, seq2);
+}
+
+~Comeron95(){
+	delete sites;
+	if (owns_sitesObj)
+		delete sitesObj;
+}
+
+// orthologr: was a logarithm of the correction undefined (argument <= 0)?
+bool saturated (void) const
+{
+      return saturated_s || saturated_a;
 }
 
 double dn (void) const

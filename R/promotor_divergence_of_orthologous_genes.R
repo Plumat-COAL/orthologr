@@ -97,9 +97,9 @@ promotor_divergence_of_orthologous_genes <-
                 promotor_file_qry_sequences <-
                         Biostrings::readDNAStringSet(promotor_file_qry)
                 
-                promotor_file_qry_sequences@ranges@NAMES <-
-                        as.character(sapply(promotor_file_qry_sequences@ranges@NAMES, function(x)
-                                unlist(stringr::str_split(x, "_"))[1]))
+                # (the names are kept whole: they used to be cut at the first '_', which broke IDs such as
+                # 'NM_001234' or 'LOC_Os01g01010'; see promotor_index())
+                names(promotor_file_qry_sequences) <- fasta_header_id(names(promotor_file_qry_sequences))
                 
                 res <- vector("list", length = length(subject_species_names))
                 
@@ -153,19 +153,31 @@ promotor_divergence_of_orthologous_genes <-
                         
                         promotor_file_sbj_sequences <-
                                 Biostrings::readDNAStringSet(promotor_files_no_qry[i])
-                        promotor_file_sbj_sequences@ranges@NAMES <-
-                                as.character(sapply(promotor_file_sbj_sequences@ranges@NAMES, function(x)
-                                        unlist(stringr::str_split(x, "_"))[1]))
+                        # (the names are kept whole: they used to be cut at the first '_', which broke IDs such as
+                        # 'NM_001234' or 'LOC_Os01g01010'; see promotor_index())
+                        names(promotor_file_sbj_sequences) <- fasta_header_id(names(promotor_file_sbj_sequences))
                         
-                        qry_matched_genes <-
-                                promotor_file_qry_sequences@ranges@NAMES[stats::na.omit(
-                                        match(
-                                                species_specific_ortholog_tables$query_gene_locus_id,
-                                                promotor_file_qry_sequences@ranges@NAMES
-                                        )
-                                )]
+                        # The promoters of both genes of every ortholog pair are looked up from the ortholog
+                        # table, pair by pair. (The promoters of the query genes and of the subject genes used to
+                        # be selected independently and were then paired by position: when each species lacked the
+                        # promoter of a different gene, both lists had the same length, every pair between the two
+                        # gaps was shifted, distances were computed between promoters of non-orthologous genes and
+                        # the final join dropped them without a message.)
+                        qry_idx <- promotor_index(species_specific_ortholog_tables$query_gene_locus_id,
+                                                  names(promotor_file_qry_sequences))
+                        sbj_idx <- promotor_index(species_specific_ortholog_tables$subject_gene_locus_id,
+                                                  names(promotor_file_sbj_sequences))
                         
-                        if (length(qry_matched_genes) == 0)
+                        if (all(is.na(qry_idx)))
+                                stop(
+                                        "The ortholog_table for species '",
+                                        subject_species_names[i],
+                                        "' does not seem to contain gene_ids that match with the gene_ids in the promotor sequence file '",
+                                        promotor_file_qry,
+                                        "'.",
+                                        call. = FALSE
+                                )
+                        if (all(is.na(sbj_idx)))
                                 stop(
                                         "The ortholog_table for species '",
                                         subject_species_names[i],
@@ -197,81 +209,26 @@ promotor_divergence_of_orthologous_genes <-
                                                   basename(promotor_files_no_qry[i])
                                           ))
                         
-                        sbj_matched_genes <-
-                                promotor_file_sbj_sequences@ranges@NAMES[stats::na.omit(
-                                        match(
-                                                species_specific_ortholog_tables$subject_gene_locus_id,
-                                                promotor_file_sbj_sequences@ranges@NAMES
-                                        )
-                                )]
+                        both <- !is.na(qry_idx) & !is.na(sbj_idx)
+                        pair_key <- paste(species_specific_ortholog_tables$query_gene_locus_id,
+                                          species_specific_ortholog_tables$subject_gene_locus_id, sep = "\r")
+                        both <- both & !duplicated(pair_key)
+                        if (!any(both))
+                                stop("No ortholog pair of '", query_species_name, "' and '", subject_species_names[i],
+                                     "' has a promotor sequence in both species.", call. = FALSE)
+                        message(
+                                sum(both), " of ", length(unique(pair_key)), " ortholog pairs have a promotor sequence in both species (",
+                                sum(is.na(qry_idx) & !duplicated(pair_key)), " without one in the query, ",
+                                sum(is.na(sbj_idx) & !duplicated(pair_key)), " without one in the subject species)."
+                        )
                         
-                        if (length(sbj_matched_genes) == 0)
-                                stop(
-                                        "The ortholog_table for species '",
-                                        query_species_name,
-                                        "' does not seem to contain gene_ids that match with the gene_ids in the promotor sequence file '",
-                                        promotor_file_sbj_sequences,
-                                        "'.",
-                                        call. = FALSE
-                                )
-                        
-                        if (length(qry_matched_genes) != length(sbj_matched_genes)) {
-                                message(
-                                        "The number of orthologous genes that have corresponding promotor sequences in the query (",
-                                        length(qry_matched_genes),
-                                        " genes) and in the subject (",
-                                        length(sbj_matched_genes),
-                                        " genes) do not match! Hence, only the intersecting subset will be used."
-                                )
-                                
-                                query_gene_locus_id <- subject_gene_locus_id <- NULL
-                                species_specific_ortholog_tables_subset <-
-                                        dplyr::filter(
-                                                species_specific_ortholog_tables,
-                                                query_gene_locus_id %in% qry_matched_genes,
-                                                subject_gene_locus_id %in% sbj_matched_genes
-                                        )
-                                
-                                if (nrow(species_specific_ortholog_tables_subset) == 0)
-                                        stop(
-                                                "Something went wrong. After searching for the subset orhtologous genes, no genes were retained.",
-                                                call. = FALSE
-                                        )
-                                
-                                message(
-                                        "After subsetting ",
-                                        nrow(species_specific_ortholog_tables_subset),
-                                        " orthologous genes were retained."
-                                )
-                                
-                                Biostrings::writeXStringSet(promotor_file_qry_sequences[stats::na.omit(
-                                        match(
-                                                species_specific_ortholog_tables_subset$query_gene_locus_id,
-                                                promotor_file_qry_sequences@ranges@NAMES
-                                        )
-                                )], qry_output_file_path)
-                                
-                                Biostrings::writeXStringSet(promotor_file_sbj_sequences[stats::na.omit(
-                                        match(
-                                                species_specific_ortholog_tables_subset$subject_gene_locus_id,
-                                                promotor_file_sbj_sequences@ranges@NAMES
-                                        )
-                                )], sbj_output_file_path)
-                        } else {
-                                Biostrings::writeXStringSet(promotor_file_qry_sequences[stats::na.omit(
-                                        match(
-                                                species_specific_ortholog_tables$query_gene_locus_id,
-                                                promotor_file_qry_sequences@ranges@NAMES
-                                        )
-                                )], qry_output_file_path)
-                                
-                                Biostrings::writeXStringSet(promotor_file_sbj_sequences[stats::na.omit(
-                                        match(
-                                                species_specific_ortholog_tables$subject_gene_locus_id,
-                                                promotor_file_sbj_sequences@ranges@NAMES
-                                        )
-                                )], sbj_output_file_path)
-                        }
+                        # both files hold the pairs in the same order, named by the gene loci of the ortholog table
+                        qry_out <- promotor_file_qry_sequences[qry_idx[both]]
+                        names(qry_out) <- species_specific_ortholog_tables$query_gene_locus_id[both]
+                        sbj_out <- promotor_file_sbj_sequences[sbj_idx[both]]
+                        names(sbj_out) <- species_specific_ortholog_tables$subject_gene_locus_id[both]
+                        Biostrings::writeXStringSet(qry_out, qry_output_file_path)
+                        Biostrings::writeXStringSet(sbj_out, sbj_output_file_path)
                         
                         ortho_promotor_divergence <-
                                 promotor_divergence_estimation(query = qry_output_file_path,
@@ -298,3 +255,26 @@ promotor_divergence_of_orthologous_genes <-
                 return(dplyr::bind_rows(res))
                 
         }
+
+# The position of the promotor sequence of every gene in `ids` among the sequence names `promotor_names` (NA: none).
+# A promotor sequence is named after its gene, either exactly or followed by '_<anything>' ('AT1G01010_promotor',
+# 'NM_001234_1000bp_upstream'): a name is found by the gene ID itself or by one of its beginnings that end before
+# a '_', as long as that beginning belongs to one sequence only.
+promotor_index <- function(ids, promotor_names) {
+        ids <- as.character(ids)
+        idx <- match(ids, promotor_names)
+        if (!anyNA(idx))
+                return(idx)
+        cuts <- gregexpr("_", promotor_names, fixed = TRUE)
+        prefix <- unlist(lapply(seq_along(promotor_names), function(k) {
+                pos <- cuts[[k]]
+                if (pos[1] == -1) character(0) else substring(promotor_names[k], 1, pos - 1)
+        }))
+        owner <- rep(seq_along(promotor_names), vapply(cuts, function(pos) if (pos[1] == -1) 0L else length(pos), 1L))
+        ambiguous <- is.element(prefix, prefix[duplicated(prefix)]) | is.element(prefix, promotor_names)
+        prefix <- prefix[!ambiguous]
+        owner <- owner[!ambiguous]
+        todo <- is.na(idx)
+        idx[todo] <- owner[match(ids[todo], prefix)]
+        idx
+}

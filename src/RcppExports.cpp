@@ -139,8 +139,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // gestimator
-void gestimator(std::string file, std::string file_out, int maxHits, bool verbose, bool remove_all_gaps);
-RcppExport SEXP _orthologr_gestimator(SEXP fileSEXP, SEXP file_outSEXP, SEXP maxHitsSEXP, SEXP verboseSEXP, SEXP remove_all_gapsSEXP) {
+void gestimator(std::string file, std::string file_out, int maxHits, bool verbose, bool remove_all_gaps, bool legacy_saturation, bool twosubs_libsequence, double min_sites);
+RcppExport SEXP _orthologr_gestimator(SEXP fileSEXP, SEXP file_outSEXP, SEXP maxHitsSEXP, SEXP verboseSEXP, SEXP remove_all_gapsSEXP, SEXP legacy_saturationSEXP, SEXP twosubs_libsequenceSEXP, SEXP min_sitesSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< std::string >::type file(fileSEXP);
@@ -148,7 +148,10 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type maxHits(maxHitsSEXP);
     Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
     Rcpp::traits::input_parameter< bool >::type remove_all_gaps(remove_all_gapsSEXP);
-    gestimator(file, file_out, maxHits, verbose, remove_all_gaps);
+    Rcpp::traits::input_parameter< bool >::type legacy_saturation(legacy_saturationSEXP);
+    Rcpp::traits::input_parameter< bool >::type twosubs_libsequence(twosubs_libsequenceSEXP);
+    Rcpp::traits::input_parameter< double >::type min_sites(min_sitesSEXP);
+    gestimator(file, file_out, maxHits, verbose, remove_all_gaps, legacy_saturation, twosubs_libsequence, min_sites);
     return R_NilValue;
 END_RCPP
 }
@@ -165,7 +168,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_orthologr_nucToInt", (DL_FUNC) &_orthologr_nucToInt, 1},
     {"_orthologr_Universal", (DL_FUNC) &_orthologr_Universal, 1},
     {"_orthologr_TranslateCodon", (DL_FUNC) &_orthologr_TranslateCodon, 1},
-    {"_orthologr_gestimator", (DL_FUNC) &_orthologr_gestimator, 5},
+    {"_orthologr_gestimator", (DL_FUNC) &_orthologr_gestimator, 8},
     {NULL, NULL, 0}
 };
 

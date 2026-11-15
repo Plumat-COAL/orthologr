@@ -11,7 +11,7 @@ divergence_map(dNdS_tbl, subject.id = FALSE, n_quantile = 10)
 
 \item{subject.id}{a logical value indicating whether \code{query_id} AND \code{subject_id} should be returned.}
 
-\item{n_quantile}{a numeric value specifying the number of quantiles that should be returned.}
+\item{n_quantile}{a numeric value specifying the number of quantiles that should be returned (a whole number >= 1).}
 }
 \value{
 a data.table storing a standard divergence map.
@@ -21,6 +21,25 @@ This function takes a data.table returned by dNdS
 and sorts the corresponding dNdS value into divergence strata (10-quantile or deciles by default).
 }
 \details{
+\strong{How values are assigned to strata.} Stratum \code{k} holds the dNdS values in \code{(q[k-1], q[k]]},
+where \code{q[0], ..., q[n]} are the quantiles (\code{stats::quantile()}, type 7) for the probabilities
+\code{0, 1/n, ..., 1}; the smallest value belongs to stratum 1. Rows with \code{dNdS = NA} get the stratum
+\code{NA}.
+
+\strong{Ties.} When many values are equal - typically \code{dNdS = 0} for more than \code{1/n} of the genes of
+two closely related genomes - some of the thresholds coincide. Earlier versions stopped with an error in that
+case ("at least one duplicate threshold"). The same rule is now applied through ranks: with \code{N} values and
+\code{r} the smallest rank of a value (\code{rank(ties.method = "min")}), its stratum is
+\code{max(1, ceiling((r - 1) * n / (N - 1)))}. Without ties this is exactly the quantile class above, so results
+that could be computed before do not change. Equal values always share one stratum (the lowest one their ranks
+reach); the strata such a block spans beyond that stay empty, so that fewer than \code{n_quantile} strata are
+used and the strata differ in size. A warning names the empty strata. Example: 1,000 genes, 280 of them with
+\code{dNdS = 0}, \code{n_quantile = 10}: the 280 genes are stratum 1, stratum 2 is empty, the next gene (rank
+281) is in stratum 3.
+
+The input table is not modified.
+
+
 Divergence Strata are typically decile (10-quantile) values of corresponding \code{\link{dNdS}} values.
 The \code{\link{dNdS}} function returns dNdS values for orthologous genes
 of a query species (versus subject species). These dNdS values are then
