@@ -1,0 +1,65 @@
+orthologr: copyright and licences of the code it contains
+=========================================================
+
+orthologr
+    Copyright (C) Hajk-Georg Drost and the orthologr contributors.
+    Licence: see the License field of DESCRIPTION.
+
+The package contains or is derived in part from the following third-party works.
+
+
+1. libsequence (Kevin Thornton)
+-------------------------------
+
+Files: src/gestimator.cpp and the headers src/Comeron95.h, src/Comparisons.h, src/Grantham.h,
+       src/GranthamWeights.h, src/Kimura80.h, src/RedundancyCom95.h, src/Sequence.h, src/SingleSub.h,
+       src/Sites.h, src/ThreeSubs.h, src/TwoSubs.h
+
+    Taken from gestimator / libsequence, Copyright (C) Kevin Thornton.
+    Licence (as stated in the files): GNU General Public License, version 3 of the License or (at your option)
+    any later version.
+    Modified by Sarah Scharfenberg and Hajk-Georg Drost (2014) to work in orthologr without the external
+    libsequence libraries, and by the orthologr contributors (2026: memory, input checks, saturation flags);
+    the files state that these changes are free under the GNU General Public License version 2 or any later
+    version.
+
+
+2. KaKs_Calculator 2.0 (Beijing Institute of Genomics, Chinese Academy of Sciences)
+-----------------------------------------------------------------------------------
+
+File: R/substitutionrate.R, the internal functions
+
+    kaks_transl_table()   the genetic codes as 64-character strings ('!' for a stop codon), copied from the
+                          array 'transl_table' of src/base.cpp of KaKs_Calculator 2.0 (the codes themselves are
+                          the NCBI genetic codes);
+    kaks_lwl_tables()     a translation into R of the counting of sites and of transitions / transversions per
+    kaks_lwl_counts()     0-, 2- and 4-fold degenerate class of src/LWL85.cpp (LWL85::CountSiteAndDiff(),
+                          getCodonClass(), TransitionTransversion(), MLWL85::TransitionTransversion()) and
+                          src/LPB93.cpp (MLPB93::TransitionTransversion()) of KaKs_Calculator 2.0, written so
+                          that the counts are those of KaKs_Calculator to the last bit (they decide whether a
+                          value that KaKs_Calculator printed is a saturated estimate).
+
+    KaKs_Calculator 2.0: Copyright (C) 2009 Beijing Institute of Genomics of CAS. Authors: Da-Peng Wang,
+    Yu-Bin Zhang (2.0), Zhang Zhang (1.0); modified version 2.0.1 by Kristian K. Ullrich (2020).
+    Wang D, Zhang Y, Zhang Z, Zhu J, Yu J (2010) KaKs_Calculator 2.0: a toolkit incorporating gamma-series
+    methods and sliding window strategies. Genomics Proteomics Bioinformatics 8:77-80.
+    Source compared: https://github.com/kullrich/kakscalculator2 (commit 4b96206f67c934792a6d02fb38bb356056ad84f9),
+    the fork of https://sourceforge.net/projects/kakscalculator2 that bioconda builds (kakscalculator2 2.0.1).
+    Licence: GNU General Public License version 3 (the LICENSE file of that repository; the source files
+    themselves carry only the copyright line and no "or any later version" statement).
+
+    orthologr otherwise only runs the program KaKs_Calculator when it is installed and reads its output.
+
+
+3. PAL2NAL v14 (Mikita Suyama, David Torrents, Peer Bork)
+---------------------------------------------------------
+
+Files: inst/pal2nal/pal2nal.v14/ (pal2nal.pl, README, test files, for_paml/)
+
+    PAL2NAL v14, Copyright (C) 2004-2011 Mikita Suyama, David Torrents, Peer Bork.
+    Suyama M, Torrents D, Bork P (2006) PAL2NAL: robust conversion of protein sequence alignments into the
+    corresponding codon alignments. Nucleic Acids Res 34:W609-W612.
+    Licence: none is stated in its files. Debian distributes PAL2NAL under GPL-2 (debian/copyright of the
+    package pal2nal 14.1-3); this statement was not confirmed with the authors.
+
+inst/pal2nal/pal2nal_batch.pl is part of orthologr (it runs pal2nal.pl for several gene pairs).

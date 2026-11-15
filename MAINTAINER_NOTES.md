@@ -12,22 +12,39 @@ Notes that need a decision by the maintainer of `drostlab/orthologr`. This file 
 | `src/Comeron95.h:11`, `src/Comparisons.h:11`, `src/Grantham.h:11`, `src/GranthamWeights.h:11`, `src/Kimura80.h:11`, `src/RedundancyCom95.h:11`, `src/Sequence.h:11`, `src/SingleSub.h:11`, `src/Sites.h:11`, `src/TwoSubs.h:11` (also `src/ThreeSubs.h`, `src/gestimator.cpp`) | libsequence: "GNU General Public License [...] either **version 3** of the License, or (at your option) any later version" |
 | the same files, line 27 | the orthologr changes to them: "version 2 of the License, or any later version" |
 | `inst/pal2nal/pal2nal.v14/` | PAL2NAL v14: **no licence statement** in any of its files (`README`, `pal2nal.pl`, `for_paml/`, test files; only "Mikita Suyama" in the header of `pal2nal.pl`). Debian's package records `License: GPL-2`, "Copyright: 2004-2011 Mikita Suyama, David Torrents, and Peer Bork and their respective employing institute" (`debian/copyright` of pal2nal 14.1-3, https://metadata.ftp-master.debian.org/changelogs/main/p/pal2nal/pal2nal_14.1-3_copyright), after a Debian Med thread "Lack of license for pal2nal" (2017-2018). The upstream statement itself (PAL2NAL web site, Suyama, Torrents & Bork 2006, NAR 34:W609) was **not verified** for these notes |
-| `README.md`, section "Licenses" | quotes the libsequence header |
+| `R/substitutionrate.R`: `kaks_transl_table()`, `kaks_lwl_tables()`, `kaks_lwl_counts()` (added on this fork in 0.5.0 / 0.6.0) | derived from **KaKs_Calculator 2.0**: the genetic-code strings are copied from `transl_table` in `base.cpp`; the two other functions translate into R the site and transition / transversion counts of `LWL85.cpp` (`CountSiteAndDiff()`, `getCodonClass()`, `TransitionTransversion()`, `MLWL85::TransitionTransversion()`) and `LPB93.cpp` (`MLPB93::TransitionTransversion()`), step for step, so that the counts are KaKs_Calculator's to the last bit. KaKs_Calculator 2.0: Copyright (C) 2009 Beijing Institute of Genomics of CAS; the repository that bioconda builds (github.com/kullrich/kakscalculator2, commit 4b96206) has the text of the **GPL version 3** as `LICENSE`; its source files carry only "Copyright (C) 2009, Beijing Institute of Genomics of CAS / All rights reserved" and **no "or any later version"** statement |
+| `inst/COPYRIGHTS` (new in 0.6.0, installed with the package) | the three third-party parts above with origin, copyright holders and licence as stated by them; it does not state a licence for the package as a whole |
+| `README.md`, section "Licenses" | quotes the libsequence header; names the KaKs_Calculator-derived functions (until 0.6.0 it said that no KaKs_Calculator code is part of the package, which was wrong once these functions were added) and PAL2NAL; points to `inst/COPYRIGHTS` |
 
 Code under "GPL version 3 or later" cannot be distributed as part of a work that is licensed "GPL-2 only": the
 package as a whole can only be GPL (>= 3). The `License` field was **not** changed on this fork, because that is
 the copyright holders' decision.
+
+The KaKs_Calculator-derived R functions make this a second, independent conflict with `License: GPL-2`, and they
+narrow the choice: as far as their files show they are under GPL version **3** without "or later", so the
+package as a whole could then be distributed under GPL-3 only, not under "GPL (>= 3)". Options for the
+maintainer: (a) `License: GPL-3` for the package (compatible with libsequence's "GPL (>= 3)", with these
+functions and with coalr's GPL-3); (b) ask the KaKs_Calculator authors whether "or any later version" applies,
+then GPL (>= 3) as proposed below; (c) replace the three functions by code written from the publications (Li,
+Wu & Luo 1985; Tzeng, Pan & Li 2004) and the NCBI genetic codes, not from KaKs_Calculator's source, and check it
+against KaKs_Calculator's output instead (they are used only to tell, for a few values near 0, whether
+KaKs_Calculator's printed estimate is saturated; `tests/testthat/` compares their counts with those printed by
+KaKs_Calculator). The genetic-code strings are facts (NCBI's tables in KaKs_Calculator's notation) rather than
+expression, but they were copied, so they are listed too.
 
 Further fact: the optional package **coalr** (COAL's R package, used by `dNdS(engine = "coal")`,
 `dNdS_coal()`, `dNdS_clusters()`, `dNdS_orthogroups(engine = "coal")` on the branch with the COAL integration)
 is **GPL-3** (only). It is in `Suggests` and loaded only when installed; orthologr does not contain its code.
 A GPL-2-only orthologr that calls a GPL-3 package at run time is a second reason to move to version 3.
 
-**Proposal**
+**Proposal** (written before the KaKs_Calculator-derived functions were found; with them, see options (a) - (c)
+above: `GPL-3` unless (b) or (c) is done)
 
-- `DESCRIPTION`: `License: GPL (>= 3)`
+- `DESCRIPTION`: `License: GPL (>= 3)` (or `GPL-3`), and `Copyright: See file inst/COPYRIGHTS`
 - replace the text of `LICENSE` / `COPYING` by the GPL version 3
-- add `inst/COPYRIGHTS` with, in substance:
+- `inst/COPYRIGHTS` exists since 0.6.0 (it lists libsequence, KaKs_Calculator 2.0 and PAL2NAL; it does not
+  name a licence for the package). With a new licence, add its first line, in substance (the text originally
+  proposed here):
 
   ```
   orthologr: Copyright (C) Hajk-Georg Drost and contributors. GPL (>= 3).
@@ -80,7 +97,7 @@ the 0.4.3 package installed) on every run, for both ways of setting the switch.
 |---|---|---|
 | `DESCRIPTION`, `Remotes:` | `coalr=Plumat-COAL/COAL/packaging/r/coalr` - COAL's default branch, which holds the R package coalr since COAL's pull request #54 was merged (syntax `package=owner/repo/subdir[@ref]`; the `coalr=` prefix is needed because the package is not named like its repository - without it pak, which GitHub Actions uses, reports "Can't find package called coalr") | a release tag (`...coalr@v<version>`) once COAL has one with the Comeron / Li methods |
 | install command of orthologr in `README.md` (two places), `environment.yml`, `vignettes/orthologr.Rmd` | `remotes::install_github("Plumat-COAL/orthologr@integration/all")`, so that the command installs the version the page describes | `remotes::install_github("drostlab/orthologr")` |
-| `.github/workflows/R-CMD-check.yaml`, `on: push: branches` | also `integration/**`, `upstream/**`, `upstream-v2/**`, `fix/**` (the fork's working branches) and `workflow_dispatch` | the fork branches can be removed; `workflow_dispatch` is worth keeping |
+| `.github/workflows/R-CMD-check.yaml`, `on: push: branches` | also `integration/**`, `upstream/**`, `upstream-v2/**`, `fix/**`, `chore/**` (the fork's working branches) and `workflow_dispatch` | the fork branches can be removed; `workflow_dispatch` is worth keeping |
 
 GitHub Actions runs on the fork. All six legs (Linux release / devel / oldrel-1, Linux without the optional
 programs, Windows, macOS; the programs installed with micromamba) passed on `upstream-v2/15-coal` (run
