@@ -82,12 +82,13 @@
 #' \code{orthologr_error_tool_timeout} (in \code{dNdS()} a per-pair program such as KaKs_Calculator or PAL2NAL that
 #' times out makes its gene pairs failed pairs with that reason, after a chunk that timed out was retried pair by
 #' pair). Defaults (since 0.6.0): KaKs_Calculator and PAL2NAL 3600 (one gene pair or one chunk of up to 100 pairs),
-#' DIAMOND, BLAST+ and coal-cpp 86400 (a whole search or pipeline); the alignment programs (ClustalW, MAFFT, ...),
-#' OrthoFinder and the other helpers have no limit. One number sets the limit of every program
+#' DIAMOND, BLAST+ and coal-cpp 604800 (7 days; a whole search or pipeline); DIAMOND's clustering
+#' (\code{diamond deepclust}, \code{diamond realign}), the alignment programs (ClustalW, MAFFT, ...), OrthoFinder
+#' and the other helpers have no limit. One number sets the limit of every program
 #' (\code{options(orthologr.tool_timeout = 600)}); numbers named by program replace the defaults of those programs
 #' (\code{options(orthologr.tool_timeout = c(KaKs_Calculator = 120, DIAMOND = Inf))}; names: \code{KaKs_Calculator},
 #' \code{PAL2NAL}, \code{DIAMOND}, \code{BLAST}, \code{COAL}, or the name of a program in the messages such as
-#' \code{ClustalW}; case is ignored). \code{Inf} (or \code{0}): no limit. Up to 0.5.0 there was no limit, and a program
+#' \code{ClustalW} or \code{"diamond deepclust"}; case is ignored). \code{Inf} (or \code{0}): no limit. Up to 0.5.0 there was no limit, and a program
 #' that hung stopped the whole run.}
 #' \item{\code{orthologr.keep_tmp}}{\code{FALSE} (default): the folder with the intermediate files of a call (FASTA
 #' files of the pairs, alignments, program output) is removed when the call ends. \code{TRUE}: it is kept, and a

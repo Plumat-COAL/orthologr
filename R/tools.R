@@ -141,7 +141,7 @@ run_tool <- function(program, args = list(), path = NULL, stdout = NULL, tool = 
                                 tool, " did not finish within ", format(limit), " seconds",
                                 if (!is.null(context) && nzchar(context)) paste0(" for ", context), " and was stopped. ",
                                 "The time limit is options(orthologr.tool_timeout) (see ?orthologr_options), e.g. ",
-                                "options(orthologr.tool_timeout = c(", tool_timeout_key(tool, program), " = ",
+                                "options(orthologr.tool_timeout = c(\"", tool_timeout_key(tool, program), "\" = ",
                                 format(limit * 4), ")); Inf: no limit.", call. = FALSE)
         res <- list(
                 status = status,
@@ -198,9 +198,11 @@ tool_timeout_value <- function(x) {
 }
 
 # The default time limits (seconds) of one run: KaKs_Calculator and PAL2NAL (one gene pair, or one chunk of up to
-# 100 pairs) 1 hour; DIAMOND, BLAST+ and coal-cpp (a whole search or pipeline) 24 hours.
+# 100 pairs) 1 hour; DIAMOND, BLAST+ and coal-cpp (a whole search or pipeline, which may take many hours on large
+# proteomes) 7 days; DIAMOND's clustering of a database (deepclust(), realign), which can take longer, no limit.
 tool_timeout_defaults <- function() {
-        c(KaKs_Calculator = 3600, PAL2NAL = 3600, DIAMOND = 86400, BLAST = 86400, COAL = 86400)
+        c(KaKs_Calculator = 3600, PAL2NAL = 3600, DIAMOND = 604800, BLAST = 604800, COAL = 604800,
+          "diamond deepclust" = Inf, "diamond realign" = Inf)
 }
 
 # The name of the program in tool_timeout_defaults() for a run of 'program' called 'tool' in messages (the name in
