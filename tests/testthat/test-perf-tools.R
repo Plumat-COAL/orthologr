@@ -98,8 +98,8 @@ test_that("compute_dnds(): PAL2NAL and KaKs_Calculator per chunk give the table 
         tbl$subject_aa[5] <- tbl$subject_aa[6]
         tbl$subject_cds[5] <- tbl$subject_cds[6]
         tbl$query_aa[7] <- paste0(substr(tbl$query_aa[7], 1, 10), "WWWWWWWWWWWW", substr(tbl$query_aa[7], 11, 400))
-        # (not GMYN, which is not batched: KaKs_Calculator's output for it depends on memory it never initialises)
-        methods <- c("Comeron", if (kaks_available) c("NG", "LWL", "LPB", "MLWL", "MLPB", "YN", "MYN", "GY"))
+        # (GMYN too since its header line is normalised, kaks_output_lines())
+        methods <- c("Comeron", if (kaks_available) c("NG", "LWL", "LPB", "MLWL", "MLPB", "YN", "MYN", "GY", "GMYN"))
         for (m in methods) {
                 new <- tools_dnds(tbl, TRUE, codon_aln_tool = "pal2nal", dnds_est.method = m)
                 old <- tools_dnds(tbl, FALSE, codon_aln_tool = "pal2nal", dnds_est.method = m)
@@ -127,14 +127,11 @@ test_that("compute_dnds(): one process per chunk, and no per-pair call where the
         expect_identical(count_calls("codon_aln", run()), 0L)
         expect_identical(count_calls("kaks_calc_batch", run()), 1L)
         expect_identical(count_calls("pal2nal_batch", run()), 1L)
-        # GMYN: one KaKs_Calculator process per pair
-        local({
-                testthat::local_mocked_bindings(substitutionrate = function(...) data.table::data.table(dN = 0, dS = 0, dNdS = 0, method = "GMYN"),
-                                                .package = "orthologr")
-                expect_identical(count_calls("kaks_calc_batch", suppressWarnings(compute_dnds(data.table::copy(tbl),
-                        aa_aln_type = "pairwise", aa_aln_tool = "NW", codon_aln_tool = "pal2nal", dnds_est.method = "GMYN",
-                        quiet = TRUE))), 0L)
-        })
+        # GMYN: one KaKs_Calculator process per chunk as well (AUDIT-OLP2 M1)
+        gmyn <- function() suppressWarnings(compute_dnds(data.table::copy(tbl), aa_aln_type = "pairwise", aa_aln_tool = "NW",
+                                                          codon_aln_tool = "pal2nal", dnds_est.method = "GMYN", quiet = TRUE))
+        expect_identical(count_calls("kaks_calc_batch", gmyn()), 1L)
+        expect_identical(count_calls("substitutionrate", gmyn()), 0L)
         local({
                 testthat::local_mocked_bindings(dnds_chunk_size = function() 5L, .package = "orthologr")
                 expect_identical(count_calls("kaks_calc_batch", run()), 3L)
@@ -169,7 +166,10 @@ test_that("kaks_calc_batch(): a pair the batch cannot match is computed on its o
         wrappers <- list(
                 drop = fake(paste0(many, shQuote(real), ' "$@" > /dev/null; if [ "$n" -gt 1 ]; then grep -v "^q3\t" "$4" > "$4.x"; mv "$4.x" "$4"; fi')),
                 fail = fake(paste0(many, 'if [ "$n" -gt 1 ]; then exit 3; fi; exec ', shQuote(real), ' "$@"')),
-                order = fake(paste0(many, shQuote(real), ' "$@" > /dev/null; if [ "$n" -gt 1 ]; then (head -1 "$4"; tail -n +2 "$4" | sort -r) > "$4.x"; mv "$4.x" "$4"; fi')))
+                order = fake(paste0(many, shQuote(real), ' "$@" > /dev/null; if [ "$n" -gt 1 ]; then (head -1 "$4"; tail -n +2 "$4" | sort -r) > "$4.x"; mv "$4.x" "$4"; fi')),
+                # (AUDIT-OLP2 L1) a record with two rows; a line with a field more than the header
+                rows = fake(paste0(many, shQuote(real), ' "$@" > /dev/null; if [ "$n" -gt 1 ]; then sed "/^q3\t/p" "$4" > "$4.x"; mv "$4.x" "$4"; fi')),
+                fields = fake(paste0(many, shQuote(real), ' "$@" > /dev/null; if [ "$n" -gt 1 ]; then sed "s/^\\(q3\t.*\\)$/\\1\tx/" "$4" > "$4.x"; mv "$4.x" "$4"; fi')))
         for (w in names(wrappers)) {
                 n <- 0L
                 got <- local({
@@ -181,6 +181,25 @@ test_that("kaks_calc_batch(): a pair the batch cannot match is computed on its o
                 expect_identical(got, ref, info = w)
                 # every pair of the chunk was computed on its own
                 expect_identical(n, 12L, info = w)
+        }
+        # (AUDIT-OLP2 M1) output without its header line, or with the header again between records (what
+        # KaKs_Calculator 2.0 does for GMYN depending on uninitialised memory): read as with one header, in the batch
+        # and for one pair, without per-pair calls
+        header <- list(
+                nohead = fake(paste0(shQuote(real), ' "$@" > /dev/null; tail -n +2 "$4" > "$4.x"; mv "$4.x" "$4"')),
+                twice = fake(paste0(shQuote(real), ' "$@" > /dev/null; (head -1 "$4"; head -2 "$4" | tail -1; head -1 "$4"; tail -n +3 "$4") > "$4.x"; mv "$4.x" "$4"')))
+        for (w in names(header)) {
+                n <- 0L
+                got <- local({
+                        f <- substitutionrate
+                        testthat::local_mocked_bindings(substitutionrate = function(...) { n <<- n + 1L; f(...) },
+                                                        .package = "orthologr")
+                        tools_dnds(tbl, TRUE, codon_aln_tool = "coal", dnds_est.method = "NG", kaks_calc_path = header[[w]])
+                })
+                expect_identical(got, ref, info = w)
+                expect_identical(n, 0L, info = w)
+                expect_identical(tools_dnds(tbl, FALSE, codon_aln_tool = "coal", dnds_est.method = "NG", kaks_calc_path = header[[w]]),
+                                 ref, info = w)
         }
         # KaKs_Calculator is not there: every pair fails with the error of the per-pair call
         missing <- file.path(d, "no_such_folder")
@@ -211,4 +230,24 @@ test_that("options(orthologr.batch_tools) is not part of the record of a run", {
         old <- options(orthologr.batch_tools = FALSE)
         on.exit(options(old), add = TRUE)
         expect_false(is.element("orthologr.batch_tools", names(orthologr_options_in_force())))
+})
+
+test_that("kaks_output_lines() gives KaKs_Calculator's output one header line, first (AUDIT-OLP2 M1)", {
+        h <- kaks_calc_header()
+        expect_identical(strsplit(h, "\t")[[1]][c(1, 3, 4, 22)], c("Sequence", "Ka", "Ks", "Model"))
+        rows <- c("q1\tGMYN\t0.1", "q2\tGMYN\t0.2")
+        expect_identical(kaks_output_lines(c(h, rows)), c(h, rows))
+        expect_identical(kaks_output_lines(rows), c(h, rows))
+        expect_identical(kaks_output_lines(c(h, rows[1], h, rows[2])), c(h, rows))
+        expect_identical(kaks_output_lines(c(rows[1], h, rows[2])), c(h, rows))
+        expect_identical(kaks_output_lines(character(0)), character(0))
+        if (kaks_available) {
+                # the header of the installed KaKs_Calculator is the one supplied
+                d <- new_test_dir("kchead_")
+                on.exit(unlink(d, recursive = TRUE), add = TRUE)
+                f <- file.path(d, "p.axt")
+                writeLines(c("p", "ATGGCTAAAGATCTGTTACGT", "ATGGCCAAGGACTTATTGAGA", ""), f)
+                system2(Sys.which("KaKs_Calculator"), c("-i", f, "-o", file.path(d, "p.kaks"), "-m", "YN"), stdout = FALSE, stderr = FALSE)
+                expect_identical(readLines(file.path(d, "p.kaks"))[1], h)
+        }
 })
