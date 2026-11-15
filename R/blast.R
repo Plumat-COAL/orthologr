@@ -22,7 +22,7 @@
 #' @param path a character string specifying the path to the BLAST program (in case you don't use the default path).
 #' @param comp_cores a numeric value specifying the number of cores that shall be
 #' used to run BLAST searches.
-#' @param blast_params a character string listing the input parameters that shall be passed to the executing BLAST program. Default is \code{NULL}, implicating
+#' @param blast_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string listing the input parameters that shall be passed to the executing BLAST program. Default is \code{NULL}, implicating
 #' that a set of default parameters is used when running BLAST.
 #' @param clean_folders a boolean value specifying whether the folder \code{file.path(tempdir(), "_blast_db")}, in which
 #' the hit table of the call is kept (\code{blastresult_<query file name>.csv}), shall be removed.
@@ -67,7 +67,7 @@
 #' https://www.ncbi.nlm.nih.gov/books/NBK1763/table/CmdLineAppsManual.T.options_common_to_al/?report=objectonly
 #'
 #' https://blast.ncbi.nlm.nih.gov/Blast.cgi
-#' @examples \dontrun{
+#' @examplesIf all(nzchar(Sys.which(c("blastp", "makeblastdb"))))
 #' # performing a BLAST search using blastp (default)
 #' blast(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'       subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
@@ -77,19 +77,17 @@
 #'       subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'       seq_type     = "protein")
 #'
-#'
-#' # save the BLAST output table in your current working directory
+#' # save the BLAST output table in the folder tempdir()
 #' blast(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'       subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
 #'       seq_type     = "protein",
-#'       save.output  = getwd())
+#'       save.output  = tempdir())
 #'
 #' # in case you are working with a multicore machine, you can also run parallel
 #' # BLAST computations using the comp_cores parameter: here with 2 cores
 #' blast(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'       subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'       comp_cores   = 2)
-#'
 #'
 #'  # keeping one aligned sequence per query: use the max.target.seqs argument
 #'  # (blast() sets -max_target_seqs itself; passing it again in blast_params makes BLAST stop)
@@ -102,7 +100,7 @@
 #'        subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
 #'        blast_params = "-seg yes -word_size 3")
 #'
-#'
+#' \dontrun{
 #' # running blastp using additional parameters and an external blastp path
 #'  blast(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'        subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),

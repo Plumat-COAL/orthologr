@@ -1,17 +1,75 @@
 ## `orthologr` 0.5.0
 
+Results change in this version: defaults were changed and several errors that changed numbers were fixed.
+`orthologr_legacy_options()` (or `options(orthologr.legacy = TRUE)`) restores the behaviour of 0.4.3 in one line;
+the article **"Upgrading from 0.4.3"** (`vignette("upgrading_from_0.4.3")`) gives the measured effect of every
+change. Please report the version of orthologr in the methods of analyses based on dN/dS values.
+
+### Upgrading from 0.4.3
+
+Every default that changed, and what restores the behaviour of 0.4.3. All rows marked "switch" at once:
+`orthologr_legacy_options()` (or `options(orthologr.legacy = TRUE)`); the stored 0.4.3 tables of the 20-gene
+example (Comeron, YN) are reproduced exactly with it. Measurements: the table "Changed defaults" below.
+
+| Default in 0.5.0 | 0.4.3 | Restore | Switch |
+|---|---|---|---|
+| best hits by bit score | e-value, then alignment length | `best_hit_rule = "evalue"`, `options(orthologr.best_hit_rule = "evalue")` | yes |
+| DIAMOND `sensitivity_mode = "default"` | `"fast"` | `sensitivity_mode = "fast"`, `options(orthologr.sensitivity_mode = "fast")` | yes |
+| pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | no matrix, aligned range, stop aligned | `options(orthologr.legacy_pairwise_aln = TRUE)` | yes |
+| no pwalign alignment above 5e8 cells | no limit | `options(orthologr.max_aln_cells = Inf)` | yes |
+| coding sequences with IUPAC ambiguity codes (N, ...) are kept, codons with them not compared | left out | `options(orthologr.ambiguous_cds = "drop")` | yes |
+| Comeron: `NA` for a saturated dN / dS | a finite, too small value | `options(orthologr.legacy_comeron_saturation = TRUE)` | yes |
+| Comeron: codons that differ at two positions counted along Comeron's two pathways | libsequence's branches (the estimate depended on which sequence is first) | `options(orthologr.comeron_twosubs = "libsequence")` | yes |
+| Comeron: a site class with fewer than 3 sites cannot make dN / dS `NA` | (0.4.3 had no `NA` for saturation at all) | `options(orthologr.comeron_min_sites = 0)` | (not needed: covered by the saturation switch) |
+| KaKs_Calculator methods: dN and dS of 0 are 0 | `NA` | `options(orthologr.legacy_kaks_zero_dn = TRUE)` | yes |
+| KaKs_Calculator methods: capped values (99, JC69's cap, empty LWL classes) and `nan` are `NA` (`"saturated"` / `"failed"`) | returned as estimates | `options(orthologr.legacy_kaks_saturation = TRUE)` | yes |
+| `filter_dNdS()` / `divergence_stratigraphy()`: pairs with dS = 0 left out | the same | `dS_zero = "keep"` keeps them | (unchanged) |
+| dN/dS tables end with the column `status` | no such column | `options(orthologr.status_column = FALSE)` | yes |
+| `divergence_stratigraphy(quiet = TRUE)` (progress line in interactive sessions) | `quiet = FALSE` | `quiet = FALSE` | no (messages only) |
+| T-Coffee in its default mode | `-mode accurate` | `aa_aln_params = "-mode accurate"` | no (argument) |
+| `aa_aln_params` passed to the alignment program | ignored | do not set it | no (argument) |
+
 ### New
 
 - **`orthogroups()`**: groups of orthologs of 2 to N species from one all-against-all DIAMOND search (reciprocal
   best hits, connected components) or from DIAMOND DeepClust clusters; `print()`, `summary()`,
   `write_orthogroups()`. **`dNdS_orthogroups()`**: dN/dS for the gene pairs within the groups, with a summary per
   group. OrthoFinder is no longer needed for more than two species; `orthofinder2()` is soft-deprecated.
+- **Column `status`** (last column of every dN/dS table): `"ok"`, `"dS_zero"`, `"saturated"`, `"no_data"` or
+  `"failed"` for each gene pair - the same words with both engines and in the `pairs` tables of
+  `dNdS_clusters()` / `dNdS_orthogroups()` (see `?dNdS`). `options(orthologr.status_column = FALSE)` leaves it out.
+- **One summary message at the end of a run**: gene pairs by status, median dS, sequences left out before the
+  search, and a note when most pairs are saturated or the median dS is above 1.5 (species too distant for
+  pairwise dN/dS). With `quiet = FALSE`, a progress message about every tenth of the gene pairs.
+- **Record of the run**: `attr(result, "orthologr_run")` on results of `dNdS()`, `dNdS_orthogroups()` and
+  `divergence_stratigraphy()`: package version, arguments, every `orthologr.*` option in force (with its default
+  when it is not set, `orthologr.ambiguous_cds` included), engine, program versions (KaKs_Calculator's from the
+  "Version:" line of its `-h`), date, size and MD5 of the input files, counts by status; the call as written
+  (`call`) and, when it is of another function, its name and all its arguments (`called_as`); the DIAMOND /
+  BLAST+ command lines of the run (`commands`). **`write_dNdS()`** writes a table as TSV with this record in
+  `<file>.run.json`; **`read_dNdS()`** reads both back (needs `jsonlite`). `orthogroups()$params` holds the package version.
+- **`orthologr_legacy_options()`** and `options(orthologr.legacy = TRUE)`: all settings of 0.4.3 at once. A test
+  compares the result with tables stored from 0.4.3 (20-gene example, Comeron and YN).
+- **`?orthologr_options`**: every option and environment variable the package reads.
+- **Classed errors and warnings**: the common failures have the class `orthologr_error` plus one for their kind -
+  `orthologr_error_tool_missing`, `_package_missing`, `_tool_failed` (with `_alignment_failed` for an alignment
+  program), `_no_hits`, `_bad_input`, `_bad_argument` - and the warnings about failed gene pairs and isoforms the
+  classes `orthologr_warning_failed_pairs` / `_isoforms`, so that they can be handled with `tryCatch()` without
+  matching message text (`?orthologr_options`, section "Errors and warnings"). Messages are unchanged. The
+  argument and input-file checks of `dNdS()`, `orthogroups()`, `dNdS_orthogroups()`, `divergence_stratigraphy()`,
+  `filter_dNdS()`, the alignment functions, `substitutionrate()` and the readers are classed; `dNdS()` checks
+  that its input files exist before any program runs.
 - `divergence_left_out()`: the gene pairs that are not in a divergence map, with the reason.
 - `attr(result, "failed_pairs")` and `attr(result, "dropped_sequences")` on dN/dS tables: gene pairs that could
   not be processed and input sequences that were left out, each with the reason.
 - A warning when an input file of `dNdS()`, `divergence_stratigraphy()`, `orthologs()` or `orthogroups()` seems
   to hold several transcripts per gene (`options(orthologr.isoform_warning = FALSE)` switches it off).
 - `aa_sub_matrix` (`dNdS()`, `pairwise_aln()`): the substitution matrix of pairwise protein alignments.
+- `options(orthologr.ambiguous_cds)`: coding sequences with IUPAC ambiguity codes (N, R, Y, ...) are kept (a codon
+  with such a base is translated to X; the default `"keep"`, see "Changed defaults") or left out (`"drop"`, as in
+  0.4.3).
+- `options(orthologr.sensitivity_mode)`, `options(orthologr.comeron_twosubs)`, `options(orthologr.comeron_min_sites)`,
+  `options(orthologr.large_pair_aligner)`: see "Changed defaults" and `?orthologr_options`.
 - `best_hit_rule` (`dNdS()`, `orthologs()`, `diamond_best()`, `diamond_rec()`, `blast_best()`, `blast_rec()`,
   `divergence_stratigraphy()`, `select_orthologs()`, `orthogroups()`).
 - `dS_zero` (`filter_dNdS()`, `divergence_stratigraphy()`): `"keep"` returns gene pairs with dS = 0 instead of
@@ -24,32 +82,52 @@
 
 | Change | Effect (measured) | Old behaviour |
 |---|---|---|
+| DIAMOND's sensitivity mode is `"default"` in `dNdS()`, `orthologs()`, `orthogroups()`, `divergence_stratigraphy()`, `diamond()`, `diamond_best()`, `diamond_rec()` (was `"fast"`, which DIAMOND designs for hits of more than 90 % identity; DIAMOND's own default mode is for hits of more than 60 %); the hint for distant species now suggests `"sensitive"` | reciprocal best hits as `dNdS()` searches (e-value 1e-5, 2 threads), references OrthoFinder 3.2 (four yeasts) and Ensembl Compara 115 (human / mouse): S. cerevisiae against C. glabrata / K. lactis / A. gossypii 4,165 / 3,846 / 3,695 -> 4,385 / 4,206 / 4,044 pairs (+5.3 to +9.4 %), recall of the 1:1 orthologs 88.9 / 85.7 / 84.7 % -> 93.8 / 94.3 / 93.2 %, precision 99.45 / 99.66 / 99.70 % -> 99.38 / 99.67 / 99.78 %; human / mouse 16,943 -> 17,104 (+0.9 %), recall 97.45 -> 98.14 %; CPU time of the search x 1.3 - 1.6 (human / mouse 81 -> 131 CPU s). Re-measured with this version's `diamond_rec()`: S. cerevisiae / C. glabrata 4,164 -> 4,384 pairs, 9.7 -> 13.6 CPU s; 1,000-gene example 985 -> 987 | `sensitivity_mode = "fast"` or `options(orthologr.sensitivity_mode = "fast")` |
 | Best hits are chosen by bit score (was: e-value, then alignment length) | human / mouse: 3.2 % of the best hits change; pairs that contradict Ensembl Compara fall from 2.0 % to 0.4 % | `best_hit_rule = "evalue"` or `options(orthologr.best_hit_rule = "evalue")` |
 | Pairwise protein alignments: BLOSUM62, full length, stop codon not aligned | 1,000-gene example: dN or dS changes for a third of the gene pairs, mostly slightly (r of dN/dS old vs new 0.988) | `options(orthologr.legacy_pairwise_aln = TRUE)` |
 | Comeron's method: `NA` for a saturated dN or dS (was: a finite, too small value) | 1 dN of 995 pairs (example); 17 dN and 1 dS of 1,500 pairs (human / mouse) | `options(orthologr.legacy_comeron_saturation = TRUE)` |
-| Comeron's method counts codons that differ at two positions along Comeron's two pathways (libsequence's `TwoSubs`, and so 0.4.3, passes its arguments in another order, with which the estimate depends on which sequence is first) | swapping the two sequences of 300 random 150-codon pairs changed Ka in 279 and Ks in 190 of them; now in none. dS: 1,000-gene example 474 of 995 pairs change (median 0 %, p95 2.9 %, max 12 %), human / mouse median 1.0 %, p95 5.0 % | `options(orthologr.comeron_twosubs = "libsequence")` |
-| Comeron's method: a site class with fewer than 3 sites cannot make dN or dS `NA` (its undefined logarithm is 0, as in 0.4.3) | simulated 30-codon pairs: dN `NA` 3.7 % -> 0 %; 1,000-gene example 0 pairs, human / mouse 3, yeasts 14 | `options(orthologr.comeron_min_sites = 0)` |
 | KaKs_Calculator methods: `dN = 0` for a pair without nonsynonymous change (was `NA`, with `dNdS = 0`) | 11 of 995 pairs; `filter_dNdS()` keeps them | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
-| KaKs_Calculator methods: dN and dS that are 0 are 0 (KaKs_Calculator prints `NA` below 1e-6): identical sequences have dN = dS = 0 (was `NA` for dN, dS and dNdS), a pair with nonsynonymous differences only has dS = 0 | E. coli K-12 / O157, YN (3,663 pairs): 230 pairs `NA` -> dN = dS = 0, 12 dN of about 1e-12 -> 0; 1,000-gene example: 0 pairs | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
-| KaKs_Calculator methods: an estimate that KaKs_Calculator replaced with a capped value because the correction for multiple substitutions is not defined is `NA` (was returned as an estimate): Ka or Ks = 99, JC69's cap 0.75 log(sites) of YN / MYN, a class of sites counted with 0 substitutions in LWL / MLWL / LPB / MLPB (`?substitutionrate`; where the printed counts are within rounding of 0, the counts are computed again from the codon alignment with KaKs_Calculator's arithmetic, so that the result is what KaKs_Calculator did) | S. cerevisiae / C. glabrata, YN (4,164 pairs): 3,559 dS -> `NA` (172 with dS = 99, whose median dN/dS was 0.0028 against 0.081 overall, and 3,387 at JC69's cap, dS 2.56 - 5.99); `filter_dNdS(dnds.threshold = 2)` kept 4,164 rows (the 172 with dS = 99 included) -> 605; E. coli K-12 / O157, YN: 21 of 3,663 pairs (divergent pairs of 35 - 88 % identity, dS 2.8 - 4.8); 1,000-gene example: YN 1 of 995, NG 0; LWL family, S. cerevisiae / C. glabrata: Ks `NA` for 1,925 (LWL, LPB) and 2,100 (MLWL, MLPB) of 4,164 pairs - every pair whose class KaKs_Calculator found undefined, and no other (checked against a KaKs_Calculator that reports its decision, also on S. cerevisiae / K. lactis MLPB and E. coli; with the printed counts alone an intermediate version took 21 pairs the wrong way, among them 2 MLPB Ks of 0.97 and 2.26 that are underestimates) | `options(orthologr.legacy_kaks_saturation = TRUE)` |
-| KaKs_Calculator methods: an estimate printed as `nan` (Ka or Ks) is a failed estimate - `NA`, the gene pair is reported as failed with the reason and the method in `attr(result, "failed_pairs")` and the failed-pairs warning (was `NaN`, in one pair with a dN, like a saturated estimate); `substitutionrate()` lists it in `attr(, "kaks_failed")` | S. cerevisiae / C. glabrata, MYN (4,164 pairs): 50 pairs failed (all of them iterations that did not converge, not saturation), the dN of one pair 0.0547 -> `NA`; YN, NG and the LWL family on the same pairs, and E. coli K-12 / O157: no `nan` | `options(orthologr.legacy_kaks_saturation = TRUE)` |
+| KaKs_Calculator methods: dN and dS that are 0 are 0 (KaKs_Calculator prints `NA` below 1e-6): identical sequences have dN = dS = 0 and status `"dS_zero"` (was `NA` and `"saturated"`), a pair with nonsynonymous differences only has dS = 0 | E. coli K-12 / O157, YN (3,663 pairs): 230 pairs `"saturated"` -> `"dS_zero"` (the summary no longer counts them as saturated), 12 dN of about 1e-12 -> 0; a file against itself (20 genes): "20 saturated" and the note that the species are probably too distant -> "20 with dS = 0"; 1,000-gene example: 0 pairs | `options(orthologr.legacy_kaks_zero_dn = TRUE)` |
+| KaKs_Calculator methods: an estimate that KaKs_Calculator replaced with a capped value because the correction for multiple substitutions is not defined is `NA`, status `"saturated"` (was returned as an estimate, status `"ok"`): Ka or Ks = 99, JC69's cap 0.75 log(sites) of YN / MYN, a class of sites counted with 0 substitutions in LWL / MLWL / LPB / MLPB (`?substitutionrate`; where the printed counts are within rounding of 0, the counts are computed again from the codon alignment with KaKs_Calculator's arithmetic, so that the status is what KaKs_Calculator did) | S. cerevisiae / C. glabrata, YN (4,164 pairs): `"ok"` 4,164 -> 605, `"saturated"` 0 -> 3,559 (172 with dS = 99, whose median dN/dS was 0.0028 against 0.081 overall, and 3,387 at JC69's cap, dS 2.56 - 5.99); `filter_dNdS(dnds.threshold = 2)` kept 4,164 rows (the 172 with dS = 99 included) -> 605; E. coli K-12 / O157, YN: 21 of 3,663 pairs (divergent pairs of 35 - 88 % identity, dS 2.8 - 4.8); 1,000-gene example: YN 1 of 995, NG 0; LWL family, S. cerevisiae / C. glabrata: Ks `NA` for 1,925 (LWL, LPB) and 2,100 (MLWL, MLPB) of 4,164 pairs - every pair whose class KaKs_Calculator found undefined, and no other (checked against a KaKs_Calculator that reports its decision, also on S. cerevisiae / K. lactis MLPB and E. coli; with the printed counts alone an intermediate version took 21 pairs the wrong way, among them 2 MLPB Ks of 0.97 and 2.26 that are underestimates) | `options(orthologr.legacy_kaks_saturation = TRUE)` |
+| KaKs_Calculator methods: an estimate printed as `nan` (Ka or Ks) is a failed estimate - `NA`, status `"failed"`, the reason with the method in `attr(result, "failed_pairs")` and the failed-pairs warning (was `NaN`, in one pair with a dN, and status `"saturated"`); `substitutionrate()` lists it in `attr(, "kaks_failed")` | S. cerevisiae / C. glabrata, MYN (4,164 pairs): 50 pairs `"saturated"` -> `"failed"` (all of them iterations that did not converge, not saturation: COAL estimates 43 of them, dS 0.12 - 4.1), the dN of one pair 0.0547 -> `NA`; YN, NG and the LWL family on the same pairs, and E. coli K-12 / O157: no `nan` | `options(orthologr.legacy_kaks_saturation = TRUE)` |
+| dN/dS tables end with the column `status` | one more column | `options(orthologr.status_column = FALSE)` |
 | T-Coffee runs in its default mode (was `-mode accurate`, which needs further programs) | other alignments with `aa_aln_tool = "t_coffee"` | `aa_aln_params = "-mode accurate"` |
 | `aa_aln_params` is passed on to the alignment program (was ignored) | only when it is set | do not set it |
-| A pairwise protein alignment of more than 5e8 cells (length x length; pwalign needs about 3 bytes per cell, so about 1.5 GB) is not computed: the gene pair is returned with `NA` values and the reason in `attr(, "failed_pairs")` (was: aligned whatever the memory; `options(orthologr.max_aln_cells)`, `?pairwise_aln`) | human 1,000 transcripts / all mouse CDS, 2 cores: 1 of 946 pairs (titin, 35,991 x 35,390 residues, 1.27e9 cells) not aligned instead of dS 0.50; peak memory 4.3 GB -> 0.79 GB, run time 87 s -> 42 s; 1,000-gene example: 0 pairs | `options(orthologr.max_aln_cells = Inf)` |
+| A pairwise protein alignment of more than 5e8 cells (length x length; pwalign needs about 3 bytes per cell, so about 1.5 GB) is not computed: the gene pair is returned with status `"failed"` and the reason (was: aligned whatever the memory; `options(orthologr.max_aln_cells)`, `?pairwise_aln`) | human 1,000 transcripts / all mouse CDS, 2 cores: 1 of 946 pairs (titin, 35,991 x 35,390 residues, 1.27e9 cells) failed instead of dS 0.50; peak memory 4.3 GB -> 0.79 GB, run time 87 s -> 42 s; 1,000-gene example: 0 pairs | `options(orthologr.max_aln_cells = Inf)` |
+| `divergence_stratigraphy(quiet = TRUE)`, as `dNdS()` (was `FALSE`); in an interactive session it still shows a progress line about every tenth of the gene pairs (stratigraphy runs are long) | 1,000-gene example: 10 messages instead of 45 (in scripts); same result | `quiet = FALSE` |
+| Coding sequences with IUPAC ambiguity codes (N, R, Y, ...) are kept (`options(orthologr.ambiguous_cds = "keep")`): a codon with such a base is translated to X and not compared (was: the sequence was left out); `dNdS()` lists them in `attr(, "ambiguous_sequences")` with the number of such codons and counts their rows in the summary, `dNdS_orthogroups()` (which left them out whatever the option) adds a note to their pairs | Ensembl, one transcript per gene: 87 of 19,746 human and 75 of 21,584 mouse coding sequences contain such characters (median share of ambiguous codons 0.4 %); one N in about 1 % of the codons of every human gene: Comeron's dS within 5 % of the N-free value for 99.1 % of 946 human / mouse pairs (YN 95.3 %); 1,000-gene example: 2 more pairs (with `sensitivity_mode = "default"` 999 pairs instead of 995) | `options(orthologr.ambiguous_cds = "drop")` |
+| Comeron's method counts codons that differ at two positions along Comeron's two pathways (libsequence's `TwoSubs`, and so 0.4.3, passes its arguments in another order and counts codon1 - int1, int1 - int2, codon1 - codon2 and codon2 - int2, with which the estimate depends on which sequence is first; libsequence's repository is archived). | swapping the two sequences of 300 random 150-codon pairs changed Ka in 279 and Ks in 190 of them; now in none. dS of the same alignments: 1,000-gene example 474 of 995 pairs change, median 0 %, p95 2.9 %, max 12 %, no status changes; human / mouse 813 of 946, median 1.0 %, p95 5.0 %, 4 status changes; S. cerevisiae / C. glabrata (mostly saturated) median 8.8 %, p95 56 %, 493 status changes. The corrected dS is slightly closer to YN's (median difference 7.68 -> 7.53 % on the 1,000-gene example) | `options(orthologr.comeron_twosubs = "libsequence")` |
+| Comeron's method: a site class with fewer than 3 sites (the 2-fold transversional class of short alignments) cannot make dN or dS `NA`; its undefined logarithm is 0, as in 0.4.3 | simulated 30-codon pairs: dN `NA` 3.7 % -> 0 %, the recovered values' mean absolute error 8.8 % (all 30-codon pairs 11.2 %); real data: 1,000-gene example 0 pairs, human / mouse 3, yeasts 14. Never changes a value that is not `NA` otherwise | `options(orthologr.comeron_min_sites = 0)` |
 | `orthogroups()` and `dNdS_orthogroups()` trim coding sequences whose length is not a multiple of 3 (`delete_corrupt_cds = FALSE`, as `dNdS()` does) | - (new functions) | `delete_corrupt_cds = TRUE` |
+
+All of these except the T-Coffee mode, `aa_aln_params`, `divergence_stratigraphy(quiet)`, the minimum class size of
+Comeron (which does not matter with the 0.4.3 saturation rule) and `delete_corrupt_cds` at once:
+`orthologr_legacy_options()`.
 
 Further behaviour that differs from 0.4.3 and cannot be switched back:
 
-- A gene pair whose alignment or estimation fails no longer ends the run: it is a row of `NA` and its reason
-  is in `attr(, "failed_pairs")`.
+- A gene pair whose alignment or estimation fails no longer ends the run: it is a row of `NA` with status
+  `"failed"` and its reason in `attr(, "failed_pairs")`.
 - A missing program (perl, the alignment program, KaKs_Calculator) and unsupported argument values are errors
   before the search starts.
 - Parameter strings (`aa_aln_params`, `aligner_params`, `diamond_params`, `blast_params`, `params`,
   `kaks_calc.params`, ...) are lists of arguments, not shell text: `;`, pipes and redirections inside them no
   longer work.
+- `dNdS()` writes nothing to `stdout`. With `quiet = TRUE` (default) it gives a line at the start and the
+  summary at the end (31 messages before); the citation note is a message shown once per session. Input sequences
+  that are left out or trimmed to a multiple of 3 are counted in the summary (listed in
+  `attr(, "dropped_sequences")` / `attr(, "trimmed_sequences")`) instead of a block of messages about each kind:
+  1,000-gene example, 12 messages before (8 about the 12 trimmed sequences), 2 after; `quiet = FALSE` shows the
+  old messages.
+- Coding sequences with characters other than A, C, G, T and the IUPAC ambiguity codes (or, with
+  `options(orthologr.ambiguous_cds = "drop")`, with any character other than A, C, G, T) are left out before the
+  search, as before, but no longer without a word: they are counted in the summary and listed in
+  `attr(, "dropped_sequences")`.
 - Intermediate files are kept in a folder of the call inside `tempdir()` and removed afterwards
-  (`options(orthologr.keep_tmp = TRUE)` keeps them); no function changes the working directory or writes into it
-  unasked (`read.cds()` wrote `<file>_corrupted_cds_seqs.fasta` there).
+  (`options(orthologr.keep_tmp = TRUE)` keeps them until the end of the R session, which removes `tempdir()`;
+  `options(orthologr.keep_tmp = "<folder>")` keeps them in that folder, also after `Rscript` or a batch job, and
+  the message says which applies); no function changes the working directory or writes into it unasked
+  (`read.cds()` wrote `<file>_corrupted_cds_seqs.fasta` there; the summary says when that file is in `tempdir()`).
 - `ggplot2`, `scales`, `ape`, `rtracklayer`, `benchmarkme`, `tidyr`, `biomartr`, `metablastr` moved from Imports
   to Suggests (Imports: 21 -> 11 packages); R >= 4.4 is enough.
 - `cdd.path` and `ortho_path` of `dNdS()` are deprecated (never used); `ortho_detection = "Orthofinder2"`, `"PO"`
@@ -80,7 +158,7 @@ Results:
   and `dNdS()` ended after the whole search with an error about a missing column (20-gene example: before an
   error after 4 s; after 20 pairs, the values KaKs_Calculator gives for `-m MLPB`). There is one list of the
   KaKs_Calculator methods for the whole package, and a method that `substitutionrate()` does not handle is an
-  error instead of `NULL`.
+  error (`orthologr_error_bad_argument`) instead of `NULL`.
 
 Running programs:
 
@@ -105,9 +183,45 @@ Running programs:
   `promotor_divergence_estimation()`, `lnc_map_counts()`, `map_generator_dnds()` with one subject file: errors
   on valid input fixed. `check_annotation(remove_annotation_outliers = TRUE)` no longer overwrites the
   annotation file.
+- An unknown `aa_sub_matrix` name (`dNdS()`, `pairwise_aln()`) is an error (`orthologr_error_bad_argument`)
+  before the search; it ran the whole search and then failed every gene pair (1,000-gene example,
+  `aa_sub_matrix = "FOO"`: before 6.4 s and 995 of 995 pairs `NA` with one warning; after an error at once).
+- A protein file given where coding sequences are expected is an error that says so (was: a DIAMOND error about
+  memory).
+- `orthogroups()` runs the check for several transcripts per gene; the check no longer warns for a bacterial
+  genome with a handful of genes that have two coding sequences.
+- FASTA files with a UTF-8 byte-order mark were rejected ("could not be read properly"), and files with old-Mac
+  line ends (CR only) reached DIAMOND as one sequence and failed after about 10 s with a memory error. Both are now
+  read like the plain file (same result as for the file without the mark / with LF line ends; also gzipped).
+- `dnds_est.method = "kaks_calc"` in `dNdS()` / `dNdS_orthogroups()` is an error before the search (it ran the
+  search and failed every gene pair: `kaks_calc.params` exists only in `substitutionrate()`); `"GY"`, `"GMYN"`,
+  `"MS"`, `"MA"` and `"ALL"` are documented in `?dNdS` (MA and MS take about 6.5 s per gene pair); with `"ALL"`
+  the summary counts gene pairs x methods (20-gene example: "340 rows (20 gene pairs x 17 methods)", was "340 gene
+  pairs").
+- `dNdS_orthogroups()` summary: `n_saturated` counted pairs with dS above `dS_saturation`, while the status
+  `"saturated"` means that dN or dS could not be estimated (60 yeast groups: 296 pairs with status "saturated",
+  `sum(n_saturated)` 30). `n_saturated` now counts status `"saturated"`; the new columns
+  `n_dS_zero`, `n_no_data` and `n_failed` count the other statuses, and `n_dS_above` is the old count.
+- `dNdS_orthogroups()` summary: the quartile columns are `dN_q25`, `dN_q75`, `dS_q25`, `dS_q75`, `dNdS_q25`,
+  `dNdS_q75` (they were `_q1` / `_q3` in development versions of 0.5.0; `dNdS_orthogroups()` is new in 0.5.0, so
+  no release had the old names).
+- `read_dNdS()` returns IDs with a double quote as written (`d"q` came back as `d""q`), and non-ASCII text with
+  the bytes and the encoding marks it had when it was written (kept in `<file>.run.json`), so that IDs read back
+  equal those of `dNdS()` in every locale. (An intermediate version marked all text as UTF-8: in a C / POSIX
+  locale a non-ASCII ID then no longer matched the ID of the run - `==`, `match()` and `merge()` failed; and
+  `write_dNdS()` wrote such IDs of `attr(, "failed_pairs")` as escapes like `<c3><bc>` in a C locale.)
 - An invalid `options(orthologr.max_aln_cells)` (`-1`, `"5e8"` as text, `NA`, several values) is an error
-  (naming the value) before the search in `dNdS()` and `dNdS_orthogroups()`; it ran the search and then failed every gene pair with the
-  message about the option (20-gene example: 20 of 20 pairs failed).
+  (`orthologr_error_bad_argument`, naming the value) before the search in `dNdS()` and `dNdS_orthogroups()`; it ran
+  the search and then failed every gene pair with the message about the option (20-gene example: 20 of 20 pairs
+  "failed"). `options(orthologr.keep_tmp)` of `NA` or of several values is an error as well (was taken for
+  `FALSE`), and a folder that cannot be created is `orthologr_error_bad_argument` (was an unclassed error). A run of
+  one gene pair is summarised as "1 gene pair".
+- A DIAMOND older than 2.1.0 is used with a warning (`orthologr_warning_tool_version`; it was used without a word);
+  a program that is there but crashes when asked for its version is `orthologr_error_tool_failed` ("could not be
+  started ... exit status 139"), no longer "not installed"; a failed DIAMOND search is `orthologr_error_tool_failed`
+  and `comp_cores` above the number of cores `orthologr_warning_comp_cores` (both were unclassed). The column `qcov`
+  of DIAMOND hit tables equals `qcovhsp` (DIAMOND has no per-subject coverage; documented in `?diamond`, kept for
+  the column layout of BLAST tables and of 0.4.3).
 
 ### Speed (results unchanged)
 
@@ -124,7 +238,9 @@ Running programs:
   and parallel runs.
 - Tests: 16 of the 20 empty test files now hold tests; pinned dN/dS values of fixed codon alignments, the 20
   known ortholog pairs end to end, a tie-break fixture for both best-hit rules, IDs end to end, stored 0.4.3
-  tables for the legacy settings. The suite passes without any optional program.
+  tables for the legacy settings, malformed input files (empty, truncated record, lower case, protein instead of
+  CDS, duplicated IDs, Windows line endings, gzip, an N in a sequence). The suite passes without any optional
+  program.
 - GitHub Actions: R CMD check on Linux, macOS and Windows with the external programs installed, one leg without
   them; triggers for pull requests, the default branch and a manual start. Checked with `--as-cran`.
 - Examples that need no external program are run by `R CMD check`; the others are guarded by the programs they

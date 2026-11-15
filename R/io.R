@@ -10,11 +10,11 @@
 #' It is possible to read in different genome file standards such as \emph{fasta} or \emph{fastq}.
 #' Genomes stored in fasta files can be downloaded from https://ensemblgenomes.org, https://www.ncbi.nlm.nih.gov/genome, or https://www.ebi.ac.uk, etc.
 #'
-#' @examples \dontrun{
+#' @examples
 #' # reading a genome stored in a fasta file
 #' Ath.genome <- read.genome(system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'                            format = "fasta")
-#' }
+#' head(Ath.genome, 2)
 #'
 #' @return A data.table storing the gene id in the first column and the corresponding
 #' sequence as string in the second column.
@@ -23,17 +23,20 @@
 read.genome <- function(file, format, ...){
         
         if(!is.element(format,c("fasta","fastq")))
-                stop("Please choose a file format that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a file format that is supported by this function.")
         
         if (!file.exists(file))
-                stop("The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
         
         geneids <- seqs <- NULL
         
         # fasta and fastq are read in the same way (Biostrings::readDNAStringSet(format = ...))
         tryCatch({
                 
-                genome <- Biostrings::readDNAStringSet(filepath = file, format = format, ...)
+                read_path <- readable_seq_file(file)
+                if (!identical(read_path, file))
+                        on.exit(unlink(read_path), add = TRUE)
+                genome <- Biostrings::readDNAStringSet(filepath = read_path, format = format, ...)
                 
                 if (length(genome) == 0)
                         stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
@@ -44,7 +47,7 @@ read.genome <- function(file, format, ...){
                 
                 data.table::setkey(genome.dt,geneids)
                 
-        }, error = function(e){ stop(paste0("File ",file, " could not be read properly. \n",
+        }, error = function(e){ orthologr_abort(class = "bad_input", paste0("File ",file, " could not be read properly. \n",
                                             "Please make sure that ",file," contains only DNA sequences and is in ",format," format."))}
         )
         
@@ -65,11 +68,11 @@ read.genome <- function(file, format, ...){
 #'
 #' Proteomes stored in fasta files can be downloaded from https://www.ebi.ac.uk/reference_proteomes, etc.
 #'
-#' @examples \dontrun{
+#' @examples
 #' # reading a proteome stored in a fasta file
 #' Ath.proteome <- read.proteome(system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'                                format = "fasta")
-#' }
+#' head(Ath.proteome, 2)
 #'
 #' @return A data.table storing the gene id in the first column and the corresponding
 #' sequence as string in the second column.
@@ -78,17 +81,20 @@ read.genome <- function(file, format, ...){
 read.proteome <- function(file, format, ...){
         
         if(!is.element(format,c("fasta","fastq")))
-                stop("Please choose a file format that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a file format that is supported by this function.")
         
         if (!file.exists(file))
-                stop("The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
         
         geneids <- seqs <- NULL 
         
                 
                 tryCatch({
                         
-                        proteome <- Biostrings::readAAStringSet(filepath = file, format = format, ...)
+                        read_path <- readable_seq_file(file)
+                        if (!identical(read_path, file))
+                                on.exit(unlink(read_path), add = TRUE)
+                        proteome <- Biostrings::readAAStringSet(filepath = read_path, format = format, ...)
                         
                         if (length(proteome) == 0)
                                 stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
@@ -99,7 +105,7 @@ read.proteome <- function(file, format, ...){
                         
                         data.table::setkey(proteome.dt, geneids)
                         
-                }, error = function(e){ stop("File ",file, " could not be read properly.", "\n",
+                }, error = function(e){ orthologr_abort(class = "bad_input", "File ",file, " could not be read properly.", "\n",
                                                     "Please make sure that ",file," contains only amino acid sequences and is in ",format," format.")}
                 )
         
@@ -121,11 +127,11 @@ read.proteome <- function(file, format, ...){
 #'
 #' CDS stored in fasta files can be downloaded from https://www.ensembl.org/info/data/ftp/index.html, etc.
 #'
-#' @examples \dontrun{
+#' @examples
 #' # reading a cds file stored in fasta format
 #' Ath.cds <- read.cds(system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'                     format = "fasta")
-#' }
+#' head(Ath.cds, 2)
 #'
 #' @return A data.table storing the gene id in the first column and the corresponding
 #' sequence as string in the second column.
@@ -133,16 +139,29 @@ read.proteome <- function(file, format, ...){
 
 read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
         if (!is.element(format, c("fasta", "fastq")))
-                stop("Please choose a file format that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a file format that is supported by this function.")
         
         if (!file.exists(file))
-                stop("The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file path you specified does not seem to exist: '", file,"'.", call. = FALSE)
         
         geneids <- seqs <- NULL
         
+        # a byte-order mark or old-Mac line ends (CR only): read a normalised copy (messages name 'file')
+        read_path <- readable_seq_file(file)
+        if (!identical(read_path, file))
+                on.exit(unlink(read_path), add = TRUE)
+        
+        # a protein file given as coding sequences: Biostrings would drop the letters that are no nucleotides
+        # with a warning, and the search would fail later with a message that does not name the cause
+        if (format == "fasta" && fasta_looks_like_protein(read_path))
+                orthologr_abort(class = "bad_input", "'", file, "' does not look like coding DNA: more than 10 % of the first residues are not ",
+                     "nucleotide letters. Is this a protein file? dN/dS and the functions that read coding ",
+                     "sequences (seq_type = \"cds\") need the coding sequences; for proteins use seq_type = \"protein\" ",
+                     "where a function has it.", call. = FALSE)
+        
         tryCatch({
                 cds_file <-
-                        Biostrings::readDNAStringSet(filepath = file, format = format, ...)
+                        Biostrings::readDNAStringSet(filepath = read_path, format = format, ...)
                 
                 if (length(cds_file) == 0)
                         stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
@@ -167,7 +186,8 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                 n_seqs <- nrow(cds.dt)
                 
         }, error = function(e) {
-                stop(
+                orthologr_abort(
+                        class = "bad_input",
                         "File ",
                         file,
                         " could not be read properly.",
@@ -181,7 +201,10 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
         })
         
         if (!all(all_triplets)) {
-                message(
+                # inside dNdS() with quiet = TRUE these messages are left to the summary of the run
+                # (the sequences are listed in attr(<result>, "dropped_sequences") / "trimmed_sequences")
+                quiet_run <- sequence_messages_quiet()
+                if (!quiet_run) message(
                         "There seem to be ",
                         length(which(!all_triplets)),
                         " coding sequences in your input dataset which cannot be properly divided in base triplets, because their sequence length cannot be divided by 3."
@@ -197,12 +220,14 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                 corrupted_file <-
                         file.path(corrupted_dir, paste0(basename(file), "_corrupted_cds_seqs.fasta"))
                 
-                message(
-                        "A fasta file storing all corrupted coding sequences for inspection was generated and stored at '",
-                        corrupted_file,
-                        "'."
-                )
-                message("\n")
+                if (!quiet_run) {
+                        message(
+                                "A fasta file storing all corrupted coding sequences for inspection was generated and stored at '",
+                                corrupted_file,
+                                "'."
+                        )
+                        message("\n")
+                }
                 corrupted_seqs <- as.data.frame(cds.dt[which(!all_triplets)])
                 seq_vector <- corrupted_seqs$seqs
                 names(seq_vector) <- corrupted_seqs$geneids
@@ -210,36 +235,40 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                 Biostrings::writeXStringSet(corrupted_seqs_biostrings, filepath = corrupted_file)
                 
                 if (delete_corrupt_cds) {
-                        message(
-                                "You chose option 'delete_corrupt_cds = TRUE', thus corrupted coding sequences were removed.",
-                                "If after consulting the file '",
-                                corrupted_file,
-                                "' you still wish to retain all coding sequences please specify the argument 'delete_corrupt_cds = FALSE'."
-                        )
-                        message("\n")
+                        if (!quiet_run) {
+                                message(
+                                        "You chose option 'delete_corrupt_cds = TRUE', thus corrupted coding sequences were removed.",
+                                        "If after consulting the file '",
+                                        corrupted_file,
+                                        "' you still wish to retain all coding sequences please specify the argument 'delete_corrupt_cds = FALSE'."
+                                )
+                                message("\n")
+                        }
                         dropped_record(cds.dt[which(!all_triplets), geneids],
                                        "a length that is not a multiple of 3 (delete_corrupt_cds = TRUE)", file)
                         return(cds.dt[-which(!all_triplets) , list(geneids, seqs)])
                 }
                 
                 if (!delete_corrupt_cds) {
-                        message(
-                                "You chose option 'delete_corrupt_cds = FALSE', thus corrupted coding sequences were retained for subsequent analyses.")
-                        message(
-                                "The following modifications were made to the CDS sequences that were not divisible by 3:")
-                        message(
-                                "- If the sequence had 1 residue nucleotide then the last nucleotide of the sequence was removed.")
-                        message(
-                                "- If the sequence had 2 residue nucleotides then the last two nucleotides of the sequence were removed.")
-                        message(
-                                "Note: the sequences are trimmed at their 3' end. A coding sequence that is incomplete at its 5' end ",
-                                "(e.g. Ensembl 'cds_start_NF' transcripts that do not start in phase 0) is then translated in the wrong ",
-                                "reading frame; such sequences are best removed (delete_corrupt_cds = TRUE) or put into frame before.")
-                        message(
-                                "If after consulting the file '",
-                                corrupted_file,
-                                "' you wish to remove all corrupted coding sequences please specify the argument 'delete_corrupt_cds = TRUE'."
-                        )
+                        if (!quiet_run) {
+                                message(
+                                        "You chose option 'delete_corrupt_cds = FALSE', thus corrupted coding sequences were retained for subsequent analyses.")
+                                message(
+                                        "The following modifications were made to the CDS sequences that were not divisible by 3:")
+                                message(
+                                        "- If the sequence had 1 residue nucleotide then the last nucleotide of the sequence was removed.")
+                                message(
+                                        "- If the sequence had 2 residue nucleotides then the last two nucleotides of the sequence were removed.")
+                                message(
+                                        "Note: the sequences are trimmed at their 3' end. A coding sequence that is incomplete at its 5' end ",
+                                        "(e.g. Ensembl 'cds_start_NF' transcripts that do not start in phase 0) is then translated in the wrong ",
+                                        "reading frame; such sequences are best removed (delete_corrupt_cds = TRUE) or put into frame before.")
+                                message(
+                                        "If after consulting the file '",
+                                        corrupted_file,
+                                        "' you wish to remove all corrupted coding sequences please specify the argument 'delete_corrupt_cds = TRUE'."
+                                )
+                        }
                         
                         mod3_residue_1 <-
                                 function(x) {
@@ -253,6 +282,8 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                         
                         residue_1 <- cds.dt[ , mod3_residue_1(seqs)]
                         residue_2 <- cds.dt[ , mod3_residue_2(seqs)]
+                        trimmed_ids <- cds.dt[which(!all_triplets), geneids]
+                        trimmed_nt <- nchar(cds.dt[which(!all_triplets), seqs]) %% 3
                         
                         residue_1_seqs <- as.character(cds.dt[which(residue_1) , seqs])
                         residue_2_seqs <- as.character(cds.dt[which(residue_2) , seqs])
@@ -272,9 +303,10 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                         
                         if (any(!all_triplets_new)) {
                                 stop("Something went wring during the trimming process. Not all sequences were trimmed properly.", call. = FALSE)
-                        } else {
+                        } else if (!quiet_run) {
                                 message("All corrupted CDS were trimmed.")
                         }
+                        trimmed_record(trimmed_ids, trimmed_nt, file, corrupted_file)
                         
                         n_seqs_new <- nrow(cds.dt)
                         
@@ -301,4 +333,48 @@ fasta_header_id <- function(headers) {
         if (is.null(headers))
                 return(character(0))
         sub("[[:space:]].*$", "", as.character(headers))
+}
+
+# Does a FASTA file hold proteins rather than nucleotide sequences? Judged from its first 2,000 lines: TRUE when
+# more than 10 % of the residues are letters that are no IUPAC nucleotide code (E, F, I, L, P, Q, ...).
+fasta_looks_like_protein <- function(file) {
+        x <- tryCatch(readLines(file, n = 2000, warn = FALSE), error = function(e) character(0))
+        x <- x[!startsWith(x, ">")]
+        x <- toupper(paste(x, collapse = ""))
+        x <- gsub("[^A-Z*]", "", x)
+        if (nchar(x) < 30)
+                return(FALSE)
+        other <- nchar(gsub("[ACGTUNRYKMSWBDHV]", "", x))
+        other / nchar(x) > 0.1
+}
+
+# A sequence file (FASTA / FASTQ, plain or gzip) as Biostrings can read it. A UTF-8 byte-order mark at the start of
+# the file (written by some Windows editors and by Python's 'utf-8-sig') made the file unreadable ("could not be
+# read properly"), and old-Mac line ends (CR without LF) made the whole file one line, which reached DIAMOND as one
+# sequence. For such a file the mark is removed and every CR becomes LF, in a copy inside orthologr_tmpdir(), whose
+# path is returned (the caller removes it); any other file is returned as it is. The sequences read are those of
+# the same file without the mark and with LF line ends.
+readable_seq_file <- function(file) {
+        con <- gzfile(file, "rb")
+        head <- tryCatch(readBin(con, "raw", n = 1048576), error = function(e) raw(0), finally = close(con))
+        bom <- length(head) >= 3 && identical(head[1:3], as.raw(c(0xef, 0xbb, 0xbf)))
+        cr_only <- any(head == as.raw(0x0d)) && !any(head == as.raw(0x0a))
+        if (!bom && !cr_only)
+                return(file)
+        con <- gzfile(file, "rb")
+        chunks <- list()
+        tryCatch(repeat {
+                b <- readBin(con, "raw", n = 16777216)
+                if (length(b) == 0)
+                        break
+                chunks[[length(chunks) + 1]] <- b
+        }, finally = close(con))
+        bytes <- do.call(c, chunks)
+        if (bom)
+                bytes <- bytes[-(1:3)]
+        if (cr_only)
+                bytes[bytes == as.raw(0x0d)] <- as.raw(0x0a)
+        out <- tempfile("input_", tmpdir = orthologr_tmpdir(), fileext = ".txt")
+        writeBin(bytes, out)
+        out
 }

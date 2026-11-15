@@ -9,18 +9,15 @@
 #' @param as.string when set to TRUE sequences are in the form of strings instead of vectors of single characters.
 #' @author Hajk-Georg Drost
 #' @examples
-#' 
-#' \dontrun{
-#' 
 #' # read an example proteome
 #' Ath.proteome <- read.proteome(
-#'                       system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'), 
+#'                       system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
 #'                       format = "fasta")
-#' 
+#'
 #' # use the write.proteome function to store it on your hard drive
-#' write.proteome(Ath.proteome, "test_proteome.fasta")
-#' 
-#' }
+#' out_file <- file.path(tempdir(), "test_proteome.fasta")
+#' write.proteome(Ath.proteome, out_file)
+#' unlink(out_file)
 #' 
 #' @export
 

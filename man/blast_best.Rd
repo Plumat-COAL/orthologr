@@ -48,7 +48,7 @@ Please be aware that \code{max.target.seqs} selects best hits based on the datab
 
 \item{comp_cores}{a numeric value specifying the number of cores to be used for multicore BLAST computations.}
 
-\item{blast_params}{a character string listing the input paramters that shall be passed to the executing BLAST program. Default is \code{NULL}, implicating
+\item{blast_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string listing the input paramters that shall be passed to the executing BLAST program. Default is \code{NULL}, implicating
 that a set of default parameters is used when running BLAST.}
 
 \item{clean_folders}{a boolean value spefiying whether all internall folders storing the output of used programs
@@ -92,47 +92,36 @@ Internally to perform best hit searches, the BLAST+ parameter settings:
 are used to speed up best hit computations.
 }
 \examples{
-\dontrun{
-
+\dontshow{if (all(nzchar(Sys.which(c("blastp", "makeblastdb"))))) withAutoprint(\{ # examplesIf}
 # performing gene orthology inference using the best hit (BH) method
 blast_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
-           
-           
-           
-# performing gene orthology inference using the best hit (BH) method starting with protein sequences
+
+# performing gene orthology inference using the best hit (BH) method
+# starting with protein sequences
 blast_best(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
            seq_type     = "protein")
 
-
-
-# save the BLAST output file to the current working directory
+# save the BLAST output file to the folder tempdir()
 blast_best(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
            seq_type     = "protein",
-           save.output  = getwd())
-
-
-
-
+           save.output  = tempdir())
 
 # use multicore processing
-blast_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'), 
+blast_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
            comp_cores   = 2)
 
-
-
+\dontrun{
 # performing gene orthology inference using the best hit (BH) method and external
 # blastp path
 blast_best(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
            path         = "path/to/blastp/")
-           
-           
 }
-
+\dontshow{\}) # examplesIf}
 }
 \references{
 Altschul, S.F., Gish, W., Miller, W., Myers, E.W. & Lipman, D.J. (1990) "Basic local alignment search tool." J. Mol. Biol. 215:403-410.

@@ -25,9 +25,9 @@
 #' @param aligner_path a character string specifying the path to the DIAMOND or BLAST program (in case you don't use the default path).
 #' @param sensitivity_mode specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 #' \itemize{
-#' \item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+#' \item \code{sensitivity_mode = "fast"}: fast alignment mode, designed for finding hits of >90\% identity (the default up to orthologr 0.4.3).
 #' \item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
-#' \item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+#' \item \code{sensitivity_mode = "default"} (Default; \code{options(orthologr.sensitivity_mode = )} sets another): the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >60\% identity.
 #' \item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
 #' \item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
 #' \item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
@@ -35,6 +35,17 @@
 #' \item \code{sensitivity_mode = "ultra-sensitive"}: most sensitive alignment mode (sensitivity as high as BLASTP).
 #' }
 #' Any other value is an error.
+#' \strong{Choosing the mode.} The default is \code{"default"} since 0.5.0 (0.4.3: \code{"fast"}, which DIAMOND
+#' designs for hits of more than 90 \% identity; \code{sensitivity_mode = "fast"},
+#' \code{options(orthologr.sensitivity_mode = "fast")} or \code{\link{orthologr_legacy_options}} restore it). Measured
+#' with the search \code{dNdS()} makes (reciprocal best hits, e-value 1e-5, 2 threads; references: OrthoFinder's
+#' orthologs of four yeasts, Ensembl Compara human / mouse): \emph{S. cerevisiae} against \emph{C. glabrata},
+#' \emph{K. lactis} and \emph{A. gossypii} gives 5.3 - 9.4 \% more pairs with \code{"default"} than with
+#' \code{"fast"} (recall of the 1:1 orthologs 85 - 89 \% -> 93 - 94 \%, precision unchanged at 99.4 - 99.8 \%),
+#' human / mouse 0.9 \% more (recall 97.45 -> 98.14 \%), at 1.3 - 1.6 times the search's CPU time (seconds to a
+#' few minutes, a small part of a \code{dNdS()} run). \code{"sensitive"} adds another 2.7 - 5.2 \% in yeast at about
+#' 3 times the search time of \code{"default"}: use it for distant species (\code{dNdS()} suggests it when the best
+#' hits are much less identical than the mode is designed for).
 #' @param eval a numeric value specifying the E-Value cutoff for DIAMOND or BLAST hit detection.
 #' @param ortho_path deprecated and not used (a warning is given when it is set).
 #' @param aa_aln_type a character string specifying the amino acid alignment type:
@@ -73,14 +84,24 @@
 #' \item \code{dnds_est.method = "MLWL"}: (Modified LWL), MLPB (Modified LPB): Tzeng, Y.H., et al. (2004)
 #' \item \code{dnds_est.method = "YN"}: Yang, Z. and Nielsen, R. (2000)
 #' \item \code{dnds_est.method ="MYN"} (Modified YN): Zhang, Z., et al. (2006)
+#' \item \code{dnds_est.method = "GY"} (Goldman and Yang 1994, maximum likelihood), \code{"GMYN"} (MYN with a gamma
+#' distribution of rates), \code{"MS"} (model selection) and \code{"MA"} (model averaging), computed by KaKs_Calculator
+#' only: they are much slower (MA and MS: about 6.5 s per gene pair of typical length) and their capped values are
+#' not checked (\code{\link{substitutionrate}}, section "Saturation")
+#' \item \code{dnds_est.method = "ALL"}: every method of KaKs_Calculator (17 rows per gene pair, column
+#' \code{method}); the summary counts gene pairs and methods
 #' }
+#' \code{"kaks_calc"} (methods given as KaKs_Calculator parameters) is only available in
+#' \code{\link{substitutionrate}}, which has the argument \code{kaks_calc.params}.
 #' @param comp_cores a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.
 #' When it is larger than the number of available cores, the number of available cores is used and a warning is given.
-#' @param quiet a logical value specifying whether the output of the corresponding alignment tool shall be printed out to the console.
-#' Default is \code{quiet} = \code{FALSE}.
+#' @param quiet \code{TRUE} (default): one line at the start and one summary at the end of the run (as messages,
+#' i.e. on \code{stderr}; nothing is written to \code{stdout}); input sequences that were left out or trimmed are
+#' counted in the summary. \code{FALSE}: also the parameters, the messages of the search program, a message for each
+#' kind of input sequence that was left out or trimmed, and a progress message about every tenth of the gene pairs.
 #' @param clean_folders kept for compatibility. All intermediate files of a call are written to a folder of its own inside
 #' \code{tempdir()}, which is always removed when the call ends (see Details), so there is nothing left to clean.
-#' @param print_citation a logical value indicating whether or not the citation message shall be printed.
+#' @param print_citation a logical value indicating whether the citation note is shown (as a message, once per R session).
 #' @author Hajk-Georg Drost and Jaruwatana Sodai Lotharukpong
 #' @details 
 #' 
@@ -173,7 +194,9 @@
 #' Pages H, Aboyoun P, Gentleman R and DebRoy S. Biostrings: String objects representing biological sequences, and
 #' matching algorithms. R package version 2.32.1.
 #' 
-#' @return A data.table storing the dNdS values of the correspnding genes.
+#' @return A tibble with one row per gene pair: \code{query_id}, \code{subject_id}, \code{dN}, \code{dS},
+#' \code{dNdS}, the columns of the hit table of the search, and, as the last column, \code{status} (see the
+#' section "Status of a gene pair").
 #' 
 #' A gene pair for which a step of the pipeline fails (e.g. PAL2NAL or KaKs_Calculator exit with an error) does not end
 #' the run: it is returned with \code{NA} for dN, dS and dNdS, a warning reports how many pairs failed, and
@@ -184,16 +207,58 @@
 #' residues (\code{\link{pairwise_aln}}), with \code{comp_cores > 1} once for every pair aligned at the same time.
 #' A pair whose alignment would have more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
 #' 1.5 GB; e.g. a titin pair of 36,000 residues each would need about 4 GB) is not aligned and is returned with
-#' \code{NA} values and the reason in \code{attr(result, "failed_pairs")}.
+#' status \code{"failed"} and the reason in \code{attr(result, "failed_pairs")}.
 #'
 #' Each call keeps its intermediate files (search database, alignments, KaKs_Calculator files) in a folder of its own
-#' inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it.
+#' inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it until
+#' the end of the R session, \code{options(orthologr.keep_tmp = "<folder>")} keeps it in that folder
+#' (\code{\link{orthologr_options}}).
 #' 
 #' \code{attr(result, "dropped_sequences")} is a \code{data.frame} (\code{file}, \code{id}, \code{reason}) with the
 #' input sequences that were left out before the search: coding sequences with characters other than A, C, G, T (they
 #' cannot be translated; e.g. 5'-incomplete Ensembl CDS that are padded with N), empty sequences and, with
-#' \code{delete_corrupt_cds = TRUE}, sequences whose length is not a multiple of 3. A message gives their number.
+#' \code{delete_corrupt_cds = TRUE}, sequences whose length is not a multiple of 3. The summary message gives their
+#' number. A sequence with a single \code{N} is left out as a whole. How much that costs depends on the source of
+#' the files: 0 to 1 sequence in each of eight RefSeq sets of yeasts and bacteria and 2 of 1,000 in the
+#' \emph{A. lyrata} example, but 51 of 2,048 (2.5 \%) of the Ensembl transcripts of human chromosome 21 and 365 of
+#' 7,728 (4.7 \%) of those of mouse chromosomes 10, 16 and 17 - there typically one leading \code{N} of a transcript
+#' whose start is not annotated (\code{cds_start_NF}). Sequences whose length is not a multiple of 3 (97 of 2,048
+#' and 934 of 7,728 in the same files) are trimmed by default (\code{delete_corrupt_cds = FALSE}); they are listed in
+#' \code{attr(result, "trimmed_sequences")} (\code{file}, \code{id}, \code{removed_nt}, \code{corrupted_file}: the
+#' sequences as read) and counted in the summary message.
 #' 
+#' @section Status of a gene pair:
+#' The last column of the result, \code{status}, says how each gene pair came out. The same words are used by
+#' \code{dNdS()} and in the \code{pairs} tables of \code{\link{dNdS_orthogroups}}:
+#' \describe{
+#' \item{\code{"ok"}}{dN, dS and dN/dS were estimated;}
+#' \item{\code{"dS_zero"}}{dN and dS were estimated and dS is 0 (no synonymous change), so that the ratio is not
+#' defined: \code{dNdS} is \code{NA}. \code{\link{filter_dNdS}} leaves such pairs out or keeps them (\code{dS_zero});}
+#' \item{\code{"saturated"}}{dN or dS is \code{NA} because the correction for multiple substitutions at a site is
+#' not defined: the two sequences differ at so many sites of a class that the number of substitutions cannot be
+#' estimated. A pair that is saturated at synonymous sites usually still has its dN;}
+#' \item{\code{"no_data"}}{the pair has no codons that can be compared (the programs of \code{dNdS()} do not tell
+#' this case from \code{"saturated"});}
+#' \item{\code{"failed"}}{a step of the pipeline failed for the pair, or KaKs_Calculator printed \code{nan} for
+#' its estimate (see \code{\link{substitutionrate}}); the reason is in \code{attr(result, "failed_pairs")} (with
+#' \code{dnds_est.method = "ALL"} also the method, in the column \code{method}).}
+#' }
+#' KaKs_Calculator does not report whether the iteration of \code{"YN"} or \code{"MYN"} converged: such a pair has
+#' the values of the last round and status \code{"ok"} (about 3\% of the estimates of distant yeasts, all with dS
+#' above 1.4; see \code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)").
+#' At the end of a run one message gives the numbers by status and the median dS, and says so when a large part of
+#' the pairs is saturated or the median dS is above 1.5: the two species are then too distant for pairwise dN/dS
+#' (S. cerevisiae against C. glabrata: 72 \% of 4,164 pairs saturated, median dS of the others 1.9).
+#' The counts are also in \code{attr(result, "orthologr_run")$status_counts}.
+#' \code{options(orthologr.status_column = FALSE)} returns the table without the column (as 0.4.3 did; also set by
+#' \code{\link{orthologr_legacy_options}}).
+#'
+#' @section Record of the run:
+#' \code{attr(result, "orthologr_run")} is a list with the version of the package, the arguments of the call, every
+#' \code{orthologr.*} option in force, the engine, the versions of the programs, the date, size and MD5 checksum of
+#' the input files and the numbers of gene pairs by status. \code{\link{write_dNdS}} writes the table together with
+#' this record and \code{\link{read_dNdS}} reads both back.
+#'
 #' @section Sequence IDs:
 #' The ID of a sequence is its FASTA header up to the first white space. IDs must be unique within a file (a
 #' duplicated ID is an error that names it) and are returned exactly as they are in the input files, whatever they
@@ -212,8 +277,7 @@
 #' \code{-R<letter>}, \code{-P<letter>}, \code{-mRNA-<number>}, \code{_i<number>}, \code{.p<number>}) and a warning
 #' is given only when at least 5 of the remaining stems, and at least 1\% of them, occur more than once.
 #' \code{options(orthologr.isoform_warning = FALSE)} switches the check off.
-#' @examples \dontrun{
-#' 
+#' @examplesIf all(nzchar(Sys.which(c("diamond", "perl"))))
 #' # get a dNdS table using:
 #' # 1) reciprocal best hit for orthology inference (RBH)
 #' # 2) Needleman-Wunsch for pairwise amino acid alignments
@@ -222,36 +286,35 @@
 #' # 5) single core processing 'comp_cores = 1'
 #' dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'      subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'      ortho_detection = "RBH", 
+#'      ortho_detection = "RBH",
 #'      aa_aln_type     = "pairwise",
-#'      aa_aln_tool     = "NW", 
-#'      codon_aln_tool  = "pal2nal", 
-#'      dnds_est.method = "Comeron", 
+#'      aa_aln_tool     = "NW",
+#'      codon_aln_tool  = "pal2nal",
+#'      dnds_est.method = "Comeron",
 #'      comp_cores      = 1 )
-#' 
-#' 
+#'
+#' \dontrun{
 #' # running dNdS using the 'aa_aln_path' argument to specify the path to
 #' # the corresponding alignment tool
 #' dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'      subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'      ortho_detection = "RBH", 
+#'      ortho_detection = "RBH",
 #'      aa_aln_type     = "multiple",
-#'      aa_aln_tool     = "clustalw", 
+#'      aa_aln_tool     = "clustalw",
 #'      aa_aln_path     = "/path/to/clustalw/",
-#'      codon_aln_tool  = "pal2nal", 
-#'      dnds_est.method = "Comeron", 
+#'      codon_aln_tool  = "pal2nal",
+#'      dnds_est.method = "Comeron",
 #'      comp_cores      = 1 )
-#' 
+#'
 #' # The same result can be obtained using multicore processing using: comp_cores = 2 or 3 or more ...
 #' dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'      subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-#'      ortho_detection = "RBH", 
+#'      ortho_detection = "RBH",
 #'      aa_aln_type     = "pairwise",
-#'      aa_aln_tool     = "NW", 
-#'      codon_aln_tool  = "pal2nal", 
-#'      dnds_est.method = "Comeron", 
+#'      aa_aln_tool     = "NW",
+#'      codon_aln_tool  = "pal2nal",
+#'      dnds_est.method = "Comeron",
 #'      comp_cores      = 2 )
-#' 
 #' }
 #' @seealso \code{\link{divergence_stratigraphy}}, \code{\link{orthologs}}, 
 #' \code{\link{substitutionrate}}, \code{\link{multi_aln}}, \code{\link{codon_aln}}, 
@@ -279,7 +342,7 @@
 dNdS <- function(query_file, 
                  subject_file, 
                  aligner         = "diamond",
-                 sensitivity_mode = "fast",
+                 sensitivity_mode = getOption("orthologr.sensitivity_mode", "default"),
                  aligner_path    = NULL, 
                  seq_type        = "cds",
                  format          = "fasta", 
@@ -304,8 +367,9 @@ dNdS <- function(query_file,
                  aa_sub_matrix   = "BLOSUM62",
                  best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")
                  ){
+        sensitivity_mode <- orthologr_sensitivity_mode(if (missing(sensitivity_mode)) NULL else sensitivity_mode)
         
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         
         # what is not supported is rejected now, before any program is started
         dnds_check_args(
@@ -319,11 +383,19 @@ dNdS <- function(query_file,
                 aa_aln_params    = aa_aln_params
         )
         
-        if (!is.codon_aln_tool(codon_aln_tool))
-                stop("Please choose a codon alignment tool that is supported by this function.", call. = FALSE)
+        check_input_files(query_file, subject_file)
         
-        if (!is.dnds_est_method(dnds_est.method))
-                stop("Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+        if (!is.codon_aln_tool(codon_aln_tool))
+                orthologr_abort(class = "bad_argument", "Please choose a codon alignment tool that is supported by this function.", call. = FALSE)
+        
+        if (length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method))
+                orthologr_abort(class = "bad_argument", "Please choose a dNdS estimation method that is supported by this function.", call. = FALSE)
+        # "kaks_calc" means "the methods are in kaks_calc.params", an argument of substitutionrate() only:
+        # here it ran the whole search and then failed every gene pair
+        if (identical(dnds_est.method, "kaks_calc"))
+                orthologr_abort(class = "bad_argument", "dnds_est.method = \"kaks_calc\" needs the methods as KaKs_Calculator parameters ",
+                     "(kaks_calc.params), which only substitutionrate() has. Please choose a method, e.g. ",
+                     "dnds_est.method = \"YN\", or dnds_est.method = \"ALL\" for every method of KaKs_Calculator.", call. = FALSE)
         
         for (unused in c("cdd.path", "ortho_path")) {
                 if (!is.null(get(unused)))
@@ -338,21 +410,18 @@ dNdS <- function(query_file,
         dnds_require_programs(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = codon_aln_tool,
                               dnds_est.method = dnds_est.method, kaks_calc_path = kaks_calc_path)
         
-        message("\n")
-        message("Starting orthology inference (",ortho_detection, ") and dNdS estimation (",dnds_est.method,") using the follwing parameters:")
-        message("query = '", basename(query_file), "'")
-        message("subject = '", basename(subject_file), "'")
-        message("aligner = ", "'", basename(aligner), "'")
-        if (aligner == "diamond")
-                message("sensitivity_mode = ", "'", basename(sensitivity_mode), "'")
-        message("seq_type = '", seq_type, "'")
-        message("e-value: ", eval)
-        message("best_hit_rule = '", best_hit_rule, "'")
-        message("aa_aln_type = '", aa_aln_type, "'")
-        message("aa_aln_tool = '", aa_aln_tool, "'")
-        message("comp_cores = '", comp_cores, "'")
-        message("\n")
+        # the arguments of this call, for the record of the run (attr(<result>, "orthologr_run"))
+        run_args <- run_arguments()
         
+        # one line that says what is computed; the parameters in detail only when not quiet
+        message("dNdS(): ", if (ortho_detection == "RBH") "reciprocal best hits" else "best hits", " of '",
+                basename(query_file), "' against '", basename(subject_file), "' (", aligner,
+                if (aligner == "diamond") paste0(", sensitivity_mode '", sensitivity_mode, "'"),
+                ", e-value ", eval, ", best_hit_rule '", best_hit_rule, "'), then dN/dS by method '", dnds_est.method,
+                "' (", aa_aln_type, " alignments with '", aa_aln_tool, "', comp_cores = ", comp_cores, ").")
+        detail_message(quiet, "seq_type = '", seq_type, "'; codon_aln_tool = '", codon_aln_tool, "'; aa_sub_matrix = ",
+                       if (is.character(aa_sub_matrix)) paste0("'", aa_sub_matrix, "'") else if (is.null(aa_sub_matrix)) "NULL" else "<matrix>",
+                       "; delete_corrupt_cds = ", delete_corrupt_cds)
         
         # determine the file seperator of the current OS
         f_sep <- .Platform$file.sep
@@ -368,7 +437,7 @@ dNdS <- function(query_file,
         on.exit(end_seq_cache(), add = TRUE)
         
         # sequences that are left out are collected for attr(<result>, "dropped_sequences")
-        end_dropped <- dropped_start()
+        end_dropped <- dropped_start(quiet = quiet)
         on.exit(end_dropped(), add = TRUE)
         
         # several transcripts per gene in an input file? (a warning; see ?dNdS, section 'Splice variants')
@@ -394,46 +463,16 @@ dNdS <- function(query_file,
         # blast/diamond each translated aminoacid sequence against the related database to get a 
         # hit table with pairs of geneids  
         
-        message("Starting Orthology Inference ...")
+        detail_message(quiet, "Starting Orthology Inference ...")
         
         # choosing the aligner between diamond and blast
         # (aligner and ortho_detection were checked above)
         {
-                if (aligner == "diamond" & ortho_detection == "BH")
-                        align <- function(...) 
-                                diamond_best(...,
-                                             diamond_params = aligner_params,
-                                             sensitivity_mode = sensitivity_mode)
-                if (aligner == "diamond" & ortho_detection == "RBH")
-                        align <- function(...) 
-                                diamond_rec(...,
-                                            diamond_params = aligner_params,
-                                            sensitivity_mode = sensitivity_mode)
-                if (aligner == "blast" & ortho_detection == "BH")
-                        align <- function(...) 
-                                blast_best(...,
-                                           blast_params = aligner_params)
-                if (aligner == "blast" & ortho_detection == "RBH")
-                        align <- function(...) 
-                                blast_rec(...,
-                                          blast_params = aligner_params)
-                
-                # run orthology inference.
-                hit.table <- 
-                        align(
-                                query_file   = query_file,
-                                subject_file = subject_file,
-                                delete_corrupt_cds = delete_corrupt_cds,
-                                path         = aligner_path,
-                                comp_cores   = comp_cores,
-                                seq_type     = seq_type,
-                                eval         = eval,
-                                format       = format,
-                                best_hit_rule = best_hit_rule
-                        )
-                
-                data.table::setDT(hit.table)
-                data.table::setkeyv(hit.table, c("query_id","subject_id"))
+                hit.table <- dnds_search(query_file, subject_file, aligner = aligner, ortho_detection = ortho_detection,
+                                         aligner_params = aligner_params, sensitivity_mode = sensitivity_mode,
+                                         aligner_path = aligner_path, delete_corrupt_cds = delete_corrupt_cds,
+                                         comp_cores = comp_cores, seq_type = seq_type, eval = eval, format = format,
+                                         best_hit_rule = best_hit_rule, quiet = quiet)
                 
                 # (both files were read and translated for the search: they are not read again)
                 q_cds <- read_cds_once(query_file, delete_corrupt_cds = delete_corrupt_cds)
@@ -462,19 +501,21 @@ dNdS <- function(query_file,
         joint_subject_tbl <- dplyr::inner_join(tibble::as_tibble(hit.table), tibble::as_tibble(subject_tbl), by = "subject_id")
         final_tbl <- dplyr::inner_join(tibble::as_tibble(joint_query_tbl), tibble::as_tibble(joint_subject_tbl), by = c("query_id","subject_id"))
         
+        sensitivity_hint(hit.table, aligner = aligner, sensitivity_mode = sensitivity_mode)
+        
         if (nrow(hit.table) == 0)
-                stop("No orthologs could be found: the ", if (aligner == "diamond") "DIAMOND" else "BLAST",
+                orthologr_abort(class = "no_hits", "No orthologs could be found: the ", if (aligner == "diamond") "DIAMOND" else "BLAST",
                      " search of '", basename(query_file), "' against '", basename(subject_file),
                      "' returned no ", if (ortho_detection == "RBH") "reciprocal best hits" else "hits",
                      " at e-value ", eval, ". Please check your input files (are both sets of coding sequences related?) ",
                      "or relax 'eval'.", call. = FALSE)
         
         if (nrow(final_tbl) == 0)
-                stop("No orthologs could be found! Please check your input files!", call. = FALSE)
+                orthologr_abort("No orthologs could be found! Please check your input files!", class = "no_hits")
         
         
-        message("Orthology Inference Completed.")
-        message("Starting dN/dS Estimation ...")
+        detail_message(quiet, "Orthology Inference Completed: ", nrow(final_tbl), " gene pairs.")
+        detail_message(quiet, "Starting dN/dS Estimation ...")
         dNdS_tbl <- compute_dnds( complete_tbl    = data.table::as.data.table(final_tbl),
                                   aa_aln_type     = aa_aln_type,
                                   aa_aln_tool     = aa_aln_tool,
@@ -497,36 +538,53 @@ dNdS <- function(query_file,
                         "in the hit table and are missing in the result. Please report this as a bug of orthologr.",
                         call. = FALSE)
         
-        # sequences that were left out before the search (file, id, reason), and a note on splice variants
-        dropped <- end_dropped()
-        if (!is.null(dropped)) {
-                attr(res, "dropped_sequences") <- dropped
-                if (nrow(dropped) > 0)
-                        message(nrow(dropped), " input sequence", if (nrow(dropped) > 1) "s were" else " was",
-                                " left out before the search (", paste0(table(dropped$reason), " x ", names(table(dropped$reason)), collapse = "; "),
-                                "). They are listed in attr(<result>, \"dropped_sequences\").")
-        }
+        # The end of the run: the status of every gene pair (last column), the sequences that were left out before
+        # the search (attr "dropped_sequences": file, id, reason), the gene pairs that could not be processed
+        # (attr "failed_pairs"), the record of the run (attr "orthologr_run") and one summary message.
+        kaks_used <- is.element(dnds_est.method, kaks_calculator_methods())
+        trimmed <- trimmed_table()
+        ambiguous <- ambiguous_table()
+        res <- dnds_finish(
+                res, failed_pairs = attr(dNdS_tbl, "failed_pairs"), dropped = end_dropped(), ambiguous = ambiguous, trimmed = trimmed,
+                record = list(fun = "dNdS", args = run_args, engine = "orthologr",
+                              tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path,
+                                                          aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path,
+                                                          codon_aln_tool = codon_aln_tool, kaks = kaks_used,
+                                                          kaks_calc_path = kaks_calc_path)),
+                              files = c(query_file, subject_file)),
+                print_citation = print_citation
+        )
         isoform_result_note(res, isoforms_query)
-        
-        # gene pairs that could not be processed (their dN, dS and dNdS are NA) and why
-        attr(res, "failed_pairs") <- attr(dNdS_tbl, "failed_pairs")
-        
-        message("dN/dS Estimation Completed.")
-        
-        if (print_citation) {
-                message("\n")
-                message("Please cite the following paper when using orthologr for your own research:")
-                cat("Drost et al. Evidence for Active Maintenance of Phylotranscriptomic Hourglass Patterns in Animal and Plant Embryogenesis. 2015. Mol. Biol. Evol. 32 (5): 1221-1231.")
-                message("\n")
-                message("\n")
-        }
         
        # return the dNdS table for all query_ids and subject_ids
            return(res)   
 }
 
-
-
-
-
-
+# The search step shared by dNdS() and dNdS_coal(): best hits (ortho_detection = "BH") or reciprocal best hits
+# ("RBH") with DIAMOND or BLAST+, as a keyed data.table. (When quiet, the banners and timings of the search program
+# are not shown.)
+dnds_search <- function(query_file, subject_file, aligner, ortho_detection, aligner_params, sensitivity_mode,
+                        aligner_path, delete_corrupt_cds, comp_cores, seq_type, eval, format, best_hit_rule, quiet) {
+        align <- switch(paste(aligner, ortho_detection),
+                "diamond BH"  = function(...) diamond_best(..., diamond_params = aligner_params, sensitivity_mode = sensitivity_mode),
+                "diamond RBH" = function(...) diamond_rec(..., diamond_params = aligner_params, sensitivity_mode = sensitivity_mode),
+                "blast BH"    = function(...) blast_best(..., blast_params = aligner_params),
+                "blast RBH"   = function(...) blast_rec(..., blast_params = aligner_params),
+                orthologr_abort("aligner = '", aligner, "' with ortho_detection = '", ortho_detection, "' is not supported.",
+                                class = "bad_argument"))
+        hit.table <- quiet_search(
+                align(
+                        query_file         = query_file,
+                        subject_file       = subject_file,
+                        delete_corrupt_cds = delete_corrupt_cds,
+                        path               = aligner_path,
+                        comp_cores         = comp_cores,
+                        seq_type           = seq_type,
+                        eval               = eval,
+                        format             = format,
+                        best_hit_rule      = best_hit_rule
+                ), quiet = quiet)
+        data.table::setDT(hit.table)
+        data.table::setkeyv(hit.table, c("query_id", "subject_id"))
+        hit.table
+}

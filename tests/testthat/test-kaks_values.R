@@ -25,9 +25,11 @@ kaks_lines <- c(
 kaks_example_table <- function() utils::read.csv(text = kaks_lines, sep = "\t", header = TRUE)
 
 test_that("capped values of KaKs_Calculator are NA (saturated) and zeros it prints as NA are 0 (dS_zero)", {
-        rlang::local_options(orthologr.legacy_kaks_saturation = NULL, orthologr.legacy_kaks_zero_dn = NULL)
+        rlang::local_options(orthologr.legacy_kaks_saturation = NULL, orthologr.legacy_kaks_zero_dn = NULL, orthologr.legacy = NULL)
         tbl <- kaks_example_table()
         res <- do.call(rbind, lapply(seq_len(nrow(tbl)), function(i) kaks_result_table(tbl[i, ], c("q", "s"))))
+        st <- dnds_status(res$dN, res$dS, res$dNdS)
+        expect_identical(st, c("saturated", "saturated", "ok", "saturated", "dS_zero", "dS_zero", "dS_zero"))
         expect_true(all(is.na(res$dS[c(1, 2, 4)])))
         expect_true(all(is.na(res$dNdS[c(1, 2, 4, 5, 6, 7)])))
         expect_equal(res$dN[1:4], c(0.081132, 0.281572, 0.0829333, 0.143407))
@@ -128,6 +130,17 @@ test_that("a KaKs_Calculator estimate printed as 'nan' is a failed estimate, not
         expect_identical(f$method, c("MYN", "MYN"))
         expect_match(f$reason[1], "printed 'nan' for Ka and Ks (method MYN) of gene pair 'a' / 'b': its estimate failed", fixed = TRUE)
         expect_match(f$reason[2], "printed 'nan' for Ks (method MYN)", fixed = TRUE)
+        # status: failed (with the table of failed pairs), not saturated
+        fp <- data.frame(query_id = "a", subject_id = "b", reason = f$reason[1], stringsAsFactors = FALSE)
+        st <- dnds_status(res$dN[1], res$dS[1], res$dNdS[1], failed = dnds_is_failed(data.frame(query_id = "a", subject_id = "b"), fp))
+        expect_identical(st, "failed")
+        # several methods per pair: only the row of the method that failed
+        rows <- data.frame(query_id = "a", subject_id = "b", method = c("YN", "MYN"))
+        fpm <- data.frame(query_id = "a", subject_id = "b", reason = "r", method = "MYN", stringsAsFactors = FALSE)
+        expect_identical(dnds_is_failed(rows, fpm), c(FALSE, TRUE))
+        expect_identical(dnds_failed_reason(rows, fpm), c(NA, "r"))
+        fpm$method <- NA_character_
+        expect_identical(dnds_is_failed(rows, fpm), c(TRUE, TRUE))
         # options(orthologr.legacy_kaks_saturation = TRUE): as printed (NaN), without the note
         rlang::local_options(orthologr.legacy_kaks_saturation = TRUE)
         old <- kaks_result_table(tbl, c("a", "b"))
@@ -144,11 +157,16 @@ test_that("options(orthologr.legacy_kaks_saturation / legacy_kaks_zero_dn = TRUE
         expect_equal(res$dN, num(tbl$Ka))
         expect_equal(res$dS, num(tbl$Ks))
         expect_equal(res$dNdS, num(tbl$Ka.Ks))
+        # the shorthand of the legacy switch sets both
+        rlang::local_options(orthologr.legacy_kaks_saturation = NULL, orthologr.legacy_kaks_zero_dn = NULL, orthologr.legacy = TRUE)
+        res2 <- do.call(rbind, lapply(seq_len(nrow(tbl)), function(i) kaks_result_table(tbl[i, ], c("q", "s"))))
+        expect_equal(res2$dS, res$dS)
+        expect_equal(res2$dN, res$dN)
 })
 
 test_that("identical sequences and nonsynonymous-only pairs with KaKs_Calculator: dS = 0", {
         skip_if_not(kaks_available, "KaKs_Calculator is not installed")
-        rlang::local_options(orthologr.legacy_kaks_saturation = NULL, orthologr.legacy_kaks_zero_dn = NULL)
+        rlang::local_options(orthologr.legacy_kaks_saturation = NULL, orthologr.legacy_kaks_zero_dn = NULL, orthologr.legacy = NULL)
         a   <- "ATGAAAACCGCGTATATTGCGAAACAGCGTCTGGAAGGTGATCTGAAAGCGTGGCTGACCGGTCTGGAAGCGAAACTGGGTATTCCGGAAGCG"
         # GCG -> ACG (Ala -> Thr) and AAA -> CAA (Lys -> Gln): nonsynonymous only
         non <- "ATGAAAACCACGTATATTGCGCAACAGCGTCTGGAAGGTGATCTGAAAGCGTGGCTGACCGGTCTGGAAGCGAAACTGGGTATTCCGGAAGCG"
@@ -159,6 +177,7 @@ test_that("identical sequences and nonsynonymous-only pairs with KaKs_Calculator
                 i <- substitutionrate(g, est.method = m, quiet = TRUE)
                 expect_equal(c(i$dN, i$dS), c(0, 0), info = m)
                 expect_true(is.na(i$dNdS), info = m)
+                expect_identical(dnds_status(i$dN, i$dS, i$dNdS), "dS_zero")
                 n <- substitutionrate(h, est.method = m, quiet = TRUE)
                 expect_true(n$dN > 0 && n$dS == 0 && is.na(n$dNdS), info = m)
         }

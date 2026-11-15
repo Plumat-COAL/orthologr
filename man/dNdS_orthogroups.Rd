@@ -16,7 +16,7 @@ dNdS_orthogroups(
   max_group_size = 50,
   dS_saturation = 2,
   kaks_calc_path = NULL,
-  delete_corrupt_cds = TRUE,
+  delete_corrupt_cds = FALSE,
   comp_cores = 1,
   quiet = TRUE,
   ...
@@ -54,12 +54,13 @@ from which the alignment of every pair is taken; or \code{"pairwise"} - every pa
 \item{max_group_size}{groups with more genes than this are not computed (\code{groups = "all"}); they are listed
 in \code{failed}. Default is \code{50}.}
 
-\item{dS_saturation}{pairs with a dS above this value are counted as saturated in the summary. Default is \code{2}.}
+\item{dS_saturation}{pairs with a dS above this value are counted in the column \code{n_dS_above} of the summary. Default is \code{2}.}
 
 \item{kaks_calc_path}{the folder that holds KaKs_Calculator (for its methods, see \code{\link{substitutionrate}}).}
 
-\item{delete_corrupt_cds}{a logical value: leave out coding sequences whose length is not a multiple of 3.
-Default is \code{TRUE} (such sequences cannot be used in a codon alignment).}
+\item{delete_corrupt_cds}{a logical value: what happens to coding sequences whose length is not a multiple
+of 3. \code{FALSE} (default, as in \code{\link{dNdS}} and \code{\link{orthogroups}}): the incomplete codon at the
+end is cut off. \code{TRUE}: the sequence is left out (table \code{failed}).}
 
 \item{comp_cores}{the number of R processes (\code{engine = "orthologr"}) or threads.}
 
@@ -74,8 +75,11 @@ A list of three tibbles:
 \code{orthogroup}, \code{query_species}, \code{query_id}, \code{subject_species}, \code{subject_id}, \code{method},
 \code{dN}, \code{dS}, \code{dNdS}, \code{note}. The query is the gene of the species that comes first in \code{x$species};
 \item \code{summary}: one row per group (and method): \code{orthogroup}, \code{method}, \code{n_genes},
-\code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value), \code{n_na}, \code{n_saturated}
-(dS above \code{dS_saturation}), and median, mean, first and third quartile (_q25, _q75) of dN, dS and dN/dS over the pairs
+\code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value, i.e. status \code{"ok"}), \code{n_na}
+(the others), \code{n_dS_zero}, \code{n_saturated}, \code{n_no_data}, \code{n_failed} (pairs by status, see
+\code{\link{dNdS}}, section "Status of a gene pair"), \code{n_dS_above} (pairs with dS above \code{dS_saturation}:
+estimated, but hardly informative; this column was called \code{n_saturated} in development versions of 0.5.0),
+and median, mean, first and third quartile (_q25, _q75) of dN, dS and dN/dS over the pairs
 with values;
 \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 }
@@ -96,7 +100,7 @@ With a multiple alignment, the codon alignment of a pair is the two rows of the 
 without the columns in which both have a gap.
 }
 \examples{
-\dontrun{
+\dontshow{if (all(nzchar(Sys.which(c("diamond", "perl"))))) withAutoprint(\{ # examplesIf}
 files <- c(
   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
   Alyrata   = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
@@ -105,9 +109,11 @@ res <- dNdS_orthogroups(og, aa_aln_tool = "pairwise")
 res$pairs
 res$summary
 
-# in one step, all groups, one Clustal Omega alignment per group
+\dontrun{
+# in one step, all groups, one Clustal Omega alignment per group (needs Clustal Omega)
 res <- dNdS_orthogroups(files, groups = "all", aa_aln_tool = "clustalo", comp_cores = 2)
 }
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{orthogroups}}, \code{\link{dNdS}}, \code{\link{substitutionrate}}

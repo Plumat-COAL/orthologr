@@ -150,3 +150,22 @@ test_that("divergence_stratigraphy() works with comp_cores = 2 ...", {
         expect_gt(nrow(result), 0L)
 })
 
+
+test_that("quiet = TRUE (default) shows the progress of the dN/dS run in interactive sessions only", {
+        # (a progress line every 2 gene pairs: the example has 20, fewer than the usual step of 50)
+        testthat::local_mocked_bindings(is_interactive = function() TRUE, progress_step = function(n) 2L,
+                                        .package = "orthologr")
+        expect_true(stratigraphy_progress_wanted(TRUE))
+        expect_false(stratigraphy_progress_wanted(FALSE))   # quiet = FALSE shows it anyway (dNdS's own messages)
+        expect_identical(eval(formals(divergence_stratigraphy)$quiet), TRUE)
+        skip_if_not(diamond_available, "DIAMOND2 is not installed or not on PATH")
+        run <- function() testthat::capture_messages(divergence_stratigraphy(query_cds, subject_cds, comp_cores = 1,
+                                                                              quiet = TRUE, clean_folders = TRUE))
+        msgs <- run()
+        expect_true(any(grepl("^dN/dS: [0-9]+ of [0-9]+ gene pairs", msgs)))
+        # the same numbers either way; nothing of it outside an interactive session
+        testthat::local_mocked_bindings(is_interactive = function() FALSE, .package = "orthologr")
+        expect_false(stratigraphy_progress_wanted(TRUE))
+        expect_false(any(grepl("^dN/dS: [0-9]+ of [0-9]+ gene pairs", run())))
+        expect_null(orthologr:::.orthologr_state$progress)
+})

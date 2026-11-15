@@ -248,7 +248,6 @@ promotor_divergence_of_orthologous_genes <-
                                                 by = c("query_gene_locus_id", "subject_gene_locus_id")
                                         )
                                 )
-                        cat("\n")
                 }
                 
                 message("Finished analysis!")

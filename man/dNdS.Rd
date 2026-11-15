@@ -8,7 +8,7 @@ dNdS(
   query_file,
   subject_file,
   aligner = "diamond",
-  sensitivity_mode = "fast",
+  sensitivity_mode = getOption("orthologr.sensitivity_mode", "default"),
   aligner_path = NULL,
   seq_type = "cds",
   format = "fasta",
@@ -48,16 +48,27 @@ The option diamond uses DIAMOND2 which is up to 10 000X folds faster than BLASTP
 
 \item{sensitivity_mode}{specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 \itemize{
-\item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+\item \code{sensitivity_mode = "fast"}: fast alignment mode, designed for finding hits of >90\% identity (the default up to orthologr 0.4.3).
 \item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
-\item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+\item \code{sensitivity_mode = "default"} (Default; \code{options(orthologr.sensitivity_mode = )} sets another): the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >60\% identity.
 \item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
 \item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
 \item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
 \item \code{sensitivity_mode = "very-sensitive"}: sensitive alignment mode.
 \item \code{sensitivity_mode = "ultra-sensitive"}: most sensitive alignment mode (sensitivity as high as BLASTP).
 }
-Any other value is an error.}
+Any other value is an error.
+\strong{Choosing the mode.} The default is \code{"default"} since 0.5.0 (0.4.3: \code{"fast"}, which DIAMOND
+designs for hits of more than 90 \% identity; \code{sensitivity_mode = "fast"},
+\code{options(orthologr.sensitivity_mode = "fast")} or \code{\link{orthologr_legacy_options}} restore it). Measured
+with the search \code{dNdS()} makes (reciprocal best hits, e-value 1e-5, 2 threads; references: OrthoFinder's
+orthologs of four yeasts, Ensembl Compara human / mouse): \emph{S. cerevisiae} against \emph{C. glabrata},
+\emph{K. lactis} and \emph{A. gossypii} gives 5.3 - 9.4 \% more pairs with \code{"default"} than with
+\code{"fast"} (recall of the 1:1 orthologs 85 - 89 \% -> 93 - 94 \%, precision unchanged at 99.4 - 99.8 \%),
+human / mouse 0.9 \% more (recall 97.45 -> 98.14 \%), at 1.3 - 1.6 times the search's CPU time (seconds to a
+few minutes, a small part of a \code{dNdS()} run). \code{"sensitive"} adds another 2.7 - 5.2 \% in yeast at about
+3 times the search time of \code{"default"}: use it for distant species (\code{dNdS()} suggests it when the best
+hits are much less identical than the mode is designed for).}
 
 \item{aligner_path}{a character string specifying the path to the DIAMOND or BLAST program (in case you don't use the default path).}
 
@@ -123,18 +134,28 @@ Options are:
 \item \code{dnds_est.method = "MLWL"}: (Modified LWL), MLPB (Modified LPB): Tzeng, Y.H., et al. (2004)
 \item \code{dnds_est.method = "YN"}: Yang, Z. and Nielsen, R. (2000)
 \item \code{dnds_est.method ="MYN"} (Modified YN): Zhang, Z., et al. (2006)
-}}
+\item \code{dnds_est.method = "GY"} (Goldman and Yang 1994, maximum likelihood), \code{"GMYN"} (MYN with a gamma
+distribution of rates), \code{"MS"} (model selection) and \code{"MA"} (model averaging), computed by KaKs_Calculator
+only: they are much slower (MA and MS: about 6.5 s per gene pair of typical length) and their capped values are
+not checked (\code{\link{substitutionrate}}, section "Saturation")
+\item \code{dnds_est.method = "ALL"}: every method of KaKs_Calculator (17 rows per gene pair, column
+\code{method}); the summary counts gene pairs and methods
+}
+\code{"kaks_calc"} (methods given as KaKs_Calculator parameters) is only available in
+\code{\link{substitutionrate}}, which has the argument \code{kaks_calc.params}.}
 
 \item{comp_cores}{a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.
 When it is larger than the number of available cores, the number of available cores is used and a warning is given.}
 
-\item{quiet}{a logical value specifying whether the output of the corresponding alignment tool shall be printed out to the console.
-Default is \code{quiet} = \code{FALSE}.}
+\item{quiet}{\code{TRUE} (default): one line at the start and one summary at the end of the run (as messages,
+i.e. on \code{stderr}; nothing is written to \code{stdout}); input sequences that were left out or trimmed are
+counted in the summary. \code{FALSE}: also the parameters, the messages of the search program, a message for each
+kind of input sequence that was left out or trimmed, and a progress message about every tenth of the gene pairs.}
 
 \item{clean_folders}{kept for compatibility. All intermediate files of a call are written to a folder of its own inside
 \code{tempdir()}, which is always removed when the call ends (see Details), so there is nothing left to clean.}
 
-\item{print_citation}{a logical value indicating whether or not the citation message shall be printed.}
+\item{print_citation}{a logical value indicating whether the citation note is shown (as a message, once per R session).}
 
 \item{aa_sub_matrix}{the substitution matrix used to score pairwise amino acid alignments (\code{aa_aln_type = "pairwise"}):
 the name of a matrix shipped with \pkg{pwalign}, e.g. \code{"BLOSUM62"} (Default), a numeric substitution matrix, or \code{NULL}
@@ -160,7 +181,9 @@ reciprocal best hits (970 in common).
 \code{options(orthologr.best_hit_rule = "evalue")} restores the old rule for all functions of a session.}
 }
 \value{
-A data.table storing the dNdS values of the correspnding genes.
+A tibble with one row per gene pair: \code{query_id}, \code{subject_id}, \code{dN}, \code{dS},
+\code{dNdS}, the columns of the hit table of the search, and, as the last column, \code{status} (see the
+section "Status of a gene pair").
 
 A gene pair for which a step of the pipeline fails (e.g. PAL2NAL or KaKs_Calculator exit with an error) does not end
 the run: it is returned with \code{NA} for dN, dS and dNdS, a warning reports how many pairs failed, and
@@ -171,15 +194,25 @@ naming the pair, the program and its message.
 residues (\code{\link{pairwise_aln}}), with \code{comp_cores > 1} once for every pair aligned at the same time.
 A pair whose alignment would have more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
 1.5 GB; e.g. a titin pair of 36,000 residues each would need about 4 GB) is not aligned and is returned with
-\code{NA} values and the reason in \code{attr(result, "failed_pairs")}.
+status \code{"failed"} and the reason in \code{attr(result, "failed_pairs")}.
 
 Each call keeps its intermediate files (search database, alignments, KaKs_Calculator files) in a folder of its own
-inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it.
+inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it until
+the end of the R session, \code{options(orthologr.keep_tmp = "<folder>")} keeps it in that folder
+(\code{\link{orthologr_options}}).
 
 \code{attr(result, "dropped_sequences")} is a \code{data.frame} (\code{file}, \code{id}, \code{reason}) with the
 input sequences that were left out before the search: coding sequences with characters other than A, C, G, T (they
 cannot be translated; e.g. 5'-incomplete Ensembl CDS that are padded with N), empty sequences and, with
-\code{delete_corrupt_cds = TRUE}, sequences whose length is not a multiple of 3. A message gives their number.
+\code{delete_corrupt_cds = TRUE}, sequences whose length is not a multiple of 3. The summary message gives their
+number. A sequence with a single \code{N} is left out as a whole. How much that costs depends on the source of
+the files: 0 to 1 sequence in each of eight RefSeq sets of yeasts and bacteria and 2 of 1,000 in the
+\emph{A. lyrata} example, but 51 of 2,048 (2.5 \%) of the Ensembl transcripts of human chromosome 21 and 365 of
+7,728 (4.7 \%) of those of mouse chromosomes 10, 16 and 17 - there typically one leading \code{N} of a transcript
+whose start is not annotated (\code{cds_start_NF}). Sequences whose length is not a multiple of 3 (97 of 2,048
+and 934 of 7,728 in the same files) are trimmed by default (\code{delete_corrupt_cds = FALSE}); they are listed in
+\code{attr(result, "trimmed_sequences")} (\code{file}, \code{id}, \code{removed_nt}, \code{corrupted_file}: the
+sequences as read) and counted in the summary message.
 }
 \description{
 This function takes the CDS files of two organisms of interest (query_file and subject_file)
@@ -258,6 +291,42 @@ The \code{dNdS()} function can be used choosing the folllowing options:
 
 }
 }
+\section{Status of a gene pair}{
+
+The last column of the result, \code{status}, says how each gene pair came out. The same words are used by
+\code{dNdS()} and in the \code{pairs} tables of \code{\link{dNdS_orthogroups}}:
+\describe{
+\item{\code{"ok"}}{dN, dS and dN/dS were estimated;}
+\item{\code{"dS_zero"}}{dN and dS were estimated and dS is 0 (no synonymous change), so that the ratio is not
+defined: \code{dNdS} is \code{NA}. \code{\link{filter_dNdS}} leaves such pairs out or keeps them (\code{dS_zero});}
+\item{\code{"saturated"}}{dN or dS is \code{NA} because the correction for multiple substitutions at a site is
+not defined: the two sequences differ at so many sites of a class that the number of substitutions cannot be
+estimated. A pair that is saturated at synonymous sites usually still has its dN;}
+\item{\code{"no_data"}}{the pair has no codons that can be compared (the programs of \code{dNdS()} do not tell
+this case from \code{"saturated"});}
+\item{\code{"failed"}}{a step of the pipeline failed for the pair, or KaKs_Calculator printed \code{nan} for
+its estimate (see \code{\link{substitutionrate}}); the reason is in \code{attr(result, "failed_pairs")} (with
+\code{dnds_est.method = "ALL"} also the method, in the column \code{method}).}
+}
+KaKs_Calculator does not report whether the iteration of \code{"YN"} or \code{"MYN"} converged: such a pair has
+the values of the last round and status \code{"ok"} (about 3\% of the estimates of distant yeasts, all with dS
+above 1.4; see \code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)").
+At the end of a run one message gives the numbers by status and the median dS, and says so when a large part of
+the pairs is saturated or the median dS is above 1.5: the two species are then too distant for pairwise dN/dS
+(S. cerevisiae against C. glabrata: 72 \% of 4,164 pairs saturated, median dS of the others 1.9).
+The counts are also in \code{attr(result, "orthologr_run")$status_counts}.
+\code{options(orthologr.status_column = FALSE)} returns the table without the column (as 0.4.3 did; also set by
+\code{\link{orthologr_legacy_options}}).
+}
+
+\section{Record of the run}{
+
+\code{attr(result, "orthologr_run")} is a list with the version of the package, the arguments of the call, every
+\code{orthologr.*} option in force, the engine, the versions of the programs, the date, size and MD5 checksum of
+the input files and the numbers of gene pairs by status. \code{\link{write_dNdS}} writes the table together with
+this record and \code{\link{read_dNdS}} reads both back.
+}
+
 \section{Sequence IDs}{
 
 The ID of a sequence is its FASTA header up to the first white space. IDs must be unique within a file (a
@@ -282,8 +351,7 @@ is given only when at least 5 of the remaining stems, and at least 1\% of them, 
 }
 
 \examples{
-\dontrun{
-
+\dontshow{if (all(nzchar(Sys.which(c("diamond", "perl"))))) withAutoprint(\{ # examplesIf}
 # get a dNdS table using:
 # 1) reciprocal best hit for orthology inference (RBH)
 # 2) Needleman-Wunsch for pairwise amino acid alignments
@@ -292,37 +360,37 @@ is given only when at least 5 of the remaining stems, and at least 1\% of them, 
 # 5) single core processing 'comp_cores = 1'
 dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
      subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-     ortho_detection = "RBH", 
+     ortho_detection = "RBH",
      aa_aln_type     = "pairwise",
-     aa_aln_tool     = "NW", 
-     codon_aln_tool  = "pal2nal", 
-     dnds_est.method = "Comeron", 
+     aa_aln_tool     = "NW",
+     codon_aln_tool  = "pal2nal",
+     dnds_est.method = "Comeron",
      comp_cores      = 1 )
 
-
+\dontrun{
 # running dNdS using the 'aa_aln_path' argument to specify the path to
 # the corresponding alignment tool
 dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
      subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-     ortho_detection = "RBH", 
+     ortho_detection = "RBH",
      aa_aln_type     = "multiple",
-     aa_aln_tool     = "clustalw", 
+     aa_aln_tool     = "clustalw",
      aa_aln_path     = "/path/to/clustalw/",
-     codon_aln_tool  = "pal2nal", 
-     dnds_est.method = "Comeron", 
+     codon_aln_tool  = "pal2nal",
+     dnds_est.method = "Comeron",
      comp_cores      = 1 )
 
 # The same result can be obtained using multicore processing using: comp_cores = 2 or 3 or more ...
 dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
      subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-     ortho_detection = "RBH", 
+     ortho_detection = "RBH",
      aa_aln_type     = "pairwise",
-     aa_aln_tool     = "NW", 
-     codon_aln_tool  = "pal2nal", 
-     dnds_est.method = "Comeron", 
+     aa_aln_tool     = "NW",
+     codon_aln_tool  = "pal2nal",
+     dnds_est.method = "Comeron",
      comp_cores      = 2 )
-
 }
+\dontshow{\}) # examplesIf}
 }
 \references{
 seqinr: \url{https://cran.r-project.org/package=seqinr}

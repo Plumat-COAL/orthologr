@@ -293,3 +293,47 @@ test_that("Li's method returns numeric columns and compares numbers, not strings
         expect_true(is.numeric(sat$dN))
         expect_true(is.na(sat$dNdS))
 })
+
+test_that("an invalid options(orthologr.keep_tmp) is a classed error (V06)", {
+        for (bad in list(NA, c("a", "b"), 1, NA_character_)) {
+                rlang::local_options(orthologr.keep_tmp = bad)
+                expect_error(orthologr_tmpdir_start("orthologr_test_keep_"), "must be TRUE, FALSE or the path of a folder",
+                             class = "orthologr_error_bad_argument")
+        }
+        skip_on_os("windows")
+        skip_if(identical(Sys.info()[["user"]], "root"), "root can write anywhere")
+        rlang::local_options(orthologr.keep_tmp = "/proc/orthologr_cannot_be_here")
+        expect_error(orthologr_tmpdir_start("orthologr_test_keep_"), "could not be created", class = "orthologr_error_bad_argument")
+})
+
+test_that("options(orthologr.keep_tmp): TRUE keeps the folder in tempdir() and says so; a path keeps it there (O04)", {
+        rlang::local_options(orthologr.keep_tmp = NULL)
+        end <- orthologr_tmpdir_start("orthologr_test_keep_")
+        d <- getOption("orthologr.tmpdir")
+        expect_true(dir.exists(d))
+        end()
+        expect_false(dir.exists(d))
+        rlang::local_options(orthologr.keep_tmp = TRUE)
+        end <- orthologr_tmpdir_start("orthologr_test_keep_")
+        d <- getOption("orthologr.tmpdir")
+        expect_message(end(), "inside tempdir\\(\\), which R removes when the session ends")
+        expect_true(dir.exists(d))
+        expect_identical(normalizePath(dirname(d)), normalizePath(tempdir()))
+        unlink(d, recursive = TRUE)
+        keep <- file.path(new_test_dir("keep_here_"), "sub dir")
+        rlang::local_options(orthologr.keep_tmp = keep)
+        end <- orthologr_tmpdir_start("orthologr_test_keep_")
+        d <- getOption("orthologr.tmpdir")
+        expect_identical(normalizePath(dirname(d)), normalizePath(keep))
+        writeLines("x", file.path(d, "f.txt"))
+        expect_message(end(), "were kept in")
+        expect_true(file.exists(file.path(d, "f.txt")))
+        expect_null(getOption("orthologr.tmpdir"))
+        # the folders of single calls are kept as well
+        cd <- call_dir_start("call_")
+        call_dir_end(cd)
+        expect_true(dir.exists(cd))
+        rlang::local_options(orthologr.keep_tmp = FALSE)
+        call_dir_end(cd)
+        expect_false(dir.exists(cd))
+})

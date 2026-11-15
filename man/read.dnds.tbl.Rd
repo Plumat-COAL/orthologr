@@ -14,28 +14,21 @@ This function reads a file that stores a dnds table
 generated with \code{\link{dNdS}}.
 }
 \examples{
-\dontrun{ 
-# generate dNdS table
-dNdS_tbl <- dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
-subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-ortho_detection = "RBH", 
-aa_aln_type     = "pairwise",
-aa_aln_tool     = "NW", 
-codon_aln_tool  = "pal2nal", 
-dnds_est.method = "Comeron", 
-comp_cores      = 1 )
+# a small dN/dS table as dNdS() returns it (first columns)
+dNdS_tbl <- data.frame(query_id   = c("AT1G01010.1", "AT1G01020.1", "AT1G01030.1"),
+                       subject_id = c("333554|PACid:16033839", "470181|PACid:16064328",
+                                      "470180|PACid:16054974"),
+                       dN = c(0.1060, 0.0402, 0.0150), dS = c(0.2540, 0.1340, 0.1160),
+                       dNdS = c(0.4180, 0.3010, 0.1290))
 
-# save dNdS table as ';' column separated file
-utils::write.table(
-dNdS_tbl, 
-file.path(tempdir(), "dNdS_tbl.csv"), sep = ";", 
-col.names = TRUE,
-row.names = FALSE,
-quote     = FALSE )
+# save the dNdS table as ';' column separated file
+file <- file.path(tempdir(), "dNdS_tbl.csv")
+utils::write.table(dNdS_tbl, file, sep = ";", col.names = TRUE, row.names = FALSE, quote = FALSE)
 
-# import dNdS table into R session
-dNdS_tbl_import <- read.dnds.tbl(file.path(tempdir(), "dNdS_tbl.csv"))
-}
+# import the dNdS table into the R session
+dNdS_tbl_import <- read.dnds.tbl(file)
+dNdS_tbl_import
+unlink(file)
 }
 \author{
 Hajk-Georg Drost

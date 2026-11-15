@@ -33,27 +33,23 @@
 #' 
 #' }
 #' 
-#' @examples
-#' 
-#' \dontrun{
-#' 
+#' @examplesIf nzchar(Sys.which("perl"))
 #' # performing a codon alignment using PAL2NAL
 #' codon_aln <- codon_aln(file_aln = system.file('seqs/aa_seqs.aln', package = 'orthologr'),
-#'                        file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'), 
-#'                        format   = "clustal", 
-#'                        tool     = "pal2nal", 
-#'                        get_aln  = TRUE)
-#'                        
-#'                        
+#'                        file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'),
+#'                        format   = "clustal",
+#'                        tool     = "pal2nal",
+#'                        get_aln  = TRUE,
+#'                        quiet    = TRUE)
+#'
 #' # running PAL2NAL with additional parameters (e.g. a different codon table)
 #' codon_aln <- codon_aln(file_aln = system.file('seqs/aa_seqs.aln', package = 'orthologr'),
-#'                        file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'), 
-#'                        format   = "clustal", 
-#'                        tool     = "pal2nal", 
+#'                        file_nuc = system.file('seqs/dna_seqs.fasta', package = 'orthologr'),
+#'                        format   = "clustal",
+#'                        tool     = "pal2nal",
 #'                        get_aln  = TRUE,
-#'                        params   = "-codontable 2")
-#'                         
-#' }
+#'                        params   = "-codontable 2",
+#'                        quiet    = TRUE)
 #'                        
 #' @return In case \code{get_aln} = \code{TRUE} an seqinr alignment object is returned.
 #' @references 
@@ -79,9 +75,9 @@ codon_aln <- function(file_aln,
         
         
         if (!file.exists(file_aln))
-                stop("The file you specified in 'file_aln' does not seem to exist: ", file_aln,".", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file you specified in 'file_aln' does not seem to exist: ", file_aln,".", call. = FALSE)
         if (!file.exists(file_nuc))
-                stop("The file you specified in 'file_nuc' does not seem to exist: ", file_nuc,".", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file you specified in 'file_nuc' does not seem to exist: ", file_nuc,".", call. = FALSE)
         
         # the Pal2Nal program is stored as executable within
         # the R package environment: 'exec' folder
@@ -97,10 +93,10 @@ codon_aln <- function(file_aln,
         #path <- "/exec/pal2nal.v14/"
         
         if (!is.element(tool, c("pal2nal")))
-                stop("Please choose a tool that is supported by this function.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "Please choose a tool that is supported by this function.", call. = FALSE)
         
         if (!is.element(format, c("clustal", "fasta")))
-                stop("Please choose a format that is supported by this function.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "Please choose a format that is supported by this function.", call. = FALSE)
         
         if (!file.exists(file.path(orthologr_tmpdir(), "_alignment", "codon_aln"))) {
                 dir.create(file.path(orthologr_tmpdir(), "_alignment", "codon_aln"), recursive = TRUE)

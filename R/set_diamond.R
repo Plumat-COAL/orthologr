@@ -28,10 +28,11 @@
 #'
 #' https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options
 #'
-#' @examples \dontrun{
-#'  # running the set function to see an example output
-#'  head(set_diamond(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))[[1]] , 2)
-#' }
+#' @examples
+#' # the coding sequences of a file and their translations, as used for a DIAMOND search
+#' # (no DIAMOND database is made: makedb = FALSE)
+#' res <- set_diamond(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))
+#' head(res[[1]], 2)
 #' @seealso \code{\link{diamond_best}}, \code{\link{diamond_rec}}, \code{\link{diamond}}, \code{\link{set_blast}}
 #' @export
 
@@ -52,7 +53,7 @@ set_diamond <- function(
                 path <- normalizePath(path, mustWork = FALSE)
         
         if (!file.exists(file))
-                stop("The file '", file, "' seems not to exist. Please provide a valid file path." , call. = FALSE)
+                orthologr_abort(class = "bad_input", "The file '", file, "' seems not to exist. Please provide a valid file path." , call. = FALSE)
         
         if(!is.element(seq_type,c("cds","protein","dna")))
                 stop("Please choose either: 'cds', 'protein', or 'dna' as seq_type.", call. = FALSE)

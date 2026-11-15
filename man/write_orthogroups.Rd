@@ -43,13 +43,14 @@ their species, numbered on from the last group as OrthoFinder does;
 file.path(dir, "Orthogroups", "Orthogroups_SingleCopyOrthologues.txt"))} returns \code{x$single_copy}.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.which("diamond"))) withAutoprint(\{ # examplesIf}
 og <- orthogroups(c(
   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
   Alyrata   = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr')))
 out <- write_orthogroups(og, file.path(tempdir(), "og"))
 orthofinder2_retrieve_core_orthologs(out[["orthogroups"]], out[["single_copy"]])
-}
+unlink(file.path(tempdir(), "og"), recursive = TRUE)
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{orthogroups}}, \code{\link{orthofinder2_retrieve_core_orthologs}}

@@ -212,7 +212,8 @@ test_that("orthogroups() with two species returns the reciprocal best hits of di
         q <- system.file("seqs/ortho_thal_cds_1000.fasta", package = "orthologr")
         s <- system.file("seqs/ortho_lyra_cds_1000.fasta", package = "orthologr")
         for (rule in c("bitscore", "evalue")) {
-                rec <- suppressMessages(diamond_rec(q, s, best_hit_rule = rule))
+                # (orthogroups() trims coding sequences whose length is not a multiple of 3, as dNdS() does)
+                rec <- suppressMessages(diamond_rec(q, s, best_hit_rule = rule, delete_corrupt_cds = FALSE))
                 og <- quiet_og(c(thal = q, lyra = s), best_hit_rule = rule)
                 p <- og$pairs[og$pairs$query_species == "thal" & og$pairs$rbh, ]
                 expect_setequal(paste(p$query_id, p$subject_id), paste(rec$query_id, rec$subject_id))
@@ -356,7 +357,7 @@ test_that("dNdS_orthogroups(): pairwise alignments give the values of dNdS(); re
         res <- suppressMessages(dNdS_orthogroups(og, groups = ids, aa_aln_tool = "pairwise"))
         expect_identical(names(res), c("pairs", "summary", "failed"))
         expect_identical(names(res$pairs), c("orthogroup", "query_species", "query_id", "subject_species", "subject_id",
-                                             "method", "dN", "dS", "dNdS", "note"))
+                                             "method", "dN", "dS", "dNdS", "note", "status"))
         expect_identical(res$pairs$orthogroup, ids)
         expect_true(all(res$pairs$query_species == "thal"))
         ref <- suppressMessages(suppressWarnings(utils::capture.output(
@@ -455,7 +456,17 @@ test_that("dNdS_orthogroups(): one codon alignment per group, all between-specie
                 writeLines(as.vector(rbind(paste0(">", names(cds[[k]])), cds[[k]])), f)
                 f
         }, character(1))
+        # by default (ambiguous_cds = "keep") the gene with NNN is kept, and its pairs get a note
+        keep <- suppressMessages(dNdS_orthogroups(og, cds_files = cds_files, groups = ids[1], aa_aln_tool = "clustalo"))
+        expect_identical(nrow(keep$pairs), 3L)
+        amb <- keep$pairs$query_id == bad_b | keep$pairs$subject_id == bad_b
+        expect_true(all(grepl("ambiguous bases in the coding sequence", keep$pairs$note[amb])))
+        expect_true(all(is.na(keep$pairs$note[!amb])))
+        expect_true(all(keep$pairs$status[amb] == "ok"))
+        # options(orthologr.ambiguous_cds = "drop"): left out, as before
+        old_amb <- options(orthologr.ambiguous_cds = "drop")
         part <- suppressMessages(dNdS_orthogroups(og, cds_files = cds_files, groups = ids[1], aa_aln_tool = "clustalo"))
+        options(old_amb)
         expect_identical(nrow(part$pairs), 1L)
         expect_identical(c(part$pairs$query_species, part$pairs$subject_species), c("A", "C"))
         expect_setequal(part$failed$gene, c(bad_b, g1$gene[g1$species == "D"]))
@@ -473,6 +484,7 @@ test_that("dNdS_orthogroups(): one codon alignment per group, all between-specie
         expect_identical(is.na(res_na$pairs$dNdS), c(FALSE, TRUE, FALSE))
         expect_match(res_na$pairs$note[2], "no estimate for this pair")
         expect_identical(c(res_na$summary$n_ok, res_na$summary$n_na), c(2L, 1L))
+        expect_identical(c(res_na$summary$n_failed, res_na$summary$n_saturated), c(1L, 0L))
         expect_equal(res_na$summary$dNdS_median, 0.2)
         expect_warning(suppressMessages(testthat::with_mocked_bindings(
                 dNdS_orthogroups(og, groups = ids[3], aa_aln_tool = "clustalo"),
@@ -491,4 +503,28 @@ test_that("dNdS_orthogroups() runs orthogroups() when it is given files; orthofi
         expect_identical(nrow(res$pairs), 13L)
         expect_true(all(res$summary$n_pairs == 1))
         expect_error(dNdS_orthogroups(toy$files, cds_files = toy$files), "'cds_files' must be NULL")
+})
+
+test_that("dNdS_orthogroups() summary: counts by status (n_saturated as the column status) and n_dS_above (O09)", {
+        pairs <- data.table::data.table(
+                orthogroup = c("OG1", "OG1", "OG1", "OG1", "OG2"), method = "YN",
+                query_id = paste0("q", 1:5), subject_id = paste0("s", 1:5),
+                dN   = c(0.1, 0.2, 0.3, NA, 0),
+                dS   = c(0.5, 2.5, NA, NA, 0),
+                dNdS = c(0.2, 0.08, NA, NA, NA))
+        members <- data.table::data.table(orthogroup = rep(c("OG1", "OG2"), c(4, 2)), gene = paste0("g", 1:6),
+                                          species = c("A", "B", "C", "D", "A", "B"))
+        status <- c("ok", "ok", "saturated", "failed", "dS_zero")
+        s <- dnds_groups_summary(pairs, members, dS_saturation = 2, status = status)
+        expect_identical(s$n_ok, c(2L, 0L))
+        expect_identical(s$n_na, c(2L, 1L))
+        expect_identical(s$n_saturated, c(1L, 0L))
+        expect_identical(s$n_failed, c(1L, 0L))
+        expect_identical(s$n_dS_zero, c(0L, 1L))
+        expect_identical(s$n_no_data, c(0L, 0L))
+        expect_identical(s$n_dS_above, c(1L, 0L))
+        # without a status the status is derived from the values
+        s2 <- dnds_groups_summary(pairs, members, dS_saturation = 2)
+        expect_identical(s2$n_saturated, c(2L, 0L))
+        expect_identical(s2$n_dS_zero, c(0L, 1L))
 })

@@ -24,8 +24,9 @@
 #' the proteome of the subject species alone} is not above \code{eval} (see Details); Default \code{"1E-5"}.
 #' \code{method = "deepclust"}: handed to \code{\link{deepclust}}.
 #' @param sensitivity_mode the DIAMOND sensitivity mode of the search (\code{method = "rbh"}, \code{refine = TRUE}),
-#' see \code{\link{diamond}}. Default is \code{"fast"}, the default of \code{\link{diamond_rec}}; for distantly
-#' related species use \code{"sensitive"} or higher.
+#' see \code{\link{diamond}}. Default is \code{"default"} (DIAMOND's own default mode; \code{"fast"} up to 0.4.3;
+#' \code{options(orthologr.sensitivity_mode = )} sets another), the default of \code{\link{diamond_rec}}; for
+#' distantly related species use \code{"sensitive"} or higher.
 #' @param min_qcov,min_identity optional filters on the hits (Default \code{NULL}: off): hits whose alignment covers
 #' less than \code{min_qcov} percent of the query, or with a percent identity below \code{min_identity}, are left out
 #' \emph{before} best hits are chosen. As a reciprocal best hit needs a hit in both directions, \code{min_qcov} is
@@ -47,9 +48,11 @@
 #' reaches this number, as its best hit in some species may then be missing.
 #' @param pairs_max_group_size groups with more genes than this are left out of the table \code{pairs} (the number of
 #' pairs grows with the square of the group size). Default is \code{500}.
-#' @param delete_corrupt_cds a logical value: leave out coding sequences whose length is not a multiple of 3
-#' (\code{seq_type = "cds"}). Default is \code{TRUE}, as in \code{\link{diamond_rec}}.
-#' @param diamond_params further parameters for \code{diamond blastp} (one character string), e.g.
+#' @param delete_corrupt_cds a logical value (\code{seq_type = "cds"}): what happens to coding sequences whose
+#' length is not a multiple of 3. \code{FALSE} (default, as in \code{\link{dNdS}}): the incomplete codon at the end
+#' is cut off and the sequence is used. \code{TRUE}: the sequence is left out. Sequences with characters other
+#' than A, C, G, T (e.g. \code{N}) are always left out, as in \code{dNdS()}.
+#' @param diamond_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) further parameters for \code{diamond blastp} (one character string), e.g.
 #' \code{"--masking 0"}. Default is \code{NULL}.
 #' @param comp_cores the number of threads DIAMOND uses. The result does not depend on it.
 #' @param path the folder that holds the DIAMOND executable (in case it is not on the PATH).
@@ -101,12 +104,12 @@
 #' \item \code{unassigned}: the genes in no group (\code{species}, \code{gene});
 #' \item \code{genes}: all genes (\code{species}, \code{gene}, \code{id}: the ID in the file, \code{length}: protein
 #' length, \code{orthogroup});
-#' \item \code{params}: the parameters of the call, the DIAMOND version and the files.
+#' \item \code{params}: the parameters of the call, the versions of DIAMOND and of \pkg{orthologr}, and the files.
 #' }
 #' See \code{\link{write_orthogroups}} for files in OrthoFinder's layout and \code{\link{dNdS_orthogroups}} for dN/dS
 #' within the groups.
 #' @author Chloe Newton
-#' @examples \dontrun{
+#' @examplesIf nzchar(Sys.which("diamond"))
 #' files <- c(
 #'   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'   Alyrata   = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
@@ -116,11 +119,15 @@
 #' og$wide
 #' og$pairs
 #'
-#' # proteins of all species in a folder, DeepClust route, clusters refined by reciprocal best hits
-#' og <- orthogroups("proteomes/", method = "deepclust", seq_type = "protein", refine = TRUE, comp_cores = 8)
-#'
 #' # files in the layout of OrthoFinder
-#' write_orthogroups(og, "orthogroups_out")
+#' out <- write_orthogroups(og, file.path(tempdir(), "orthogroups_out"))
+#' unlink(file.path(tempdir(), "orthogroups_out"), recursive = TRUE)
+#'
+#' \dontrun{
+#' # the proteomes of all species in a folder (one FASTA file per species), DeepClust route,
+#' # clusters refined by reciprocal best hits
+#' og <- orthogroups("path/to/folder_with_proteomes", method = "deepclust", seq_type = "protein",
+#'                   refine = TRUE, comp_cores = 8)
 #' }
 #' @seealso \code{\link{write_orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{diamond_rec}},
 #' \code{\link{deepclust}}, \code{\link{orthologs}}
@@ -130,7 +137,7 @@ orthogroups <- function(files,
                         seq_type             = c("cds", "protein"),
                         best_hit_rule        = getOption("orthologr.best_hit_rule", "bitscore"),
                         eval                 = "1E-5",
-                        sensitivity_mode     = "fast",
+                        sensitivity_mode     = getOption("orthologr.sensitivity_mode", "default"),
                         min_qcov             = NULL,
                         min_identity         = NULL,
                         inparalogs           = FALSE,
@@ -138,16 +145,17 @@ orthogroups <- function(files,
                         realign              = FALSE,
                         max.target.seqs      = 10000,
                         pairs_max_group_size = 500,
-                        delete_corrupt_cds   = TRUE,
+                        delete_corrupt_cds   = FALSE,
                         diamond_params       = NULL,
                         comp_cores           = 1,
                         path                 = NULL,
                         quiet                = TRUE,
                         ...) {
+        sensitivity_mode <- orthologr_sensitivity_mode(if (missing(sensitivity_mode)) NULL else sensitivity_mode)
 
         method   <- check_choice(method[1], c("rbh", "deepclust"), "method")
         seq_type <- check_choice(seq_type[1], c("cds", "protein"), "seq_type")
-        best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+        best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         check_sensitivity_mode(sensitivity_mode)
         eval <- check_evalue(eval)
         check_flag(inparalogs, "inparalogs")
@@ -160,17 +168,22 @@ orthogroups <- function(files,
         check_count(pairs_max_group_size, "pairs_max_group_size")
         if (method == "rbh") {
                 if (...length() > 0)
-                        stop("Unused argument", if (...length() > 1) "s", " with method = \"rbh\": ",
+                        orthologr_abort(class = "bad_argument", "Unused argument", if (...length() > 1) "s", " with method = \"rbh\": ",
                              paste(names(list(...)), collapse = ", "),
                              " ('...' is handed to deepclust() with method = \"deepclust\").", call. = FALSE)
                 if (refine || realign)
-                        stop("'refine' and 'realign' belong to method = \"deepclust\".", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "'refine' and 'realign' belong to method = \"deepclust\".", call. = FALSE)
         }
         if (method == "deepclust" && inparalogs && !refine)
-                stop("inparalogs = TRUE needs hits between the genes: with method = \"deepclust\" please set refine = TRUE.",
+                orthologr_abort(class = "bad_argument", "inparalogs = TRUE needs hits between the genes: with method = \"deepclust\" please set refine = TRUE.",
                      call. = FALSE)
 
         input <- orthogroups_input(files)
+
+        # several transcripts per gene in an input file? (a warning, as in dNdS(); see there, section 'Splice
+        # variants'. With isoforms a group holds several transcripts of one gene and is never single-copy.)
+        for (i in seq_len(nrow(input)))
+                isoform_warning(input$file[i], paste0("the file of species '", input$species[i], "',"))
 
         path <- diamond_resolve_path(path)
         if (!is.null(path))
@@ -248,7 +261,8 @@ orthogroups <- function(files,
                 inparalogs = inparalogs, refine = refine, realign = realign, max.target.seqs = max.target.seqs,
                 pairs_max_group_size = pairs_max_group_size, delete_corrupt_cds = delete_corrupt_cds,
                 diamond_params = diamond_params, deepclust_args = if (method == "deepclust") list(...) else NULL,
-                diamond_version = version, files = stats::setNames(input$file, input$species),
+                diamond_version = version, orthologr_version = package_version_text("orthologr"),
+                files = stats::setNames(input$file, input$species),
                 ids_prefixed = prot$ids_prefixed
         )
         class(res) <- "orthogroups"
@@ -267,7 +281,7 @@ NULL
 
 check_flag <- function(x, arg) {
         if (!is.logical(x) || length(x) != 1 || is.na(x))
-                stop(arg, " must be TRUE or FALSE.", call. = FALSE)
+                orthologr_abort(arg, " must be TRUE or FALSE.", class = "bad_argument")
         invisible(x)
 }
 
@@ -275,13 +289,13 @@ check_percent <- function(x, arg) {
         if (is.null(x))
                 return(NULL)
         if (!is.numeric(x) || length(x) != 1 || is.na(x) || x < 0 || x > 100)
-                stop(arg, " must be NULL (no filter) or one number between 0 and 100 (percent).", call. = FALSE)
+                orthologr_abort(class = "bad_argument", arg, " must be NULL (no filter) or one number between 0 and 100 (percent).", call. = FALSE)
         x
 }
 
 check_count <- function(x, arg) {
         if (!is.numeric(x) || length(x) != 1 || is.na(x) || x < 1)
-                stop(arg, " must be one number >= 1.", call. = FALSE)
+                orthologr_abort(arg, " must be one number >= 1.", class = "bad_argument")
         invisible(x)
 }
 
@@ -291,36 +305,36 @@ check_count <- function(x, arg) {
 orthogroups_input <- function(files) {
         if (is.list(files)) {
                 if (!all(vapply(files, function(f) is.character(f) && length(f) == 1, logical(1))))
-                        stop("'files' must hold one file path per species.", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "'files' must hold one file path per species.", call. = FALSE)
                 files <- unlist(files)
         }
         if (!is.character(files) || length(files) == 0 || anyNA(files))
-                stop("'files' must be a (named) character vector or list of FASTA files, one per species, or the path of a folder.",
+                orthologr_abort(class = "bad_argument", "'files' must be a (named) character vector or list of FASTA files, one per species, or the path of a folder.",
                      call. = FALSE)
         if (length(files) == 1 && dir.exists(files)) {
                 found <- list.files(files, pattern = "\\.(fa|faa|fas|fasta|fna|ffn|pep|cds|aa)(\\.gz)?$",
                                     full.names = TRUE, ignore.case = TRUE)
                 if (length(found) == 0)
-                        stop("The folder '", files, "' holds no FASTA files (*.fa, *.faa, *.fasta, *.fna, *.pep, *.cds, optionally .gz).",
+                        orthologr_abort(class = "bad_input", "The folder '", files, "' holds no FASTA files (*.fa, *.faa, *.fasta, *.fna, *.pep, *.cds, optionally .gz).",
                              call. = FALSE)
                 files <- sort(found, method = "radix")
         }
         missing_files <- files[!file.exists(files) | dir.exists(files)]
         if (length(missing_files) > 0)
-                stop("The following input file(s) were not found:\n", paste(missing_files, collapse = "\n"), call. = FALSE)
+                orthologr_abort(class = "bad_input", "The following input file(s) were not found:\n", paste(missing_files, collapse = "\n"), call. = FALSE)
         species <- names(files)
         from_file <- sub("\\.[^.]*$", "", sub("\\.gz$", "", basename(files), ignore.case = TRUE))
         if (is.null(species))
                 species <- from_file
         species[is.na(species) | !nzchar(species)] <- from_file[is.na(species) | !nzchar(species)]
         if (length(files) < 2)
-                stop("orthogroups() needs the files of at least two species (", length(files), " given).", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "orthogroups() needs the files of at least two species (", length(files), " given).", call. = FALSE)
         if (anyDuplicated(species))
-                stop("The species names must be unique, but '", paste(unique(species[duplicated(species)]), collapse = "', '"),
+                orthologr_abort(class = "bad_argument", "The species names must be unique, but '", paste(unique(species[duplicated(species)]), collapse = "', '"),
                      "' occur", if (sum(duplicated(species)) == 1) "s", " more than once. ",
                      "Please name the files: files = c(species_1 = \"...\", species_2 = \"...\").", call. = FALSE)
         if (any(grepl("[\t\r\n]", species)))
-                stop("Species names must not hold tabs or line breaks.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "Species names must not hold tabs or line breaks.", call. = FALSE)
         data.frame(species = unname(species), file = unname(files), stringsAsFactors = FALSE)
 }
 
@@ -336,7 +350,7 @@ orthogroups_read <- function(input, seq_type, delete_corrupt_cds = TRUE) {
                 dt <- protein_table(file = input$file[i], seq_type = seq_type, delete_corrupt_cds = delete_corrupt_cds)
                 dt <- stats::na.omit(dt[ , list(geneids, aa)])
                 if (nrow(dt) == 0)
-                        stop("No usable sequences were read from '", input$file[i], "' (species '", input$species[i], "').",
+                        orthologr_abort(class = "bad_input", "No usable sequences were read from '", input$file[i], "' (species '", input$species[i], "').",
                              call. = FALSE)
                 data.table::data.table(species = input$species[i], id = as.character(dt$geneids), aa = as.character(dt$aa))
         })

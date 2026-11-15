@@ -16,12 +16,12 @@ divergence_stratigraphy(
   comp_cores = 1,
   dnds.threshold = 2,
   store_locally = FALSE,
-  quiet = FALSE,
+  quiet = TRUE,
   clean_folders = FALSE,
   ds.values = TRUE,
   subject.id = FALSE,
   n_quantile = 10,
-  sensitivity_mode = "fast",
+  sensitivity_mode = getOption("orthologr.sensitivity_mode", "default"),
   dS_zero = getOption("orthologr.dS_zero", "drop"),
   best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")
 )
@@ -66,7 +66,10 @@ Hence all genes having a dNdS value <= \code{dnds.threshold} are retained. Defau
 
 \item{store_locally}{a logical value indicating whether or not alignment files shall be stored locally rather than in \code{tempdir()}.}
 
-\item{quiet}{a logical value specifying whether a successful interface call shall be printed out to the console.}
+\item{quiet}{\code{TRUE} (default since 0.5.0, as in \code{\link{dNdS}}): the messages of the dN/dS run are one
+line at the start and one summary at the end, and, in an interactive R session, a progress line about every
+tenth of the gene pairs (stratigraphy runs are long). \code{FALSE} (the default of 0.4.3): the messages of
+\code{\link{dNdS}} in detail.}
 
 \item{clean_folders}{a logical value specifying whether the internal folder structure shall be deleted (cleaned) after
 processing this function. Default is \code{clean_folders} = \code{FALSE}.}
@@ -82,9 +85,9 @@ stop the function after the run: see the section on ties in \code{\link{divergen
 
 \item{sensitivity_mode}{specify the level of alignment sensitivity, when using DIAMOND2. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 \itemize{
-\item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+\item \code{sensitivity_mode = "fast"}: fast alignment mode, designed for finding hits of >90\% identity (the default up to orthologr 0.4.3).
 \item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
-\item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+\item \code{sensitivity_mode = "default"} (Default; \code{options(orthologr.sensitivity_mode = )} sets another): the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >60\% identity.
 \item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
 \item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
 \item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
@@ -169,47 +172,41 @@ In our experience performing Divergence Stratigraphy using two genomes (one quer
 on an 8 core machine can take up to 1,5 - 2 hours.
 }
 \examples{
-\dontrun{
+\dontshow{if (all(nzchar(Sys.which(c("diamond", "perl"))))) withAutoprint(\{ # examplesIf}
  # performing standard divergence stratigraphy
  divergence_stratigraphy(
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
       eval            = "1E-5",
-      ortho_detection = "RBH", 
-      comp_cores      = 1, 
-      quiet           = TRUE, 
+      ortho_detection = "RBH",
+      comp_cores      = 1,
+      quiet           = TRUE,
       clean_folders   = TRUE)
-      
-      
-      
+
+\dontrun{
  # performing standard divergence stratigraphy using the aligner_path argument to specify
  # the path to diamond
  divergence_stratigraphy(
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-      eval            = "1E-5", 
+      eval            = "1E-5",
       ortho_detection = "RBH",
       aligner_path    = "path/to/diamond",
-      comp_cores      = 1, 
-      quiet           = TRUE, 
+      comp_cores      = 1,
+      quiet           = TRUE,
       clean_folders   = TRUE)
- 
- 
- 
- # Divergence Stratigraphy can also be performed in parallel 
+
+ # Divergence Stratigraphy can also be performed in parallel
  # (on a multicore machine) using the 'comp_cores' argument
  divergence_stratigraphy(
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-      eval            = "1E-5", 
-      ortho_detection = "RBH", 
-      comp_cores      = 2, 
-      quiet           = TRUE, 
+      eval            = "1E-5",
+      ortho_detection = "RBH",
+      comp_cores      = 2,
+      quiet           = TRUE,
       clean_folders   = TRUE)
- 
- 
- 
- 
+
  # in case you want a divergence map with DS values and query_id and subject_id
  # you can specify subject.id = TRUE
  # performing standard divergence stratigraphy
@@ -217,15 +214,12 @@ on an 8 core machine can take up to 1,5 - 2 hours.
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
       eval            = "1E-5",
-      ortho_detection = "RBH", 
-      comp_cores      = 1, 
-      quiet           = TRUE, 
+      ortho_detection = "RBH",
+      comp_cores      = 1,
+      quiet           = TRUE,
       clean_folders   = TRUE,
       subject.id      = TRUE)
-      
-      
-      
-      
+
  # in case you want a divergence map with KaKs values and query_id and subject_id
  # you can specify ds.values = FALSE and subject.id = TRUE
  # performing standard divergence stratigraphy
@@ -233,29 +227,27 @@ on an 8 core machine can take up to 1,5 - 2 hours.
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
       eval            = "1E-5",
-      ortho_detection = "RBH", 
-      comp_cores      = 1, 
-      quiet           = TRUE, 
+      ortho_detection = "RBH",
+      comp_cores      = 1,
+      quiet           = TRUE,
       clean_folders   = TRUE,
       subject.id      = TRUE)
- 
-      
-      
- # in case you want a divergence map with divergence stratum as quintile (5-quantile) values 
+
+ # in case you want a divergence map with divergence stratum as quintile (5-quantile) values
  # or any other N-quantile values rather than the default decile (10-quantile) values,
  # you can specify this with n_quantile.
  divergence_stratigraphy(
       query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
       subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
       eval            = "1E-5",
-      ortho_detection = "RBH", 
-      comp_cores      = 1, 
-      quiet           = TRUE, 
+      ortho_detection = "RBH",
+      comp_cores      = 1,
+      quiet           = TRUE,
       clean_folders   = TRUE,
       n_quantile      = 5)
-      
- }
+}
  
+\dontshow{\}) # examplesIf}
 }
 \references{
 Quint M et al. (2012). A transcriptomic hourglass in plant embryogenesis. Nature (490): 98-101.

@@ -10,7 +10,7 @@ diamond(
   seq_type = "cds",
   format = "fasta",
   diamond_algorithm = "blastp",
-  sensitivity_mode = "fast",
+  sensitivity_mode = getOption("orthologr.sensitivity_mode", "default"),
   eval = "1E-5",
   max.target.seqs = 10000,
   delete_corrupt_cds = TRUE,
@@ -40,9 +40,9 @@ Default is \code{format} = \code{"fasta"}.}
 
 \item{sensitivity_mode}{specify the level of alignment sensitivity. The higher the sensitivity level, the more deep homologs can be found, but at the cost of reduced computational speed.
 \itemize{
-\item \code{sensitivity_mode = "fast"} (Default): fast alignment mode, designed for finding hits of >90\% identity.
+\item \code{sensitivity_mode = "fast"}: fast alignment mode, designed for finding hits of >90\% identity (the default up to orthologr 0.4.3).
 \item \code{sensitivity_mode = "faster"}: fastest alignment mode, least sensitive.
-\item \code{sensitivity_mode = "default"}: the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >70\% identity.
+\item \code{sensitivity_mode = "default"} (Default; \code{options(orthologr.sensitivity_mode = )} sets another): the default mode of DIAMOND2 itself (no sensitivity option is passed), designed for finding hits of >60\% identity.
 \item \code{sensitivity_mode = "mid-sensitive"}: between the default mode and the sensitive mode.
 \item \code{sensitivity_mode = "sensitive"}: full sensitivity for hits of >40\% identity.
 \item \code{sensitivity_mode = "more-sensitive"}: more sensitive than the sensitive mode.
@@ -63,7 +63,7 @@ Please be aware that \code{max.target.seqs} selects best hits based on the datab
 \item{comp_cores}{a numeric value specifying the number of cores that shall be
 used to run DIAMOND2 searches.}
 
-\item{diamond_params}{a character string listing the input parameters that shall be passed to the executing DIAMOND2 program. Default is \code{NULL}, implicating
+\item{diamond_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string listing the input parameters that shall be passed to the executing DIAMOND2 program. Default is \code{NULL}, implicating
 that a set of default parameters is used when running DIAMOND2.}
 
 \item{clean_folders}{a boolean value specifying whether all internal folders storing the output of used programs
@@ -100,23 +100,22 @@ With DIAMOND, read \code{qcov} as "query coverage of the best HSP".
 }
 
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.which("diamond"))) withAutoprint(\{ # examplesIf}
 # performing a DIAMOND2 search using diamond blastp (default)
 diamond(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
         subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
 
-# performing a DIAMOND2 search using diamond blastp (default) 
+# performing a DIAMOND2 search using diamond blastp (default)
 # using amino acid sequences as input file
 diamond(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
         subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
         seq_type     = "protein")
 
-
-# save the DIAMOND2 output table in your current working directory
+# save the DIAMOND2 output table in the folder tempdir()
 diamond(query_file   = system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
         subject_file = system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr'),
         seq_type     = "protein",
-        save.output  = getwd())
+        save.output  = tempdir())
 
 # in case you are working with a multicore machine, you can also run parallel
 # DIAMOND2 computations using the comp_cores parameter: here with 2 cores
@@ -124,19 +123,18 @@ diamond(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'ortho
         subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
         comp_cores   = 2)
 
-
  # running diamond using additional parameters
  diamond(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
          subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
          diamond_params = "--max-target-seqs 1")
 
-
+\dontrun{
 # running diamond using additional parameters and an external diamond path
  diamond(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
          subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
          diamond_params = "--max-target-seqs 1", path = "path/to/diamond/")
 }
-
+\dontshow{\}) # examplesIf}
 }
 \references{
 Buchfink, B., Reuter, K., & Drost, H. G. (2021) "Sensitive protein alignments at tree-of-life scale using DIAMOND." Nature methods, 18(4), 366-368.

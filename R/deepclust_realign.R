@@ -34,7 +34,7 @@
 #' (in case it is not on the system \code{PATH}).
 #' @param comp_cores a numeric value specifying the number of CPU threads to
 #' use. Passed to \code{--threads}. Default is \code{comp_cores = 1}.
-#' @param realign_params a character string of additional \code{diamond realign}
+#' @param realign_params (an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string of additional \code{diamond realign}
 #' parameters to append to the command. Default is \code{NULL}.
 #' @param save.output a character string specifying the path where the output
 #' TSV file should be saved. E.g. \code{save.output = getwd()} to save in the
@@ -67,7 +67,7 @@
 #' at tree-of-life scale using DIAMOND." Nature methods, 18(4), 366-368.
 #'
 #' https://github.com/bbuchfink/diamond/wiki
-#' @examples \dontrun{
+#' @examplesIf nzchar(Sys.which("diamond"))
 #' # 1. Run deepclust first
 #' clusters <- deepclust(
 #'   input_file = c(
@@ -85,15 +85,6 @@
 #'   clusters = clusters
 #' )
 #'
-#' # 2. Alternatively, supply the path to the deepclust TSV directly
-#' realign_result <- deepclust_realign(
-#'   input_file = c(
-#'     system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
-#'     system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr')
-#'   ),
-#'   clusters = "/path/to/deepclust_output.tsv"
-#' )
-#'
 #' # 3. Incorporate into deepclust_annotate without re-running deepclust
 #' profile <- deepclust_annotate(
 #'   input_file = c(
@@ -101,6 +92,16 @@
 #'     system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr')
 #'   ),
 #'   realign = realign_result
+#' )
+#'
+#' \dontrun{
+#' # 2. Alternatively, supply the path to the deepclust TSV directly
+#' realign_result <- deepclust_realign(
+#'   input_file = c(
+#'     system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
+#'     system.file('seqs/ortho_lyra_aa.fasta', package = 'orthologr')
+#'   ),
+#'   clusters = "/path/to/deepclust_output.tsv"
 #' )
 #' }
 #' @return A \code{\link[tibble]{tibble}} with seven columns:

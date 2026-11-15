@@ -26,7 +26,23 @@ test_that("the validators agree with the documentation: BH and RBH only", {
         expect_true(is.ortho_detection_method("RBH"))
         expect_false(is.ortho_detection_method("PO"))
         expect_false(is.ortho_detection_method("DELTA"))
-        expect_identical(eval(formals(dNdS)$sensitivity_mode), "fast")
+        # the default is DIAMOND's own mode (0.4.3: "fast"); options(orthologr.sensitivity_mode) sets another
+        expect_identical(eval(formals(dNdS)$sensitivity_mode), "default")
+        for (f in list(orthologs, diamond, diamond_best, diamond_rec, divergence_stratigraphy, orthogroups))
+                expect_identical(eval(formals(f)$sensitivity_mode), "default")
+        with_opts <- function(opts, code) {
+                old <- options(opts)
+                on.exit(options(old))
+                code
+        }
+        with_opts(list(orthologr.sensitivity_mode = "fast"),
+                  expect_identical(eval(formals(dNdS)$sensitivity_mode), "fast"))
+        expect_identical(orthologr_sensitivity_mode(), "default")
+        with_opts(list(orthologr.legacy = TRUE), expect_identical(orthologr_sensitivity_mode(), "fast"))
+        expect_identical(orthologr_legacy_options(set = FALSE)$orthologr.sensitivity_mode, "fast")
+        expect_identical(orthologr_sensitivity_mode("sensitive"), "sensitive")
+        expect_error(with_opts(list(orthologr.sensitivity_mode = "turbo"), orthologr_sensitivity_mode()),
+                     class = "orthologr_error_bad_argument")
         expect_true(all(c("fast", "default") %in% diamond_sensitivity_modes()))
 })
 
@@ -278,13 +294,21 @@ test_that("is.dnaSequence() accepts A, C, G, T only", {
         expect_false(is.dnaSequence("ACG(T)"))
 })
 
-test_that("coding sequences with N or IUPAC codes are left out with a message that names them", {
+test_that("coding sequences with N or IUPAC codes: kept by default, left out with a message under ambiguous_cds = 'drop'", {
         d <- new_test_dir()
         f <- file.path(d, "cds.fasta")
         writeLines(c(">g1", "ATGAAATTTTAA", ">g2", "ATGAANTTTTAA", ">g3", "ATGAARTTTTAA", ">g4", "ATGCCCGGGTAA"), f)
+        # default (0.5.0): kept, a codon with such a base becomes X (also AAR, although both readings are Lys)
+        expect_message(res <- set_diamond(f)[[1]], "2 coding sequences with ambiguous bases .* are kept")
+        expect_identical(res$geneids, c("g1", "g2", "g3", "g4"))
+        expect_identical(toupper(res$aa), c("MKF*", "MXF*", "MXF*", "MPG*"))
+        # options(orthologr.ambiguous_cds = "drop") (0.4.3, and the legacy switch): left out, named in a message
+        old <- options(orthologr.ambiguous_cds = "drop")
+        on.exit(options(old), add = TRUE)
         expect_message(res <- set_diamond(f)[[1]], "2 of 4 coding sequences of 'cds.fasta' have characters other than A, C, G, T.*g2, g3")
         expect_identical(res$geneids, c("g1", "g4"))
         expect_identical(toupper(res$aa), c("MKF*", "MPG*"))
+        expect_identical(orthologr_legacy_options(set = FALSE)$orthologr.ambiguous_cds, "drop")
         # nothing to report for clean input
         expect_message(set_diamond(thal_cds()), NA)
 })
@@ -312,4 +336,29 @@ test_that("the file with corrupted coding sequences is not written to the workin
 
 test_that("orthologs(ortho_detection = 'Orthofinder2') is an error instead of NULL", {
         expect_error(orthologs(thal_aa(), lyra_aa(), ortho_detection = "Orthofinder2"), "not implemented in orthologs\\(\\)")
+})
+
+test_that("FASTA files with a UTF-8 byte-order mark or old-Mac line ends (CR) are read like the plain file (O05)", {
+        d <- new_test_dir("bom_cr_")
+        plain <- readLines(thal_cds())
+        bom <- file.path(d, "bom.fa")
+        con <- file(bom, "wb"); writeBin(as.raw(c(0xef, 0xbb, 0xbf)), con); writeBin(charToRaw(paste0(paste(plain, collapse = "\n"), "\n")), con); close(con)
+        cr <- file.path(d, "cr.fa")
+        writeBin(charToRaw(paste0(paste(plain, collapse = "\r"), "\r")), cr)
+        crgz <- file.path(d, "cr.fa.gz")
+        con <- gzfile(crgz, "wb"); writeBin(charToRaw(paste(plain, collapse = "\r")), con); close(con)
+        ref <- read.cds(thal_cds(), format = "fasta")
+        for (f in c(bom, cr, crgz)) {
+                expect_identical(as.data.frame(read.cds(f, format = "fasta")), as.data.frame(ref), info = basename(f))
+                # the normalised copy is removed again
+                expect_identical(readable_seq_file(thal_cds()), thal_cds())
+        }
+        expect_false(any(grepl("^input_.*\\.txt$", list.files(tempdir()))))
+        skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
+        r0 <- suppressMessages(dNdS(thal_cds(), lyra_cds(), quiet = TRUE, print_citation = FALSE))
+        for (f in c(bom, cr)) {
+                r <- suppressMessages(dNdS(f, lyra_cds(), quiet = TRUE, print_citation = FALSE))
+                expect_identical(as.data.frame(r)[, c("query_id", "subject_id", "dN", "dS", "dNdS")],
+                                 as.data.frame(r0)[, c("query_id", "subject_id", "dN", "dS", "dNdS")], info = basename(f))
+        }
 })

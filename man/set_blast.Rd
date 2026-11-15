@@ -48,10 +48,10 @@ This function reads a file storing a specific sequence type, such as "cds", "pro
  as data.table object for further BLAST searches.
 }
 \examples{
-\dontrun{
- # running the set function to see an example output
- head(set_blast(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))[[1]] , 2)
-}
+# the coding sequences of a file and their translations, as used for a BLAST search
+# (no BLAST database is made: makedb = FALSE)
+res <- set_blast(file = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'))
+head(res[[1]], 2)
 }
 \references{
 Altschul, S.F., Gish, W., Miller, W., Myers, E.W. & Lipman, D.J. (1990) "Basic local alignment search tool." J. Mol. Biol. 215:403-410.

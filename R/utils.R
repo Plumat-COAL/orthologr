@@ -19,8 +19,7 @@ is.ortho_detection_method <- function(method = NULL){
         provided <- c("BH","RBH")
         
         if(is.null(method)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -33,8 +32,7 @@ is.multiple_aln_tool <- function(tool = NULL){
         provided <- c("clustalw", "clustalo","muscle", "t_coffee", "mafft")
         
         if(is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -46,8 +44,7 @@ is.pairwise_aln_tool <- function(tool = NULL){
         provided <- c("NW")
         
         if(is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -59,8 +56,7 @@ is.codon_aln_tool <- function(tool = NULL){
         provided <-  c("pal2nal")
         
         if(is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -73,8 +69,7 @@ is.dnds_est_method <- function(method = NULL){
         provided <- c("Comeron", "Li", kaks_calculator_methods())
         
         if (is.null(method)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -86,8 +81,7 @@ is.alignment_search_tool <- function(tool = NULL){
         provided <-  c("ggsearch","ssearch")
         
         if (is.null(tool)){
-                print("The followig methods are provided: ")
-                print(provided)
+                message("The following methods are provided: ", paste(provided, collapse = ", "))
                 return(FALSE)
         }
         
@@ -130,8 +124,23 @@ cds2aa <- function(dt, delete_corrupt_cds = TRUE){
                 }
         }
         
-        # omit sequences consisting of others than ACGT - and say which
+        # omit sequences consisting of others than ACGT - and say which. With options(orthologr.ambiguous_cds = "keep")
+        # (the default since 0.5.0) sequences with IUPAC ambiguity codes (N, R, Y, ...) are kept: a codon with such a
+        # letter is translated to X and left to the alignment and estimation programs, which do not compare it (see
+        # ?orthologr_options); only other letters are left out. "drop" (0.4.3) leaves them all out.
         not_acgt <- !vapply(dt[ , seqs], is.dnaSequence, logical(1), USE.NAMES = FALSE)
+        if (any(not_acgt) && identical(ambiguous_cds_mode(), "keep")) {
+                iupac <- grepl("^[ACGTNRYKMSWBDHVacgtnrykmswbdhv]*$", dt[ , seqs])
+                kept <- not_acgt & iupac
+                if (any(kept)) {
+                        ambiguous_record(dt[kept, geneids], dt[kept, seqs], .orthologr_state$current_file)
+                        if (!sequence_messages_quiet())
+                                message(sum(kept), " coding sequence", if (sum(kept) > 1) "s" else "", " with ambiguous bases (e.g. N) ",
+                                        if (sum(kept) > 1) "are" else "is", " kept (options(orthologr.ambiguous_cds = \"keep\"), the default; ",
+                                        "\"drop\" leaves them out as 0.4.3 did); codons with such a base are translated to X and not compared.")
+                }
+                not_acgt <- not_acgt & !iupac
+        }
         if (any(not_acgt)) {
                 report_dropped_cds(dt[not_acgt, geneids], reason = "not_acgt", total = n_total,
                                    seqs = dt[not_acgt, seqs])
@@ -164,7 +173,8 @@ check_duplicate_ids <- function(ids, what = "sequences", file = NULL) {
         if (length(dup) == 0)
                 return(invisible(TRUE))
         shown <- utils::head(dup, 10)
-        stop(
+        orthologr_abort(
+                class = "bad_input",
                 length(dup), " sequence ID", if (length(dup) > 1) "s occur" else " occurs", " more than once among the ",
                 what, if (!is.null(file)) paste0(" of '", file, "'") else "", ": ",
                 paste0("'", shown, "'", collapse = ", "),
@@ -194,6 +204,8 @@ report_dropped_cds <- function(ids, reason = "not_acgt", total = NULL, seqs = NU
                 reason
         )
         dropped_record(ids, reason_text, file)
+        if (sequence_messages_quiet())
+                return(invisible(ids))
         run_dir <- getOption("orthologr.tmpdir", NULL)
         if (!is.null(run_dir)) {
                 # inside one dNdS() call: say it once
@@ -220,6 +232,67 @@ report_dropped_cds <- function(ids, reason = "not_acgt", total = NULL, seqs = NU
         invisible(ids)
 }
 
+# Inside a dNdS() call with quiet = TRUE: the messages about single input sequences are left to the
+# summary (see dropped_start()).
+sequence_messages_quiet <- function() {
+        !is.null(.orthologr_state$dropped) && isTRUE(.orthologr_state$sequence_messages_quiet)
+}
+
+# Collect the coding sequences kept with ambiguous bases (options(orthologr.ambiguous_cds = "keep")) while a dNdS()
+# call runs: their IDs and the number of their codons that hold such a base (codons that are not compared).
+ambiguous_record <- function(ids, seqs, file) {
+        if (is.null(.orthologr_state$ambiguous))
+                return(invisible(NULL))
+        seqs <- as.character(seqs)
+        n_codons <- vapply(seqs, function(x) {
+                cod <- substring(x, seq(1, nchar(x) - 2, by = 3), seq(3, nchar(x), by = 3))
+                sum(grepl("[^ACGTacgt]", cod))
+        }, integer(1), USE.NAMES = FALSE)
+        .orthologr_state$ambiguous[[length(.orthologr_state$ambiguous) + 1L]] <- data.frame(
+                file             = if (is.null(file)) NA_character_ else as.character(file),
+                id               = as.character(ids),
+                ambiguous_codons = as.integer(n_codons),
+                stringsAsFactors = FALSE
+        )
+        invisible(NULL)
+}
+
+# The table of the sequences kept with ambiguous bases so far in this call (file, id, ambiguous_codons), or NULL.
+ambiguous_table <- function() {
+        res <- .orthologr_state$ambiguous
+        if (length(res) == 0)
+                return(NULL)
+        res <- unique(do.call(rbind, res))
+        rownames(res) <- NULL
+        res
+}
+
+# Collect the coding sequences that read.cds() trimmed to a multiple of 3 (delete_corrupt_cds = FALSE) while a
+# dNdS() call runs; `corrupted_file` holds them as they were read.
+trimmed_record <- function(ids, removed, file, corrupted_file) {
+        if (is.null(.orthologr_state$trimmed))
+                return(invisible(NULL))
+        .orthologr_state$trimmed[[length(.orthologr_state$trimmed) + 1L]] <- data.frame(
+                file           = as.character(file),
+                id             = as.character(ids),
+                removed_nt     = as.integer(removed),
+                corrupted_file = as.character(corrupted_file),
+                stringsAsFactors = FALSE
+        )
+        invisible(NULL)
+}
+
+# The table of the sequences trimmed so far in this call (file, id, removed_nt, corrupted_file; no row twice), or
+# NULL when there are none.
+trimmed_table <- function() {
+        res <- .orthologr_state$trimmed
+        if (length(res) == 0)
+                return(NULL)
+        res <- unique(do.call(rbind, res))
+        rownames(res) <- NULL
+        res
+}
+
 # Collect the sequences left out while a dNdS() call runs (see dropped_start()).
 dropped_record <- function(ids, reason, file = NULL) {
         if (is.null(.orthologr_state$dropped))
@@ -234,13 +307,22 @@ dropped_record <- function(ids, reason, file = NULL) {
 }
 
 # Start collecting; returns a function that ends it and returns the table (file, id, reason; no row twice).
-dropped_start <- function() {
+#   quiet : the run's quiet (dNdS()). With quiet = TRUE the messages about single sequences (left
+#           out, trimmed to a multiple of 3) are not shown: they are counted in the summary at the end, and the
+#           sequences are listed in attr(<result>, "dropped_sequences") / attr(<result>, "trimmed_sequences").
+dropped_start <- function(quiet = FALSE) {
         if (!is.null(.orthologr_state$dropped))
                 return(function() NULL)
         .orthologr_state$dropped <- list()
+        .orthologr_state$trimmed <- list()
+        .orthologr_state$ambiguous <- list()
+        .orthologr_state$sequence_messages_quiet <- isTRUE(quiet)
         function() {
                 res <- .orthologr_state$dropped
                 .orthologr_state$dropped <- NULL
+                .orthologr_state$trimmed <- NULL
+                .orthologr_state$ambiguous <- NULL
+                .orthologr_state$sequence_messages_quiet <- NULL
                 if (length(res) == 0)
                         return(data.frame(file = character(0), id = character(0), reason = character(0),
                                           stringsAsFactors = FALSE))
@@ -262,13 +344,32 @@ translate_cds <- function(seqs) {
                 return(res)
         n <- nchar(seqs)
         fast <- !is.na(seqs) & n > 0 & n %% 3 == 0 & !grepl("[^ACGTacgt]", seqs)
+        # ambiguous bases (options(orthologr.ambiguous_cds = "keep")): a codon with such a base becomes X
+        fuzzy <- !fast & !is.na(seqs) & n > 0 & n %% 3 == 0 & grepl("^[ACGTNRYKMSWBDHVacgtnrykmswbdhv]*$", seqs)
+        if (any(fuzzy))
+                res[fuzzy] <- as.character(Biostrings::translate(
+                        Biostrings::DNAStringSet(seqs[fuzzy]),
+                        genetic.code   = Biostrings::GENETIC_CODE,
+                        no.init.codon  = TRUE,
+                        if.fuzzy.codon = "X"
+                ))
         if (any(fast))
                 res[fast] <- as.character(Biostrings::translate(
                         Biostrings::DNAStringSet(seqs[fast]),
                         genetic.code  = Biostrings::GENETIC_CODE,
                         no.init.codon = TRUE
                 ))
-        if (any(!fast))
-                res[!fast] <- vapply(seqs[!fast], transl, character(1), USE.NAMES = FALSE)
+        rest <- !fast & !fuzzy
+        if (any(rest))
+                res[rest] <- vapply(seqs[rest], transl, character(1), USE.NAMES = FALSE)
         res
+}
+
+# "keep" (default since 0.5.0) or "drop" (0.4.3; set by orthologr_legacy_options()): what happens to coding sequences
+# with IUPAC ambiguity codes (N, R, Y, ...); options(orthologr.ambiguous_cds = ).
+ambiguous_cds_mode <- function() {
+        m <- orthologr_option("orthologr.ambiguous_cds", "keep")
+        if (!is.character(m) || length(m) != 1 || !is.element(m, c("drop", "keep")))
+                orthologr_abort("options(orthologr.ambiguous_cds = ) must be \"drop\" or \"keep\".", class = "bad_argument")
+        m
 }

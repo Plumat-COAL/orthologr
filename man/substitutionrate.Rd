@@ -95,12 +95,12 @@ KaKs_Calculator prints \code{NA} for every Ka or Ks below 1e-6, also when the es
 orthologr 0.4.3 these \code{NA} were returned as they are: a pair without nonsynonymous change had
 \code{dN = NA} and \code{dNdS = 0} (and \code{\link{filter_dNdS}} / \code{\link{divergence_stratigraphy}}
 removed it - the most conserved genes of a comparison), and a pair of identical sequences had \code{NA} for dN,
-dS and dNdS. Since 0.5.0:
+dS and dNdS (status \code{"saturated"}). Since 0.5.0:
 \itemize{
 \item \code{dN = 0} when Ka is \code{NA}, Ks is a positive number and Ka/Ks is 0;
-\item \code{dN = 0} and \code{dS = 0} (\code{dNdS = NA}) when no nucleotide differs
+\item \code{dN = 0} and \code{dS = 0} (\code{dNdS = NA}, status \code{"dS_zero"}) when no nucleotide differs
 (column "Substitutions" of KaKs_Calculator 0);
-\item \code{dS = 0} (\code{dNdS = NA}) when Ks is \code{NA}, Ka is a number and no
+\item \code{dS = 0} (\code{dNdS = NA}, status \code{"dS_zero"}) when Ks is \code{NA}, Ka is a number and no
 difference is synonymous (methods NG, YN, MYN: "S-Substitutions"; LWL, MLWL, LPB, MLPB: no transition at
 2-fold and no difference at 4-fold sites).
 }
@@ -114,8 +114,8 @@ Where the correction for multiple substitutions is not defined, KaKs_Calculator 
 of \code{NA}: Ka or Ks = 99 (YN family, when the proportion of differences P + Q exceeds 1); for YN and MYN
 JC69's distance at P = 0.75 (n - 1) / n, i.e. 0.75 log(n) for n synonymous or nonsynonymous sites (Ks of 3 - 5
 for typical genes); for LWL, MLWL, LPB and MLPB 0 substitutions for a class of sites whose correction is not
-defined (an underestimate). Since 0.5.0 these estimates are \code{NA} (and \code{dNdS} with them); they are
-recognised in the columns KaKs_Calculator prints (sites
+defined (an underestimate). Since 0.5.0 these estimates are \code{NA} (and \code{dNdS} with them; status
+\code{"saturated"}); they are recognised in the columns KaKs_Calculator prints (sites
 and differences by class), so the other values are unchanged. The methods GY, MA, MS and GMYN are not checked.
 Up to 0.4.3 such a value was returned as an estimate: e.g. dS = 99, which makes dN/dS look like strong
 purifying selection, put the pair into the most conserved stratum of \code{\link{divergence_map}} and passed
@@ -136,16 +136,16 @@ that rounds differently (e.g. with fused multiply-add on arm64) may decide an ex
 
 \strong{Iterations that do not converge (YN, MYN).} KaKs_Calculator iterates the estimates of YN and MYN for at
 most 10 rounds and prints the values of the last round without saying whether they converged. Such a pair
-cannot be told from an estimate and is returned as one: S. cerevisiae / C. glabrata 18 of 605 YN estimates
+cannot be told from an estimate and has status \code{"ok"}: S. cerevisiae / C. glabrata 18 of 605 YN estimates
 (3\%) and 7 of 352 MYN estimates, S. cerevisiae / K. lactis 17 of 597 YN estimates, E. coli K-12 / O157 3 of
 3,412 YN estimates; all of them with dS above 1.4. Treat dS above about 1.5 from KaKs_Calculator with caution.
 
 \strong{Estimates that failed (\code{nan}).} When KaKs_Calculator prints \code{nan} for Ka or Ks (MYN:
 S. cerevisiae / C. glabrata 50 of 4,164 pairs, all of them iterations that did not converge), the row is
 \code{NA} and is a failed estimate: \code{substitutionrate()} names it in \code{attr(result, "kaks_failed")}
-(method, reason), and \code{\link{dNdS}} reports the pair as failed, with the reason in
+(method, reason), and \code{\link{dNdS}} gives the pair the status \code{"failed"} with the reason in
 \code{attr(result, "failed_pairs")}. It is not saturated: the iteration failed. Up to this version the row was
-\code{NaN} (in one of the 50 pairs dN a number), like a saturated estimate;
+\code{NaN} (in one of the 50 pairs dN a number) with status \code{"saturated"};
 \code{options(orthologr.legacy_kaks_saturation = TRUE)} returns it as printed.
 }
 
@@ -181,7 +181,7 @@ arguments in another order and counts codon 1 - intermediate 1, intermediate 1 -
 codon 2 and codon 2 - intermediate 2 instead, with which the estimate depends on which sequence is first
 (swapping the two sequences of 300 random pairs changed Ka in 279 of them). Since 0.5.0 the two pathways are
 counted (\code{options(orthologr.comeron_twosubs = "comeron")}, the default); \code{"libsequence"} gives the
-numbers of 0.4.3.
+numbers of 0.4.3 (set by \code{\link{orthologr_legacy_options}}).
 Effect on dS (same alignments): 1,000-gene example median 0 \%, 95th percentile 2.9 \%; human / mouse median
 1.0 \%, 95th percentile 5.0 \%.
 
@@ -190,46 +190,43 @@ Anything else is an error.
 }
 
 \examples{
-\dontrun{
-
 # estimate the dNdS rate using Li's method
 substitutionrate(
    file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
-   est.method = "Li", 
+   est.method = "Li",
    format     = "fasta")
- 
+
 # estimate the dNdS rate using Comeron's method
 substitutionrate(
    file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
-   est.method = "Comeron", 
+   est.method = "Comeron",
    format     = "fasta")
-                 
+
+\dontshow{if (nzchar(Sys.which("KaKs_Calculator"))) withAutoprint(\{ # examplesIf}
 # estimate the dNdS rate using model averaging provided by
 # the KaKs_Calculator 1.2 program
  substitutionrate(
-    file       = system.file("seqs/pal2nal.aln", package = "orthologr"), 
-    est.method = "MA", 
-    format     = "fasta") 
-                  
- # estimate the dNdS rate using Nei and Gojobori's method provided by the 
+    file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
+    est.method = "MA",
+    format     = "fasta")
+
+ # estimate the dNdS rate using Nei and Gojobori's method provided by the
  # KaKs_Calculator 1.2 program
  substitutionrate(
-    file       = system.file("seqs/pal2nal.aln", package = "orthologr"), 
-    est.method = "NG", 
-    format     = "fasta")     
-  
-  # estimate the dNdS rate using Nei and Gojobori's method AND Yang and Nielsen's 
-  # method provided by the KaKs_Calculator 1.2 program 
-  # for this purpose we choose: 
-  # est.method = "kaks_calc" and kaks_calc.params = "-m NG -m YN"                 
+    file       = system.file("seqs/pal2nal.aln", package = "orthologr"),
+    est.method = "NG",
+    format     = "fasta")
+
+  # estimate the dNdS rate using Nei and Gojobori's method AND Yang and Nielsen's
+  # method provided by the KaKs_Calculator 1.2 program
+  # for this purpose we choose:
+  # est.method = "kaks_calc" and kaks_calc.params = "-m NG -m YN"
  substitutionrate(
    file             = system.file("seqs/pal2nal.aln", package = "orthologr"),
-   est.method       = "kaks_calc", 
+   est.method       = "kaks_calc",
    format           = "fasta",
    kaks_calc.params = "-m NG -m YN")
-                  
-                                          
-}
+\dontshow{\}) # examplesIf}
 }
 \references{
 Li, W.-H. (1993) Unbiased estimation of the rates of synonymous and nonsynonymous substitution. J. Mol. Evol., 36:96-99.

@@ -118,9 +118,9 @@ test_that("1,000-gene example: best_hit_rule = 'evalue' reproduces the 0.4.3 tab
 test_that("dNdS() and divergence_stratigraphy() pass best_hit_rule on ...", {
         skip_if_not(diamond_available && perl_available, "DIAMOND or perl is not installed")
         msg <- testthat::capture_messages(new <- dNdS(thal_cds(), lyra_cds(), print_citation = FALSE))
-        expect_match(paste(msg, collapse = ""), "best_hit_rule = 'bitscore'")
+        expect_match(paste(msg, collapse = ""), "best_hit_rule 'bitscore'", fixed = TRUE)
         msg <- testthat::capture_messages(old <- dNdS(thal_cds(), lyra_cds(), print_citation = FALSE, best_hit_rule = "evalue"))
-        expect_match(paste(msg, collapse = ""), "best_hit_rule = 'evalue'")
+        expect_match(paste(msg, collapse = ""), "best_hit_rule 'evalue'", fixed = TRUE)
         rbh_old <- suppressMessages(diamond_rec(thal_cds(), lyra_cds(), best_hit_rule = "evalue"))
         rbh_new <- suppressMessages(diamond_rec(thal_cds(), lyra_cds()))
         expect_setequal(paste(old$query_id, old$subject_id), paste(rbh_old$query_id, rbh_old$subject_id))

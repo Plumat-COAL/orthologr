@@ -60,7 +60,7 @@ select_orthologs <-
                  format = c("gtf", "gtf"),
                  best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore")) {
                 
-                best_hit_rule <- orthologr_best_hit_rule(best_hit_rule)
+                best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
                 if (!is.element(collapse_by, c("gene_locus", "splice_variant")))
                         stop(
                                 "Please specify a collapse method provided by this function: collapse_by = 'gene_locus' or collapse_by = 'splice_variant'.",

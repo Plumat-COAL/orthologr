@@ -61,7 +61,7 @@ approximate identity for clustering. Passed to \code{--approx-id}. Default is
 \item{eval}{a numeric value specifying the maximum E-value. Passed to
 \code{--evalue}. Default is \code{NULL} (DIAMOND2 default of 0.001 applies).}
 
-\item{deepclust_params}{a character string of additional DIAMOND2 deepclust
+\item{deepclust_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) a character string of additional DIAMOND2 deepclust
 parameters to append to the \code{deepclust} call. Default is \code{NULL}.}
 
 \item{quiet}{a logical value indicating whether DIAMOND2 should run in quiet
@@ -136,7 +136,7 @@ matrix (one row per cluster, one column per organism/file) using
 \code{tidyr::pivot_wider}.
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.which("diamond"))) withAutoprint(\{ # examplesIf}
 # Profile two proteomes with default settings
 profile <- deepclust_annotate(
   input_file = c(
@@ -154,7 +154,8 @@ profile <- deepclust_annotate(
 )
 profile
 
-# Pivot to a presence/absence matrix
+\dontrun{
+# Pivot to a presence/absence matrix (needs the package tidyr)
 library(tidyr)
 library(dplyr)
 profile |>
@@ -194,6 +195,7 @@ profile_enriched <- deepclust_annotate(
   realign       = realign_stats
 )
 }
+\dontshow{\}) # examplesIf}
 }
 \references{
 Buchfink, B., Reuter, K., & Drost, H. G. (2021) "Sensitive protein alignments

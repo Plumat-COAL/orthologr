@@ -26,6 +26,18 @@ lyra_cds <- function() system.file("seqs/ortho_lyra_cds.fasta", package = "ortho
 thal_aa  <- function() system.file("seqs/ortho_thal_aa.fasta", package = "orthologr")
 lyra_aa  <- function() system.file("seqs/ortho_lyra_aa.fasta", package = "orthologr")
 
+# A folder for a restricted PATH that has the shell utilities R itself starts: parallel::detectCores() runs
+# 'grep ... | wc -l' on Linux, and without them the test log showed "sh: 1: wc: not found". The programs a test
+# wants to be missing stay missing.
+with_coreutils <- function(dir) {
+        for (p in c("grep", "wc")) {
+                w <- Sys.which(p)
+                if (nzchar(w) && !file.exists(file.path(dir, p)))
+                        file.symlink(w, file.path(dir, p))
+        }
+        dir
+}
+
 # A new empty folder inside tempdir(); `name` may hold spaces.
 new_test_dir <- function(name = "orthologr_test_") {
         d <- tempfile(name)

@@ -20,7 +20,11 @@
 #' \code{"BLOSUM80"}, \code{"BLOSUM100"}, \code{"PAM30"}, \code{"PAM40"}, \code{"PAM70"}, \code{"PAM120"}, \code{"PAM250"}),
 #' or a numeric substitution matrix. \code{aa_sub_matrix = NULL} gives the scoring of \pkg{orthologr} <= 0.4.3
 #' (\code{\link[pwalign]{pairwiseAlignment}} without a substitution matrix, i.e. a match/mismatch score that ignores which
-#' amino acids are exchanged). The argument is ignored for DNA sequences.
+#' amino acids are exchanged). The argument is ignored for DNA sequences. \strong{The scoring of 0.4.3 is slow:}
+#' \pkg{pwalign} aligns without a matrix about 15 times slower than with one, about 0.6 - 0.8 s per gene pair of
+#' typical length (1,000-gene example, 1 core: 632 s against 45 s for the whole \code{dNdS()} run); a genome-wide
+#' run with \code{aa_sub_matrix = NULL} or \code{options(orthologr.legacy_pairwise_aln = TRUE)} (also set by
+#' \code{\link{orthologr_legacy_options}}) takes hours per core.
 #' @author Sarah Scharfenberg and Hajk-Georg Drost
 #' @details This function provides an interface between R and common pairwise alignment computation methods.
 #' 
@@ -45,23 +49,18 @@
 #' \strong{Memory.} \code{\link[pwalign]{pairwiseAlignment}} keeps the whole dynamic-programming matrix: about 3 bytes
 #' per cell, i.e. per pair of residues (two proteins of 10,000 residues: 0.3 GB; a titin pair of 36,000 x 35,400
 #' residues: 3.9 GB). An alignment of more than \code{options(orthologr.max_aln_cells)} cells (default 5e8, about
-#' 1.5 GB) is not computed: \code{pairwise_aln()} stops with an error, and \code{\link{dNdS}} returns the pair
-#' with \code{NA} values and the reason in \code{attr(result, "failed_pairs")}.
-#' \code{options(orthologr.max_aln_cells = Inf)} removes the limit.
+#' 1.5 GB) is not computed: \code{pairwise_aln()} stops with an error of class
+#' \code{orthologr_error_alignment_too_large}, and \code{\link{dNdS}} returns the pair with status \code{"failed"}.
+#' \code{options(orthologr.max_aln_cells = Inf)} removes the limit (see \code{\link{orthologr_options}}).
 #' 
-#' @examples \dontrun{        
-#'                                             
-#' # Needleman-Wunsch Example:  
-#' 
-#' # in case Biostrings works properly
+#' @examples
+#' # Needleman-Wunsch alignment of the two proteins of a file
+#' # (the alignment file is written to tempdir())
 #' pairwise_aln( file     = system.file('seqs/aa_seqs.fasta', package = 'orthologr'),
-#'               tool     = "NW", 
-#'               get_aln  = TRUE, 
-#'               seq_type = "protein")
-#' 
-#'                                                    
-#'                                                                                                                                                          
-#' }
+#'               tool     = "NW",
+#'               get_aln  = TRUE,
+#'               seq_type = "protein",
+#'               quiet    = TRUE)
 #' @return In case the argument \code{get_aln} is set \code{TRUE}, an object of class alignment of the seqinr package is returned.
 #' @export
 pairwise_aln <- function(file, 
@@ -76,10 +75,10 @@ pairwise_aln <- function(file,
         
         
         if (!is.pairwise_aln_tool(tool))
-                stop("Please choose a tool that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a tool that is supported by this function.")
         
         if (!is.element(seq_type, c("dna", "cds", "protein")))
-                stop("Please choose a seq_type that is supported by this function.")
+                orthologr_abort(class = "bad_argument", "Please choose a seq_type that is supported by this function.")
         
         if (is.element(seq_type, c("dna", "cds")))
                 seqtype <- "DNA"
@@ -88,7 +87,7 @@ pairwise_aln <- function(file,
                 seqtype <- "AA"
         
         # options(orthologr.legacy_pairwise_aln = TRUE): the behaviour of orthologr <= 0.4.3
-        legacy <- isTRUE(getOption("orthologr.legacy_pairwise_aln", FALSE))
+        legacy <- isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))
         
         if (legacy)
                 aa_sub_matrix <- NULL
@@ -220,7 +219,7 @@ pairwise_aln <- function(file,
                 }
                 
                 if (!quiet) {
-                        print(paste0("File successfully written to ", file.out, "."))
+                        message("File successfully written to ", file.out, ".")
                 }
                 
                 if (get_aln)
@@ -259,13 +258,13 @@ aligned_rows <- function(aln, pattern_seq, subject_seq) {
 
 # The largest pairwise alignment (n x m cells) that pairwise_aln() computes: options(orthologr.max_aln_cells), by
 # default 5e8 cells (about 1.5 GB of memory in pwalign::pairwiseAlignment(), e.g. two proteins of 22,000 residues).
-# Inf (the value of 0.4.3) has no limit.
+# Inf (the value of 0.4.3, also under the legacy switch) has no limit.
 max_aln_cells <- function() {
-        v <- getOption("orthologr.max_aln_cells", 5e8)
+        v <- orthologr_option("orthologr.max_aln_cells", 5e8)
         if (!is.numeric(v) || length(v) != 1 || is.na(v) || v <= 0)
-                stop("options(orthologr.max_aln_cells) must be one positive number (Inf: no limit), not ",
-                     if (is.character(v)) paste0("'", paste(v, collapse = "', '"), "' (text)") else paste(format(v), collapse = ", "),
-                     ".", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "options(orthologr.max_aln_cells) must be one positive number (Inf: no limit), not ",
+                                if (is.character(v)) paste0("'", paste(v, collapse = "', '"), "' (text)") else paste(format(v), collapse = ", "),
+                                ".", call. = FALSE)
         v
 }
 
@@ -274,7 +273,8 @@ check_aln_cells <- function(n, m) {
         limit <- max_aln_cells()
         cells <- as.numeric(n) * as.numeric(m)
         if (is.finite(limit) && cells > limit)
-                stop("the pairwise alignment of two sequences of ", n, " and ", m, " residues has ",
+                orthologr_abort(class = "alignment_too_large",
+                     "the pairwise alignment of two sequences of ", n, " and ", m, " residues has ",
                      format(cells, big.mark = ",", scientific = FALSE), " cells and would need about ",
                      signif(3 * cells / 1e9, 2), " GB of memory; options(orthologr.max_aln_cells) is ",
                      format(limit, big.mark = ",", scientific = FALSE), ". The pair is not aligned; ",

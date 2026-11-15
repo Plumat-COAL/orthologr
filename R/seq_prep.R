@@ -38,9 +38,9 @@ protein_table_read <- function(file, seq_type = "cds", delete_corrupt_cds = TRUE
                         cds2aa(dt, delete_corrupt_cds = delete_corrupt_cds),
                         error = function(e) {
                                 # what went wrong is kept (e.g. duplicated sequence IDs are named)
-                                if (grepl("more than once", conditionMessage(e), fixed = TRUE))
-                                        stop(conditionMessage(e), call. = FALSE)
-                                stop(sub("\n Please check whether the input file stores valid coding sequences.", "",
+                                if (grepl("more than once", conditionMessage(e), fixed = TRUE) || inherits(e, "orthologr_error"))
+                                        stop(e)
+                                orthologr_abort(class = "bad_input", sub("\n Please check whether the input file stores valid coding sequences.", "",
                                          conditionMessage(e), fixed = TRUE),
                                      "\n", " Please check whether ", file,
                                      " stores valid coding sequences.", call. = FALSE)

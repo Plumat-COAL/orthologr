@@ -52,31 +52,27 @@ It is also possible to specify other number of quantile (N-quantile) value such 
 rather than decile values.
 }
 \examples{
-\dontrun{
+# a dN/dS table as dNdS() returns it (first columns; 20 gene pairs)
+set.seed(1)
+dNdS_tbl <- data.frame(query_id   = sprintf("AT1G\%05d.1", seq(1010, by = 10, length.out = 20)),
+                       subject_id = sprintf("\%d|PACid:\%d", 470000 + 1:20, 16030000 + 1:20),
+                       dN = round(stats::runif(20, 0.005, 0.1), 4),
+                       dS = round(stats::runif(20, 0.1, 0.3), 4))
+dNdS_tbl$dNdS <- round(dNdS_tbl$dN / dNdS_tbl$dS, 4)
 
-# get a divergence map of example sequences
-dNdS_tbl <- dNdS( 
-              query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
-              subject_file    = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-              ortho_detection = "RBH", 
-              aa_aln_type     = "pairwise",
-              aa_aln_tool     = "NW", 
-              codon_aln_tool  = "pal2nal", 
-              dnds_est.method = "Comeron", 
-              comp_cores      = 1 )
-                 
-divMap <- divergence_map( dNdS_tbl )                       
+# the divergence map: the divergence stratum (decile of dN/dS) of every query gene
+divMap <- divergence_map( dNdS_tbl )
+head(divMap)
 
 # in case you want the subject_id as well, you can set
 # the argument subject.id = TRUE
-divMap <- divergence_map( dNdS_tbl = dNdS_tbl, subject.id = TRUE)   
-            
- # in case you want a divergence map with divergence stratum as quintile (5-quantile) values 
- # or any other N-quantile values rather than the default decile (10-quantile) values,
- # you can specify this with n_quantile.
-divMap <- divergence_map( dNdS_tbl = dNdS_tbl, subject.id = TRUE, n_quantile = 5) 
+divMap <- divergence_map( dNdS_tbl = dNdS_tbl, subject.id = TRUE)
 
-}
+# in case you want a divergence map with divergence stratum as quintile (5-quantile) values
+# or any other N-quantile values rather than the default decile (10-quantile) values,
+# you can specify this with n_quantile.
+divMap <- divergence_map( dNdS_tbl = dNdS_tbl, subject.id = TRUE, n_quantile = 5)
+table(divMap$divergence_strata)
 }
 \seealso{
 \code{\link{divergence_stratigraphy}}

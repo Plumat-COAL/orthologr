@@ -59,6 +59,24 @@ test_that("pairwise_aln() scores amino acids with BLOSUM62 by default and accept
         expect_error(pairwise_aln(file = f, seq_type = "INVALID"))
 })
 
+test_that("an unknown aa_sub_matrix is an error before the search (it failed every gene pair after it)", {
+        f <- tempfile(fileext = ".fasta")
+        seqinr::write.fasta(sequences = list("MKVLAAGIVG", "MKVLSAGIVG"), names = c("a", "b"), file.out = f)
+        expect_error(pairwise_aln(file = f, tool = "NW", seq_type = "protein", quiet = TRUE, aa_sub_matrix = "FOO"),
+                     "aa_sub_matrix", class = "orthologr_error_bad_argument")
+        expect_error(pairwise_aln(file = f, tool = "NW", seq_type = "protein", quiet = TRUE, aa_sub_matrix = 62),
+                     class = "orthologr_error_bad_argument")
+        # before DIAMOND runs: no program is needed to get this error
+        expect_error(dNdS(thal_cds(), lyra_cds(), aa_sub_matrix = "FOO", aligner_path = tempfile("no_diamond_"),
+                          print_citation = FALSE),
+                     "BLOSUM62", class = "orthologr_error_bad_argument")
+        expect_error(dNdS(thal_cds(), lyra_cds(), aa_sub_matrix = "blosum62", print_citation = FALSE),
+                     class = "orthologr_error_bad_argument")
+        for (m in c("BLOSUM45", "BLOSUM50", "BLOSUM62", "BLOSUM80", "BLOSUM100", "PAM30", "PAM40", "PAM70", "PAM120", "PAM250"))
+                expect_true(orthologr:::check_aa_sub_matrix(m), info = m)
+        expect_true(orthologr:::check_aa_sub_matrix(NULL))
+})
+
 test_that("pairwise_aln() does not align a terminal stop codon symbol ...", {
         f <- write_pair(paste0(long_aa, "*"), paste0(short_aa, "*"))
         pairwise_aln(file = f, tool = "NW", seq_type = "protein", pairwise_aln_name = "t_stop", quiet = TRUE)
@@ -156,12 +174,17 @@ test_that("dNdS() takes aa_sub_matrix, and the codon alignments no longer hold t
 test_that("pairwise_aln() does not align pairs above options(orthologr.max_aln_cells); dNdS() reports them as failed (O12)", {
         f <- system.file("seqs/aa_seqs.fasta", package = "orthologr")
         rlang::local_options(orthologr.max_aln_cells = 100)
-        expect_error(pairwise_aln(f, quiet = TRUE), "orthologr.max_aln_cells = Inf")
+        e <- tryCatch(pairwise_aln(f, quiet = TRUE), error = function(e) e)
+        expect_s3_class(e, "orthologr_error_alignment_too_large")
+        expect_match(conditionMessage(e), "orthologr.max_aln_cells = Inf")
         rlang::local_options(orthologr.max_aln_cells = 1e7)
         expect_silent(pairwise_aln(f, quiet = TRUE))
         rlang::local_options(orthologr.max_aln_cells = "a lot")
-        expect_error(pairwise_aln(f, quiet = TRUE), "must be one positive number")
-        rlang::local_options(orthologr.max_aln_cells = NULL)
+        expect_error(pairwise_aln(f, quiet = TRUE), class = "orthologr_error_bad_argument")
+        # Inf: no limit (also under the legacy switch)
+        rlang::local_options(orthologr.max_aln_cells = NULL, orthologr.legacy = TRUE)
+        expect_identical(max_aln_cells(), Inf)
+        rlang::local_options(orthologr.legacy = NULL)
         expect_identical(max_aln_cells(), 5e8)
 })
 
@@ -170,13 +193,13 @@ test_that("an invalid options(orthologr.max_aln_cells) is an error before the se
                 rlang::local_options(orthologr.max_aln_cells = bad)
                 t <- system.time(e <- tryCatch(dNdS(thal_cds(), lyra_cds(), quiet = TRUE, print_citation = FALSE),
                                                error = function(e) e))[["elapsed"]]
-                expect_s3_class(e, "error")
+                expect_s3_class(e, "orthologr_error_bad_argument")
                 expect_match(conditionMessage(e), "options(orthologr.max_aln_cells) must be one positive number", fixed = TRUE)
                 expect_lt(t, 5)
         }
         rlang::local_options(orthologr.max_aln_cells = "5e8")
         expect_match(tryCatch(max_aln_cells(), error = conditionMessage), "not '5e8' (text)", fixed = TRUE)
-        expect_error(dNdS_orthogroups(c(a = thal_cds(), b = lyra_cds())), "must be one positive number")
+        expect_error(dNdS_orthogroups(c(a = thal_cds(), b = lyra_cds())), class = "orthologr_error_bad_argument")
         rlang::local_options(orthologr.max_aln_cells = Inf)
         expect_identical(max_aln_cells(), Inf)
 })
@@ -185,11 +208,10 @@ test_that("dNdS(): a gene pair above options(orthologr.max_aln_cells) is a faile
         skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
         rlang::local_options(orthologr.max_aln_cells = 1e5)
         expect_warning(res <- suppressMessages(dNdS(thal_cds(), lyra_cds(), quiet = TRUE, print_citation = FALSE)),
-                       "could not be processed")
+                       class = "orthologr_warning_failed_pairs")
         failed <- attr(res, "failed_pairs")
         expect_gt(nrow(failed), 0)
         expect_lt(nrow(failed), 20)
         expect_true(all(grepl("orthologr.max_aln_cells", failed$reason)))
-        k <- paste(res$query_id, res$subject_id) %in% paste(failed$query_id, failed$subject_id)
-        expect_true(all(is.na(res$dNdS[k])))
+        expect_true(all(res$status[paste(res$query_id, res$subject_id) %in% paste(failed$query_id, failed$subject_id)] == "failed"))
 })

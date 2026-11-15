@@ -15,7 +15,7 @@ with_fake_cache <- function(code, empty_path = FALSE) {
         dir.create(fake_cache)
         on.exit(unlink(fake_cache, recursive = TRUE), add = TRUE)
         Sys.setenv(R_USER_CACHE_DIR = fake_cache)
-        if (empty_path) Sys.setenv(PATH = fake_cache)
+        if (empty_path) Sys.setenv(PATH = with_coreutils(fake_cache))
         force(code)
 }
 

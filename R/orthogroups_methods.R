@@ -124,13 +124,13 @@ as.data.frame.orthogroups <- function(x, row.names = NULL, optional = FALSE, una
 #' file.path(dir, "Orthogroups", "Orthogroups_SingleCopyOrthologues.txt"))} returns \code{x$single_copy}.
 #' @return invisibly, a named character vector with the paths of the files.
 #' @author Chloe Newton
-#' @examples \dontrun{
+#' @examplesIf nzchar(Sys.which("diamond"))
 #' og <- orthogroups(c(
 #'   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'   Alyrata   = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr')))
 #' out <- write_orthogroups(og, file.path(tempdir(), "og"))
 #' orthofinder2_retrieve_core_orthologs(out[["orthogroups"]], out[["single_copy"]])
-#' }
+#' unlink(file.path(tempdir(), "og"), recursive = TRUE)
 #' @seealso \code{\link{orthogroups}}, \code{\link{orthofinder2_retrieve_core_orthologs}}
 #' @export
 write_orthogroups <- function(x, dir, ortholog_tables = FALSE, query_species = NULL) {

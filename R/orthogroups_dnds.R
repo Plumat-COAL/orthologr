@@ -25,10 +25,11 @@
 #' @param aa_aln_params parameters for the alignment program (see \code{\link{multi_aln}}).
 #' @param max_group_size groups with more genes than this are not computed (\code{groups = "all"}); they are listed
 #' in \code{failed}. Default is \code{50}.
-#' @param dS_saturation pairs with a dS above this value are counted as saturated in the summary. Default is \code{2}.
+#' @param dS_saturation pairs with a dS above this value are counted in the column \code{n_dS_above} of the summary. Default is \code{2}.
 #' @param kaks_calc_path the folder that holds KaKs_Calculator (for its methods, see \code{\link{substitutionrate}}).
-#' @param delete_corrupt_cds a logical value: leave out coding sequences whose length is not a multiple of 3.
-#' Default is \code{TRUE} (such sequences cannot be used in a codon alignment).
+#' @param delete_corrupt_cds a logical value: what happens to coding sequences whose length is not a multiple
+#' of 3. \code{FALSE} (default, as in \code{\link{dNdS}} and \code{\link{orthogroups}}): the incomplete codon at the
+#' end is cut off. \code{TRUE}: the sequence is left out (table \code{failed}).
 #' @param comp_cores the number of R processes (\code{engine = "orthologr"}) or threads.
 #' @param quiet a logical value: do not show the messages of the alignment and estimation steps.
 #' @param ... arguments for \code{\link{orthogroups}} when \code{x} holds files.
@@ -45,13 +46,16 @@
 #' \code{orthogroup}, \code{query_species}, \code{query_id}, \code{subject_species}, \code{subject_id}, \code{method},
 #' \code{dN}, \code{dS}, \code{dNdS}, \code{note}. The query is the gene of the species that comes first in \code{x$species};
 #' \item \code{summary}: one row per group (and method): \code{orthogroup}, \code{method}, \code{n_genes},
-#' \code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value), \code{n_na}, \code{n_saturated}
-#' (dS above \code{dS_saturation}), and median, mean, first and third quartile (_q25, _q75) of dN, dS and dN/dS over the pairs
+#' \code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value, i.e. status \code{"ok"}), \code{n_na}
+#' (the others), \code{n_dS_zero}, \code{n_saturated}, \code{n_no_data}, \code{n_failed} (pairs by status, see
+#' \code{\link{dNdS}}, section "Status of a gene pair"), \code{n_dS_above} (pairs with dS above \code{dS_saturation}:
+#' estimated, but hardly informative; this column was called \code{n_saturated} in development versions of 0.5.0),
+#' and median, mean, first and third quartile (_q25, _q75) of dN, dS and dN/dS over the pairs
 #' with values;
 #' \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 #' }
 #' @author Chloe Newton
-#' @examples \dontrun{
+#' @examplesIf all(nzchar(Sys.which(c("diamond", "perl"))))
 #' files <- c(
 #'   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
 #'   Alyrata   = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
@@ -60,7 +64,8 @@
 #' res$pairs
 #' res$summary
 #'
-#' # in one step, all groups, one Clustal Omega alignment per group
+#' \dontrun{
+#' # in one step, all groups, one Clustal Omega alignment per group (needs Clustal Omega)
 #' res <- dNdS_orthogroups(files, groups = "all", aa_aln_tool = "clustalo", comp_cores = 2)
 #' }
 #' @seealso \code{\link{orthogroups}}, \code{\link{dNdS}}, \code{\link{substitutionrate}}
@@ -76,7 +81,7 @@ dNdS_orthogroups <- function(x,
                              max_group_size     = 50,
                              dS_saturation      = 2,
                              kaks_calc_path     = NULL,
-                             delete_corrupt_cds = TRUE,
+                             delete_corrupt_cds = FALSE,
                              comp_cores         = 1,
                              quiet              = TRUE,
                              ...) {
@@ -96,13 +101,14 @@ dNdS_orthogroups <- function(x,
         check_count(max_group_size, "max_group_size")
         check_flag(quiet, "quiet")
         if (!is.numeric(dS_saturation) || length(dS_saturation) != 1 || is.na(dS_saturation) || dS_saturation <= 0)
-                stop("dS_saturation must be one positive number.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "dS_saturation must be one positive number.", call. = FALSE)
         if (engine == "orthologr") {
                 if (is.null(dnds_est.method))
                         dnds_est.method <- "Comeron"
-                if (!is.character(dnds_est.method) || length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method))
-                        stop("dnds_est.method = '", paste(dnds_est.method, collapse = "', '"), "' is not supported with engine = \"orthologr\". ",
-                             "Please choose one of: 'Comeron', 'Li', 'NG', 'LWL', 'LPB', 'MLWL', 'YN', 'MYN', 'GY', 'MA', 'MS', 'GMYN', 'ALL'.",
+                if (!is.character(dnds_est.method) || length(dnds_est.method) != 1 || !is.dnds_est_method(dnds_est.method) ||
+                    identical(dnds_est.method, "kaks_calc"))
+                        orthologr_abort(class = "bad_argument", "dnds_est.method = '", paste(dnds_est.method, collapse = "', '"), "' is not supported with engine = \"orthologr\". ",
+                             "Please choose one of: 'Comeron', 'Li', 'NG', 'LWL', 'LPB', 'MLWL', 'MLPB', 'YN', 'MYN', 'GY', 'MA', 'MS', 'GMYN', 'ALL'.",
                              call. = FALSE)
                 check_choice(aa_aln_tool, c("clustalo", "mafft", "muscle", "clustalw", "t_coffee", "pairwise"), "aa_aln_tool")
                 # the programs must be there before the search and the alignments start
@@ -111,12 +117,16 @@ dNdS_orthogroups <- function(x,
         }
         comp_cores <- check_comp_cores(comp_cores)
         
+        # the arguments of this call, for the record of the run (attr(<result>, "orthologr_run"))
+        run_args <- run_arguments()
+        
         if (!inherits(x, "orthogroups")) {
                 if (!is.null(cds_files))
-                        stop("When 'x' holds the files of the coding sequences, 'cds_files' must be NULL.", call. = FALSE)
-                x <- orthogroups(x, seq_type = "cds", comp_cores = comp_cores, quiet = quiet, ...)
+                        orthologr_abort(class = "bad_argument", "When 'x' holds the files of the coding sequences, 'cds_files' must be NULL.", call. = FALSE)
+                x <- orthogroups(x, seq_type = "cds", comp_cores = comp_cores, quiet = quiet,
+                                 delete_corrupt_cds = delete_corrupt_cds, ...)
         } else if (...length() > 0) {
-                stop("Unused argument", if (...length() > 1) "s", ": ", paste(names(list(...)), collapse = ", "),
+                orthologr_abort(class = "bad_argument", "Unused argument", if (...length() > 1) "s", ": ", paste(names(list(...)), collapse = ", "),
                      " ('...' is handed to orthogroups() when 'x' holds files).", call. = FALSE)
         }
         cds_files <- dnds_groups_cds_files(x, cds_files)
@@ -128,7 +138,7 @@ dNdS_orthogroups <- function(x,
         if (!is.null(group_ids)) {
                 unknown <- setdiff(group_ids, members$orthogroup)
                 if (length(unknown) > 0)
-                        stop("groups = '", paste(utils::head(unknown, 5), collapse = "', '"), "'", if (length(unknown) > 5) ", ..." else "",
+                        orthologr_abort(class = "bad_argument", "groups = '", paste(utils::head(unknown, 5), collapse = "', '"), "'", if (length(unknown) > 5) ", ..." else "",
                              ": no such orthogroup in 'x'. Please give \"single_copy\", \"all\" or IDs of x$wide$orthogroup.", call. = FALSE)
                 members <- members[is.element(orthogroup, group_ids)]
         }
@@ -202,23 +212,55 @@ dNdS_orthogroups <- function(x,
         )
         data.table::setorder(res_pairs, orthogroup, query_species, query_id, subject_species, subject_id, method)
         
-        n_bad <- sum(!is.na(res_pairs$note))
-        if (n_bad > 0)
-                warning(n_bad, " of ", nrow(res_pairs), " gene pairs could not be processed; their dN, dS and dNdS values are NA ",
-                        "and the reason is in the column 'note' of the table 'pairs'. First one: '", res_pairs$query_id[!is.na(res_pairs$note)][1],
-                        "' / '", res_pairs$subject_id[!is.na(res_pairs$note)][1], "': ",
-                        strsplit(res_pairs$note[!is.na(res_pairs$note)][1], "\n", fixed = TRUE)[[1]][1], call. = FALSE)
-        
         failed <- if (length(failed) > 0) data.table::rbindlist(failed) else
                 data.table::data.table(orthogroup = character(0), gene = character(0), reason = character(0))
         if (nrow(failed) > 0)
                 message(nrow(failed), " gene(s) or group(s) could not be used; see the 'failed' table of the result.")
         
-        list(
+        # the status of every gene pair (last column of 'pairs'; see ?dNdS, "Status of a gene pair"), one summary
+        # message and the record of the run
+        engine_status <- ifelse(is.na(res_pairs$note), NA_character_, sub(":.*$", "", res_pairs$note))
+        pair_failed <- !is.na(res_pairs$note)
+        status <- dnds_status(res_pairs$dN, res_pairs$dS, res_pairs$dNdS, failed = pair_failed, engine_status = engine_status)
+        # the warning is about pairs that could not be processed (status "failed"); a pair that is saturated is a
+        # result - it is counted in the summary message
+        n_bad <- sum(status == "failed")
+        if (n_bad > 0) {
+                bad <- which(status == "failed")[1]
+                orthologr_warn(class = "failed_pairs", n_bad, " of ", nrow(res_pairs), " gene pairs could not be processed; their dN, dS and dNdS values are NA ",
+                        "and the reason is in the column 'note' of the table 'pairs'. First one: '", res_pairs$query_id[bad],
+                        "' / '", res_pairs$subject_id[bad], "': ",
+                        strsplit(res_pairs$note[bad], "\n", fixed = TRUE)[[1]][1], call. = FALSE)
+        }
+        summary_tbl <- dnds_groups_summary(res_pairs, m, dS_saturation = dS_saturation, status = status)
+        # pairs with a coding sequence kept with ambiguous bases (options(orthologr.ambiguous_cds = "keep")): a note
+        # (after the status, which a note of a failed pair decides)
+        amb_rows <- dnds_ambiguous_note(res_pairs, cds$ambiguous)
+        res_pairs[["note"]] <- amb_rows$note
+        if (dnds_status_column())
+                res_pairs[["status"]] <- status
+        message(dnds_summary_text(status, dS = res_pairs$dS, fun = "dNdS_orthogroups()",
+                                  what = paste0("gene pairs in ", length(unique(res_pairs$orthogroup)), " groups"),
+                                  failed_where = "the column 'note' of the table 'pairs'", ambiguous_rows = amb_rows$n,
+                                  ambiguous_where = "the column 'note' of the table 'pairs'"))
+        
+        out <- list(
                 pairs   = tibble::as_tibble(res_pairs),
-                summary = tibble::as_tibble(dnds_groups_summary(res_pairs, m, dS_saturation = dS_saturation)),
+                summary = tibble::as_tibble(summary_tbl),
                 failed  = tibble::as_tibble(failed)
         )
+        attr(out, "orthologr_run") <- run_record(
+                fun = "dNdS_orthogroups", args = run_args, engine = engine,
+                tools = dnds_groups_tool_versions(engine, aa_aln_tool, aa_aln_path, dnds_est.method, kaks_calc_path),
+                files = cds_files, status = status)
+        out
+}
+
+# The versions of the programs dNdS_orthogroups() used.
+dnds_groups_tool_versions <- function(engine, aa_aln_tool, aa_aln_path, dnds_est.method, kaks_calc_path) {
+        run_tool_versions(aa_aln_tool = aa_aln_tool, aa_aln_path = aa_aln_path, codon_aln_tool = "pal2nal",
+                          kaks = is.element(dnds_est.method[1], kaks_calculator_methods()),
+                          kaks_calc_path = kaks_calc_path)
 }
 
 # ---- input ----------------------------------------------------------------------------------------------------
@@ -235,17 +277,17 @@ dnds_groups_cds_files <- function(x, cds_files) {
         if (is.list(cds_files))
                 cds_files <- unlist(cds_files)
         if (!is.character(cds_files) || length(cds_files) != length(sp))
-                stop("'cds_files' must name one file with coding sequences for each of the ", length(sp), " species (",
+                orthologr_abort(class = "bad_argument", "'cds_files' must name one file with coding sequences for each of the ", length(sp), " species (",
                      paste(sp, collapse = ", "), ").", call. = FALSE)
         if (is.null(names(cds_files)))
                 names(cds_files) <- sp
         if (!setequal(names(cds_files), sp))
-                stop("The names of 'cds_files' must be the species names: '", paste(sp, collapse = "', '"), "' (given: '",
+                orthologr_abort(class = "bad_argument", "The names of 'cds_files' must be the species names: '", paste(sp, collapse = "', '"), "' (given: '",
                      paste(names(cds_files), collapse = "', '"), "').", call. = FALSE)
         cds_files <- cds_files[sp]
         missing_files <- cds_files[!file.exists(cds_files)]
         if (length(missing_files) > 0)
-                stop("The following input file(s) were not found:\n", paste(missing_files, collapse = "\n"), call. = FALSE)
+                orthologr_abort(class = "bad_input", "The following input file(s) were not found:\n", paste(missing_files, collapse = "\n"), call. = FALSE)
         cds_files
 }
 
@@ -257,6 +299,8 @@ dnds_groups_read_cds <- function(x, cds_files, delete_corrupt_cds = TRUE) {
         genes <- x$genes
         all <- list()
         unusable <- list()
+        ambiguous <- list()
+        keep_ambiguous <- identical(ambiguous_cds_mode(), "keep")
         first_id <- NA_character_
         for (k in x$species) {
                 dt <- read.cds(file = cds_files[[k]], format = "fasta", delete_corrupt_cds = delete_corrupt_cds)
@@ -271,15 +315,45 @@ dnds_groups_read_cds <- function(x, cds_files, delete_corrupt_cds = TRUE) {
                 names(seq) <- gk$gene
                 seq <- seq[!is.na(at)]
                 bad_len <- nchar(seq) %% 3 != 0 | nchar(seq) == 0
-                bad_chr <- grepl("[^ACGT]", seq)
+                # options(orthologr.ambiguous_cds = "keep") (the default): IUPAC ambiguity codes are kept, as in dNdS()
+                amb <- grepl("[^ACGT]", seq) & !grepl("[^ACGTNRYKMSWBDHV]", seq)
+                bad_chr <- grepl("[^ACGT]", seq) & !(keep_ambiguous & amb)
+                if (keep_ambiguous && any(amb & !bad_len)) {
+                        a <- seq[amb & !bad_len]
+                        ambiguous[[k]] <- stats::setNames(vapply(a, function(x) {
+                                cod <- substring(x, seq(1, nchar(x) - 2, by = 3), seq(3, nchar(x), by = 3))
+                                sum(grepl("[^ACGT]", cod))
+                        }, integer(1), USE.NAMES = FALSE), names(a))
+                }
                 unusable[[k]] <- c(
                         stats::setNames(rep("the length of the coding sequence is not a multiple of 3", sum(bad_len)), names(seq)[bad_len]),
-                        stats::setNames(rep("the coding sequence has characters other than A, C, G, T", sum(bad_chr & !bad_len)),
+                        stats::setNames(rep(if (keep_ambiguous) "the coding sequence has characters that are not bases (A, C, G, T or IUPAC ambiguity codes)"
+                                            else "the coding sequence has characters other than A, C, G, T (options(orthologr.ambiguous_cds = \"drop\"))",
+                                            sum(bad_chr & !bad_len)),
                                         names(seq)[bad_chr & !bad_len])
                 )
                 all[[k]] <- seq[!bad_len & !bad_chr]
         }
-        list(cds = unlist(unname(all)), unusable = unlist(unname(unusable)), first_id = first_id)
+        list(cds = unlist(unname(all)), unusable = unlist(unname(unusable)), first_id = first_id,
+             ambiguous = unlist(unname(ambiguous)))
+}
+
+# The column 'note' of the pair table with a note for every pair one of whose coding sequences was kept with
+# ambiguous bases (`ambiguous`: named integer, gene -> number of codons with such a base). Returns list(note, n).
+dnds_ambiguous_note <- function(tbl, ambiguous) {
+        note <- as.character(tbl$note)
+        if (length(ambiguous) == 0 || nrow(tbl) == 0)
+                return(list(note = note, n = 0L))
+        txt <- function(id) ifelse(is.element(id, names(ambiguous)),
+                                   paste0(id, " ", ambiguous[id], " codon", ifelse(ambiguous[id] == 1, "", "s")), NA_character_)
+        q <- txt(as.character(tbl$query_id))
+        s <- txt(as.character(tbl$subject_id))
+        hit <- !is.na(q) | !is.na(s)
+        add <- paste0("ambiguous bases in the coding sequence (",
+                      ifelse(is.na(q), "", q), ifelse(!is.na(q) & !is.na(s), ", ", ""), ifelse(is.na(s), "", s),
+                      " with such a base, not compared)")
+        note[hit] <- ifelse(is.na(note[hit]), add[hit], paste0(note[hit], "; ", add[hit]))
+        list(note = note, n = sum(hit))
 }
 
 # ---- engine "orthologr" ---------------------------------------------------------------------------------------
@@ -322,7 +396,7 @@ dnds_groups_orthologr <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_a
                 if (!is.element("method", names(res)))
                         res[["method"]] <- dnds_est.method
                 res[["note"]] <- if (is.null(fp) || nrow(fp) == 0) NA_character_ else
-                        fp$reason[match(paste(res$query_id, res$subject_id, sep = "\r"), paste(fp$query_id, fp$subject_id, sep = "\r"))]
+                        dnds_failed_reason(res, fp)
                 res[["orthogroup"]] <- pairs$orthogroup[match(paste(res$query_id, res$subject_id, sep = "\r"),
                                                               paste(pairs$query_id, pairs$subject_id, sep = "\r"))]
                 return(res[ , c("orthogroup", "query_id", "subject_id", "method", "dN", "dS", "dNdS", "note"), with = FALSE])
@@ -429,11 +503,15 @@ read_fasta_vector <- function(file) {
 
 # ---- summary --------------------------------------------------------------------------------------------------
 
-# One row per group and method.
-dnds_groups_summary <- function(pairs, members, dS_saturation = 2) {
-        orthogroup <- method <- dN <- dS <- dNdS <- species <- NULL
+# One row per group and method. `status`: the status of every row of `pairs` (dnds_status()); the counts by status
+# use the words of the column 'status' (n_saturated: status "saturated", as in dNdS_clusters()); n_dS_above counts
+# the pairs with dS above dS_saturation (up to this fix that count was called n_saturated).
+dnds_groups_summary <- function(pairs, members, dS_saturation = 2, status = NULL) {
+        orthogroup <- method <- dN <- dS <- dNdS <- species <- .status <- NULL
         if (nrow(pairs) == 0)
                 return(data.table::data.table(orthogroup = character(0), method = character(0)))
+        pairs <- data.table::copy(pairs)
+        pairs[[".status"]] <- if (is.null(status)) dnds_status(pairs$dN, pairs$dS, pairs$dNdS) else status
         q <- function(v, p) if (all(is.na(v))) NA_real_ else unname(stats::quantile(v, p, na.rm = TRUE, names = FALSE))
         mn <- function(v) if (all(is.na(v))) NA_real_ else mean(v, na.rm = TRUE)
         size <- members[ , list(n_genes = .N, n_species = data.table::uniqueN(species)), by = orthogroup]
@@ -441,7 +519,11 @@ dnds_groups_summary <- function(pairs, members, dS_saturation = 2) {
                 n_pairs     = .N,
                 n_ok        = sum(!is.na(dNdS)),
                 n_na        = sum(is.na(dNdS)),
-                n_saturated = sum(!is.na(dS) & dS > dS_saturation),
+                n_dS_zero   = sum(.status == "dS_zero"),
+                n_saturated = sum(.status == "saturated"),
+                n_no_data   = sum(.status == "no_data"),
+                n_failed    = sum(.status == "failed"),
+                n_dS_above  = sum(!is.na(dS) & dS > dS_saturation),
                 # quartile columns _q25 / _q75
                 dN_median = q(dN, 0.5), dN_mean = mn(dN), dN_q25 = q(dN, 0.25), dN_q75 = q(dN, 0.75),
                 dS_median = q(dS, 0.5), dS_mean = mn(dS), dS_q25 = q(dS, 0.25), dS_q75 = q(dS, 0.75),

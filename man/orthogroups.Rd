@@ -10,7 +10,7 @@ orthogroups(
   seq_type = c("cds", "protein"),
   best_hit_rule = getOption("orthologr.best_hit_rule", "bitscore"),
   eval = "1E-5",
-  sensitivity_mode = "fast",
+  sensitivity_mode = getOption("orthologr.sensitivity_mode", "default"),
   min_qcov = NULL,
   min_identity = NULL,
   inparalogs = FALSE,
@@ -18,7 +18,7 @@ orthogroups(
   realign = FALSE,
   max.target.seqs = 10000,
   pairs_max_group_size = 500,
-  delete_corrupt_cds = TRUE,
+  delete_corrupt_cds = FALSE,
   diamond_params = NULL,
   comp_cores = 1,
   path = NULL,
@@ -46,8 +46,9 @@ the proteome of the subject species alone} is not above \code{eval} (see Details
 \code{method = "deepclust"}: handed to \code{\link{deepclust}}.}
 
 \item{sensitivity_mode}{the DIAMOND sensitivity mode of the search (\code{method = "rbh"}, \code{refine = TRUE}),
-see \code{\link{diamond}}. Default is \code{"fast"}, the default of \code{\link{diamond_rec}}; for distantly
-related species use \code{"sensitive"} or higher.}
+see \code{\link{diamond}}. Default is \code{"default"} (DIAMOND's own default mode; \code{"fast"} up to 0.4.3;
+\code{options(orthologr.sensitivity_mode = )} sets another), the default of \code{\link{diamond_rec}}; for
+distantly related species use \code{"sensitive"} or higher.}
 
 \item{min_qcov, min_identity}{optional filters on the hits (Default \code{NULL}: off): hits whose alignment covers
 less than \code{min_qcov} percent of the query, or with a percent identity below \code{min_identity}, are left out
@@ -76,10 +77,12 @@ reaches this number, as its best hit in some species may then be missing.}
 \item{pairs_max_group_size}{groups with more genes than this are left out of the table \code{pairs} (the number of
 pairs grows with the square of the group size). Default is \code{500}.}
 
-\item{delete_corrupt_cds}{a logical value: leave out coding sequences whose length is not a multiple of 3
-(\code{seq_type = "cds"}). Default is \code{TRUE}, as in \code{\link{diamond_rec}}.}
+\item{delete_corrupt_cds}{a logical value (\code{seq_type = "cds"}): what happens to coding sequences whose
+length is not a multiple of 3. \code{FALSE} (default, as in \code{\link{dNdS}}): the incomplete codon at the end
+is cut off and the sequence is used. \code{TRUE}: the sequence is left out. Sequences with characters other
+than A, C, G, T (e.g. \code{N}) are always left out, as in \code{dNdS()}.}
 
-\item{diamond_params}{further parameters for \code{diamond blastp} (one character string), e.g.
+\item{diamond_params}{(an argument list, not shell text: it is split at white space, quotes group, and no character is interpreted by a shell - see the section "Parameter strings" of \code{\link{orthologr_options}}) further parameters for \code{diamond blastp} (one character string), e.g.
 \code{"--masking 0"}. Default is \code{NULL}.}
 
 \item{comp_cores}{the number of threads DIAMOND uses. The result does not depend on it.}
@@ -109,7 +112,7 @@ reciprocal best hits; \code{relation} is \code{"1:1"} when both species have exa
 \item \code{unassigned}: the genes in no group (\code{species}, \code{gene});
 \item \code{genes}: all genes (\code{species}, \code{gene}, \code{id}: the ID in the file, \code{length}: protein
 length, \code{orthogroup});
-\item \code{params}: the parameters of the call, the DIAMOND version and the files.
+\item \code{params}: the parameters of the call, the versions of DIAMOND and of \pkg{orthologr}, and the files.
 }
 See \code{\link{write_orthogroups}} for files in OrthoFinder's layout and \code{\link{dNdS_orthogroups}} for dN/dS
 within the groups.
@@ -157,7 +160,7 @@ numbers during the search, so any ID works. When an ID occurs in more than one s
 \code{<species>|<ID>} in the result and a message says so (\code{x$genes} holds both names).
 }
 \examples{
-\dontrun{
+\dontshow{if (nzchar(Sys.which("diamond"))) withAutoprint(\{ # examplesIf}
 files <- c(
   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
   Alyrata   = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
@@ -167,12 +170,17 @@ summary(og)
 og$wide
 og$pairs
 
-# proteins of all species in a folder, DeepClust route, clusters refined by reciprocal best hits
-og <- orthogroups("proteomes/", method = "deepclust", seq_type = "protein", refine = TRUE, comp_cores = 8)
-
 # files in the layout of OrthoFinder
-write_orthogroups(og, "orthogroups_out")
+out <- write_orthogroups(og, file.path(tempdir(), "orthogroups_out"))
+unlink(file.path(tempdir(), "orthogroups_out"), recursive = TRUE)
+
+\dontrun{
+# the proteomes of all species in a folder (one FASTA file per species), DeepClust route,
+# clusters refined by reciprocal best hits
+og <- orthogroups("path/to/folder_with_proteomes", method = "deepclust", seq_type = "protein",
+                  refine = TRUE, comp_cores = 8)
 }
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{write_orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{diamond_rec}},

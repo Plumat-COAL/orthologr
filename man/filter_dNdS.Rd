@@ -58,34 +58,22 @@ Now an assumption must be generated to allow for dNdS filtering.
 Given a \code{dnds.threshold} all value above this threshold are omitted from the dataset.
 }
 \examples{
-\dontrun{
+# a dN/dS table with a pair without dS, a pair with dS = 0 and a pair above the threshold
+dNdS_tbl <- data.frame(query_id   = paste0("q", 1:5), subject_id = paste0("s", 1:5),
+                       dN   = c(0.010, 0.020, 0.000, 0.300, 0.050),
+                       dS   = c(0.100, NA,    0.000, 0.100, 0.200),
+                       dNdS = c(0.100, NA,    NA,    3.000, 0.250))
+filter_dNdS(dNdS_tbl, dnds.threshold = 2)
 
-filter_dNdS( dNdS( query_file = 
-                   system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
-                   subject_file = 
-                   system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-                   ortho_detection = "RBH", 
-                   aa_aln_type = "pairwise",
-                   aa_aln_tool = "NW",
-                   codon_aln_tool = "pal2nal", 
-                   dnds_est.method = "Comeron", 
-                   comp_cores = 1), 
-             dnds.threshold = 2)
+# keep the gene pairs with dS = 0 (dNdS = NA, column dS_zero = TRUE)
+filter_dNdS(dNdS_tbl, dnds.threshold = 2, dS_zero = "keep")
 
-# a small example using clustalw
-filter_dNdS( dNdS( query_file      = 
-                   system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
-                   subject_file    = 
-                   system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'),
-                   ortho_detection = "RBH", 
-                   aa_aln_type     = "pairwise",
-                   aa_aln_tool     = "NW",
-                   codon_aln_tool  = "pal2nal", 
-                   dnds_est.method = "Comeron", 
-                   comp_cores      = 1) , 
-               dnds.threshold  = 2)
-                  
-}
+\dontshow{if (all(nzchar(Sys.which(c("diamond", "perl"))))) withAutoprint(\{ # examplesIf}
+# on the result of dNdS()
+res <- dNdS(query_file   = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
+            subject_file = system.file('seqs/ortho_lyra_cds.fasta', package = 'orthologr'))
+filter_dNdS(res, dnds.threshold = 2)
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{dNdS}}, \code{\link{divergence_stratigraphy}}

@@ -11,16 +11,45 @@ orthologr_tmpdir <- function() {
         return(d)
 }
 
+# options(orthologr.keep_tmp): FALSE (default; the working folders are removed), TRUE (kept, inside tempdir(), which
+# R removes at the end of the session) or the path of a folder (kept there). Returns list(keep, dir).
+# Any other value (NA, c("a", "b"), "") is an error; it was taken for FALSE without a word.
+keep_tmp_setting <- function() {
+        v <- getOption("orthologr.keep_tmp", FALSE)
+        if (is.character(v) && length(v) == 1 && !is.na(v) && nzchar(v))
+                return(list(keep = TRUE, dir = v))
+        if (is.null(v))
+                return(list(keep = FALSE, dir = NULL))
+        if (!is.logical(v) || length(v) != 1 || is.na(v))
+                orthologr_abort(class = "bad_argument", "options(orthologr.keep_tmp) must be TRUE, FALSE or the path of a folder, not ",
+                                if (is.character(v)) paste0("'", paste(v, collapse = "', '"), "'") else paste(format(v), collapse = ", "),
+                                ".", call. = FALSE)
+        list(keep = v, dir = NULL)
+}
+
 # Start a working folder for one pipeline call. Returns a function that restores the previous state and removes
-# the folder (unless options(orthologr.keep_tmp = TRUE)); call it in on.exit().
+# the folder (unless options(orthologr.keep_tmp) keeps it); call it in on.exit(). With options(orthologr.keep_tmp =
+# "<folder>") the working folder is made inside that folder.
 orthologr_tmpdir_start <- function(prefix = "orthologr_") {
-        run_dir <- tempfile(prefix)
+        k <- keep_tmp_setting()
+        base <- tempdir()
+        if (!is.null(k$dir)) {
+                dir.create(k$dir, recursive = TRUE, showWarnings = FALSE)
+                if (!dir.exists(k$dir))
+                        orthologr_abort(class = "bad_argument", "options(orthologr.keep_tmp = '", k$dir, "'): the folder could not be created.", call. = FALSE)
+                base <- normalizePath(k$dir, mustWork = TRUE)
+        }
+        run_dir <- tempfile(prefix, tmpdir = base)
         dir.create(run_dir, recursive = TRUE)
         old <- options(orthologr.tmpdir = run_dir)
         function() {
                 options(old)
-                if (isTRUE(getOption("orthologr.keep_tmp", FALSE))) {
-                        message("Intermediate files were kept in '", run_dir, "' (options(orthologr.keep_tmp = TRUE)).")
+                if (keep_tmp_setting()$keep || !is.null(k$dir)) {
+                        message("Intermediate files were kept in '", run_dir, "'",
+                                if (is.null(k$dir)) paste0(" (options(orthologr.keep_tmp = TRUE)). This folder is inside tempdir(), which R ",
+                                                           "removes when the session ends; options(orthologr.keep_tmp = \"<folder>\") ",
+                                                           "keeps the files in a folder of your choice.") else
+                                        " (options(orthologr.keep_tmp)).")
                 } else {
                         unlink(run_dir, recursive = TRUE, force = TRUE)
                 }
@@ -56,12 +85,18 @@ check_external <- function(status, tool, context = NULL, log = NULL, output = NU
         what <- if (is.null(context) || !nzchar(context)) "" else paste0(" for ", context)
         detail <- tail_of_file(log)
         detail <- if (nzchar(detail)) paste0("\n", tool, " said: ", detail) else ""
+        # the kind of failure (class of the error): an alignment program, or another program
+        kind <- c(if (grepl("PAL2NAL|Clustal|MAFFT|MUSCLE|T-Coffee|t_coffee", tool, ignore.case = TRUE)) "alignment_failed",
+                  "tool_failed")
         if (!is.numeric(status) || length(status) != 1 || is.na(status) || status != 0) {
-                hint <- if (identical(as.integer(status), 127L)) " (the program was not found: is it installed and on the PATH?)" else ""
-                stop(tool, " failed", what, ": exit status ", paste(status, collapse = " "), hint, ".", detail, call. = FALSE)
+                missing <- identical(as.integer(status), 127L)
+                hint <- if (missing) " (the program was not found: is it installed and on the PATH?)" else ""
+                orthologr_abort(tool, " failed", what, ": exit status ", paste(status, collapse = " "), hint, ".", detail,
+                                class = if (missing) c("tool_missing", kind) else kind)
         }
         if (!is.null(output) && (!file.exists(output) || is.na(file.size(output)) || file.size(output) == 0)) {
-                stop(tool, " wrote no output", what, " (exit status 0, but '", output, "' is missing or empty).", detail, call. = FALSE)
+                orthologr_abort(tool, " wrote no output", what, " (exit status 0, but '", output, "' is missing or empty).", detail,
+                                class = kind)
         }
         invisible(TRUE)
 }
@@ -111,12 +146,19 @@ li_values <- function(ka, ks) {
         list(dN = dN, dS = dS, dNdS = dNdS)
 }
 
-# 'aa_sub_matrix' must be the name of a substitution matrix, a numeric matrix, or NULL.
+# 'aa_sub_matrix' must be the name of a substitution matrix that pwalign has, a numeric matrix, or NULL. Checked
+# before the search, so that a misspelt name does not cost the whole search and then fail every gene pair.
+sub_matrix_names <- function() c("BLOSUM45", "BLOSUM50", "BLOSUM62", "BLOSUM80", "BLOSUM100",
+                                 "PAM30", "PAM40", "PAM70", "PAM120", "PAM250")
+
 check_aa_sub_matrix <- function(aa_sub_matrix) {
         if (!is.null(aa_sub_matrix) &&
             !((is.character(aa_sub_matrix) && length(aa_sub_matrix) == 1 && !is.na(aa_sub_matrix)) ||
               (is.matrix(aa_sub_matrix) && is.numeric(aa_sub_matrix))))
-                stop("'aa_sub_matrix' must be the name of a substitution matrix (e.g. \"BLOSUM62\"), a numeric substitution matrix, or NULL.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "'aa_sub_matrix' must be the name of a substitution matrix ",
+                                "(e.g. \"BLOSUM62\"), a numeric substitution matrix, or NULL.")
+        if (is.character(aa_sub_matrix))
+                check_choice(aa_sub_matrix, sub_matrix_names(), "aa_sub_matrix")
         invisible(TRUE)
 }
 
@@ -128,4 +170,17 @@ cds_protein_table_file <- function(file, delete_corrupt_cds = TRUE) {
         res <- data.table::data.table(geneids = tmp[ , geneids], seqs = toupper(tmp[ , aa]))
         data.table::setkey(res, geneids)
         return(res)
+}
+
+# The input files of a call must be there before any program is started: an orthologr_error_bad_input that names
+# them (not an error of the search program, or a missing program, first).
+check_input_files <- function(...) {
+        files <- unlist(list(...), use.names = FALSE)
+        if (!is.character(files) || anyNA(files))
+                orthologr_abort(class = "bad_argument", "The input files must be given as file paths.")
+        missing_files <- files[!file.exists(files)]
+        if (length(missing_files) > 0)
+                orthologr_abort(class = "bad_input", "The following input file(s) were not found:\n",
+                                paste(missing_files, collapse = "\n"))
+        invisible(files)
 }
