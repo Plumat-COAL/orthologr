@@ -410,11 +410,25 @@ coal_codon_rows <- function(rows, cds, context) {
         )
 }
 
+# kaks_tool = "coal" with a method that is neither one of the seven KaKs_Calculator methods COAL computes nor one
+# of orthologr's own (Comeron, Li, which are computed by orthologr whatever kaks_tool is).
+kaks_tool_coal_abort <- function(arg, method) {
+        orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" computes the methods ",
+                        paste(coal_kaks_calculator_methods(), collapse = ", "), " (Comeron and Li are computed by ",
+                        "orthologr itself, with either kaks_tool); ", arg, " = \"", paste(method, collapse = "\", \""),
+                        "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
+}
+
 # Ka/Ks of a two-sequence codon alignment file with COAL: the table substitutionrate() returns for the
-# KaKs_Calculator methods (query_id, subject_id, dN, dS, dNdS, method).
+# KaKs_Calculator methods (query_id, subject_id, dN, dS, dNdS, method). Only for these seven methods:
+# substitutionrate() computes Comeron and Li with orthologr's own code whatever kaks_tool is.
 coal_kaks_file <- function(file, est.method, subst_name = NULL) {
-        query_id <- method <- NULL
+        query_id <- NULL
         coal_check_methods(est.method, "kaks_tool = \"coal\"", other = "kaks_tool = \"kaks_calculator\"")
+        if (!is.element(est.method, coal_kaks_calculator_methods()))
+                orthologr_abort(class = "bad_argument", "coal_kaks_file() computes the KaKs_Calculator methods ",
+                                paste(coal_kaks_calculator_methods(), collapse = ", "), "; \"", est.method,
+                                "\" is computed by substitutionrate() itself.", call. = FALSE)
         backend <- coal_backend()
         context <- pair_context(file, subst_name)
         seqs <- read_fasta_strings(file)
@@ -440,10 +454,8 @@ coal_kaks_file <- function(file, est.method, subst_name = NULL) {
                 on.exit(unlink(c(axt_file, out_file)), add = TRUE)
                 writeLines(c(if (is.null(subst_name)) "pair" else subst_name, seqs[[1]], seqs[[2]], ""), axt_file)
                 coal_run_binary(backend$path,
-                                c(list("dnds", axt_file, "-o", out_file, "-m", est.method, "-j", "1", "-q",
-                                       "--digits", "17"),
-                                  if (is.element(est.method, coal_native_methods()))
-                                          list("--comeron-flavour", "gestimator", "--li-flavour", "seqinr")),
+                                list("dnds", axt_file, "-o", out_file, "-m", est.method, "-j", "1", "-q",
+                                     "--digits", "17"),
                                 context = context, output = out_file)
                 k <- utils::read.delim(out_file, sep = "\t", quote = "", na.strings = "NA", stringsAsFactors = FALSE)
                 if (nrow(k) < 1)
@@ -455,9 +467,6 @@ coal_kaks_file <- function(file, est.method, subst_name = NULL) {
                                               dN = as.numeric(k$dN[1]), dS = as.numeric(k$dS[1]),
                                               dNdS = as.numeric(k$dNdS[1]), method = as.character(k$method[1]))
         }
-        # (substitutionrate() returns no 'method' column for its own two methods)
-        if (is.element(est.method, coal_native_methods()))
-                res[ , method := NULL]
         data.table::setkey(res, query_id)
         return(res)
 }

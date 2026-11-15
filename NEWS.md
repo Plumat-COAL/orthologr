@@ -99,6 +99,13 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   then counts codons that differ at two positions along libsequence's branches, so the recorded command computed
   other Comeron values than the run (e.g. dN 0.112383 instead of 0.123081). Both flags are now part of the command,
   and `engine_settings` has `comeron_twosubs` and `comeron_min_sites`.
+- `kaks_tool = "coal"` with `dnds_est.method = "Comeron"` or `"Li"`: these two methods were always computed by
+  orthologr's own code (gestimator, `seqinr::kaks()`), but `?substitutionrate` and `?dNdS` said that COAL computes
+  them, and `dNdS()` required COAL for them. The documentation now says that `kaks_tool` only chooses the program
+  for the seven KaKs_Calculator methods, COAL is no longer required (nor named in the record of the run) for
+  Comeron / Li with `kaks_tool = "coal"`, and the unreachable COAL code for them in `substitutionrate()` is removed.
+  Results are unchanged (COAL's ports, used by `engine = "coal"`, give the same values; tested now against COAL
+  itself rather than against the native code twice).
 
 ### Other changes
 

@@ -159,24 +159,10 @@ test_that("the binary backend: substitutionrate's Ka/Ks of one codon alignment (
         expect_identical(res$subject_id, "s-1")
         expect_equal(c(res$dN, res$dS, res$dNdS), c(0.1, 0.5, 0.2))
         expect_identical(res$method, "YN")
-        # Comeron and Li: no 'method' column, as substitutionrate() returns them
-        res <- coal_kaks_file(f, "Comeron")
-        expect_identical(names(res), c("query_id", "subject_id", "dN", "dS", "dNdS"))
+        # Comeron and Li are computed by substitutionrate() itself, not here
+        expect_error(coal_kaks_file(f, "Comeron"), "computed by substitutionrate\\(\\) itself", class = "orthologr_error_bad_argument")
         # the input and output files of the call are removed
         expect_length(list.files(file.path(orthologr_tmpdir(), "_calculation"), pattern = "coal\\.tsv$"), 0)
-})
-
-test_that("the binary backend: Comeron's undefined correction is NA unless the legacy option is set", {
-        restore <- cov_state()
-        on.exit(restore(), add = TRUE)
-        local_fake_coal("undefined")
-        f <- cov_write_fasta(c(cov_cds_a, cov_cds_b), c("q", "s"))
-        res <- coal_kaks_file(f, "Comeron")
-        expect_equal(res$dN, 0.1235)
-        expect_true(is.na(res$dS) && is.na(res$dNdS))
-        options(orthologr.legacy_comeron_saturation = TRUE)
-        res <- coal_kaks_file(f, "Comeron")
-        expect_equal(c(res$dN, res$dS, res$dNdS), c(0.1235, 1.5, 0.0823))
 })
 
 test_that("the binary backend: errors of coal-cpp name the gene pair", {
