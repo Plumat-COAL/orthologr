@@ -210,10 +210,12 @@ test_that("Comeron: the min-sites rule only gives values > 0; a 0 from a small c
         options(orthologr.legacy_comeron_saturation = FALSE)
         # the COAL engine (coalr with COAL #76) gives the same NA pattern
         skip_if_not_installed("coalr")
-        skip_if_not(is.element("comeron_min_sites", names(formals(coalr::coal_kaks))), "coalr predates comeron_min_sites")
+        # (the same flag as the warning orthologr_warning_coal_version: COAL #76)
+        skip_if_not(is.element("comeron_min_sites_positive", orthologr:::coal_features()),
+                    "coalr predates COAL's D9 refinement (#76)")
         co <- do.call(coalr::coal_kaks, c(list("ATGGCTAAA", "ATGGCCAAA", method = "Comeron"),
                                           orthologr:::coal_flavour_args(coalr::coal_kaks, "Comeron")))
-        skip_if_not(is.na(orthologr:::coal_orthologr_values(co)$dS), "coalr predates COAL's D9 refinement (#76)")
+        expect_true(is.na(orthologr:::coal_orthologr_values(co)$dS))
         co <- do.call(coalr::coal_kaks, c(list(p[1, ], p[2, ], method = "Comeron"),
                                           orthologr:::coal_flavour_args(coalr::coal_kaks, "Comeron")))
         co <- orthologr:::coal_orthologr_values(co)

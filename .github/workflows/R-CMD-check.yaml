@@ -11,7 +11,11 @@
 # upstream-v2/**, fix/**), pull requests, and a manual start (Actions tab > R-CMD-check.yaml > "Run workflow").
 # Actions must be enabled in the repository settings of a fork for any of them to run.
 #
-# The optional R package coalr (Suggests) is installed from the place named in the Remotes field of DESCRIPTION.
+# The optional R package coalr (Suggests) is installed from the place named in the Remotes field of DESCRIPTION,
+# pinned there to a commit of COAL (main 03612da, which has COAL #76), so that a change on COAL's default branch
+# cannot change or break a check of this package; move the pin when a newer coalr is needed. The leg without
+# optional tools removes coalr again, so that the routes without COAL (PAL2NAL as the default codon aligner, the
+# errors that ask for COAL) are checked as well.
 on:
   push:
     branches:
@@ -43,8 +47,10 @@ jobs:
           - {os: ubuntu-latest,  r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,  r: 'release'}
           - {os: ubuntu-latest,  r: 'oldrel-1'}
-          # no optional tools: no DIAMOND, BLAST+, aligners, KaKs_Calculator (perl is on the runner). Every
-          # test that needs one of them must skip; none may fail.
+          # the oldest R that DESCRIPTION allows (Depends: R (>= 4.4.0)); oldrel-1 is newer
+          - {os: ubuntu-latest,  r: '4.4'}
+          # no optional tools: no DIAMOND, BLAST+, aligners, KaKs_Calculator (perl is on the runner) and no
+          # coalr. Every test that needs one of them must skip; none may fail.
           - {os: ubuntu-latest,  r: 'release', tools: 'none'}
 
     env:
@@ -108,7 +114,18 @@ jobs:
           extra-packages: any::rcmdcheck
           needs: check
 
+      - name: Remove coalr (leg without optional tools)
+        if: matrix.config.tools == 'none'
+        shell: Rscript {0}
+        run: |
+          # (system.file() does not load the package: a loaded namespace would still be found afterwards)
+          for (i in 1:3) if (nzchar(p <- system.file(package = "coalr"))) remove.packages("coalr", lib = dirname(p))
+          stopifnot(!nzchar(system.file(package = "coalr")))
+
       - uses: r-lib/actions/check-r-package@v2
+        env:
+          # (without coalr, a suggested package, on the leg without optional tools)
+          _R_CHECK_FORCE_SUGGESTS_: ${{ matrix.config.tools == 'none' && 'false' || 'true' }}
         with:
           upload-snapshots: true
           build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'

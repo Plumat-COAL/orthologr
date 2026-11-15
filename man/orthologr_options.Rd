@@ -16,7 +16,8 @@ Read by \code{dNdS(engine = "coal")}, \code{\link{dNdS_coal}}, \code{\link{dNdS_
 \code{substitutionrate(kaks_tool = "coal")}.
 \describe{
 \item{\code{orthologr.coal_backend}}{\code{NULL} (default: the R package \pkg{coalr} when it is installed, else
-the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}.}
+the program \code{coal-cpp}), \code{"coalr"} or \code{"binary"}. \code{"none"} (internal, for tests) behaves as
+if COAL were not installed.}
 \item{\code{orthologr.coal_path}}{the full path of the program \code{coal-cpp} (default \code{""}: the
 environment variable \code{COAL_CPP}, then the \code{PATH}).}
 \item{environment variable \code{COAL_CPP}}{the full path of the program \code{coal-cpp}, used when it is not on
@@ -98,7 +99,7 @@ not aligned (status \code{"failed"}), as without \pkg{coalr}.}
 build codon alignments with COAL when \pkg{coalr} is installed and with PAL2NAL otherwise (identical alignments).
 \code{"pal2nal"} or \code{"coal"}: that tool, when the argument \code{codon_aln_tool} is not given.}
 \item{\code{orthologr.batch_tools}}{\code{TRUE} (default): in \code{dNdS()} and the functions that call it, PAL2NAL
-(\code{codon_aln_tool = "pal2nal"}, not on Windows) and KaKs_Calculator (its methods but GMYN, \code{kaks_tool =
+(\code{codon_aln_tool = "pal2nal"}, not on Windows) and KaKs_Calculator (its methods, \code{kaks_tool =
 "kaks_calculator"}) compute the gene pairs of a chunk (up to 100 pairs) with one process each instead of one per
 pair: the same files and values (a pair the batch does not compute is computed on its own). Not with the
 settings of 0.4.3 (\code{\link{orthologr_legacy_options}}), which compute one pair at a time as 0.4.3 did.
@@ -187,8 +188,11 @@ number of cores is used);}
 \item{\code{orthologr_warning_legacy_engine}}{the settings of 0.4.3 are in force
 (\code{orthologr.legacy_pairwise_aln}, \code{\link{orthologr_legacy_options}}) but the COAL engine was asked for,
 which cannot reproduce the numbers of 0.4.3;}
-\item{\code{orthologr_warning_coal_version}}{the installed \pkg{coalr} predates the options
-\code{comeron_twosubs} / \code{comeron_min_sites}, so its Comeron can differ from \code{engine = "orthologr"}.}
+\item{\code{orthologr_warning_coal_version}}{the installed \pkg{coalr} predates COAL's Comeron refinements
+(\code{coalr::coal_info()$features} does not list \code{"comeron_min_sites_positive"}; the options
+\code{comeron_twosubs} / \code{comeron_min_sites} and the rule for the smallest site classes), so its Comeron can
+differ from \code{engine = "orthologr"} (given when Comeron is computed by \code{engine = "coal"},
+\code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}} or \code{dNdS_orthogroups(engine = "coal")}).}
 }
 These classes are given by the checks of the arguments and input files of \code{\link{dNdS}},
 \code{\link{dNdS_coal}}, \code{\link{dNdS_clusters}}, \code{\link{orthogroups}}, \code{\link{dNdS_orthogroups}}, \code{\link{divergence_stratigraphy}},

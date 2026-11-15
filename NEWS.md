@@ -29,9 +29,12 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   of a single call; not on Windows). A pair the batch does not compute - its job failed, its rows cannot be matched
   to its record one to one, the program failed - is computed on its own as before, which also gives its error.
   Not under `orthologr_legacy_options()` (one pair at a time, as in 0.4.3); `options(orthologr.batch_tools =
-  FALSE)` switches it off. Not for GMYN: KaKs_Calculator 2.0 (bioconda 2.0.1) decides whether it writes the header
-  line of that method with a class member it never initialises (`tempt`), so its output depends on that memory
-  (on a CI runner most pairs came back without a result with one process per pair, and other pairs in a batch).
+  FALSE)` switches it off. GMYN too: KaKs_Calculator 2.0 (bioconda 2.0.1) decides whether it writes the header
+  line of that method with a class member it never initialises (`tempt`), so the line can be missing (on a CI runner
+  most pairs came back without a result with one process per pair, and other pairs in a batch) or repeated; the
+  output is now read with its known header supplied and repeated header lines dropped, for one pair and for a
+  chunk. The rows of a chunk are used only when every record has the number of rows of the method (1; 17 for
+  `"ALL"`) and every line the fields of the header; otherwise its pairs are computed one by one.
   Using COAL for the codon step of `codon_aln_tool = "pal2nal"` (its codon alignments are the same) was not done:
   that they are the same for a pair can only be known by running PAL2NAL.
   Compared with one process per pair (all columns, attributes, `failed_pairs`, the record of the run), identical
@@ -87,6 +90,31 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   C. glabrata (4,384 pairs, where the rule gives 15 dN, all > 0) are identical to those of 0.5.0 (default
   settings, `engine = "coal"` with a `coalr` that has COAL #76, and the legacy switch).
 
+### Fixed
+
+- A `coalr` from before COAL #76 (whose `coalr::coal_info()$features` lacks `"comeron_min_sites_positive"`) gave
+  Comeron values that differ from `engine = "orthologr"` without a warning when it already had the arguments
+  `comeron_twosubs` / `comeron_min_sites` (e.g. dS = 0 instead of `NA` for `ATGGCTAAA` / `ATGGCCAAA`). The
+  warning of class `orthologr_warning_coal_version` is now given whenever that feature is missing and Comeron is
+  computed by COAL (`engine = "coal"`, `dNdS_coal()`, `dNdS_clusters()`, `dNdS_orthogroups(engine = "coal")`).
+- The `coal pipeline` command line recorded by `engine = "coal"` (`attr(result, "orthologr_run")$engine_settings$coal_command`)
+  lacked `--comeron-twosubs` and `--comeron-min-sites`. With `--comeron-flavour gestimator` COAL's command line
+  then counts codons that differ at two positions along libsequence's branches, so the recorded command computed
+  other Comeron values than the run (e.g. dN 0.112383 instead of 0.123081). Both flags are now part of the command,
+  and `engine_settings` has `comeron_twosubs` and `comeron_min_sites`.
+- `kaks_tool = "coal"` with `dnds_est.method = "Comeron"` or `"Li"`: these two methods were always computed by
+  orthologr's own code (gestimator, `seqinr::kaks()`), but `?substitutionrate` and `?dNdS` said that COAL computes
+  them, and `dNdS()` required COAL for them. The documentation now says that `kaks_tool` only chooses the program
+  for the seven KaKs_Calculator methods, COAL is no longer required (nor named in the record of the run) for
+  Comeron / Li with `kaks_tool = "coal"`, and the unreachable COAL code for them in `substitutionrate()` is removed.
+  Results are unchanged (COAL's ports, used by `engine = "coal"`, give the same values; tested now against COAL
+  itself rather than against the native code twice).
+- The record of a run with COAL (`attr(result, "orthologr_run")$tools`) never had the version of COAL's engine
+  inside `coalr` (`coal`): it read `coalr::coal_info()$version`, a field that does not exist (`coal_version`).
+- `dNdS(engine = "coal", kaks_tool = "coal", dnds_est.method = c("NG", "YN"))` stopped with R's error "the
+  condition has length > 1": `engine = "coal"` ignores `kaks_tool`, and the check of it is no longer made there.
+- `comp_cores` must be a whole number of at least 1 (`1.5`, `2.7` were accepted and recorded as given).
+
 ### Other changes
 
 - `dNdS_orthogroups()`: the summary has the minimum and maximum of dN, dS and dN/dS per group (`dN_min`, `dN_max`,
@@ -104,9 +132,17 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   `suppressPackageStartupMessages()`); the option is not part of the record of a run.
 - README: the links to pages that the package site (drostlab.github.io/orthologr) does not have yet - the
   articles "Upgrading from 0.4.3" and "Orthogroups" and `?orthologr_options` - point to the files in the repository.
+- Coding sequences with in-frame stop codons before their last codon are reported like the sequences that were
+  trimmed, left out or kept with ambiguous bases: `attr(result, "stop_codon_sequences")` (`file`, `id`,
+  `stop_codons`) and a line of the summary message (`dNdS()`, both engines). The sequences are used as before; no
+  value changes.
 
 ### Internal
 
+- Removed internal functions that nothing called (not exported; uncalled in upstream too): `get_filename()`,
+  `set_path()`, `ws_wrap()`, `check_ram()`, `OF2Orthologs()`, `read.ortholog.table()`, `filter_core_set_lnc()`,
+  `is.alignment_search_tool()`, `test()`, `cds_protein_table()`, with the tests that only covered them.
+  `benchmarkme` (used only by `check_ram()`) is no longer in Suggests.
 - Tests (`test-perf.R`): the batched code paths against the per-pair code (alignments, codon alignments, tables of
   `compute_dnds()` for Comeron, Li and YN with COAL and PAL2NAL), independence of the chunk size and of the number
   of processes, progress messages. `test-perf-tools.R`: PAL2NAL and KaKs_Calculator per chunk against one process

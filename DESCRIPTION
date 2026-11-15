@@ -6,7 +6,8 @@ Date: 2026-11-12
 Authors@R: c(
             person("Hajk-Georg", "Drost", , "hajk-georg.drost@tuebingen.mpg.de", c("aut", "cre")),
             person("Sarah", "Scharfenberg", , "Sarah.Scharfenberg@ipb-halle.de", role = "ctb"),
-            person("Jaruwatana Sodai", "Lotharukpong", , "jaruwatana.lotharukpong@tuebingen.mpg.de", role = "ctb", comment = c(ORCID = "0000-0002-3475-0980"))
+            person("Jaruwatana Sodai", "Lotharukpong", , "jaruwatana.lotharukpong@tuebingen.mpg.de", role = "ctb", comment = c(ORCID = "0000-0002-3475-0980")),
+            person("Chloe", "Newton", , "chloenewton2323@gmail.com", role = "ctb", comment = "COAL integration, orthogroups")
             )
 Description: Genome-wide orthology inference and dN/dS estimation between multiple genomes.
 License: GPL-2
@@ -34,7 +35,6 @@ Suggests:
     ape,
     ggplot2,
     scales,
-    benchmarkme,
     tidyr,
     biomartr,
     metablastr,
@@ -42,7 +42,7 @@ Suggests:
     coalr
 Remotes:
     drostlab/metablastr,
-    coalr=Plumat-COAL/COAL/packaging/r/coalr
+    coalr=Plumat-COAL/COAL/packaging/r/coalr@03612da73e41a044e2385acb4ac9d599a8a49e8b
 LinkingTo: Rcpp
 URL: https://drostlab.github.io/orthologr, https://github.com/drostlab/orthologr
 BugReports: https://github.com/drostlab/orthologr/issues

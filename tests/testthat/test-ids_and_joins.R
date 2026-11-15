@@ -349,3 +349,28 @@ test_that("plot functions compute 'scope' when it is missing and reject species 
         p <- suppressWarnings(plot_diverse_homology_thresholds(tbl, species_order = c("s1", "s2")))
         expect_s3_class(p, "ggplot")
 })
+
+test_that("read_gestimator_table(): the fast reader gives fread()'s table (P2 of REVIEW-OL-1)", {
+        ref <- function(f) data.table::fread(file = f, sep = "\t", header = FALSE, quote = "",
+                                             colClasses = c("character", "character", "numeric", "numeric", "numeric"),
+                                             col.names = c("query_id", "subject_id", "dN", "dS", "dNdS"), na.strings = "")
+        cases <- list(
+                c("AT1G01010.1\tAl_scaffold_0001_1\t0.1235\t0.6543\t0.1887"),
+                c("1001\t2001\t0.1\t0.2\t0.5", "007\t1e5\t0\t0.3\t0", "NA\tTRUE\t999\t999\t999", "1.10\tx|y\t0.01\t0\t999"),
+                c("a\tb\t1.5e-05\t-0.25\t3E2"),
+                c("a\tb\t\t0.2\t0.5"),                 # empty number: fread
+                c("a \tb\t0.1\t0.2\t0.5"),             # white space at the end of an ID: fread
+                c("a\tb\t0.1\t0.2"),                   # 4 fields: fread
+                c("a\tb\tnan\t0.2\t0.5"))              # not a plain number: fread
+        set.seed(7)
+        nums <- formatC(signif(runif(200, 0, 3), 4), format = "g", digits = 4)
+        cases <- c(cases, list(paste("q", "s", nums[1:100], nums[101:200], nums[1:100], sep = "\t")))
+        for (k in seq_along(cases)) {
+                f <- tempfile()
+                writeLines(cases[[k]], f)
+                got <- tryCatch(suppressWarnings(read_gestimator_table(f)), error = function(e) "error")
+                exp <- tryCatch(suppressWarnings(ref(f)), error = function(e) "error")
+                expect_identical(got, exp, info = k)
+                unlink(f)
+        }
+})

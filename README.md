@@ -173,32 +173,32 @@ dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'ortho
 ```
 
 ```
-# A tibble: 20 x 24
-   query_id    subject_id           dN    dS   dNdS perc_identity num_ident_matches alig_length
-   <chr>       <chr>             <dbl> <dbl>  <dbl>         <dbl>             <int>       <int>
- 1 AT1G01010.1 333554|PACid:1~ 0.108   0.261 0.414           73.2               347         474
- 2 AT1G01020.1 470181|PACid:1~ 0.0402  0.104 0.388           91.1               224         246
- 3 AT1G01030.1 470180|PACid:1~ 0.0150  0.126 0.118           93.3               335         359
- 4 AT1G01040.1 333551|PACid:1~ 0.0168  0.118 0.142           93.4              1840        1969
- 5 AT1G01050.1 909874|PACid:1~ 0       0.175 0              100                 213         213
- 6 AT1G01060.3 470177|PACid:1~ 0.0442  0.113 0.392           87.5               567         648
- 7 AT1G01070.1 918864|PACid:1~ 0.0183  0.106 0.173           92.6               339         366
- 8 AT1G01080.1 909871|PACid:1~ 0.0340  0.106 0.322           89.3               268         300
- 9 AT1G01090.1 470171|PACid:1~ 0.00984 0.215 0.0458          96.8               420         434
-10 AT1G01110.2 333544|PACid:1~ 0.0325  0.122 0.266           87.7               463         528
-11 AT1G01120.1 918858|PACid:1~ 0.00307 0.133 0.0232          99.2               525         529
-12 AT1G01140.3 470161|PACid:1~ 0.00567 0.131 0.0432          98.5               446         453
-13 AT1G01150.1 918855|PACid:1~ 0.132   0.210 0.628           72.6               207         285
-14 AT1G01160.1 918854|PACid:1~ 0.119   0.240 0.493           78.8               141         179
-15 AT1G01170.2 311317|PACid:1~ 0       0.306 0               85.6                83          97
-16 AT1G01180.1 909860|PACid:1~ 0.0370  0.181 0.204           92.6               287         310
-17 AT1G01190.1 311315|PACid:1~ 0.0287  0.162 0.177           94.2               502         533
-18 AT1G01200.1 470156|PACid:1~ 0.0190  0.168 0.114           95.8               228         238
-19 AT1G01210.1 311313|PACid:1~ 0.0207  0.154 0.134           95.3               102         107
-20 AT1G01220.1 470155|PACid:1~ 0.0152  0.153 0.0992          96.5              1019        1056
-# i 16 more variables: mismatches <int>, gap_openings <int>, n_gaps <int>, pos_match <int>,
-#   ppos <dbl>, q_start <int>, q_end <int>, q_len <int>, qcov <dbl>, qcovhsp <dbl>,
-#   s_start <int>, s_end <int>, s_len <int>, evalue <dbl>, bit_score <dbl>, score_raw <dbl>
+# A tibble: 20 x 25
+   query_id   subject_id      dN    dS   dNdS perc_identity num_ident_matches alig_length mismatches
+   <chr>      <chr>        <dbl> <dbl>  <dbl>         <dbl>             <int>       <int>      <int>
+ 1 AT1G01010~ 333554|PA~ 0.108   0.263 0.410           73.2               347         474         75
+ 2 AT1G01020~ 470181|PA~ 0.0402  0.104 0.388           91.1               224         246         22
+ 3 AT1G01030~ 470180|PA~ 0.0150  0.126 0.118           93.3               335         359         20
+ 4 AT1G01040~ 333551|PA~ 0.0167  0.119 0.140           93.4              1840        1969         58
+ 5 AT1G01050~ 909874|PA~ 0       0.175 0              100                 213         213          0
+ 6 AT1G01060~ 470177|PA~ 0.0441  0.114 0.389           87.5               567         648         71
+ 7 AT1G01070~ 918864|PA~ 0.0183  0.106 0.173           92.6               339         366         23
+ 8 AT1G01080~ 909871|PA~ 0.0340  0.106 0.322           89.3               268         300         25
+ 9 AT1G01090~ 470171|PA~ 0.00984 0.215 0.0458          96.8               420         434          8
+10 AT1G01110~ 333544|PA~ 0.0321  0.123 0.262           87.7               463         528         65
+11 AT1G01120~ 918858|PA~ 0.00307 0.133 0.0232          99.2               525         529          4
+12 AT1G01140~ 470161|PA~ 0.00567 0.131 0.0432          98.5               446         453          6
+13 AT1G01150~ 918855|PA~ 0.131   0.216 0.608           72.6               207         285         68
+14 AT1G01160~ 918854|PA~ 0.118   0.244 0.484           78.8               141         179         30
+15 AT1G01170~ 311317|PA~ 0       0.306 0               85.6                83          97          0
+16 AT1G01180~ 909860|PA~ 0.0363  0.185 0.197           92.6               287         310         20
+17 AT1G01190~ 311315|PA~ 0.0286  0.162 0.176           94.2               502         533         30
+18 AT1G01200~ 470156|PA~ 0.0190  0.168 0.114           95.8               228         238         10
+19 AT1G01210~ 311313|PA~ 0.0207  0.154 0.134           95.3               102         107          5
+20 AT1G01220~ 470155|PA~ 0.0151  0.154 0.0985          96.5              1019        1056         37
+# i 16 more variables: gap_openings <int>, n_gaps <int>, pos_match <int>, ppos <dbl>,
+#   q_start <int>, q_end <int>, q_len <int>, qcov <dbl>, qcovhsp <dbl>, s_start <int>, s_end <int>,
+#   s_len <int>, evalue <dbl>, bit_score <dbl>, score_raw <dbl>, status <chr>
 ```
 
 A faster way to the same kind of table uses [COAL](https://github.com/Plumat-COAL/COAL) for the alignment,

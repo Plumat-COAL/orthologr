@@ -25,12 +25,10 @@ dependencies:
   - r-readr
   - r-rlang
   - r-seqinr
-  - r-stringr
   - r-tibble
   # R packages: Suggests
   - bioconductor-rtracklayer
   - r-ape
-  - r-benchmarkme
   - r-ggplot2
   - r-scales
   - r-tidyr

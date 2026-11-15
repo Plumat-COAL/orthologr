@@ -200,3 +200,26 @@ test_that("the sequence checks with PCRE on bytes answer as the default regular 
         dna <- x[!is.na(x) & nchar(x) %% 3 == 0 & nchar(x) > 0 & !grepl("[\n ()|ü]", x)]
         expect_identical(translate_cds(dna), vapply(dna, function(s) translate_cds(s), "", USE.NAMES = FALSE))
 })
+
+test_that("the COAL codon step in memory writes no per-pair FASTA files, unless the folder is kept (P1 of REVIEW-OL-1)", {
+        skip_if_not_installed("coalr")
+        tbl <- example_pair_table(8)
+        run <- function(keep) {
+                td <- new_test_dir("p1_")
+                old <- options(orthologr.tmpdir = td, orthologr.keep_tmp = keep)
+                on.exit(options(old), add = TRUE)
+                r <- suppressWarnings(compute_dnds(data.table::copy(tbl), aa_aln_type = "pairwise", aa_aln_tool = "NW",
+                                                   codon_aln_tool = "coal", dnds_est.method = "Comeron", quiet = TRUE))
+                list(r = r, files = list.files(td, recursive = TRUE))
+        }
+        a <- run(FALSE)
+        b <- run(TRUE)
+        expect_identical(a$r, b$r)
+        expect_false(any(grepl("orthologs/(CDS|AA)/|pairwise_aln/", a$files)))
+        expect_true(any(grepl("orthologs/CDS/q1_cds.fasta", b$files, fixed = TRUE)))
+        expect_true(any(grepl("pairwise_aln/q1_NW_AA.aln", b$files, fixed = TRUE)))
+        # the table is that of the per-pair code (alignments and codon alignments through the files)
+        x <- both_ways(tbl, codon_aln_tool = "coal", dnds_est.method = "Comeron")
+        expect_identical(x$new, x$old)
+        expect_identical(a$r, x$new)
+})

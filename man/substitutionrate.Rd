@@ -47,11 +47,10 @@ KaKs_Calculator 2.0's values for the same alignment and runs inside R when the p
 see \code{\link{codon_aln}} for how to install COAL). With \code{"coal"} a dN or dS of exactly 0 is returned as
 0 (KaKs_Calculator prints \code{NA} for values below 1e-6) and a saturated estimate is \code{NA}.
 The methods \code{"MA"}, \code{"MS"}, \code{"GY"}, \code{"GMYN"} and \code{"ALL"} need KaKs_Calculator.
-With a COAL that computes them (\pkg{coalr} >= 0.5.0 listing them in \code{coalr::coal_info()$methods}),
-\code{kaks_tool = "coal"} also computes \code{est.method = "Comeron"} and \code{"Li"}: COAL's ports of gestimator
-and of \code{seqinr::kaks()}, with the saturation rule of this page, rounded to the 4 significant digits
-gestimator writes (Comeron) - the same table as the built-in code gives for the alignment. With an older COAL
-these two methods are computed by the built-in code.}
+\code{est.method = "Comeron"} and \code{"Li"} are always computed by \pkg{orthologr}'s own code (gestimator,
+\code{seqinr::kaks()}), whatever \code{kaks_tool} is: \code{kaks_tool} only chooses the program for the
+KaKs_Calculator methods. (COAL's ports of the two methods, which \code{dNdS(engine = "coal")} uses, give the same
+table for the same alignment.)}
 }
 \value{
 A data.table storing the query_id, subject_id, dN, dS, and dNdS values or 
@@ -132,6 +131,10 @@ for typical genes); for LWL, MLWL, LPB and MLPB 0 substitutions for a class of s
 defined (an underestimate). Since 0.5.0 these estimates are \code{NA} (and \code{dNdS} with them; status
 \code{"saturated"}), as with the COAL engine; they are recognised in the columns KaKs_Calculator prints (sites
 and differences by class), so the other values are unchanged. The methods GY, MA, MS and GMYN are not checked.
+(GMYN: KaKs_Calculator 2.0 decides whether it writes the header line of its output with memory it never
+initialises, so the line can be missing; orthologr then supplies it, so the values read do not depend on it.
+Since 0.6.0 GMYN is computed in chunks as the other methods; a run that came back without GMYN values for many
+pairs with an earlier version had lost these header lines.)
 Up to 0.4.3 such a value was returned as an estimate: e.g. dS = 99, which makes dN/dS look like strong
 purifying selection, put the pair into the most conserved stratum of \code{\link{divergence_map}} and passed
 \code{\link{filter_dNdS}}. \code{options(orthologr.legacy_kaks_saturation = TRUE)} restores the old values.

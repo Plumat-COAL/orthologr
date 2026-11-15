@@ -134,6 +134,12 @@ compute_dnds <- function(complete_tbl,
                 
                 aa_aln_name <- paste0("q", i)
                 
+                # (P1 of REVIEW-OL-1) the codon alignment is built from the rows in memory (pair_codon(), same
+                # condition): the two FASTA files and the protein alignment file would never be read, so they are
+                # not written - unless the folder of the call is kept (options(orthologr.keep_tmp))
+                if (skip_pair_files && !is.null(aln_rows) && plain_seqs(c(q_cds[i], s_cds[i])))
+                        return(list(name = aa_aln_name, cds = NA_character_, aa = NA_character_))
+                
                 # create cds fasta of orthologous gene pair having session name: 'aa_aln_name'
                 cds_session_fasta <-
                         file.path(
@@ -315,6 +321,7 @@ compute_dnds <- function(complete_tbl,
         # rows in memory (coal_codon_rows(), what codon_aln() does after reading the two files back).
         codon_in_memory <- batch_aln && identical(codon_aln_tool, "coal") &&
                 isTRUE(tryCatch(identical(coal_backend()$type, "coalr"), error = function(e) FALSE))
+        skip_pair_files <- codon_in_memory && !isTRUE(keep_tmp_setting()$keep)
         if (codon_in_memory) {
                 d <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln")
                 if (!file.exists(d))
@@ -328,12 +335,11 @@ compute_dnds <- function(complete_tbl,
         batch_tools <- isTRUE(getOption("orthologr.batch_tools", TRUE)) &&
                 !isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))
         batch_p2n <- batch_tools && identical(codon_aln_tool, "pal2nal") && pal2nal_batch_possible()
-        # (not GMYN: KaKs_Calculator 2.0 decides whether the header line is written for the gamma methods alone
-        # with a member that is never initialised, 'tempt', and counts it per process - with one record per process
-        # the output is what that memory holds, with several records it is not the same; on a CI runner most pairs
-        # came back without a result per pair and different ones in a batch)
+        # (GMYN too: KaKs_Calculator 2.0 decides whether the header line is written for the gamma methods with a
+        # member that is never initialised, 'tempt'; kaks_output_lines() supplies a missing header and drops repeated
+        # ones, for one pair and for a chunk alike)
         batch_kc <- batch_tools && identical(kaks_tool, "kaks_calculator") &&
-                is.element(dnds_est.method, setdiff(kaks_calculator_methods(), c("kaks_calc", "GMYN")))
+                is.element(dnds_est.method, setdiff(kaks_calculator_methods(), "kaks_calc"))
         
         # the gene pairs 'idx' (a chunk): a list with the result table of each pair
         run_pairs <- function(idx) {

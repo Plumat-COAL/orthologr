@@ -175,8 +175,9 @@ reproduce dN/dS values computed with earlier versions.}
 \item{kaks_tool}{the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
 \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
 program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).
-With a COAL that computes them, \code{kaks_tool = "coal"} also computes \code{"Comeron"} and \code{"Li"} (same
-values as the built-in code for the same codon alignment).}
+\code{"Comeron"} and \code{"Li"} are computed by \pkg{orthologr}'s own code with either value (\code{kaks_tool}
+does not change them); \code{engine = "coal"} computes them with COAL's ports, which give the same values for the
+same codon alignment.}
 
 \item{engine}{\code{"orthologr"} (Default): each gene pair is processed on its own (protein alignment, codon alignment and
 dN/dS estimation with the tools chosen above, with intermediate files per pair). \code{"coal"}: the batched fast path
@@ -244,7 +245,11 @@ the files: 0 to 1 sequence in each of eight RefSeq sets of yeasts and bacteria a
 whose start is not annotated (\code{cds_start_NF}). Sequences whose length is not a multiple of 3 (97 of 2,048
 and 934 of 7,728 in the same files) are trimmed by default (\code{delete_corrupt_cds = FALSE}); they are listed in
 \code{attr(result, "trimmed_sequences")} (\code{file}, \code{id}, \code{removed_nt}, \code{corrupted_file}: the
-sequences as read) and counted in the summary message.
+sequences as read) and counted in the summary message. Coding sequences with in-frame stop codons before their last
+codon are used as they are (how such a codon is treated is up to the alignment and estimation programs; COAL does
+not compare it) and listed in
+\code{attr(result, "stop_codon_sequences")} (\code{file}, \code{id}, \code{stop_codons}: their number), with a
+line in the summary message (also with \code{engine = "coal"}).
 }
 \description{
 This function takes the CDS files of two organisms of interest (query_file and subject_file)
@@ -260,15 +265,16 @@ The \pkg{orthologr} package provides the \code{\link{dNdS}} function to perform 
 This function takes the CDS files of two organisms of interest (\code{query_file} and \code{subject_file}) 
 and computes the dNdS estimation values for orthologous gene pairs between these organisms.
 
-The following pipieline resembles the dNdS estimation process:
+The following pipeline resembles the dNdS estimation process:
 
 \itemize{
                 
 \item 1) Orthology Inference: e.g. DIAMOND or BLAST reciprocal best hit (RBH)
 
-\item 2) Pairwise sequence alignment: e.g. clustalw for pairwise amino acid sequence alignments
+\item 2) Protein alignment of each gene pair: Needleman-Wunsch (\code{aa_aln_tool = "NW"}, the default, with
+\code{aa_aln_type = "pairwise"}) or a multiple alignment program (\code{aa_aln_type = "multiple"})
 
-\item 3) Codon Alignment: e.g. pal2nal program
+\item 3) Codon Alignment: COAL or PAL2NAL (\code{codon_aln_tool})
 
 \item 4) dNdS estimation: e.g. Yang, Z. and Nielsen, R. (2000) \url{http://mbe.oxfordjournals.org/content/17/1/32.short}
 
@@ -285,7 +291,6 @@ The \code{dNdS()} function can be used choosing the folllowing options:
    \itemize{  
    \item \code{"RBH"} (DIAMOND or BLAST best reciprocal hit)
    \item \code{"BH"} (DIAMOND or BLAST best hit)
-   \item \code{"Orthofinder2"}
      }
      
 \item \code{aa_aln_type} : 
@@ -296,12 +301,9 @@ The \code{dNdS()} function can be used choosing the folllowing options:
 
 \item \code{aa_aln_tool} :
 \itemize{
- \item \code{"clustalw"}
- \item \code{"t_coffee"}
- \item \code{"muscle"}
- \item \code{"clustalo"}
- \item \code{"mafft"}
- \item \code{"NW"} (in case \code{aa_aln_type = "pairwise"})
+ \item \code{"NW"} (with \code{aa_aln_type = "pairwise"})
+ \item \code{"clustalw"}, \code{"t_coffee"}, \code{"muscle"}, \code{"clustalo"}, \code{"mafft"} (with
+ \code{aa_aln_type = "multiple"})
 }
 
 \item \code{codon_aln_tool} :
@@ -319,7 +321,7 @@ The \code{dNdS()} function can be used choosing the folllowing options:
 \item "MLWL" (Modified LWL), MLPB (Modified LPB): Tzeng, Y.H., et al. (2004)
 \item "YN": Yang, Z. and Nielsen, R. (2000)
 \item "MYN" (Modified YN): Zhang, Z., et al. (2006)
-
+\item "GY", "GMYN", "MS", "MA" and "ALL" (KaKs_Calculator only; see the argument \code{dnds_est.method})
 }
 
 }

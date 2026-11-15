@@ -55,8 +55,17 @@ test_that("coal_flavour_args() asks for orthologr's numbers and only passes what
         expect_identical(coal_flavour_args(f_new)$terminal_stops, "compare")
 })
 
-test_that("substitutionrate(kaks_tool = \"coal\") returns the table of the built-in Comeron and Li code", {
+# COAL's ports of Comeron and Li (as engine = "coal" calls them) on the two sequences of a codon alignment file,
+# with orthologr's rules applied
+coal_port <- function(file, method) {
+        s <- read_fasta_strings(file)
+        k <- do.call(coalr::coal_kaks, c(list(s[[1]], s[[2]], method = method), coal_flavour_args(coalr::coal_kaks, method)))
+        unlist(coal_orthologr_values(k)[1, c("dN", "dS", "dNdS")])
+}
+
+test_that("COAL's Comeron and Li give the table of the built-in code; kaks_tool = \"coal\" does not change them", {
         skip_if_not(native_in_coal, "coalr with Comeron and Li is not installed")
+        skip_if_not(is.element("comeron_min_sites_positive", coal_features()), "coalr predates COAL #76")
         d <- new_test_dir("coal_native_")
         files <- c(
                 pal2nal = system.file("seqs/pal2nal.aln", package = "orthologr"),
@@ -70,27 +79,36 @@ test_that("substitutionrate(kaks_tool = \"coal\") returns the table of the built
         writeLines(c(">a", "ACGCCAAAACTCGTTCTGTGGAAAAGACTAACACATGTCAATTGGCAGACCAGCACCTCCTTTCAGTTACAGGCGGCTTTAGTTCAAAGG",
                      ">b", "ACGCCAAAACTCGTTCTGCGGAAAACACAAACACATGTCAAGTGGCAGACCAGCACCTCCTTTCCGTTACAGGCGGCATATGTTCAAAGG"), files[["short"]])
         writeLines(c(">a", "GGTGCCCTAAACGTCGAAAAAGAGTGCGGA", ">b", "AAAGCCCTAAATGGGGTCCTAGTGTGCTCA"), files[["nosites"]])
+        # (M2 of REVIEW-OL-1) substitutionrate() computes Comeron and Li itself whatever kaks_tool is: COAL is not
+        # called for them
+        local_mocked_bindings(coal_kaks_file = function(...) stop("COAL called"), .package = "orthologr")
         for (legacy in c(FALSE, TRUE)) {
                 old <- options(orthologr.legacy_comeron_saturation = legacy)
                 for (n in names(files)) for (m in c("Comeron", "Li")) {
                         native <- tryCatch(substitutionrate(files[[n]], est.method = m, quiet = TRUE), error = function(e) NULL)
                         if (is.null(native)) next
-                        coal <- substitutionrate(files[[n]], est.method = m, quiet = TRUE, kaks_tool = "coal")
-                        expect_identical(names(coal), names(native), info = paste(n, m, legacy))
-                        expect_equal(as.data.frame(coal), as.data.frame(native), tolerance = 1e-12, info = paste(n, m, legacy))
+                        expect_identical(substitutionrate(files[[n]], est.method = m, quiet = TRUE, kaks_tool = "coal"), native,
+                                         info = paste(n, m, legacy))
+                        expect_equal(coal_port(files[[n]], m), unlist(as.data.frame(native)[1, c("dN", "dS", "dNdS")]),
+                                     tolerance = 1e-12, info = paste(n, m, legacy))
                 }
                 options(old)
         }
         # the NA pattern of the saturation rule alone (libsequence's two-position branches, no minimum class size:
-        # the values pinned before the decisions D8 / D9 of 2026-11-14)
+        # the values pinned before the decisions D8 / D9 of 2026-11-14), for both
         old <- options(orthologr.comeron_twosubs = "libsequence", orthologr.comeron_min_sites = 0)
         on.exit(options(old), add = TRUE)
-        expect_true(is.na(substitutionrate(files[["tiny"]], est.method = "Comeron", quiet = TRUE, kaks_tool = "coal")$dS))
-        expect_true(is.na(substitutionrate(files[["short"]], est.method = "Comeron", quiet = TRUE, kaks_tool = "coal")$dN))
-        expect_equal(substitutionrate(files[["nosites"]], est.method = "Comeron", quiet = TRUE, kaks_tool = "coal")$dN, 0.6615)
+        for (f in list(function(x) substitutionrate(x, est.method = "Comeron", quiet = TRUE)[1, c("dN", "dS", "dNdS")],
+                       function(x) as.list(coal_port(x, "Comeron")))) {
+                expect_true(is.na(f(files[["tiny"]])$dS))
+                expect_true(is.na(f(files[["short"]])$dN))
+                expect_equal(f(files[["nosites"]])$dN, 0.6615)
+        }
 })
 
-test_that("dNdS() with COAL's tools on its own alignments equals the built-in Comeron and Li for every pair", {
+# (codon_aln_tool = "coal" builds the codon alignments; Comeron and Li are computed by the built-in code with
+# either kaks_tool, so the first comparison checks that kaks_tool = "coal" does not change them)
+test_that("dNdS() with COAL's codon alignments and kaks_tool = \"coal\" equals the built-in Comeron and Li; engine = \"coal\" agrees", {
         skip_on_cran()
         skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
         skip_if_not(native_in_coal, "coalr with Comeron and Li is not installed")

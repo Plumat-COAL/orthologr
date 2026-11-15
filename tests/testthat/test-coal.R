@@ -167,9 +167,13 @@ test_that("substitutionrate(kaks_tool = \"coal\") computes the KaKs_Calculator m
                                 }
                         }
                 }
-                # Comeron and Li are not affected by kaks_tool
-                expect_equal(substitutionrate(f, est.method = "Comeron", quiet = TRUE, subst_name = "t", kaks_tool = "coal")$dN,
-                             substitutionrate(f, est.method = "Comeron", quiet = TRUE, subst_name = "t")$dN)
+                # Comeron and Li are not affected by kaks_tool: orthologr's own code computes them, COAL is not called
+                local({
+                        local_mocked_bindings(coal_kaks_file = function(...) stop("COAL called"), .package = "orthologr")
+                        for (m in c("Comeron", "Li"))
+                                expect_identical(substitutionrate(f, est.method = m, quiet = TRUE, subst_name = "t", kaks_tool = "coal"),
+                                                 substitutionrate(f, est.method = m, quiet = TRUE, subst_name = "t"))
+                })
                 expect_error(substitutionrate(f, est.method = "GY", quiet = TRUE, kaks_tool = "coal"), "kaks_calculator")
                 # sequences that are not a codon alignment: an error naming the pair
                 bad <- write_fasta(c("ATGAAAACCG", "ATGAAGACCGCC"), c("x", "y"))
@@ -263,6 +267,10 @@ test_that("dNdS(engine = \"coal\") returns the table of dNdS(), computed in one 
         two <- run_dNdS(dnds_est.method = c("YN", "NG"), engine = "coal")
         expect_equal(nrow(two), 2 * nrow(res))
         expect_equal(two$dN[two$method == "YN"], res$dN)
+        # (L1 of REVIEW-OL-1) engine = "coal" ignores kaks_tool: kaks_tool = "coal" with several methods is not an
+        # error of R ("the condition has length > 1")
+        cols <- function(x) lapply(as.data.frame(x), identity)
+        expect_identical(cols(run_dNdS(dnds_est.method = c("YN", "NG"), engine = "coal", kaks_tool = "coal")), cols(two))
         # best hits instead of reciprocal best hits, and needle's scoring through dNdS_coal()
         bh <- suppressMessages(dNdS_coal(query_file = query_cds, subject_file = subject_cds, ortho_detection = "BH",
                                          aa_aln_scoring = "needle", print_citation = FALSE))
@@ -405,5 +413,8 @@ test_that("the record of a run names the COAL backend that was used", {
                 v <- coal_versions()
                 expect_identical(v$coal_backend, b)
                 expect_true(if (b == "coalr") nzchar(v$coalr) else nzchar(v$`coal-cpp`))
+                # the version of COAL's engine inside coalr (coal_info()$coal_version; was never recorded)
+                if (b == "coalr")
+                        expect_identical(v$coal, as.character(coalr::coal_info()$coal_version))
         })
 })
