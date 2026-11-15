@@ -269,8 +269,8 @@ test_that("dNdS(engine = \"coal\") returns the table of dNdS(), computed in one 
         expect_equal(two$dN[two$method == "YN"], res$dN)
         # (L1 of REVIEW-OL-1) engine = "coal" ignores kaks_tool: kaks_tool = "coal" with several methods is not an
         # error of R ("the condition has length > 1")
-        expect_identical(as.list(as.data.frame(run_dNdS(dnds_est.method = c("YN", "NG"), engine = "coal", kaks_tool = "coal"))),
-                         as.list(as.data.frame(two)))
+        cols <- function(x) lapply(as.data.frame(x), identity)
+        expect_identical(cols(run_dNdS(dnds_est.method = c("YN", "NG"), engine = "coal", kaks_tool = "coal")), cols(two))
         # best hits instead of reciprocal best hits, and needle's scoring through dNdS_coal()
         bh <- suppressMessages(dNdS_coal(query_file = query_cds, subject_file = subject_cds, ortho_detection = "BH",
                                          aa_aln_scoring = "needle", print_citation = FALSE))
