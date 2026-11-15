@@ -33,6 +33,7 @@ version 2 of the License, or any later version.
 #include <fstream>
 #include <utility>      // std::pair, std::make_pair
 #include <string>       // std::string
+#include <sstream>
 #include <iostream>     // std::cout
 
 
@@ -261,3 +262,33 @@ void gestimator(std::string file, std::string file_out = "", int maxHits = 3,
            
            out_stream.close();
 } // end fun
+
+// Comeron's method for gene pairs handed over as strings (no files): the aligned sequences seq1[k] and seq2[k] of
+// pair k, which must be a codon alignment (the same length, a multiple of 3 and at least 3; checked in R before).
+// Returns for every pair the fields 3 - 5 of the line gestimator() writes for it ("dN\tdS\tratio", with the same
+// stream settings, so that the numbers read from them are those of the file), or NA for a pair that is not a codon
+// alignment. (No gaps are removed: remove_all_gaps = FALSE, as compute_dnds() calls gestimator().)
+// [[Rcpp::export]]
+Rcpp::CharacterVector gestimator_pairs(std::vector<std::string> seq1, std::vector<std::string> seq2,
+                                       int maxHits = 3, bool legacy_saturation = false,
+                                       bool twosubs_libsequence = false, double min_sites = 3.0) {
+   if (maxHits < 1 || maxHits > 3)
+            Rcpp::stop("maxHits must be 1, 2 or 3.");
+   if (seq1.size() != seq2.size())
+            Rcpp::stop("seq1 and seq2 must have the same length.");
+   static const RedundancyCom95 code_degeneracy;
+   Rcpp::CharacterVector res(seq1.size());
+   for (size_t k = 0; k < seq1.size(); k++) {
+           if (seq1[k].length() != seq2[k].length() || seq1[k].length() < 3 || seq1[k].length() % 3 != 0) {
+                   res[k] = NA_STRING;
+                   continue;
+           }
+           pair<string,string> a("query", seq1[k]), b("subject", seq2[k]);
+           Comeron95 comeron(&a, &b, maxHits, &code_degeneracy, legacy_saturation, twosubs_libsequence, min_sites);
+           std::ostringstream out;
+           out.precision(4);
+           out << comeron.dn() << '\t' << comeron.ds() << '\t' << comeron.ratio();
+           res[k] = out.str();
+   }
+   return res;
+}

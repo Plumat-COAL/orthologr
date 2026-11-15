@@ -150,7 +150,7 @@ cds2aa <- function(dt, delete_corrupt_cds = TRUE){
         
         # inside a dNdS() / dNdS_coal() call: the sequences with in-frame stop codons before the last codon (L6)
         if (!is.null(.orthologr_state$stops) && nrow(dt) > 0)
-                stop_codon_record(dt[ , geneids], dt[ , aa], .orthologr_state$current_file)
+                stop_codon_record(dt[ , geneids], dt[ , aa], .orthologr_state$current_file, cds = dt[ , seqs])
         
         return(dt)
 }
@@ -261,11 +261,16 @@ ambiguous_table <- function() {
 
 # Collect the coding sequences with in-frame stop codons before their last codon while a dNdS() call runs (L6 of
 # REVIEW-OL-1): their IDs and the number of such codons, counted in the translation ('*' before the last residue).
-# Nothing is changed: the sequences are used as before (COAL and PAL2NAL do not compare the codon; see ?dNdS).
-stop_codon_record <- function(ids, aa, file) {
+# A stop codon written with an ambiguity code - TAR (TAA / TAG) or TRA (TAA / TGA), every reading of which is a stop
+# codon - is translated to X (options(orthologr.ambiguous_cds = "keep")) and is counted from the coding sequence
+# 'cds' (when given). Nothing is changed: the sequences are used as before (COAL and PAL2NAL do not compare the
+# codon; see ?dNdS).
+stop_codon_record <- function(ids, aa, file, cds = NULL) {
         aa <- as.character(aa)
         inner <- substr(aa, 1L, pmax(nchar(aa) - 1L, 0L))
         n <- nchar(inner) - nchar(gsub("*", "", inner, fixed = TRUE))
+        if (!is.null(cds))
+                n <- n + ambiguous_stop_codons(cds)
         has <- !is.na(n) & n > 0
         if (!any(has))
                 return(invisible(NULL))
@@ -276,6 +281,22 @@ stop_codon_record <- function(ids, aa, file) {
                 stringsAsFactors = FALSE
         )
         invisible(NULL)
+}
+
+# The number of codons before the last codon of each coding sequence that are stop codons written with an ambiguity
+# code (TAR, TRA; any case) in the standard genetic code. Codons are read from the first base.
+ambiguous_stop_codons <- function(cds) {
+        cds <- as.character(cds)
+        n <- integer(length(cds))
+        has <- !is.na(cds) & grepl("[Rr]", cds, perl = TRUE, useBytes = TRUE)
+        for (i in which(has)) {
+                len <- nchar(cds[i]) %/% 3L
+                if (len < 2L)
+                        next
+                cod <- toupper(substring(cds[i], seq(1L, by = 3L, length.out = len - 1L), seq(3L, by = 3L, length.out = len - 1L)))
+                n[i] <- sum(cod == "TAR" | cod == "TRA")
+        }
+        n
 }
 
 # The table of the sequences with in-frame stop codons so far in this call (file, id, stop_codons), or NULL.

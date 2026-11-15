@@ -37,7 +37,7 @@
 #' The dNdS estimation methods available in this function are:
 #' 
 #' \itemize{
-#' \item "Li" : Li's method (1993) -> provided by the ape package
+#' \item "Li" : Li's method (1993) -> provided by the seqinr package (\code{seqinr::kaks()})
 #' 
 #' \item "Comeron" : Comeron's method (1995)
 #' }
@@ -129,8 +129,11 @@
 #' \item \code{dN = 0} and \code{dS = 0} (\code{dNdS = NA}, status \code{"dS_zero"}) when no nucleotide differs
 #' (column "Substitutions" of KaKs_Calculator 0);
 #' \item \code{dS = 0} (\code{dNdS = NA}, status \code{"dS_zero"}) when Ks is \code{NA}, Ka is a number and no
-#' difference is synonymous (methods NG, YN, MYN: "S-Substitutions"; LWL, MLWL, LPB, MLPB: no transition at
-#' 2-fold and no difference at 4-fold sites).
+#' difference is synonymous (methods NG, YN, MYN, GMYN: "S-Substitutions"; LWL, MLWL, LPB, MLPB: no transition at
+#' 2-fold and no difference at 4-fold sites);
+#' \item \code{dN = 0} (and \code{dNdS = 0} when dS is a positive number) when Ka is \code{NA} and no difference is
+#' nonsynonymous (NG, YN, MYN, GMYN: "N-Substitutions"; LWL family: no difference at 0-fold and no transversion at
+#' 2-fold sites). (GMYN: since 0.6.0 exactly 0; it was Ka/Ks * Ks, a rounding residue of about 1e-15.)
 #' }
 #' These are the values and the status the COAL engine (\code{kaks_tool = "coal"}, \code{engine = "coal"}) gives
 #' for the same pairs. When Ka/Ks is \code{NA} for another reason (a model that failed) the values stay \code{NA}.
@@ -267,63 +270,10 @@ substitutionrate <- function(file,
         
         
         if (est.method == "Comeron") {
-                # gestimator writes its table to a file that only this call uses and that is removed afterwards
-                file.out <- tempfile(
-                        paste0(if (is.null(subst_name)) "" else paste0(subst_name, "_"), "gestimout_"),
-                        tmpdir = file.path(orthologr_tmpdir(), "_calculation")
-                )
-                on.exit(unlink(file.out), add = TRUE)
-                
                 # file in fasta required
                 if (format != "fasta")
                         stop("To use gestimator an alignment file in fasta format is required.")
-                
-                # the options are checked here, so that a wrong value is an error of its own (not a failed pair)
-                twosubs_libsequence <- identical(comeron_twosubs(), "libsequence")
-                min_sites <- comeron_min_sites()
-                
-                tryCatch({
-                        # To use gestimator a file in fasta format is required
-                        
-                        # include this line instead of the following, to use internal gestimator
-                        # the alignment is checked here as well as in the C++ code: at least two sequences of the
-                        # same length, which is a multiple of 3 and not 0
-                        check_codon_alignment_file(file)
-                        gestimator(file     = file,
-                                   file_out = file.out,
-                                   legacy_saturation = comeron_legacy_saturation(),
-                                   twosubs_libsequence = twosubs_libsequence,
-                                   min_sites = min_sites)
-                        
-                        #system(paste0("gestimator -i ",file," -o ",file.out))
-                        
-                        # The columns are read as what they are: without colClasses fread() guesses the types,
-                        # and IDs that look like numbers ("1001", "007", "1e5", "1.10") or like logical values
-                        # ("TRUE", "NA") came back as another ID or as NA.
-                        hit.table <- read_gestimator_table(file.out)
-                        
-                        data.table::setkey(hit.table, query_id)
-                        
-                        # for consistent output format we set the default value of gestimator 999
-                        # to NA for output
-                        # Therefor the user cannot make a mistake if using the dNdS results without
-                        # filtering for some value.
-                        # (data.table::set() with the rows: three ':=' sub-assignments took about 3 ms per gene pair)
-                        for (col in c("dS", "dN", "dNdS"))
-                                data.table::set(hit.table, i = which(hit.table[[col]] == 999), j = col, value = NA_real_)
-                        
-                        if (!quiet) {
-                                message("Substitutionrate successfully calculated by gestimator.")
-                        }
-                        
-                        return(hit.table)
-                }, error = function(e) {
-                        stop(
-                                "dN/dS estimation with Comeron's method (gestimator) failed for ",
-                                pair_context(file, subst_name), ": ", conditionMessage(e),
-                                call. = FALSE
-                        )
-                })
+                return(comeron_rates(file, subst_name = subst_name, quiet = quiet))
         }
         
         if (est.method == "Li") {
@@ -427,6 +377,78 @@ substitutionrate <- function(file,
         orthologr_abort(class = "bad_argument", "est.method = \"", est.method, "\" is not handled by substitutionrate().", call. = FALSE)
 }
 
+# Comeron's method (gestimator) for the codon alignment in 'file' (FASTA): the table of substitutionrate()
+# (query_id, subject_id, dN, dS, dNdS; key query_id), or with values = TRUE its values as a "dnds_values" record
+# (dnds_values(); compute_dnds() makes one table of the records of a chunk of gene pairs instead of a table per pair).
+comeron_rates <- function(file, subst_name = NULL, quiet = TRUE, values = FALSE) {
+        query_id <- NULL
+        if (!file.exists(file.path(orthologr_tmpdir(), "_calculation")))
+                dir.create(file.path(orthologr_tmpdir(), "_calculation"), recursive = TRUE)
+        # gestimator writes its table to a file that only this call uses and that is removed afterwards
+        file.out <- tempfile(
+                paste0(if (is.null(subst_name)) "" else paste0(subst_name, "_"), "gestimout_"),
+                tmpdir = file.path(orthologr_tmpdir(), "_calculation")
+        )
+        on.exit(unlink(file.out), add = TRUE)
+        
+        # the options are checked here, so that a wrong value is an error of its own (not a failed pair)
+        twosubs_libsequence <- identical(comeron_twosubs(), "libsequence")
+        min_sites <- comeron_min_sites()
+        
+        tryCatch({
+                # the alignment is checked here as well as in the C++ code: at least two sequences of the
+                # same length, which is a multiple of 3 and not 0
+                check_codon_alignment_file(file)
+                gestimator(file     = file,
+                           file_out = file.out,
+                           legacy_saturation = comeron_legacy_saturation(),
+                           twosubs_libsequence = twosubs_libsequence,
+                           min_sites = min_sites)
+                
+                # The columns are read as what they are: without colClasses fread() guesses the types,
+                # and IDs that look like numbers ("1001", "007", "1e5", "1.10") or like logical values
+                # ("TRUE", "NA") came back as another ID or as NA.
+                if (values) {
+                        # (one line: the table of a pair, which setkey() below leaves in its order)
+                        v <- read_gestimator_values(readLines(file.out, warn = FALSE))
+                        if (!is.null(v) && length(v$dN) == 1)
+                                return(comeron_values(v))
+                }
+                hit.table <- read_gestimator_table(file.out)
+                
+                data.table::setkey(hit.table, query_id)
+                
+                # for consistent output format we set the default value of gestimator 999
+                # to NA for output
+                # Therefor the user cannot make a mistake if using the dNdS results without
+                # filtering for some value.
+                # (data.table::set() with the rows: three ':=' sub-assignments took about 3 ms per gene pair)
+                for (col in c("dS", "dN", "dNdS"))
+                        data.table::set(hit.table, i = which(hit.table[[col]] == 999), j = col, value = NA_real_)
+                
+                if (!quiet) {
+                        message("Substitutionrate successfully calculated by gestimator.")
+                }
+                
+                if (values)
+                        return(comeron_values(hit.table))
+                return(hit.table)
+        }, error = function(e) {
+                stop(
+                        "dN/dS estimation with Comeron's method (gestimator) failed for ",
+                        pair_context(file, subst_name), ": ", conditionMessage(e),
+                        call. = FALSE
+                )
+        })
+}
+
+# The "dnds_values" record of the gestimator table 'v' (list or data.table with dN, dS, dNdS): gestimator's 999
+# is NA, as in comeron_rates().
+comeron_values <- function(v) {
+        na999 <- function(x) { x[which(x == 999)] <- NA_real_; x }
+        dnds_values(dN = na999(v$dN), dS = na999(v$dS), dNdS = na999(v$dNdS))
+}
+
 # options(orthologr.legacy_comeron_saturation = TRUE): Comeron's method as up to 0.4.3, where an undefined
 # logarithm of the correction (saturation) was replaced by 0 and a finite dS or dN was returned.
 comeron_legacy_saturation <- function() {
@@ -481,24 +503,17 @@ check_codon_alignment_file <- function(file) {
 
 # The table gestimator writes (tab-separated, no header: query id, subject id, dN, dS, dN/dS), with the IDs read
 # as character whatever they look like.
+# read_gestimator_values() reads the lines where that is possible (see below; NULL otherwise).
 # (P2 of REVIEW-OL-1) The table of one gene pair is a single line: it is split with strsplit() and the numbers are
 # converted with as.numeric(), which is much faster than starting fread() for it. Only where fread() reads the
 # fields the same way (5 fields per line, no empty line; plain decimal numbers; IDs of printable ASCII without white
 # space - fread() strips white space at their ends - and not empty); anything else is read by fread() as before.
 read_gestimator_table <- function(file) {
         lines <- tryCatch(readLines(file, warn = FALSE), error = function(e) NULL)
-        if (length(lines) > 0 && all(nzchar(lines))) {
-                parts <- strsplit(lines, "\t", fixed = TRUE)
-                if (all(lengths(parts) == 5L)) {
-                        m <- matrix(unlist(parts, use.names = FALSE), nrow = 5)
-                        ids <- m[1:2, , drop = FALSE]
-                        if (all(nzchar(ids)) && !any(grepl("[^!-~]", ids, perl = TRUE)) &&
-                            all(grepl("^-?[0-9]+(\\.[0-9]+)?([eE][-+]?[0-9]+)?$", m[3:5, ], perl = TRUE)))
-                                return(data.table::data.table(query_id = m[1, ], subject_id = m[2, ],
-                                                              dN = as.numeric(m[3, ]), dS = as.numeric(m[4, ]),
-                                                              dNdS = as.numeric(m[5, ])))
-                }
-        }
+        v <- read_gestimator_values(lines)
+        if (!is.null(v))
+                return(data.table::data.table(query_id = v$query_id, subject_id = v$subject_id,
+                                              dN = v$dN, dS = v$dS, dNdS = v$dNdS))
         res <- data.table::fread(
                 file       = file,
                 sep        = "\t",
@@ -509,6 +524,27 @@ read_gestimator_table <- function(file) {
                 na.strings = ""
         )
         res
+}
+
+# The columns of the lines of a gestimator table (query_id, subject_id, dN, dS, dNdS) where they can be read without
+# fread() and give what fread() reads (see read_gestimator_table()); NULL otherwise.
+read_gestimator_values <- function(lines) {
+        if (length(lines) == 0 || !all(nzchar(lines)))
+                return(NULL)
+        parts <- strsplit(lines, "\t", fixed = TRUE)
+        if (!all(lengths(parts) == 5L))
+                return(NULL)
+        m <- matrix(unlist(parts, use.names = FALSE), nrow = 5)
+        ids <- m[1:2, , drop = FALSE]
+        if (!(all(nzchar(ids)) && !any(grepl("[^!-~]", ids, perl = TRUE)) && gestimator_plain_numbers(m[3:5, ])))
+                return(NULL)
+        list(query_id = m[1, ], subject_id = m[2, ], dN = as.numeric(m[3, ]), dS = as.numeric(m[4, ]),
+             dNdS = as.numeric(m[5, ]))
+}
+
+# Are the numbers 'x' (text) plain decimal numbers, which as.numeric() and fread() read the same way?
+gestimator_plain_numbers <- function(x) {
+        all(grepl("^-?[0-9]+(\\.[0-9]+)?([eE][-+]?[0-9]+)?$", x, perl = TRUE))
 }
 
 # The method arguments of a KaKs_Calculator call. The method asked for with 'est.method' is always handed over
@@ -533,39 +569,64 @@ kaks_calc_args <- function(est.method, kaks_calc.params = NULL) {
 #   genetic_code : KaKs_Calculator's genetic code ('-c', 1 by default)
 kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair", aln = NULL, genetic_code = 1L) {
         query_id <- NULL
-        if (nrow(kaks_tbl) == 0 || ncol(kaks_tbl) < 5)
-                stop("KaKs_Calculator returned no result for ", context, ".", call. = FALSE)
-        num <- function(x) suppressWarnings(as.numeric(as.character(x)))
+        v <- kaks_result_values(kaks_tbl, context = context, aln = aln, genetic_code = genetic_code)
         kaks_tbl_res <- data.frame(
                 query_id   = rep(as.character(pair_ids[1]), nrow(kaks_tbl)),
                 subject_id = rep(as.character(pair_ids[2]), nrow(kaks_tbl)),
-                dN         = num(kaks_tbl[ , 3]),
-                dS         = num(kaks_tbl[ , 4]),
-                dNdS       = num(kaks_tbl[ , 5]),
-                method     = kaks_tbl[ , 2],
+                dN         = v$dN,
+                dS         = v$dS,
+                dNdS       = v$dNdS,
+                method     = v$method,
                 stringsAsFactors = FALSE
         )
+        kaks_tbl_res <- data.table::as.data.table(kaks_tbl_res)
+        data.table::setkey(kaks_tbl_res, query_id)
+        if (any(v$failed))
+                data.table::setattr(kaks_tbl_res, "kaks_failed",
+                                    data.frame(method = v$method[v$failed], reason = v$reason[v$failed],
+                                               stringsAsFactors = FALSE))
+        return(kaks_tbl_res)
+}
+
+# The values of kaks_result_table() for the rows of 'kaks_tbl', which may belong to several gene pairs (the rows of a
+# chunk computed by one KaKs_Calculator process, kaks_calc_batch()): every step works row by row, so the values of
+# a row are those of a table of its gene pair alone. Returns list(dN, dS, dNdS, method, failed, reason): 'failed'
+# marks the rows KaKs_Calculator printed 'nan' for (attr(, "kaks_failed") of kaks_result_table(): their method and
+# 'reason'; NA for the other rows).
+#   context : the gene pair, for messages - one string, one per row, or a function of row numbers that returns
+#             them (called only for the rows that need one)
+#   aln     : NULL, the two aligned sequences of the pair (one pair), or a list with them for every row
+kaks_result_values <- function(kaks_tbl, context = "the gene pair", aln = NULL, genetic_code = 1L) {
+        ctx_of <- function(rows) if (is.function(context)) context(rows) else if (length(context) == 1) context else context[rows]
+        if (nrow(kaks_tbl) == 0 || ncol(kaks_tbl) < 5)
+                stop("KaKs_Calculator returned no result for ", ctx_of(1L)[1], ".", call. = FALSE)
+        num <- function(x) suppressWarnings(as.numeric(as.character(x)))
+        dN   <- num(kaks_tbl[ , 3])
+        dS   <- num(kaks_tbl[ , 4])
+        dNdS <- num(kaks_tbl[ , 5])
+        method <- kaks_tbl[ , 2]
         if (!kaks_legacy_zero_dn()) {
-                fixed <- kaks_zero_dn(kaks_tbl_res$dN, kaks_tbl_res$dS, kaks_tbl_res$dNdS)
-                kaks_tbl_res$dN <- fixed$dN
-                kaks_tbl_res$dNdS <- fixed$dNdS
+                fixed <- kaks_zero_dn(dN, dS, dNdS)
+                dN <- fixed$dN
+                dNdS <- fixed$dNdS
                 zero <- kaks_zero_ds(kaks_tbl)
                 if (!is.null(zero)) {
-                        kaks_tbl_res$dN[zero$identical | zero$no_nonsynonymous] <- 0
-                        kaks_tbl_res$dS[zero$identical | zero$no_synonymous] <- 0
-                        kaks_tbl_res$dNdS[zero$identical | zero$no_synonymous] <- NA_real_
+                        dN[zero$identical | zero$no_nonsynonymous] <- 0
+                        dS[zero$identical | zero$no_synonymous] <- 0
+                        dNdS[zero$identical | zero$no_synonymous] <- NA_real_
                         # (Ka/Ks * Ks of kaks_zero_dn() can be a rounding residue such as 2.5e-12 there)
-                        no_non <- zero$no_nonsynonymous & is.finite(kaks_tbl_res$dS) & kaks_tbl_res$dS > 0
-                        kaks_tbl_res$dNdS[no_non] <- 0
+                        no_non <- zero$no_nonsynonymous & is.finite(dS) & dS > 0
+                        dNdS[no_non] <- 0
                 }
         }
-        failed <- NULL
+        failed <- rep(FALSE, length(dN))
+        reason <- rep(NA_character_, length(dN))
         if (!kaks_legacy_saturation()) {
                 sat <- kaks_saturated(kaks_tbl, aln = aln, genetic_code = genetic_code)
                 if (!is.null(sat)) {
-                        kaks_tbl_res$dS[sat$Ks] <- NA_real_
-                        kaks_tbl_res$dN[sat$Ka] <- NA_real_
-                        kaks_tbl_res$dNdS[sat$Ks | sat$Ka] <- NA_real_
+                        dS[sat$Ks] <- NA_real_
+                        dN[sat$Ka] <- NA_real_
+                        dNdS[sat$Ks | sat$Ka] <- NA_real_
                 }
                 # Ka or Ks printed as 'nan' (or '-nan'): the estimate failed (MYN of S. cerevisiae / C. glabrata: 50 of
                 # 4,164 pairs, all of them iterations that did not converge). This is not saturation: COAL estimates
@@ -574,26 +635,21 @@ kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair", aln
                 # (the dN of one pair a number) and the status "saturated".
                 nan <- is.nan(num(kaks_tbl[ , 3])) | is.nan(num(kaks_tbl[ , 4]))
                 if (any(nan)) {
-                        kaks_tbl_res$dN[nan] <- NA_real_
-                        kaks_tbl_res$dS[nan] <- NA_real_
-                        kaks_tbl_res$dNdS[nan] <- NA_real_
-                        failed <- data.frame(
-                                method = kaks_tbl_res$method[nan],
-                                reason = paste0("KaKs_Calculator printed 'nan' for ",
-                                                ifelse(is.nan(num(kaks_tbl[nan, 3])) & is.nan(num(kaks_tbl[nan, 4])), "Ka and Ks",
-                                                       ifelse(is.nan(num(kaks_tbl[nan, 4])), "Ks", "Ka")),
-                                                " (method ", kaks_tbl_res$method[nan], ") of ",
-                                                sub(" \\(method [^)]*\\)$", "", context),
-                                                ": its estimate failed (for YN / MYN typically an iteration that did ",
-                                                "not converge); the pair is not saturated"),
-                                stringsAsFactors = FALSE)
+                        dN[nan] <- NA_real_
+                        dS[nan] <- NA_real_
+                        dNdS[nan] <- NA_real_
+                        ctx <- ctx_of(which(nan))
+                        failed <- nan
+                        reason[nan] <- paste0("KaKs_Calculator printed 'nan' for ",
+                                              ifelse(is.nan(num(kaks_tbl[nan, 3])) & is.nan(num(kaks_tbl[nan, 4])), "Ka and Ks",
+                                                     ifelse(is.nan(num(kaks_tbl[nan, 4])), "Ks", "Ka")),
+                                              " (method ", method[nan], ") of ",
+                                              sub(" \\(method [^)]*\\)$", "", ctx),
+                                              ": its estimate failed (for YN / MYN typically an iteration that did ",
+                                              "not converge); the pair is not saturated")
                 }
         }
-        kaks_tbl_res <- data.table::as.data.table(kaks_tbl_res)
-        data.table::setkey(kaks_tbl_res, query_id)
-        if (!is.null(failed))
-                data.table::setattr(kaks_tbl_res, "kaks_failed", failed)
-        return(kaks_tbl_res)
+        list(dN = dN, dS = dS, dNdS = dNdS, method = method, failed = failed, reason = reason)
 }
 
 # The columns of a KaKs_Calculator table by position (1.2 and 2.0 write the same 21 columns; the names are read by
@@ -629,11 +685,15 @@ kaks_columns <- function(kaks_tbl) {
 # The methods of the LWL family (Li, Wu and Luo 1985; Li 1993; Tzeng et al. 2004) and of Yang and Nielsen (2000).
 kaks_lwl_methods <- function() c("LWL", "MLWL", "LPB", "MLPB")
 kaks_yn_methods <- function() c("YN", "MYN")
+# The methods whose columns "S-Substitutions" and "N-Substitutions" count the synonymous and nonsynonymous
+# differences (KaKs_Calculator prints NA for a count of 0). GMYN counts as MYN does (its Ka/Ks for a pair without
+# nonsynonymous difference is a residue such as 1.3e-15, its dN Ka/Ks * Ks; GY, MA, MS print expected numbers).
+kaks_counted_methods <- function() c("NG", kaks_yn_methods(), "GMYN")
 
 # Gene pairs for which KaKs_Calculator printed 'NA' for a dS that is 0 (it prints NA for every value below 1e-6):
 #   identical     : no nucleotide differs ("Substitutions" 0) - dN = dS = 0 (KaKs_Calculator: NA NA NA)
 #   no_synonymous : Ks NA, Ka a number, and no synonymous difference - dS = 0 (all differences are
-#                   nonsynonymous). A synonymous difference is counted in "S-Substitutions" (NG, YN, MYN) or, for
+#                   nonsynonymous). A synonymous difference is counted in "S-Substitutions" (NG, YN, MYN, GMYN) or, for
 #                   the LWL family, as a transition at 2-fold sites or any difference at 4-fold sites (columns
 #                   "Fold-S-Substitutions" / "Fold-N-Substitutions": transitions / transversions per class). The
 #                   other methods (GY, MA, MS, ...) are left as they are.
@@ -647,7 +707,7 @@ kaks_zero_ds <- function(kaks_tbl) {
                 return(NULL)
         identical <- is.na(k$Ka) & is.na(k$Ks) & !is.na(k$snp) & k$snp == 0
         no_syn <- rep(FALSE, length(k$Ka))
-        counted <- is.element(k$method, c("NG", kaks_yn_methods()))
+        counted <- is.element(k$method, kaks_counted_methods())
         no_syn[counted] <- is.na(k$Sd[counted]) | k$Sd[counted] <= 1e-6
         lwl <- is.element(k$method, kaks_lwl_methods())
         no_syn[lwl] <- (k$Si[lwl, 2, drop = FALSE] + k$Si[lwl, 3, drop = FALSE] + k$Vi[lwl, 3, drop = FALSE]) == 0
@@ -683,7 +743,8 @@ kaks_legacy_saturation <- function() {
 #     the same operations in the same order as KaKs_Calculator 2.0 (kaks_lwl_counts()), and its own test is applied
 #     to them. When 'aln' is not given, or the counts computed do not agree with the printed ones (another version
 #     of KaKs_Calculator), the printed counts decide.
-#   aln          : NULL, or the two aligned sequences of the pair (one pair for all rows of 'kaks_tbl')
+#   aln          : NULL, the two aligned sequences of the pair (one pair for all rows of 'kaks_tbl'), or a list with
+#                  the two aligned sequences (or NULL) for every row
 #   genetic_code : the genetic code of KaKs_Calculator ('-c')
 kaks_saturated <- function(kaks_tbl, aln = NULL, genetic_code = 1L) {
         k <- kaks_columns(kaks_tbl)
@@ -707,9 +768,13 @@ kaks_saturated <- function(kaks_tbl, aln = NULL, genetic_code = 1L) {
                 sat[is.na(sat)] <- FALSE
                 # near 0 the printed digits do not tell the sign: KaKs_Calculator's own numbers decide
                 near <- which(rowSums(!is.na(L) & L > 0 & ((!is.na(a1) & abs(a1) < 1e-3) | (!is.na(a2) & abs(a2) < 1e-3))) > 0)
-                if (length(near) > 0 && length(aln) == 2) {
+                if (length(near) > 0 && (is.list(aln) || length(aln) == 2)) {
                         for (r in near) {
-                                exact <- kaks_lwl_counts(aln[1], aln[2], method = k$method[lwl[r]], genetic_code = genetic_code)
+                                # (a list: the alignment of the gene pair of each row)
+                                a <- if (is.list(aln)) aln[[lwl[r]]] else aln
+                                if (length(a) != 2)
+                                        next
+                                exact <- kaks_lwl_counts(a[1], a[2], method = k$method[lwl[r]], genetic_code = genetic_code)
                                 if (is.null(exact) || !kaks_counts_agree(exact, L[r, ], k$Si[lwl[r], ], k$Vi[lwl[r], ]))
                                         next
                                 sat[r, ] <- exact$L > 0 & !((1 - 2 * exact$P - exact$Q) > 0 & (1 - 2 * exact$Q) > 0)
@@ -955,11 +1020,14 @@ kaks_calc_header <- function() {
 # for the header and the pair came back without a result - or be written again further down. When the first line
 # is not a header, the known header is put first; later lines that are the header are dropped (AUDIT-OLP2 M1).
 # Output that has the header once, first (every other method), is returned as it is.
+# A line is the header when its second field is "Method" (a row has the name of a method there): a row of a pair
+# whose name is "Sequence" - the first field of the header - is a row (it was taken for the header, and the pair
+# came back without a result).
 kaks_output_lines <- function(lines) {
         if (length(lines) == 0)
                 return(lines)
         header <- kaks_calc_header()
-        if (!startsWith(lines[1], "Sequence\t"))
+        if (!startsWith(lines[1], "Sequence\tMethod\t"))
                 lines <- c(header, lines)
         rest <- lines[-1]
         drop <- rest == header | rest == lines[1]
@@ -1027,8 +1095,17 @@ kaks_calc_batch <- function(files, subst_name, est.method, kaks_calc_path = NULL
                         return(out)
                 key <- sub("\t.*$", "", lines[-1])
                 blocks <- rle(key)
-                if (!identical(blocks$values, subst_name[use]))
-                        return(out)
+                # A record KaKs_Calculator writes no row for (GMYN of a single codon: only the header line, which
+                # kaks_output_lines() dropped) is left out of its output: the other records are still those of the
+                # chunk, in their order and with names that occur once, and are read; the pair without rows gets
+                # NULL (the caller computes it on its own, which gives its error). Before, one such pair sent the
+                # whole chunk to one KaKs_Calculator process per pair.
+                if (!identical(blocks$values, subst_name[use])) {
+                        at <- match(blocks$values, subst_name[use])
+                        if (anyNA(at) || anyDuplicated(blocks$values) || is.unsorted(at, strictly = TRUE))
+                                return(out)
+                        use <- use[at]
+                }
                 rows_per_pair <- if (identical(est.method, "ALL")) 17L else 1L
                 if (any(blocks$lengths != rows_per_pair))
                         return(out)
@@ -1049,6 +1126,29 @@ kaks_calc_batch <- function(files, subst_name, est.method, kaks_calc_path = NULL
                         utils::read.csv(text = lines, sep = "\t", header = TRUE) else NULL
                 if (!is.null(whole) && nrow(whole) != length(lines) - 1L)
                         whole <- NULL
+                # The values of all rows at once (kaks_result_values() works row by row: the values of a pair are
+                # those of its rows alone), handed back as a "dnds_values" record per pair, which compute_dnds()
+                # turns into rows of the result together with the other pairs of the chunk (one table per chunk
+                # instead of one per pair). Should that fail, every pair is read on its own as below.
+                if (!is.null(whole)) {
+                        vals <- tryCatch({
+                                pair_of_row <- rep(seq_along(use), blocks$lengths)
+                                # (the gene pair named in messages, read from its file only for a row that needs it)
+                                ctx <- function(rows) vapply(use[pair_of_row[rows]], function(k)
+                                        paste0(pair_context(files[k], subst_name[k]), " (method ", est.method, ")"), "")
+                                v <- kaks_result_values(whole, context = ctx, aln = seqs[use][pair_of_row],
+                                                        genetic_code = genetic_code)
+                                lapply(seq_along(use), function(j) {
+                                        r <- starts[j]:ends[j]
+                                        dnds_values(dN = v$dN[r], dS = v$dS[r], dNdS = v$dNdS[r], method = v$method[r],
+                                                    reason = kaks_failed_reason(v$method[r], v$failed[r], v$reason[r]))
+                                })
+                        }, error = function(e) NULL)
+                        if (!is.null(vals)) {
+                                out[use] <- vals
+                                return(out)
+                        }
+                }
                 for (j in seq_along(use)) {
                         k <- use[j]
                         out[k] <- list(tryCatch({
@@ -1061,4 +1161,20 @@ kaks_calc_batch <- function(files, subst_name, est.method, kaks_calc_path = NULL
                 }
                 out
         }, error = function(e) vector("list", n))
+}
+
+# The reason of each row of one gene pair as compute_dnds() gives it from attr(, "kaks_failed") of
+# kaks_result_table(): the reason of the first failed row with the row's method, NA where there is none.
+#   method, failed, reason : per row of the pair (kaks_result_values())
+kaks_failed_reason <- function(method, failed, reason) {
+        if (!any(failed))
+                return(rep(NA_character_, length(method)))
+        reason[failed][match(method, method[failed])]
+}
+
+# The values of one gene pair that compute_dnds() puts into its result table together with those of other pairs
+# (rows of the same columns as the table of substitutionrate() plus '.reason'): numeric dN, dS, dNdS (one element
+# per row), 'method' (NULL for Comeron and Li, which have no such column) and 'reason' (NA: no failure).
+dnds_values <- function(dN, dS, dNdS, method = NULL, reason = rep(NA_character_, length(dN))) {
+        structure(list(dN = dN, dS = dS, dNdS = dNdS, method = method, reason = reason), class = "dnds_values")
 }

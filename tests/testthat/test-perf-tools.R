@@ -179,8 +179,9 @@ test_that("kaks_calc_batch(): a pair the batch cannot match is computed on its o
                         tools_dnds(tbl, TRUE, codon_aln_tool = "coal", dnds_est.method = "NG", kaks_calc_path = wrappers[[w]])
                 })
                 expect_identical(got, ref, info = w)
-                # every pair of the chunk was computed on its own
-                expect_identical(n, 12L, info = w)
+                # every pair of the chunk was computed on its own - but where only the rows of one record are
+                # missing (the other records in order, with their names), only that pair (OL-FINAL-PERF)
+                expect_identical(n, if (w == "drop") 1L else 12L, info = w)
         }
         # (AUDIT-OLP2 M1) output without its header line, or with the header again between records (what
         # KaKs_Calculator 2.0 does for GMYN depending on uninitialised memory): read as with one header, in the batch
