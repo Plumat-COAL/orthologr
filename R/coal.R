@@ -161,6 +161,12 @@ coal_engine_settings <- function(fun_name, fun, args, mode = c("pairs", "cluster
         flags <- c(paste("-m", args$methods), "--preset", args$preset, "--matrix", matrix,
                    if (is.element("tie_break", has)) c("--tie-break", tie),
                    if (!is.null(args$comeron_flavour)) c("--comeron-flavour", args$comeron_flavour),
+                   # (M1 of REVIEW-OL-1) with --comeron-flavour gestimator COAL's command line counts the codons
+                   # that differ at two positions along libsequence's branches unless it is told otherwise, and
+                   # orthologr's default is Comeron's two pathways: without these two flags the command gave other
+                   # numbers than the run it records
+                   if (!is.null(args$comeron_twosubs)) c("--comeron-twosubs", args$comeron_twosubs),
+                   if (!is.null(args$comeron_min_sites)) c("--comeron-min-sites", format(args$comeron_min_sites)),
                    if (!is.null(args$li_flavour)) c("--li-flavour", args$li_flavour),
                    if (!is.null(args$terminal_stops)) c("--terminal-stops", args$terminal_stops))
         cmd <- if (mode == "pairs") {
@@ -172,7 +178,8 @@ coal_engine_settings <- function(fun_name, fun, args, mode = c("pairs", "cluster
         list(coalr_function = fun_name,
              coalr = package_version_text("coalr"),
              preset = args$preset, matrix = matrix, tie_break = tie,
-             comeron_flavour = args$comeron_flavour, li_flavour = args$li_flavour,
+             comeron_flavour = args$comeron_flavour, comeron_twosubs = args$comeron_twosubs,
+             comeron_min_sites = args$comeron_min_sites, li_flavour = args$li_flavour,
              terminal_stops = args$terminal_stops,
              coal_command = paste(cmd, collapse = " "))
 }
@@ -541,7 +548,8 @@ cds_vector <- function(cds_dt) {
 #'
 #' \strong{The same run with the COAL command line, and the other way.} The record of the run,
 #' \code{attr(result, "orthologr_run")}, has in \code{engine_settings} what orthologr gave COAL (\code{preset},
-#' \code{matrix}, \code{tie_break}, \code{comeron_flavour}, \code{li_flavour}, \code{terminal_stops}) and in
+#' \code{matrix}, \code{tie_break}, \code{comeron_flavour}, \code{comeron_twosubs}, \code{comeron_min_sites},
+#' \code{li_flavour}, \code{terminal_stops}) and in
 #' \code{engine_settings$coal_command} the \code{coal pipeline pairs} command line with these settings; its
 #' \code{commands} are the DIAMOND (or BLAST+) searches of the run. With the gene pairs of the result as
 #' \code{--pairs}, the command line computes the same pairs with the same alignments:
@@ -551,8 +559,8 @@ cds_vector <- function(cds_dt) {
 #' write.table(pairs, "pairs.tsv", sep = "\\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
 #' attr(res, "orthologr_run")$engine_settings$coal_command
 #' # coal pipeline pairs --query QUERY_CDS --subject SUBJECT_CDS --pairs PAIRS.tsv -m YN --preset pwalign
-#' #   --matrix BLOSUM62-PWALIGN --tie-break pwalign --comeron-flavour gestimator --li-flavour seqinr
-#' #   --terminal-stops drop -o OUT_DIR
+#' #   --matrix BLOSUM62-PWALIGN --tie-break pwalign --comeron-flavour gestimator --comeron-twosubs comeron
+#' #   --comeron-min-sites 3 --li-flavour seqinr --terminal-stops drop -o OUT_DIR
 #' }
 #' Its \code{dnds.tsv} holds COAL's own values, which \code{attr(result, "coal")} keeps too; orthologr's
 #' result applies its rules to Comeron and Li (above). The pairs must come from the result: COAL's own search
