@@ -110,6 +110,7 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   inside `coalr` (`coal`): it read `coalr::coal_info()$version`, a field that does not exist (`coal_version`).
 - `dNdS(engine = "coal", kaks_tool = "coal", dnds_est.method = c("NG", "YN"))` stopped with R's error "the
   condition has length > 1": `engine = "coal"` ignores `kaks_tool`, and the check of it is no longer made there.
+- `comp_cores` must be a whole number of at least 1 (`1.5`, `2.7` were accepted and recorded as given).
 
 ### Other changes
 

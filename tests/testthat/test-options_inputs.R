@@ -68,6 +68,11 @@ test_that("comp_cores above the number of cores is capped with a warning (it was
         expect_identical(res, n)
         expect_silent(check_comp_cores(1))
         expect_error(check_comp_cores(0), "positive")
+        # (L2 of REVIEW-OL-1) a whole number, at least 1
+        for (bad in list(1.5, 2.7, Inf, -1, "2", TRUE, c(1, 2), NA_real_))
+                expect_error(check_comp_cores(bad), "positive whole number", class = "orthologr_error_bad_argument")
+        expect_identical(check_comp_cores(1), 1)
+        expect_identical(check_comp_cores(1L), 1L)
         skip_if_not(diamond_available && perl_available, "DIAMOND2 or perl is not installed")
         # R CMD check --as-cran (_R_CHECK_LIMIT_CORES_) does not allow more than 2 processes
         skip_if(n > 2 && nzchar(Sys.getenv("_R_CHECK_LIMIT_CORES_")) && Sys.getenv("_R_CHECK_LIMIT_CORES_") != "false",
