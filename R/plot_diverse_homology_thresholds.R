@@ -18,6 +18,8 @@ plot_diverse_homology_thresholds <-
                  ylab = "Number of reciprocal best hit orthologs",
                  title = "") {
                 need_package("ggplot2", "plot_diverse_homology_thresholds()")
+                ortho_tables <- ensure_scope(ortho_tables, "plot_diverse_homology_thresholds()")
+                check_species_order(ortho_tables$subject_species, species_order, "plot_diverse_homology_thresholds()")
                 qcovhsp <-
                         scope <- perc_identity <- subject_species <- n_orthologs <- NULL
                 

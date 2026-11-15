@@ -229,6 +229,8 @@ deepclust_realign <- function(
                         input      = output,
                         sep        = "\t",
                         header     = FALSE,
+                        quote      = "",
+                        na.strings = "",
                         colClasses = col_Classes
                 )
                 

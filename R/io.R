@@ -38,7 +38,7 @@ read.genome <- function(file, format, ...){
                 if (length(genome) == 0)
                         stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
                 
-                genome_names <- as.vector(unlist(sapply(names(genome), function(x){return(strsplit(x, " ")[[1]][1])})))
+                genome_names <- fasta_header_id(names(genome))
                 genome.dt <- data.table::data.table(geneids = genome_names,
                                                     seqs = toupper(as.character(genome)))
                 
@@ -93,7 +93,7 @@ read.proteome <- function(file, format, ...){
                         if (length(proteome) == 0)
                                 stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
                         
-                        proteome_names <- as.vector(unlist(sapply(proteome@ranges@NAMES, function(x){return(strsplit(x, " ")[[1]][1])})))
+                        proteome_names <- fasta_header_id(names(proteome))
                         proteome.dt <- data.table::data.table(geneids = proteome_names,
                                                               seqs = toupper(as.character(proteome)))
                         
@@ -148,9 +148,7 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                         stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
                 
                 cds_names <-
-                        as.vector(unlist(sapply(cds_file@ranges@NAMES, function(x) {
-                                return(strsplit(x, " ")[[1]][1])
-                        })))
+                        fasta_header_id(names(cds_file))
                 
                 cds.dt <-
                         data.table::data.table(geneids = cds_names ,
@@ -219,6 +217,8 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                                 "' you still wish to retain all coding sequences please specify the argument 'delete_corrupt_cds = FALSE'."
                         )
                         message("\n")
+                        dropped_record(cds.dt[which(!all_triplets), geneids],
+                                       "a length that is not a multiple of 3 (delete_corrupt_cds = TRUE)", file)
                         return(cds.dt[-which(!all_triplets) , list(geneids, seqs)])
                 }
                 
@@ -231,6 +231,10 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                                 "- If the sequence had 1 residue nucleotide then the last nucleotide of the sequence was removed.")
                         message(
                                 "- If the sequence had 2 residue nucleotides then the last two nucleotides of the sequence were removed.")
+                        message(
+                                "Note: the sequences are trimmed at their 3' end. A coding sequence that is incomplete at its 5' end ",
+                                "(e.g. Ensembl 'cds_start_NF' transcripts that do not start in phase 0) is then translated in the wrong ",
+                                "reading frame; such sequences are best removed (delete_corrupt_cds = TRUE) or put into frame before.")
                         message(
                                 "If after consulting the file '",
                                 corrupted_file,
@@ -290,3 +294,11 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
 
 
 
+
+# The ID of a sequence: its FASTA header up to the first white space (space or tab; it used to be cut at the
+# first space only, so that '>g1<TAB>description' gave the ID 'g1\tdescription').
+fasta_header_id <- function(headers) {
+        if (is.null(headers))
+                return(character(0))
+        sub("[[:space:]].*$", "", as.character(headers))
+}

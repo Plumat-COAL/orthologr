@@ -216,6 +216,8 @@ deepclust <- function(
                         file    = output,
                         sep     = "\t",
                         header  = FALSE,
+                        quote   = "",
+                        na.strings = "",
                         col.names = c("representative_id", "member_id"),
                         colClasses = "character"
                 )

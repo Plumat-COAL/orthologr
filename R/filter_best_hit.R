@@ -41,7 +41,10 @@ first_row_per_group <- function(group, keys = list()) {
 # dplyr::do(dplyr::group_by(hit_tbl, <group_col>), filter_best_hits(.)) returns (a grouped tibble, one row per
 # group), without calling an R function for every group.
 best_hits <- function(hit_tbl, group_col = "query_id") {
-        if (nrow(hit_tbl) == 0 || anyNA(hit_tbl$evalue) || anyNA(hit_tbl$alig_length) || !is.numeric(hit_tbl$alig_length))
+        # no hits: no best hits (a table without rows, grouped as usual)
+        if (nrow(hit_tbl) == 0)
+                return(dplyr::group_by(tibble::as_tibble(hit_tbl), .data[[group_col]]))
+        if (anyNA(hit_tbl$evalue) || anyNA(hit_tbl$alig_length) || !is.numeric(hit_tbl$alig_length))
                 return(best_hits_do(hit_tbl, group_col))
         rows <- first_row_per_group(hit_tbl[[group_col]], list(hit_tbl$evalue, -hit_tbl$alig_length))
         res <- tibble::as_tibble(hit_tbl)[rows, ]

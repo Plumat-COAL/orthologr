@@ -15,6 +15,7 @@ lnc_map_counts <- function(lnc_map, species_order) {
                 stop("'lnc_map' needs a column named 'species' or 'subject_species'.", call. = FALSE)
         all_lncRNAs_df <- dplyr::summarize(dplyr::group_by(lnc_map, .data[[species_col[1]]]), n_orthologs = dplyr::n())
         names(all_lncRNAs_df)[1] <- "subject_species"
+        check_species_order(all_lncRNAs_df$subject_species, species_order, "lnc_map_counts()")
         
         all_lncRNAs_df$subject_species <- factor(
                 all_lncRNAs_df$subject_species,

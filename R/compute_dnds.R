@@ -79,6 +79,23 @@ compute_dnds <- function(complete_tbl,
                         dir.create(d, recursive = TRUE)
         }
         
+        # In the files of a gene pair the two sequences are called 'query' and 'subject', whatever their IDs are:
+        # PAL2NAL matches protein and coding sequence by name, so a pair whose two genes have the same ID (two
+        # strains with the same locus tags, gene symbols or running numbers as IDs) could not be computed
+        # ("inconsistency between pep and nuc"), and alignment programs change IDs they do not like (Clustal Omega:
+        # '-1'). The IDs of the result come from the pair table. With store_locally = TRUE the table
+        # 'pair_ids.tsv' next to the stored alignments says which pair a file 'q<i>_...' holds.
+        pair_names <- dnds_pair_names()
+        if (store_locally) {
+                idx_dir <- file.path("orthologr_alignment_files", "_alignment")
+                dir.create(idx_dir, recursive = TRUE, showWarnings = FALSE)
+                utils::write.table(
+                        data.frame(file_prefix = paste0("q", seq_len(nrow(complete_tbl))),
+                                   query = as.character(complete_tbl[ , query_id]),
+                                   subject = as.character(complete_tbl[ , subject_id]), stringsAsFactors = FALSE),
+                        file.path(idx_dir, "pair_ids.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
+        }
+        
         # the complete pipeline for gene pair i: write the two FASTA files, align the proteins,
         # build the codon alignment, estimate dN/dS
         one_pair <- function(i) {
@@ -108,7 +125,7 @@ compute_dnds <- function(complete_tbl,
                 
                 seqinr::write.fasta(
                         sequences = cds_seqs,
-                        names     = orthologs_names,
+                        names     = as.list(pair_names),
                         file.out  = cds_session_fasta
                 )
                 
@@ -124,7 +141,7 @@ compute_dnds <- function(complete_tbl,
                 
                 seqinr::write.fasta(
                         sequences = aa_seqs,
-                        names     = orthologs_names,
+                        names     = as.list(pair_names),
                         file.out  = aa_session_fasta
                 )
                 
@@ -183,7 +200,7 @@ compute_dnds <- function(complete_tbl,
                 )
                 
                 # compute kaks
-                substitutionrate(
+                rates <- substitutionrate(
                         file           = file.path(
                                 orthologr_tmpdir(),
                                 "_alignment",
@@ -195,6 +212,16 @@ compute_dnds <- function(complete_tbl,
                         est.method     = dnds_est.method,
                         quiet          = quiet
                 )
+                
+                # The IDs of the pair are those of the pair table - not what came back from the programs.
+                # Alignment programs and file readers change IDs (MAFFT cuts them to 15 characters in CLUSTAL
+                # output, fread() turned '007' into 7, KaKs_Calculator labels were split at '-'), and the result
+                # was then joined with the hit table by these changed IDs: rows were lost or held IDs that are in
+                # no input file.
+                rates <- data.table::as.data.table(rates)
+                data.table::set(rates, j = "query_id", value = as.character(orthologs_names[[1]]))
+                data.table::set(rates, j = "subject_id", value = as.character(orthologs_names[[2]]))
+                rates
         }
         
         # one gene pair must not end the run: a pair whose pipeline fails is returned as a row of NA values
@@ -207,7 +234,9 @@ compute_dnds <- function(complete_tbl,
                                         query_id   = complete_tbl[i, query_id],
                                         subject_id = complete_tbl[i, subject_id],
                                         est.method = dnds_est.method,
-                                        reason     = conditionMessage(e)
+                                        # (the messages name the pair by the names in its files)
+                                        reason     = dnds_pair_reason(conditionMessage(e), complete_tbl[i, query_id],
+                                                                      complete_tbl[i, subject_id])
                                 )
                         }
                 )
@@ -268,6 +297,16 @@ compute_dnds <- function(complete_tbl,
         # returning the dNdS table as data.table object
         return(dNdS_tbl)
         
+}
+
+# The names of the two sequences in the files of a gene pair.
+dnds_pair_names <- function() c("query", "subject")
+
+# A message about "gene pair 'query' / 'subject'" with the IDs of the pair in place of the names in its files.
+dnds_pair_reason <- function(reason, query_id, subject_id) {
+        n <- dnds_pair_names()
+        gsub(paste0("gene pair '", n[1], "' / '", n[2], "'"),
+             paste0("gene pair '", query_id, "' / '", subject_id, "'"), reason, fixed = TRUE)
 }
 
 # A result row of NA values for a gene pair that could not be processed, with the columns substitutionrate()

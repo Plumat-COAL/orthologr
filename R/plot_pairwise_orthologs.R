@@ -16,6 +16,7 @@ plot_pairwise_orthologs <- function(ortho_tables, species_order, xlab = "Subject
         need_package("scales", "plot_pairwise_orthologs()")
         
         subject_species <- NULL 
+        check_species_order(ortho_tables$subject_species, species_order, "plot_pairwise_orthologs()")
         ortholog_tbl_athaliana_pairwise <- dplyr::summarize(dplyr::group_by(ortho_tables, subject_species),
                                                             n_orthologs = dplyr::n())
         

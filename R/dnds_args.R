@@ -64,6 +64,17 @@ dnds_check_args <- function(aligner, sensitivity_mode, seq_type, format, ortho_d
         invisible(TRUE)
 }
 
+# The e-value threshold of a search: one number >= 0, given as a number or as text ("1E-5"). Anything else (e.g.
+# "1e-5; echo hi") is rejected; it used to be handed to the program (DIAMOND got 'NA'). The value is returned as
+# it was given, so that messages and file names do not change.
+check_evalue <- function(eval) {
+        value <- suppressWarnings(as.numeric(eval))
+        if (length(eval) != 1 || is.na(value) || value < 0)
+                stop("eval = '", paste(eval, collapse = "', '"), "' is not an e-value threshold. Please give one number >= 0, e.g. eval = \"1E-5\".",
+                     call. = FALSE)
+        eval
+}
+
 # The dN/dS methods that are computed by KaKs_Calculator: the one list used by is.dnds_est_method(), the argument
 # checks and substitutionrate(). ("MLPB" was missing from the list of substitutionrate(), which then returned NULL
 # for it, and dNdS() ended after the whole search with an error about a missing column.)
