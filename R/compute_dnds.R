@@ -134,6 +134,12 @@ compute_dnds <- function(complete_tbl,
                 
                 aa_aln_name <- paste0("q", i)
                 
+                # (P1 of REVIEW-OL-1) the codon alignment is built from the rows in memory (pair_codon(), same
+                # condition): the two FASTA files and the protein alignment file would never be read, so they are
+                # not written - unless the folder of the call is kept (options(orthologr.keep_tmp))
+                if (skip_pair_files && !is.null(aln_rows) && plain_seqs(c(q_cds[i], s_cds[i])))
+                        return(list(name = aa_aln_name, cds = NA_character_, aa = NA_character_))
+                
                 # create cds fasta of orthologous gene pair having session name: 'aa_aln_name'
                 cds_session_fasta <-
                         file.path(
@@ -315,6 +321,7 @@ compute_dnds <- function(complete_tbl,
         # rows in memory (coal_codon_rows(), what codon_aln() does after reading the two files back).
         codon_in_memory <- batch_aln && identical(codon_aln_tool, "coal") &&
                 isTRUE(tryCatch(identical(coal_backend()$type, "coalr"), error = function(e) FALSE))
+        skip_pair_files <- codon_in_memory && !isTRUE(keep_tmp_setting()$keep)
         if (codon_in_memory) {
                 d <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln")
                 if (!file.exists(d))
