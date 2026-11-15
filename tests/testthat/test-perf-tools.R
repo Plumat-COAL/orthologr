@@ -98,7 +98,8 @@ test_that("compute_dnds(): PAL2NAL and KaKs_Calculator per chunk give the table 
         tbl$subject_aa[5] <- tbl$subject_aa[6]
         tbl$subject_cds[5] <- tbl$subject_cds[6]
         tbl$query_aa[7] <- paste0(substr(tbl$query_aa[7], 1, 10), "WWWWWWWWWWWW", substr(tbl$query_aa[7], 11, 400))
-        methods <- c("Comeron", if (kaks_available) c("NG", "LWL", "LPB", "MLWL", "MLPB", "YN", "MYN", "GY", "GMYN"))
+        # (not GMYN, which is not batched: KaKs_Calculator's output for it depends on memory it never initialises)
+        methods <- c("Comeron", if (kaks_available) c("NG", "LWL", "LPB", "MLWL", "MLPB", "YN", "MYN", "GY"))
         for (m in methods) {
                 new <- tools_dnds(tbl, TRUE, codon_aln_tool = "pal2nal", dnds_est.method = m)
                 old <- tools_dnds(tbl, FALSE, codon_aln_tool = "pal2nal", dnds_est.method = m)
@@ -126,6 +127,14 @@ test_that("compute_dnds(): one process per chunk, and no per-pair call where the
         expect_identical(count_calls("codon_aln", run()), 0L)
         expect_identical(count_calls("kaks_calc_batch", run()), 1L)
         expect_identical(count_calls("pal2nal_batch", run()), 1L)
+        # GMYN: one KaKs_Calculator process per pair
+        local({
+                testthat::local_mocked_bindings(substitutionrate = function(...) data.table::data.table(dN = 0, dS = 0, dNdS = 0, method = "GMYN"),
+                                                .package = "orthologr")
+                expect_identical(count_calls("kaks_calc_batch", suppressWarnings(compute_dnds(data.table::copy(tbl),
+                        aa_aln_type = "pairwise", aa_aln_tool = "NW", codon_aln_tool = "pal2nal", dnds_est.method = "GMYN",
+                        quiet = TRUE))), 0L)
+        })
         local({
                 testthat::local_mocked_bindings(dnds_chunk_size = function() 5L, .package = "orthologr")
                 expect_identical(count_calls("kaks_calc_batch", run()), 3L)
