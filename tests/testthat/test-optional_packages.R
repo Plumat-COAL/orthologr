@@ -23,6 +23,7 @@ test_that("plot_pairwise_orthologs() draws a ggplot when ggplot2 and scales are 
         # (L5 of REVIEW-OL-1) only a missing optional package is a reason to skip; any other error fails the test
         p <- tryCatch(suppressWarnings(plot_pairwise_orthologs(tbl, species_order = c("s1", "s2"))),
                       orthologr_error_package_missing = function(e) e)
-        skip_if(inherits(p, "orthologr_error_package_missing"), conditionMessage(p))
+        if (inherits(p, "orthologr_error_package_missing"))
+                skip(conditionMessage(p))
         expect_s3_class(p, "ggplot")
 })

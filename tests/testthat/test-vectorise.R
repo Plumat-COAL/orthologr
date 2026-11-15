@@ -260,6 +260,7 @@ test_that("fasta_looks_like_protein() counts as the two gsub() calls did (P3 of 
                 nchar(gsub("[ACGTUNRYKMSWBDHV]", "", x)) / nchar(x) > 0.1
         }
         fs <- list.files(system.file("seqs", package = "orthologr"), full.names = TRUE)
+        fs <- fs[!dir.exists(fs)]
         d <- new_test_dir("p3_")
         extra <- file.path(d, c("short.fa", "mixed.fa", "aa.fa", "empty.fa"))
         writeLines(c(">a", "ACGT"), extra[1])
