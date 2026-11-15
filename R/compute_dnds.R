@@ -41,6 +41,11 @@
 #' 
 #' 3) dNdS estimation of the codon alignment returned by 2)
 #' 
+#' A gene pair for which one of the steps fails (for example because PAL2NAL or KaKs_Calculator exits with an error)
+#' does not end the run: the pair is returned with \code{NA} values for dN, dS and dNdS, the reasons are collected in
+#' the attribute \code{"failed_pairs"} of the result (a \code{data.frame} with \code{query_id}, \code{subject_id} and
+#' \code{reason}), and a warning reports how many pairs failed.
+#' 
 #' @references \url{https://www.r-bloggers.com/2013/08/the-wonders-of-foreach/}
 #' @seealso \code{\link{multi_aln}}, \code{\link{substitutionrate}}, \code{\link{dNdS}}
 #' @import foreach 
@@ -65,380 +70,224 @@ compute_dnds <- function(complete_tbl,
         # due to the discussion of no visible binding for global variable for
         # data.table objects see:
         # http://stackoverflow.com/questions/8096313/no-visible-binding-for-global-variable-note-in-r-cmd-check?lq=1
-        query_id <- subject_id <- query_cds <- subject_cds <- query_aa <- subject_aa <- NULL
+        query_id <- subject_id <- query_cds <- subject_cds <- query_aa <- subject_aa <- i <- NULL
         
         multicore <- (comp_cores > 1)
         
-        orthologs_names <- vector(mode = "list", length = 2)
-        cds_seqs <- vector(mode = "list", length = 2)
-        aa_seqs <- vector(mode = "list", length = 2)
-        cds_session_fasta <- vector(mode = "character", length = 1)
-        aa_session_fasta <- vector(mode = "character", length = 1)
-        aa_aln_name <- vector(mode = "character", length = 1)
-        
-        if (!multicore)
-                dNdS_values <- vector(mode = "list", length = nrow(complete_tbl))
-        
-        if (!file.exists(file.path(tempdir(), "_alignment"))) {
-                dir.create(file.path(tempdir(), "_alignment"))
+        for (d in list(c("_alignment"), c("_alignment", "orthologs"), c("_alignment", "orthologs", "CDS"),
+                       c("_alignment", "orthologs", "AA"))) {
+                d <- do.call(file.path, as.list(c(orthologr_tmpdir(), d)))
+                if (!file.exists(d))
+                        dir.create(d, recursive = TRUE)
         }
         
-        if (!file.exists(file.path(tempdir(), "_alignment", "orthologs"))) {
-                dir.create(file.path(tempdir(), "_alignment", "orthologs"))
+        # the complete pipeline for gene pair i: write the two FASTA files, align the proteins,
+        # build the codon alignment, estimate dN/dS
+        one_pair <- function(i) {
+                # storing the query gene id and subject gene id of the orthologous gene pair
+                orthologs_names <-
+                        list(complete_tbl[i , query_id], complete_tbl[i, subject_id])
+                
+                # storing the query CDS sequence and subject CDS sequence of the orthologous gene pair
+                cds_seqs <-
+                        list(complete_tbl[i, query_cds], complete_tbl[i, subject_cds])
+                
+                # storing the query amino acid sequence and subject amino acid sequence of the orthologous gene pair
+                aa_seqs <-
+                        list(complete_tbl[i, query_aa], complete_tbl[i, subject_aa])
+                
+                aa_aln_name <- paste0("q", i)
+                
+                # create cds fasta of orthologous gene pair having session name: 'aa_aln_name'
+                cds_session_fasta <-
+                        file.path(
+                                orthologr_tmpdir(),
+                                "_alignment",
+                                "orthologs",
+                                "CDS",
+                                paste0(aa_aln_name, "_cds.fasta")
+                        )
+                
+                seqinr::write.fasta(
+                        sequences = cds_seqs,
+                        names     = orthologs_names,
+                        file.out  = cds_session_fasta
+                )
+                
+                # create aa fasta of orthologous gene pair having session name: 'aa_aln_name'
+                aa_session_fasta <-
+                        file.path(
+                                orthologr_tmpdir(),
+                                "_alignment",
+                                "orthologs",
+                                "AA",
+                                paste0(aa_aln_name, "_aa.fasta")
+                        )
+                
+                seqinr::write.fasta(
+                        sequences = aa_seqs,
+                        names     = orthologs_names,
+                        file.out  = aa_session_fasta
+                )
+                
+                if (aa_aln_type == "multiple") {
+                        # align aa -> <aa_aln_tool>.aln
+                        multi_aln(
+                                file           = aa_session_fasta,
+                                tool           = aa_aln_tool,
+                                get_aln        = FALSE,
+                                multi_aln_name = aa_aln_name,
+                                path           = aa_aln_path,
+                                quiet          = quiet
+                        )
+                        
+                        aa_aln_file <-
+                                file.path(
+                                        orthologr_tmpdir(),
+                                        "_alignment",
+                                        "multi_aln",
+                                        paste0(aa_aln_name, "_", aa_aln_tool, ".aln")
+                                )
+                }
+                
+                if (aa_aln_type == "pairwise") {
+                        # align aa -> <aa_aln_tool>.aln
+                        pairwise_aln(
+                                file              = aa_session_fasta,
+                                tool              = aa_aln_tool,
+                                seq_type          = "protein",
+                                get_aln           = FALSE,
+                                pairwise_aln_name = aa_aln_name,
+                                path              = aa_aln_path,
+                                quiet             = quiet,
+                                store_locally     = store_locally
+                        )
+                        
+                        aa_aln_file <-
+                                file.path(
+                                        ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()),
+                                        "_alignment",
+                                        "pairwise_aln",
+                                        paste0(aa_aln_name, "_", aa_aln_tool, "_AA.aln")
+                                )
+                }
+                
+                # align codon -> cds.aln
+                codon_aln(
+                        file_aln       = aa_aln_file,
+                        file_nuc       = cds_session_fasta,
+                        tool           = codon_aln_tool,
+                        format         = "fasta",
+                        codon_aln_name = aa_aln_name,
+                        get_aln        = FALSE,
+                        quiet          = quiet
+                )
+                
+                # compute kaks
+                substitutionrate(
+                        file           = file.path(
+                                orthologr_tmpdir(),
+                                "_alignment",
+                                "codon_aln",
+                                paste0(aa_aln_name, "_", codon_aln_tool, ".aln")
+                        ),
+                        subst_name     = aa_aln_name,
+                        kaks_calc_path = kaks_calc_path,
+                        est.method     = dnds_est.method,
+                        quiet          = quiet
+                )
         }
         
-        if (!file.exists(file.path(tempdir(), "_alignment", "orthologs", "CDS"))) {
-                dir.create(file.path(tempdir(), "_alignment", "orthologs", "CDS"))
+        # one gene pair must not end the run: a pair whose pipeline fails is returned as a row of NA values
+        # together with the reason (column '.reason', moved to the attribute "failed_pairs" below)
+        safe_pair <- function(i) {
+                res <- tryCatch(
+                        one_pair(i),
+                        error = function(e) {
+                                dnds_na_row(
+                                        query_id   = complete_tbl[i, query_id],
+                                        subject_id = complete_tbl[i, subject_id],
+                                        est.method = dnds_est.method,
+                                        reason     = conditionMessage(e)
+                                )
+                        }
+                )
+                res <- data.table::as.data.table(res)
+                if (!is.element(".reason", names(res)))
+                        res[ , .reason := NA_character_]
+                return(res)
         }
         
-        if (!file.exists(file.path(tempdir(), "_alignment", "orthologs", "AA"))) {
-                dir.create(file.path(tempdir(), "_alignment", "orthologs", "AA"))
-        }
-        
+        .reason <- NULL
         
         if (!multicore) {
-                for (i in 1:nrow(complete_tbl)) {
-                        dNdS_values[i] <- list((function(i) {
-                                ### Perform the sampling process in parallel
-                                #         dNdS_values <- foreach::foreach(i = 1:nrow(complete_tbl),.combine="rbind") %dopar%{
-                                
-                                # storing the query gene id and subject gene id of the orthologous gene pair
-                                orthologs_names <-
-                                        list(complete_tbl[i , query_id], complete_tbl[i, subject_id])
-                                
-                                # storing the query CDS sequence and subject CDS sequence of the orthologous gene pair
-                                cds_seqs <-
-                                        list(complete_tbl[i, query_cds], complete_tbl[i, subject_cds])
-                                
-                                # storing the query amino acid sequence and subject amino acid sequence of the orthologous gene pair
-                                aa_seqs <-
-                                        list(complete_tbl[i, query_aa], complete_tbl[i, subject_aa])
-                                
-                                
-                                #aa_aln_name <- paste0("query_",i,"___","subject_",i)
-                                aa_aln_name <- paste0("q", i)
-                                
-                                # create cds fasta of orthologous gene pair having session name: 'aa_aln_name'
-                                cds_session_fasta <-
-                                        file.path(
-                                                tempdir(),
-                                                "_alignment",
-                                                "orthologs",
-                                                "CDS",
-                                                paste0(aa_aln_name, "_cds.fasta")
-                                        )
-                                
-                                seqinr::write.fasta(
-                                        sequences = cds_seqs,
-                                        names     = orthologs_names,
-                                        file.out  = cds_session_fasta
-                                )
-                                
-                                # create aa fasta of orthologous gene pair having session name: 'aa_aln_name'
-                                aa_session_fasta <-
-                                        file.path(
-                                                tempdir(),
-                                                "_alignment",
-                                                "orthologs",
-                                                "AA",
-                                                paste0(aa_aln_name, "_aa.fasta")
-                                        )
-                                
-                                seqinr::write.fasta(
-                                        sequences = aa_seqs,
-                                        names     = orthologs_names,
-                                        file.out  = aa_session_fasta
-                                )
-                                
-                                # which multi_aln tool should get the parameters
-                                #multi_aln_tool_params <- paste0(aa_aln_tool,".",params)
-                                
-                                
-                                #                 pairwise_aln <- pwalign::pairwiseAlignment(aa_seqs[[1]],aa_seqs[[2]], type = "global")
-                                #
-                                #                 pwalign::writePairwiseAlignments(pairwise_aln, block.width = 60)
-                                #
-                                
-                                if (aa_aln_type == "multiple") {
-                                        # align aa -> <aa_aln_tool>.aln
-                                        multi_aln(
-                                                file           = aa_session_fasta,
-                                                tool           = aa_aln_tool,
-                                                get_aln        = FALSE,
-                                                multi_aln_name = aa_aln_name,
-                                                path           = aa_aln_path,
-                                                quiet          = quiet
-                                        )
-                                        
-                                        aa_aln_session_name <-
-                                                paste0(aa_aln_name,
-                                                       "_",
-                                                       aa_aln_tool,
-                                                       ".aln")
-                                        
-                                        # align codon -> cds.aln
-                                        codon_aln(
-                                                file_aln       = file.path(
-                                                        tempdir(),
-                                                        "_alignment",
-                                                        "multi_aln",
-                                                        paste0(aa_aln_session_name)
-                                                ),
-                                                file_nuc       = cds_session_fasta,
-                                                tool           = codon_aln_tool,
-                                                format         = "fasta",
-                                                codon_aln_name = aa_aln_name,
-                                                get_aln        = FALSE,
-                                                quiet          = quiet
-                                        )
-                                }
-                                
-                                if (aa_aln_type == "pairwise") {
-                                        # align aa -> <aa_aln_tool>.aln
-                                        pairwise_aln(
-                                                file              = aa_session_fasta,
-                                                tool              = aa_aln_tool,
-                                                seq_type          = "protein",
-                                                get_aln           = FALSE,
-                                                pairwise_aln_name = aa_aln_name,
-                                                path              = aa_aln_path,
-                                                quiet             = quiet,
-                                                store_locally     = store_locally
-                                        )
-                                        
-                                        aa_aln_session_name <-
-                                                paste0(aa_aln_name,
-                                                       "_",
-                                                       aa_aln_tool,
-                                                       "_AA.aln")
-                                        
-                                        # align codon -> cds.aln
-                                        codon_aln(
-                                                file_aln       = file.path(
-                                                        ifelse(store_locally, "orthologr_alignment_files", tempdir()),
-                                                        "_alignment",
-                                                        "pairwise_aln",
-                                                        paste0(aa_aln_session_name)
-                                                ),
-                                                file_nuc       = cds_session_fasta,
-                                                tool           = codon_aln_tool,
-                                                format         = "fasta",
-                                                codon_aln_name = aa_aln_name,
-                                                get_aln        = FALSE,
-                                                quiet          = quiet
-                                        )
-                                }
-                                
-                                codon_aln_session_name <-
-                                        paste0(aa_aln_name,
-                                               "_",
-                                               codon_aln_tool,
-                                               ".aln")
-                                
-                                # compute kaks
-                                dNdS.table <-
-                                        substitutionrate(
-                                                file           = file.path(
-                                                        tempdir(),
-                                                        "_alignment",
-                                                        "codon_aln",
-                                                        codon_aln_session_name
-                                                ),
-                                                subst_name     = aa_aln_name,
-                                                kaks_calc_path = kaks_calc_path,
-                                                est.method     = dnds_est.method,
-                                                quiet          = quiet
-                                        )
-                                
-                                # res <- dplyr::inner_join(dtplyr::tbl_dt(dNdS.table), dtplyr::tbl_dt(complete_tbl), by = "query_id")
-                                # return(res)
-                                return(dNdS.table)
-                        })(i))
-                }
+                dNdS_values <- vector(mode = "list", length = nrow(complete_tbl))
+                for (i in seq_len(nrow(complete_tbl)))
+                        dNdS_values[[i]] <- safe_pair(i)
         }
         
         if (multicore) {
                 ### Parallellizing the sampling process using the 'doParallel' and 'parallel' package
                 ### register all given cores for parallelization
                 par_cores <- parallel::makeForkCluster(comp_cores)
+                on.exit(parallel::stopCluster(par_cores), add = TRUE)
                 doParallel::registerDoParallel(par_cores)
                 
-                ### Perform the sampling process in parallel
                 dNdS_values <-
                         foreach::foreach(
-                                i              = 1:nrow(complete_tbl),
-                                .combine       = "rbind",
+                                i              = seq_len(nrow(complete_tbl)),
                                 .packages      = c("seqinr", "data.table"),
                                 .errorhandling = "stop"
                         ) %dopar% {
-                                # storing the query gene id and subject gene id of the orthologous gene pair
-                                orthologs_names <-
-                                        list(complete_tbl[i , query_id], complete_tbl[i, subject_id])
-                                
-                                # storing the query CDS sequence and subject CDS sequence of the orthologous gene pair
-                                cds_seqs <-
-                                        list(complete_tbl[i, query_cds], complete_tbl[i, subject_cds])
-                                
-                                # storing the query amino acid sequence and subject amino acid sequence of the orthologous gene pair
-                                aa_seqs <-
-                                        list(complete_tbl[i, query_aa], complete_tbl[i, subject_aa])
-                                
-                                #aa_aln_name <- paste0("query_",i,"___","subject_",i)
-                                aa_aln_name <- paste0("q", i)
-                                
-                                # create cds fasta of orthologous gene pair having session name: 'aa_aln_name'
-                                cds_session_fasta <-
-                                        file.path(
-                                                tempdir(),
-                                                "_alignment",
-                                                "orthologs",
-                                                "CDS",
-                                                paste0(aa_aln_name, "_cds.fasta")
-                                        )
-                                
-                                seqinr::write.fasta(
-                                        sequences = cds_seqs,
-                                        names     = orthologs_names,
-                                        file.out  = cds_session_fasta
-                                )
-                                
-                                # create aa fasta of orthologous gene pair having session name: 'aa_aln_name'
-                                aa_session_fasta <-
-                                        file.path(
-                                                tempdir(),
-                                                "_alignment",
-                                                "orthologs",
-                                                "AA",
-                                                paste0(aa_aln_name, "_aa.fasta")
-                                        )
-                                
-                                seqinr::write.fasta(
-                                        sequences = aa_seqs,
-                                        names     = orthologs_names,
-                                        file.out  = aa_session_fasta
-                                )
-                                
-                                # which multi_aln tool should get the parameters
-                                #multi_aln_tool_params <- paste0(aa_aln_tool,".",params)
-                                
-                                #                 pairwise_aln <- pwalign::pairwiseAlignment(aa_seqs[[1]],aa_seqs[[2]], type = "global")
-                                #
-                                #                 pwalign::writePairwiseAlignments(pairwise_aln, block.width = 60)
-                                #
-                                
-                                if (aa_aln_type == "multiple") {
-                                        # align aa -> <aa_aln_tool>.aln
-                                        multi_aln(
-                                                file           = aa_session_fasta,
-                                                tool           = aa_aln_tool,
-                                                get_aln        = FALSE,
-                                                multi_aln_name = aa_aln_name,
-                                                path           = aa_aln_path,
-                                                quiet          = quiet
-                                        )
-                                        
-                                        aa_aln_session_name <-
-                                                paste0(aa_aln_name, "_", aa_aln_tool, ".aln")
-                                        
-                                        # align codon -> cds.aln
-                                        codon_aln(
-                                                file_aln       = file.path(
-                                                        ifelse(store_locally, "orthologr_alignment_files", tempdir()),
-                                                        "_alignment",
-                                                        "multi_aln",
-                                                        aa_aln_session_name
-                                                ),
-                                                file_nuc       = cds_session_fasta,
-                                                tool           = codon_aln_tool,
-                                                format         = "fasta",
-                                                codon_aln_name = aa_aln_name,
-                                                get_aln        = FALSE,
-                                                quiet          = quiet
-                                        )
-                                }
-                                
-                                if (aa_aln_type == "pairwise") {
-                                        # align aa -> <aa_aln_tool>.aln
-                                        pairwise_aln(
-                                                file              = aa_session_fasta,
-                                                tool              = aa_aln_tool,
-                                                seq_type          = "protein",
-                                                get_aln           = FALSE,
-                                                pairwise_aln_name = aa_aln_name,
-                                                path              = aa_aln_path,
-                                                quiet             = quiet,
-                                                store_locally     = store_locally
-                                        )
-                                        
-                                        aa_aln_session_name <-
-                                                paste0(aa_aln_name,
-                                                       "_",
-                                                       aa_aln_tool,
-                                                       "_AA.aln")
-                                        
-                                        # align codon -> cds.aln
-                                        codon_aln(
-                                                file_aln       = file.path(
-                                                        ifelse(store_locally, "orthologr_alignment_files", tempdir()),
-                                                        "_alignment",
-                                                        "pairwise_aln",
-                                                        aa_aln_session_name
-                                                ),
-                                                file_nuc       = cds_session_fasta,
-                                                tool           = codon_aln_tool,
-                                                format         = "fasta",
-                                                codon_aln_name = aa_aln_name,
-                                                get_aln        = FALSE,
-                                                quiet          = quiet
-                                        )
-                                }
-                                
-                                codon_aln_session_name <-
-                                        paste0(aa_aln_name, "_", codon_aln_tool, ".aln")
-                                
-                                # compute kaks
-                                dNdS.table <-
-                                        substitutionrate(
-                                                file           = file.path(
-                                                        tempdir(),
-                                                        "_alignment",
-                                                        "codon_aln",
-                                                        codon_aln_session_name
-                                                ),
-                                                subst_name     = aa_aln_name,
-                                                kaks_calc_path = kaks_calc_path,
-                                                est.method     = dnds_est.method,
-                                                quiet          = quiet
-                                        )
-                                
-                                # res <- dplyr::inner_join(dtplyr::tbl_dt(dNdS.table), dtplyr::tbl_dt(complete_tbl), by = "query_id")
-                                # return(res)
-                                return(dNdS.table)
-
+                                safe_pair(i)
                         }
-                
-                parallel::stopCluster(par_cores)
         }
         
+        dNdS_tbl <- data.table::rbindlist(dNdS_values, use.names = TRUE, fill = TRUE)
         
-        if (!multicore)
-                dNdS_tbl <- data.table::as.data.table(do.call(rbind, dNdS_values))
-        
-        if (multicore)
-                dNdS_tbl <- data.table::as.data.table(dNdS_values)
+        failed_pairs <- as.data.frame(dNdS_tbl[!is.na(.reason), list(query_id, subject_id, reason = .reason)])
+        dNdS_tbl[ , .reason := NULL]
         
         setkeyv(dNdS_tbl, c("query_id", "subject_id"))
         
         
         if (clean_folders)
                 clean_all_folders(c(
-                        file.path(tempdir(), "_alignment"),
-                        file.path(tempdir(), "_blast_db"),
-                        file.path(tempdir(), "_calculation")
+                        file.path(orthologr_tmpdir(), "_alignment"),
+                        file.path(orthologr_tmpdir(), "_blast_db"),
+                        file.path(orthologr_tmpdir(), "_calculation")
                 ))
         
+        if (nrow(failed_pairs) > 0) {
+                warning(
+                        nrow(failed_pairs), " of ", nrow(complete_tbl),
+                        " gene pairs could not be processed; their dN, dS and dNdS values are NA. ",
+                        "The reasons are in attr(<result>, \"failed_pairs\"). First one: ",
+                        "'", failed_pairs$query_id[1], "' / '", failed_pairs$subject_id[1], "': ",
+                        strsplit(failed_pairs$reason[1], "\n", fixed = TRUE)[[1]][1],
+                        call. = FALSE
+                )
+        }
+        
         dNdS_tbl <- tibble::as_tibble(dNdS_tbl)
+        attr(dNdS_tbl, "failed_pairs") <- failed_pairs
         # returning the dNdS table as data.table object
         return(dNdS_tbl)
         
+}
+
+# A result row of NA values for a gene pair that could not be processed, with the columns substitutionrate()
+# returns for 'est.method' plus the reason.
+dnds_na_row <- function(query_id, subject_id, est.method, reason) {
+        row <- data.table::data.table(
+                query_id   = as.character(query_id),
+                subject_id = as.character(subject_id),
+                dN         = NA_real_,
+                dS         = NA_real_,
+                dNdS       = NA_real_
+        )
+        if (!is.element(est.method, c("Comeron", "Li")))
+                row[["method"]] <- est.method
+        row[[".reason"]] <- as.character(reason)
+        return(row)
 }

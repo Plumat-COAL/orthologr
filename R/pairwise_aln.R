@@ -59,17 +59,17 @@ pairwise_aln <- function(file,
                 seqtype <- "AA"
                 
         
-        if (!file.exists(file.path(ifelse(store_locally, "orthologr_alignment_files", tempdir()), "_alignment"))) {
-                dir.create(file.path(ifelse(store_locally, "orthologr_alignment_files", tempdir()), "_alignment"))
+        if (!file.exists(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment"))) {
+                dir.create(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment"))
         }
         
-        if (!file.exists(file.path(ifelse(store_locally, "orthologr_alignment_files", tempdir()), "_alignment", "pairwise_aln"))) {
-                dir.create(file.path(ifelse(store_locally, "orthologr_alignment_files", tempdir()), "_alignment", "pairwise_aln"))
+        if (!file.exists(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment", "pairwise_aln"))) {
+                dir.create(file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()), "_alignment", "pairwise_aln"))
         }
         
         if (is.null(pairwise_aln_name)) {
                 file.out <-
-                        file.path(ifelse(store_locally, "orthologr_alignment_files", tempdir()),
+                        file.path(ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()),
                                   "_alignment",
                                   "pairwise_aln",
                                   paste0(tool, "_", seqtype, ".aln"))
@@ -78,7 +78,7 @@ pairwise_aln <- function(file,
         if (!is.null(pairwise_aln_name)) {
                 file.out <-
                         file.path(
-                                ifelse(store_locally, "orthologr_alignment_files", tempdir()),
+                                ifelse(store_locally, "orthologr_alignment_files", orthologr_tmpdir()),
                                 "_alignment",
                                 "pairwise_aln",
                                 paste0(pairwise_aln_name, "_", tool, "_", seqtype, ".aln")
@@ -137,9 +137,13 @@ pairwise_aln <- function(file,
                 
                 if (store_locally) {
                         local_store_path <- file.path("orthologr_alignment_files", "_pairwise_alignment_with_score")
+                        if (!file.exists(local_store_path))
+                                dir.create(local_store_path, recursive = TRUE)
                         pwalign::writePairwiseAlignments(aln, file.path(local_store_path, paste0(pairwise_aln_name, "_", tool, "_", seqtype, ".aln")))
                 } else {
-                        local_store_path <- file.path(tempdir(), "_pairwise_alignment_with_score")
+                        local_store_path <- file.path(orthologr_tmpdir(), "_pairwise_alignment_with_score")
+                        if (!file.exists(local_store_path))
+                                dir.create(local_store_path, recursive = TRUE)
                         pwalign::writePairwiseAlignments(aln, file.path(local_store_path, paste0(pairwise_aln_name, "_", tool, "_", seqtype, ".aln")))
                 }
                 

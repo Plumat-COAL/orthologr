@@ -289,17 +289,17 @@ multi_aln <- function(file,
                 stop("Please choose a tool that is supported by this function.")
         
         
-        if (!file.exists(file.path(tempdir(), "_alignment"))) {
-                dir.create(file.path(tempdir(), "_alignment"))
+        if (!file.exists(file.path(orthologr_tmpdir(), "_alignment"))) {
+                dir.create(file.path(orthologr_tmpdir(), "_alignment"))
         }
         
-        if (!file.exists(file.path(tempdir(), "_alignment", "multi_aln"))) {
-                dir.create(file.path(tempdir(), "_alignment", "multi_aln"))
+        if (!file.exists(file.path(orthologr_tmpdir(), "_alignment", "multi_aln"))) {
+                dir.create(file.path(orthologr_tmpdir(), "_alignment", "multi_aln"))
         }
         
         if (is.null(multi_aln_name)) {
                 file.out <-
-                        file.path(tempdir(),
+                        file.path(orthologr_tmpdir(),
                                   "_alignment",
                                   "multi_aln",
                                   paste0(basename(file), "_", tool, ".aln"))
@@ -308,7 +308,7 @@ multi_aln <- function(file,
         if (!is.null(multi_aln_name)) {
                 file.out <-
                         file.path(
-                                tempdir(),
+                                orthologr_tmpdir(),
                                 "_alignment",
                                 "multi_aln",
                                 paste0(multi_aln_name, "_", tool, ".aln")
@@ -880,7 +880,7 @@ multi_aln <- function(file,
         }
         
         if (clean_folders)
-                clean_all_folders(file.path(tempdir(), "_alignment")
+                clean_all_folders(file.path(orthologr_tmpdir(), "_alignment")
                 )
 }
 

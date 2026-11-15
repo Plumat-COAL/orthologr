@@ -143,7 +143,7 @@ orthologs <- function(query_file,
                         proteome  = cds2aa(
                                 read.cds(query_file, format = format, delete_corrupt_cds = delete_corrupt_cds)
                         ),
-                        file.name = file.path(tempdir(), paste0(filename_qry, "_translated.fasta"))
+                        file.name = file.path(orthologr_tmpdir(), paste0(filename_qry, "_translated.fasta"))
                 )
 
                 if (length(subject_files) > 1) {
@@ -170,14 +170,14 @@ orthologs <- function(query_file,
                                                 delete_corrupt_cds = delete_corrupt_cds
                                         ),
                                         file.name = file.path(
-                                                tempdir(),
+                                                orthologr_tmpdir(),
                                                 paste0(short.name, "_translated.fasta")
                                         )
                                 )
                         }
 
                         subject_files <-
-                                file.path(tempdir(),
+                                file.path(orthologr_tmpdir(),
                                           paste0(subj_short.names, "_translated.fasta"))
 
                 } else {
@@ -202,17 +202,17 @@ orthologs <- function(query_file,
                                         ),
                                         delete_corrupt_cds = delete_corrupt_cds
                                 ),
-                                file.name = file.path(tempdir(),
+                                file.name = file.path(orthologr_tmpdir(),
                                                       paste0(filename_subj, "_translated.fasta"))
                         )
 
                         subject_files <-
-                                file.path(tempdir(),
+                                file.path(orthologr_tmpdir(),
                                           paste0(filename_subj, "_translated.fasta"))
                 }
 
                 query_file <-
-                        file.path(tempdir(), paste0(filename_qry, "_translated.fasta"))
+                        file.path(orthologr_tmpdir(), paste0(filename_qry, "_translated.fasta"))
         }
 
         # ---- DIAMOND2 reciprocal best hit (default) ----
@@ -287,7 +287,7 @@ orthologs <- function(query_file,
                 )
 
                 if (clean_folders)
-                        clean_all_folders(file.path(tempdir(), "_blast_db"))
+                        clean_all_folders(file.path(orthologr_tmpdir(), "_blast_db"))
         }
 
         # ---- BLAST reciprocal best hit ----
@@ -312,7 +312,7 @@ orthologs <- function(query_file,
                 )
 
                 if (clean_folders)
-                        clean_all_folders(file.path(tempdir(), "_blast_db"))
+                        clean_all_folders(file.path(orthologr_tmpdir(), "_blast_db"))
         }
 
         # ---- OrthoFinder2 (under development) ----

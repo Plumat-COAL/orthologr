@@ -164,6 +164,14 @@
 #' matching algorithms. R package version 2.32.1.
 #' 
 #' @return A data.table storing the dNdS values of the correspnding genes.
+#' 
+#' A gene pair for which a step of the pipeline fails (e.g. PAL2NAL or KaKs_Calculator exit with an error) does not end
+#' the run: it is returned with \code{NA} for dN, dS and dNdS, a warning reports how many pairs failed, and
+#' \code{attr(result, "failed_pairs")} is a \code{data.frame} (\code{query_id}, \code{subject_id}, \code{reason})
+#' naming the pair, the program and its message.
+#' 
+#' Each call keeps its intermediate files (search database, alignments, KaKs_Calculator files) in a folder of its own
+#' inside \code{tempdir()} and removes it when the call ends; \code{options(orthologr.keep_tmp = TRUE)} keeps it.
 #' @examples \dontrun{
 #' 
 #' # get a dNdS table using:
@@ -257,6 +265,12 @@ dNdS <- function(query_file,
         # determine the file seperator of the current OS
         f_sep <- .Platform$file.sep
         
+        # every call works in a folder of its own, which is removed when the call ends (also after an error or an
+        # interrupt): files of an earlier or failed run can never be picked up as results of this one
+        # (keep the folder with options(orthologr.keep_tmp = TRUE))
+        end_tmpdir <- orthologr_tmpdir_start("orthologr_dNdS_")
+        on.exit(end_tmpdir(), add = TRUE)
+        
         if (!is.ortho_detection_method(ortho_detection))
                 stop("Please choose a orthology detection method that is supported by this function.", call. = FALSE)
         
@@ -278,8 +292,8 @@ dNdS <- function(query_file,
         }
         
         if (!store_locally) {
-                if (!file.exists(file.path(tempdir(), "_pairwise_alignment_with_score")))
-                        dir.create(file.path(tempdir(), "_pairwise_alignment_with_score"))
+                if (!file.exists(file.path(orthologr_tmpdir(), "_pairwise_alignment_with_score")))
+                        dir.create(file.path(orthologr_tmpdir(), "_pairwise_alignment_with_score"))
         }
                 
         if (aa_aln_type == "multiple") {
@@ -356,60 +370,14 @@ dNdS <- function(query_file,
                                   format = format,
                                   delete_corrupt_cds = delete_corrupt_cds)
                 
-                filename_qry <-
-                        unlist(strsplit(
-                                query_file,
-                                f_sep,
-                                fixed = FALSE,
-                                perl = TRUE,
-                                useBytes = FALSE
-                        ))
-                
-                filename_qry <- filename_qry[length(filename_qry)]
-                
-                input_qry = paste0("query_", filename_qry, ".fasta")
-                
-                q_aa <-
-                        read.proteome(file = file.path(tempdir(), "_blast_db", input_qry),
-                                      format = "fasta")
-                
-                filename_subj <-
-                        unlist(strsplit(
-                                subject_file,
-                                f_sep,
-                                fixed = FALSE,
-                                perl = TRUE,
-                                useBytes = FALSE
-                        ))
-                filename_subj <-
-                        filename_subj[length(filename_subj)]
-                
-                # If using DIAMOND or BLAST best hit as orthology inference method
-                if(ortho_detection == "BH"){
-                        # translate coding sequences to amino acid sequences
-                        s_aa_tmp <- cds2aa(s_cds, delete_corrupt_cds = delete_corrupt_cds)
-
-                        seqinr::write.fasta(
-                                sequences = as.list(s_aa_tmp[, aa]),
-                                names     = s_aa_tmp[, geneids],
-                                nbchar    = 80,
-                                open      = "w",
-                                file.out  = file.path(tempdir(), "_blast_db", filename_subj)
-                        )
-                        
-                        s_aa <-
-                                read.proteome(file = file.path(tempdir(), "_blast_db", filename_subj),
-                                              format = "fasta")
-                }
-                # If using DIAMOND or BLAST best reciprocal hit as orthology inference method
-                if(ortho_detection == "RBH"){
-                        
-                        input_subj = paste0("query_", filename_subj, ".fasta")
-                        
-                        s_aa <-
-                                read.proteome(file = file.path(tempdir(), "_blast_db", input_subj),
-                                              format = "fasta")
-                }
+                # The proteins of both organisms, translated from the coding sequences read above (the same
+                # translation set_diamond() / set_blast() perform for the search).
+                # They used to be read back from the files 'query_<basename(file)>.fasta' that the search step leaves
+                # in '_blast_db': when query_file and subject_file have the same file name in different folders
+                # (e.g. 'a/cds.fa' and 'b/cds.fa') both names are the same file, and the query proteins were
+                # silently replaced by the subject's.
+                q_aa <- cds_protein_table(q_cds, delete_corrupt_cds = delete_corrupt_cds)
+                s_aa <- cds_protein_table(s_cds, delete_corrupt_cds = delete_corrupt_cds)
         }
 
         # the code should be made more elegant...
@@ -472,7 +440,7 @@ dNdS <- function(query_file,
                         names     = q_aa_tmp[ , geneids],
                         nbchar    = 80,
                         open      = "w",
-                        file.out  = file.path(tempdir(), filename_qry)
+                        file.out  = file.path(orthologr_tmpdir(), paste0("query_", filename_qry))
                 )
                 
                 seqinr::write.fasta(
@@ -480,14 +448,14 @@ dNdS <- function(query_file,
                         names     = s_aa_tmp[ , geneids],
                         nbchar    = 80,
                         open      = "w",
-                        file.out  = file.path(tempdir(), filename_subj)
+                        file.out  = file.path(orthologr_tmpdir(), paste0("subject_", filename_subj))
                 )
                 
                 q_aa <-
-                        read.proteome(file = file.path(tempdir(), filename_qry),
+                        read.proteome(file = file.path(orthologr_tmpdir(), paste0("query_", filename_qry)),
                                       format = "fasta")
                 s_aa <-
-                        read.proteome(file = file.path(tempdir(), filename_subj),
+                        read.proteome(file = file.path(orthologr_tmpdir(), paste0("subject_", filename_subj)),
                                       format = "fasta")
                 
         }
@@ -528,6 +496,9 @@ dNdS <- function(query_file,
         hit.table_selected <- dplyr::select(hit.table, -subject_id)
         
         res <- dplyr::inner_join(dNdS_tbl, hit.table_selected, by = "query_id", copy = TRUE)
+        
+        # gene pairs that could not be processed (their dN, dS and dNdS are NA) and why
+        attr(res, "failed_pairs") <- attr(dNdS_tbl, "failed_pairs")
         
         message("dN/dS Estimation Completed.")
         
