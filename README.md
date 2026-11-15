@@ -100,7 +100,7 @@ BiocManager::install(c("Biostrings", "pwalign"))
 
 # install orthologr 0.5.0 from GitHub (this also installs its CRAN dependencies)
 install.packages("remotes")
-remotes::install_github("Plumat-COAL/orthologr@integration/all")
+remotes::install_github("drostlab/orthologr")
 ```
 
 **Coming from orthologr 0.4.3?** Version 0.5.0 changes some defaults and results; the article
@@ -280,7 +280,7 @@ On Windows the package is built from source, which needs [Rtools](https://cran.r
 
 ```r
 install.packages("remotes")
-remotes::install_github("Plumat-COAL/orthologr@integration/all")
+remotes::install_github("drostlab/orthologr")
 ```
 
 The article [Setup on Windows](https://drostlab.github.io/orthologr/articles/setup_windows.html) describes how to

@@ -76,11 +76,14 @@ the 0.4.3 package installed) on every run, for both ways of setting the switch.
 
 ## 3. Things that are set for the fork and must change when this is merged
 
-| Where | Now | Change to |
+Done in the last commit of the series proposed upstream (branch `upstream-v2/20-upstream-release` of the fork, the
+one commit that is not on the fork's `integration/all`), except the `Remotes` entry of coalr, which is still needed:
+
+| Where | On the fork | For upstream |
 |---|---|---|
-| `DESCRIPTION`, `Remotes:` | `coalr=Plumat-COAL/COAL/packaging/r/coalr` - COAL's default branch, which holds the R package coalr since COAL's pull request #54 was merged (syntax `package=owner/repo/subdir[@ref]`; the `coalr=` prefix is needed because the package is not named like its repository - without it pak, which GitHub Actions uses, reports "Can't find package called coalr") | a release tag (`...coalr@v<version>`) once COAL has one with the Comeron / Li methods |
-| install command of orthologr in `README.md` (two places), `environment.yml`, `vignettes/orthologr.Rmd` | `remotes::install_github("Plumat-COAL/orthologr@integration/all")`, so that the command installs the version the page describes | `remotes::install_github("drostlab/orthologr")` |
-| `.github/workflows/R-CMD-check.yaml`, `on: push: branches` | also `integration/**`, `upstream/**`, `upstream-v2/**`, `fix/**` (the fork's working branches) and `workflow_dispatch` | the fork branches can be removed; `workflow_dispatch` is worth keeping |
+| `DESCRIPTION`, `Remotes:` | `coalr=Plumat-COAL/COAL/packaging/r/coalr@03612da73e41a044e2385acb4ac9d599a8a49e8b` - a commit of COAL's main branch with COAL #76 (syntax `package=owner/repo/subdir[@ref]`; the `coalr=` prefix is needed because the package is not named like its repository - without it pak, which GitHub Actions uses, reports "Can't find package called coalr") | **kept as it is**: coalr is not on CRAN or r-universe yet, and the pin keeps a change on COAL's main branch from changing a check of this package. Move it to a release tag (`...coalr@v<version>`) once COAL has one with COAL #76, and drop the entry once coalr is on CRAN / r-universe. `drostlab/metablastr` is the only other entry; nothing else in `DESCRIPTION` points at the fork |
+| install command of orthologr in `README.md` (two places), `environment.yml`, `vignettes/orthologr.Rmd` | `remotes::install_github("Plumat-COAL/orthologr@integration/all")`, so that the command installs the version the page describes | **done**: `remotes::install_github("drostlab/orthologr")` |
+| `.github/workflows/R-CMD-check.yaml`, `on: push: branches` | also `integration/**`, `upstream/**`, `upstream-v2/**`, `fix/**` (the fork's working branches) | **done**: pushes to `main` / `master` and pull requests, as upstream had; `workflow_dispatch` kept (a manual start from the Actions tab) |
 
 GitHub Actions runs on the fork. All six legs (Linux release / devel / oldrel-1, Linux without the optional
 programs, Windows, macOS; the programs installed with micromamba) passed on `upstream-v2/15-coal` (run
