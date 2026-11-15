@@ -118,8 +118,9 @@ jobs:
         if: matrix.config.tools == 'none'
         shell: Rscript {0}
         run: |
-          if (requireNamespace("coalr", quietly = TRUE)) remove.packages("coalr", lib = dirname(system.file(package = "coalr")))
-          stopifnot(!requireNamespace("coalr", quietly = TRUE))
+          # (system.file() does not load the package: a loaded namespace would still be found afterwards)
+          for (i in 1:3) if (nzchar(p <- system.file(package = "coalr"))) remove.packages("coalr", lib = dirname(p))
+          stopifnot(!nzchar(system.file(package = "coalr")))
 
       - uses: r-lib/actions/check-r-package@v2
         env:
