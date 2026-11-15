@@ -20,7 +20,10 @@ test_that("plot_pairwise_orthologs() draws a ggplot when ggplot2 and scales are 
         skip_if_not_installed("scales")
         tbl <- tibble::tibble(subject_species = rep(c("s1", "s2"), c(3, 2)), query_id = paste0("q", 1:5),
                               query_gene_locus_id = paste0("g", 1:5), subject_gene_locus_id = paste0("h", 1:5))
-        p <- tryCatch(suppressWarnings(plot_pairwise_orthologs(tbl, species_order = c("s1", "s2"))), error = function(e) e)
-        skip_if(inherits(p, "error"), "the example table does not fit plot_pairwise_orthologs()")
+        # (L5 of REVIEW-OL-1) only a missing optional package is a reason to skip; any other error fails the test
+        p <- tryCatch(suppressWarnings(plot_pairwise_orthologs(tbl, species_order = c("s1", "s2"))),
+                      orthologr_error_package_missing = function(e) e)
+        if (inherits(p, "orthologr_error_package_missing"))
+                skip(conditionMessage(p))
         expect_s3_class(p, "ggplot")
 })
