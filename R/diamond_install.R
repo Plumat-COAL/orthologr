@@ -49,7 +49,8 @@
 #' HTTPS from the GitHub releases of \url{https://github.com/bbuchfink/diamond} and verified against its pinned
 #' SHA-256 checksum (or the one given as \code{sha256}) before it is unpacked.
 #' @examples
-#' # NULL when DIAMOND is on the PATH, the folder of a copy installed by diamond_install(), an error otherwise
+#' # NULL when DIAMOND is on the PATH, the folder of a copy installed by diamond_install(),
+#' # an error otherwise
 #' tryCatch(diamond_path(), error = conditionMessage)
 #' \dontrun{
 #' # download DIAMOND into that folder (needs an internet connection)
