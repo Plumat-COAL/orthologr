@@ -108,6 +108,8 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   itself rather than against the native code twice).
 - The record of a run with COAL (`attr(result, "orthologr_run")$tools`) never had the version of COAL's engine
   inside `coalr` (`coal`): it read `coalr::coal_info()$version`, a field that does not exist (`coal_version`).
+- `dNdS(engine = "coal", kaks_tool = "coal", dnds_est.method = c("NG", "YN"))` stopped with R's error "the
+  condition has length > 1": `engine = "coal"` ignores `kaks_tool`, and the check of it is no longer made there.
 
 ### Other changes
 
