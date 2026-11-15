@@ -137,6 +137,41 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   `stop_codons`) and a line of the summary message (`dNdS()`, both engines). The sequences are used as before; no
   value changes.
 
+### Installation, licence notes and CI
+
+- `diamond_install()` verifies the download: the archive must have the SHA-256 checksum that orthologr pins for
+  the release and platform, else it is deleted and nothing is installed (error class
+  `orthologr_error_checksum_mismatch`). Pinned: DIAMOND v2.2.8 for Linux x86_64, macOS and Windows (the releases
+  publish no checksum files; computed from two downloads of the GitHub release files and compared in CI with the
+  digests GitHub records for them). `version = "latest"` is now the newest pinned release (v2.2.8), not GitHub's
+  latest release: DIAMOND v2.2.9 (14 November 2026) is not pinned, its release had no macOS file and a Linux file
+  rebuilt a day later when this was written (with "latest" it would have failed on macOS before, too). Another
+  release is downloaded only with its checksum given, `diamond_install(version = "v2.1.25", sha256 = "...")`;
+  without one it is refused before any download (fails closed, `orthologr_error_bad_argument`). The checksum is
+  computed with `tools::sha256sum()` (R >= 4.5.0) or `sha256sum` / `shasum` / `certutil`; without any of them the
+  download is refused.
+- `diamond_install(timeout = )`: the download has a time limit (default as before: R's option `timeout`, at least
+  600 s); a download that fails or times out is an error of class `orthologr_error_download_failed` that names
+  the limit, and the partial file is removed. The check that the program runs (`diamond version`) has 60 s. The
+  archive is unpacked into a temporary folder and the program copied into the cache only after it ran, so a failed
+  reinstallation (`force = TRUE`) leaves the cached copy in place (before, the archive was unpacked over it).
+- Tests with a mocked download (matching and wrong checksum, timeout, truncated transfer, unpinned release with and
+  without `sha256`, a program that does not run); on CI (`ORTHOLOGR_TEST_DIAMOND_DOWNLOAD=true`) the real pinned
+  release is downloaded, verified and run on Linux, macOS and Windows.
+- Licence notes: the README said that no code of KaKs_Calculator is part of the package. The internal functions
+  `kaks_transl_table()`, `kaks_lwl_tables()` and `kaks_lwl_counts()` (`R/substitutionrate.R`, added in 0.5.0 /
+  0.6.0 for the saturation test of the LWL family) are derived from KaKs_Calculator 2.0's source (GPL-3): the
+  genetic codes of `base.cpp` and an R translation of the counts in `LWL85.cpp` / `LPB93.cpp`. The new file
+  `inst/COPYRIGHTS` lists the third-party parts (libsequence, KaKs_Calculator 2.0, PAL2NAL v14) with origin,
+  copyright holders and licence; the README section "Licenses" is corrected, and `MAINTAINER_NOTES.md` describes
+  what this means for the `License` field (unchanged, `GPL-2`).
+- CI: the GitHub Actions are pinned to full commit SHAs (the release in a comment), every job and the long steps
+  have time limits, the DIAMOND file that the Windows leg downloads is pinned and checked (SHA-256), a new job
+  compares the pinned checksums with GitHub's digests of the release files and a fresh download, and pushes to
+  `chore/**` branches of a fork are checked too.
+- `DESCRIPTION`: `Version: 0.6.0`. README: the install line says 0.6.0, MLPB and `kaks_tool = "coal"` are listed
+  with the KaKs_Calculator methods, the run time and `diamond_install()` lines are updated.
+
 ### Internal
 
 - Removed internal functions that nothing called (not exported; uncalled in upstream too): `get_filename()`,
