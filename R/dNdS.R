@@ -465,8 +465,12 @@ dNdS <- function(query_file,
         
         # (Comeron and Li are computed by orthologr's own code whatever kaks_tool is; kaks_tool = "coal" only
         # replaces KaKs_Calculator for the seven methods COAL computes)
-        kaks_by_coal <- kaks_tool == "coal" && is.element(dnds_est.method, coal_kaks_calculator_methods())
-        if (kaks_tool == "coal" && !is.element(dnds_est.method, c(coal_native_methods(), coal_kaks_calculator_methods())))
+        # (engine = "coal" ignores kaks_tool and takes several methods, which it checks itself: with
+        # dnds_est.method = c("NG", "YN") the test below stopped with R's error for a condition of length 2 - L1)
+        kaks_by_coal <- engine == "orthologr" && kaks_tool == "coal" &&
+                is.element(dnds_est.method, coal_kaks_calculator_methods())
+        if (engine == "orthologr" && kaks_tool == "coal" &&
+            !is.element(dnds_est.method, c(coal_native_methods(), coal_kaks_calculator_methods())))
                 kaks_tool_coal_abort("dnds_est.method", dnds_est.method)
         
         check_aa_aln_scoring(aa_aln_scoring)
