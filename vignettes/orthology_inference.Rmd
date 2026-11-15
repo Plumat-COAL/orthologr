@@ -50,7 +50,8 @@ The following interfaces are implemented in the `orthologs()` function:
 
 ### Orthogroup based methods:
 
-- [OrthoFinder](https://github.com/davidemms/OrthoFinder): `orthofinder2()` is a thin, soft-deprecated wrapper that starts OrthoFinder; we recommend running OrthoFinder on the command line and importing its single-copy orthogroups with `orthofinder2_retrieve_core_orthologs()`. `orthologs(ortho_detection = "Orthofinder2")` is not implemented.
+- Orthogroups of two or more species: `orthogroups()` builds them with DIAMOND alone (reciprocal best hits of all pairs of species, or DIAMOND DeepClust clusters) and `write_orthogroups()` writes them in OrthoFinder's layout; see the vignette [Orthogroups of Several Species with DIAMOND](orthogroups.html).
+- [OrthoFinder](https://github.com/davidemms/OrthoFinder): `orthofinder2()` is a thin, soft-deprecated wrapper that starts OrthoFinder. If you need OrthoFinder itself (gene trees, hierarchical orthogroups), run it on the command line and import its single-copy orthogroups with `orthofinder2_retrieve_core_orthologs()`. `orthologs(ortho_detection = "Orthofinder2")` is not implemented.
 
 ### Clustering based methods:
 

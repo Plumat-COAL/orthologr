@@ -46,8 +46,10 @@ table of single-copy orthogroups.
 }
 \description{
 Run OrthoFinder from R. \strong{This function is soft-deprecated}: it is a thin, unmaintained
-wrapper that starts \code{orthofinder -f <proteome_folder>} and gives a warning when it is called. For
-anything beyond that, run OrthoFinder on the command line and import its tables, e.g. with
+wrapper that starts \code{orthofinder -f <proteome_folder>} and gives a warning when it is called.
+\strong{Use \code{\link{orthogroups}} instead}: it infers orthogroups of any number of species with DIAMOND
+alone and returns them in OrthoFinder's layout (\code{\link{write_orthogroups}}). If you need OrthoFinder itself
+(gene trees, hierarchical orthogroups), run it on the command line and import its tables, e.g. with
 \code{\link{orthofinder2_retrieve_core_orthologs}}.
 }
 \note{

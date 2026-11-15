@@ -176,6 +176,7 @@ test_that("an invalid options(orthologr.max_aln_cells) is an error before the se
         }
         rlang::local_options(orthologr.max_aln_cells = "5e8")
         expect_match(tryCatch(max_aln_cells(), error = conditionMessage), "not '5e8' (text)", fixed = TRUE)
+        expect_error(dNdS_orthogroups(c(a = thal_cds(), b = lyra_cds())), "must be one positive number")
         rlang::local_options(orthologr.max_aln_cells = Inf)
         expect_identical(max_aln_cells(), Inf)
 })

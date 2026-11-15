@@ -19,8 +19,11 @@
 #'   \item \code{"DIAMOND_BH"}: DIAMOND2 best hit
 #'   \item \code{"RBH"}: BLAST reciprocal best hit
 #'   \item \code{"BH"}: BLAST best hit
-#'   \item \code{"Orthofinder2"}: not implemented (an error; run OrthoFinder yourself and import its tables)
+#'   \item \code{"Orthofinder2"}: not implemented (an error). For orthogroups of two or more species use
+#'   \code{\link{orthogroups}}, which needs DIAMOND only.
 #' }
+#' \code{orthologs()} compares one query with one subject; \code{\link{orthogroups}} infers groups of orthologs for
+#' any number of species (reciprocal best hits of all pairs of species, or DIAMOND DeepClust clusters).
 #' @param sensitivity_mode a character string specifying the DIAMOND2 sensitivity level.
 #' Only used when \code{ortho_detection} is \code{"DIAMOND_RBH"} or \code{"DIAMOND_BH"}.
 #' Options: \code{"faster"}, \code{"fast"} (default), \code{"mid-sensitive"},
@@ -93,7 +96,7 @@
 #'           seq_type        = "protein",
 #'           ortho_detection = "BH")
 #' }
-#' @seealso \code{\link{diamond_rec}}, \code{\link{diamond_best}}, \code{\link{blast_rec}}, \code{\link{dNdS}}
+#' @seealso \code{\link{orthogroups}} (two or more species), \code{\link{diamond_rec}}, \code{\link{diamond_best}}, \code{\link{blast_rec}}, \code{\link{dNdS}}
 #' @param best_hit_rule how the best hit of a query is chosen among its hits:
 #' \itemize{
 #' \item \code{"bitscore"} (default since orthologr 0.5.0): the hit with the highest bit score; of several, the one
@@ -152,7 +155,8 @@ orthologs <- function(query_file,
         # 'Orthofinder2' was announced but never implemented (the call returned NULL with a message)
         if (ortho_detection == "Orthofinder2")
                 stop("ortho_detection = 'Orthofinder2' is not implemented in orthologs(). ",
-                     "Please choose one of: 'DIAMOND_RBH', 'DIAMOND_BH', 'RBH', 'BH', or run OrthoFinder yourself ",
+                     "Please choose one of: 'DIAMOND_RBH', 'DIAMOND_BH', 'RBH', 'BH'. For orthogroups of two or more ",
+                     "species use orthogroups() (DIAMOND only), or run OrthoFinder yourself ",
                      "(see ?orthofinder2_retrieve_core_orthologs to import its single-copy orthogroups).", call. = FALSE)
 
         i <- NULL
