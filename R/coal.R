@@ -742,8 +742,10 @@ dNdS_coal <- function(query_file,
         res[[".coal_note"]] <- NULL
         trimmed <- trimmed_table()
         ambiguous <- ambiguous_table()
+        stops <- stop_codon_table()
         res <- dnds_finish(
                 res, failed_pairs = failed, dropped = end_dropped(), ambiguous = ambiguous, engine_status = engine_status, trimmed = trimmed,
+                stops = stops,
                 not_converged = sum(grepl("not converge|did not converge|no convergence", note, ignore.case = TRUE)),
                 record = list(fun = "dNdS_coal", args = run_args, engine = "coal",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path), coal_versions()),
