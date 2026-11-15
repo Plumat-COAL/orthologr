@@ -281,6 +281,19 @@ char Universal(std::string codon)
  }
 
  
+// TranslateCodon(codon)[0] without building strings: the amino acid of a codon ('\0', the character at position 0
+// of the empty string TranslateCodon() returns, for a codon that is not of length 3)
+inline char codon_aa(const std::string & codon)
+  {
+    if (codon.length() != 3)
+        return '\0';
+    std::string upper(3, ' ');
+    upper[0] = char(std::toupper(codon[0]));
+    upper[1] = char(std::toupper(codon[1]));
+    upper[2] = char(std::toupper(codon[2]));
+    return Universal(upper);
+  }
+
 // [[Rcpp::export]]
 std::string TranslateCodon(std::string codon)
   {

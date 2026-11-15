@@ -6,14 +6,19 @@
 
 ws_wrap <- function(paths){
         
-        paths <- stringr::str_split(paths,.Platform$file.sep)
+        sep <- .Platform$file.sep
+        # (split at every separator, keeping empty parts at the end as stringr::str_split() did)
+        paths <- lapply(paths, function(p) {
+                parts <- strsplit(paste0(p, sep, "x"), sep, fixed = TRUE)[[1]]
+                parts[-length(parts)]
+        })
         
         ws.paths <- unlist(lapply(paths, function(x) {
                 
-                stringr::str_c(unlist(sapply(x, function(word) {
-                        if (stringr::str_detect(word," ")) 
-                                return(stringr::str_replace(word,word,paste0("'",word,"'"))) else 
-                                        return(word)})),collapse = .Platform$file.sep)
+                paste(unlist(sapply(x, function(word) {
+                        if (grepl(" ", word, fixed = TRUE)) 
+                                return(paste0("'", word, "'")) else 
+                                        return(word)})), collapse = .Platform$file.sep)
                 
         }))
         

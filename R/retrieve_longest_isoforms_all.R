@@ -48,20 +48,20 @@ retrieve_longest_isoforms_all <-
                 }
                 
                 proteome_list <- file.path(proteome_folder, list.files(proteome_folder))
-                found_documentation <- stringr::str_detect(proteome_list, "documentation")
+                found_documentation <- grepl("documentation", proteome_list, fixed = TRUE)
                 if (length(found_documentation) > 0)
                         proteome_list <- proteome_list[!found_documentation]
                 
                 annotation_list <- file.path(annotation_folder, list.files(annotation_folder))
-                found_documentation_anno <- stringr::str_detect(annotation_list, "documentation")
+                found_documentation_anno <- grepl("documentation", annotation_list, fixed = TRUE)
                 if (length(found_documentation_anno) > 0) {
                         annotation_list <- annotation_list[!found_documentation_anno]
                 }
                 
                 
                 for (i in seq_len(length(proteome_list))) {
-                        org_name <- unlist(stringr::str_split(basename(proteome_list[i]), "[.]"))[1]
-                        if (org_name != unlist(stringr::str_split(basename(annotation_list[i]), "[.]"))[1])
+                        org_name <- first_field(basename(proteome_list[i]), ".")
+                        if (org_name != first_field(basename(annotation_list[i]), "."))
                                 stop("The proteome file name ",basename(proteome_list[i])," and the annotation file name ", basename(annotation_list[i]), " seem not to match!",
                                      "Please make sure that organism file names *.faa and *.gtf/*.gff match so that the correct annotation file is matched with the correct proteome file.", call. = FALSE)
                         

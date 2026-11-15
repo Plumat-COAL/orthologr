@@ -112,7 +112,9 @@ compute_dnds <- function(complete_tbl,
         
         # the complete pipeline for gene pair i: write the two FASTA files, align the proteins,
         # build the codon alignment, estimate dN/dS
-        one_pair <- function(i) {
+        #   aln_rows : NULL, or the two rows of the pairwise protein alignment of the pair computed beforehand by
+        #              pairwise_aln_rows() (they are written to the file pairwise_aln() would write)
+        one_pair <- function(i, aln_rows = NULL) {
                 # the IDs, coding sequences and amino acid sequences of the gene pair
                 orthologs_names <- list(q_ids[i], s_ids[i])
                 cds_seqs <- list(q_cds[i], s_cds[i])
@@ -130,11 +132,7 @@ compute_dnds <- function(complete_tbl,
                                 paste0(aa_aln_name, "_cds.fasta")
                         )
                 
-                seqinr::write.fasta(
-                        sequences = cds_seqs,
-                        names     = as.list(pair_names),
-                        file.out  = cds_session_fasta
-                )
+                write_pair_fasta(cds_seqs, pair_names, cds_session_fasta)
                 
                 # create aa fasta of orthologous gene pair having session name: 'aa_aln_name'
                 aa_session_fasta <-
@@ -146,11 +144,7 @@ compute_dnds <- function(complete_tbl,
                                 paste0(aa_aln_name, "_aa.fasta")
                         )
                 
-                seqinr::write.fasta(
-                        sequences = aa_seqs,
-                        names     = as.list(pair_names),
-                        file.out  = aa_session_fasta
-                )
+                write_pair_fasta(aa_seqs, pair_names, aa_session_fasta)
                 
                 if (aa_aln_type == "multiple") {
                         # align aa -> <aa_aln_tool>.aln
@@ -173,7 +167,14 @@ compute_dnds <- function(complete_tbl,
                                 )
                 }
                 
-                if (aa_aln_type == "pairwise") {
+                if (aa_aln_type == "pairwise" && !is.null(aln_rows)) {
+                        # the alignment computed together with the other pairs of its chunk: the file pairwise_aln()
+                        # writes (sequence names 'query' and 'subject', one line per sequence)
+                        aa_aln_file <-
+                                file.path(orthologr_tmpdir(), "_alignment", "pairwise_aln",
+                                          paste0(aa_aln_name, "_", aa_aln_tool, "_AA.aln"))
+                        write_pair_fasta(as.list(aln_rows), pair_names, aa_aln_file)
+                } else if (aa_aln_type == "pairwise") {
                         # align aa -> <aa_aln_tool>.aln
                         pairwise_aln(
                                 file              = aa_session_fasta,
@@ -197,15 +198,29 @@ compute_dnds <- function(complete_tbl,
                 }
                 
                 # align codon -> cds.aln
-                codon_aln(
-                        file_aln       = aa_aln_file,
-                        file_nuc       = cds_session_fasta,
-                        tool           = codon_aln_tool,
-                        format         = "fasta",
-                        codon_aln_name = aa_aln_name,
-                        get_aln        = FALSE,
-                        quiet          = TRUE
-                )
+                if (codon_in_memory && !is.null(aln_rows) && plain_seqs(c(q_cds[i], s_cds[i]))) {
+                        # COAL in process with the rows and coding sequences at hand: the file codon_aln() writes,
+                        # without reading the two files of the pair back
+                        codon <- coal_codon_rows(aln_rows, c(q_cds[i], s_cds[i]),
+                                                 paste0("gene pair '", pair_names[1], "' / '", pair_names[2], "' (",
+                                                        aa_aln_name, ")"))
+                        names(codon) <- pair_names
+                        codon_file <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln",
+                                                paste0(aa_aln_name, "_", codon_aln_tool, ".aln"))
+                        if (file.exists(codon_file))
+                                unlink(codon_file)
+                        write_alignment(codon, codon_file, format = "fasta")
+                } else {
+                        codon_aln(
+                                file_aln       = aa_aln_file,
+                                file_nuc       = cds_session_fasta,
+                                tool           = codon_aln_tool,
+                                format         = "fasta",
+                                codon_aln_name = aa_aln_name,
+                                get_aln        = FALSE,
+                                quiet          = TRUE
+                        )
+                }
                 
                 # compute kaks
                 rates <- substitutionrate(
@@ -231,19 +246,24 @@ compute_dnds <- function(complete_tbl,
                 rates <- data.table::as.data.table(rates)
                 data.table::set(rates, j = "query_id", value = as.character(orthologs_names[[1]]))
                 data.table::set(rates, j = "subject_id", value = as.character(orthologs_names[[2]]))
-                # an estimate of KaKs_Calculator that failed ('nan'): the row is a failed gene pair (with the method)
-                if (!is.null(kaks_failed) && nrow(kaks_failed) > 0 && is.element("method", names(rates)))
+                # an estimate of KaKs_Calculator that failed ('nan'): the row is a failed gene pair (with the method);
+                # otherwise the column '.reason' is NA (set here with data.table::set(): ':=' in safe_pair() took
+                # about 1 ms per pair)
+                if (!is.null(kaks_failed) && nrow(kaks_failed) > 0 && is.element("method", names(rates))) {
                         data.table::set(rates, j = ".reason",
                                         value = dnds_pair_reason(kaks_failed$reason[match(rates$method, kaks_failed$method)],
                                                                  q_ids[i], s_ids[i]))
+                } else if (!is.element(".reason", names(rates))) {
+                        data.table::set(rates, j = ".reason", value = NA_character_)
+                }
                 rates
         }
         
         # one gene pair must not end the run: a pair whose pipeline fails is returned as a row of NA values
         # together with the reason (column '.reason', moved to the attribute "failed_pairs" below)
-        safe_pair <- function(i) {
+        safe_pair <- function(i, aln_rows = NULL) {
                 res <- tryCatch(
-                        one_pair(i),
+                        one_pair(i, aln_rows),
                         error = function(e) {
                                 dnds_na_row(
                                         query_id   = q_ids[i],
@@ -254,10 +274,35 @@ compute_dnds <- function(complete_tbl,
                                 )
                         }
                 )
-                res <- data.table::as.data.table(res)
-                if (!is.element(".reason", names(res)))
-                        res[ , .reason := NA_character_]
+                # (both one_pair() and dnds_na_row() return a data.table with the column '.reason')
                 return(res)
+        }
+        
+        # The pairwise protein alignments (aa_aln_type = "pairwise", Needleman-Wunsch with a substitution matrix)
+        # are computed for a chunk of gene pairs with one call of pwalign::pairwiseAlignment() (pairwise_aln_rows()):
+        # the same alignments as one call per pair, without an S4 object and a FASTA file read per pair. Not with
+        # store_locally = TRUE (pairwise_aln() also writes the alignment with its score there) or the pairwise
+        # alignment of 0.4.3 (options(orthologr.legacy_pairwise_aln = TRUE), no substitution matrix).
+        batch_aln <- aa_aln_type == "pairwise" && identical(aa_aln_tool, "NW") && !store_locally &&
+                !is.null(aa_sub_matrix) && !isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))
+        if (batch_aln) {
+                d <- file.path(orthologr_tmpdir(), "_alignment", "pairwise_aln")
+                if (!file.exists(d))
+                        dir.create(d, recursive = TRUE)
+        }
+        # With these alignments and codon_aln_tool = "coal" through coalr, the codon alignment is built from the
+        # rows in memory (coal_codon_rows(), what codon_aln() does after reading the two files back).
+        codon_in_memory <- batch_aln && identical(codon_aln_tool, "coal") &&
+                isTRUE(tryCatch(identical(coal_backend()$type, "coalr"), error = function(e) FALSE))
+        if (codon_in_memory) {
+                d <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln")
+                if (!file.exists(d))
+                        dir.create(d, recursive = TRUE)
+        }
+        # the gene pairs 'idx' (a chunk): a list with the result table of each pair
+        run_pairs <- function(idx) {
+                rows <- if (batch_aln) pairwise_aln_rows(q_aa[idx], s_aa[idx], aa_sub_matrix) else vector("list", length(idx))
+                lapply(seq_along(idx), function(k) safe_pair(idx[k], rows[[k]]))
         }
         
         .reason <- NULL
@@ -270,12 +315,17 @@ compute_dnds <- function(complete_tbl,
         step <- progress_step(n_pairs)
         t_start <- proc.time()[["elapsed"]]
         
+        # the progress pieces (a message after each, every 'step' pairs), each split into chunks of at most
+        # dnds_chunk_size() pairs, at least one chunk per R process
+        pieces <- split(seq_len(n_pairs), ceiling(seq_len(n_pairs) / step))
+        
         if (!multicore) {
-                dNdS_values <- vector(mode = "list", length = n_pairs)
-                for (i in seq_len(n_pairs)) {
-                        dNdS_values[[i]] <- safe_pair(i)
-                        if (show_progress && i %% step == 0 && i < n_pairs)
-                                progress_message(i, n_pairs, t_start)
+                dNdS_values <- list()
+                for (piece in pieces) {
+                        for (chunk in dnds_chunks(piece, 1))
+                                dNdS_values <- c(dNdS_values, run_pairs(chunk))
+                        if (show_progress && length(dNdS_values) < n_pairs)
+                                progress_message(length(dNdS_values), n_pairs, t_start)
                 }
         }
         
@@ -288,12 +338,11 @@ compute_dnds <- function(complete_tbl,
                 on.exit(dnds_cluster_stop(par_cores, finished = finished), add = TRUE)
                 
                 if (!show_progress || n_pairs <= step) {
-                        dNdS_values <- parallel::parLapply(par_cores, seq_len(n_pairs), safe_pair)
+                        dNdS_values <- do.call(c, parallel::parLapply(par_cores, dnds_chunks(seq_len(n_pairs), comp_cores), run_pairs))
                 } else {
-                        pieces <- split(seq_len(n_pairs), ceiling(seq_len(n_pairs) / step))
                         dNdS_values <- list()
                         for (piece in pieces) {
-                                dNdS_values <- c(dNdS_values, parallel::parLapply(par_cores, piece, safe_pair))
+                                dNdS_values <- c(dNdS_values, do.call(c, parallel::parLapply(par_cores, dnds_chunks(piece, comp_cores), run_pairs)))
                                 if (length(dNdS_values) < n_pairs)
                                         progress_message(length(dNdS_values), n_pairs, t_start)
                         }
@@ -338,6 +387,35 @@ compute_dnds <- function(complete_tbl,
         # returning the dNdS table as data.table object
         return(dNdS_tbl)
         
+}
+
+# The gene pairs 'idx' in consecutive chunks for compute_dnds(): at most dnds_chunk_size() pairs each, and at least
+# 'n_workers' chunks (when there are as many pairs), so that every R process gets work. The result does not depend
+# on the chunks.
+dnds_chunks <- function(idx, n_workers = 1) {
+        if (length(idx) == 0)
+                return(list())
+        size <- max(1, min(dnds_chunk_size(), ceiling(length(idx) / n_workers)))
+        unname(split(idx, ceiling(seq_along(idx) / size)))
+}
+
+# The number of gene pairs whose protein alignments are computed with one call of pwalign::pairwiseAlignment():
+# 100. (A call costs about 3 - 5 ms besides the alignments: per pair 0.6 ms with 5 pairs per call, 0.13 ms with 25,
+# 0.05 ms with 100.)
+dnds_chunk_size <- function() 100L
+
+# What seqinr::write.fasta(sequences = seqs, names = as.list(names), file.out = file) writes for a list of strings -
+# '>' and the name on one line, the whole sequence on the next - with one writeLines() call (seqinr writes line by
+# line through a connection).
+write_pair_fasta <- function(seqs, names, file) {
+        seqs <- vapply(seqs, function(x) paste(as.character(x), collapse = ""), character(1), USE.NAMES = FALSE)
+        writeLines(as.vector(rbind(paste0(">", unlist(names)), seqs)), file)
+}
+
+# Are the sequences 'x' such that writing them with write_pair_fasta() and reading them back with seqinr::read.fasta()
+# gives them unchanged (letters, '*' and '-' only; not NA, not empty)?
+plain_seqs <- function(x) {
+        !anyNA(x) && all(grepl("^[A-Za-z*-]+\\z", x, perl = TRUE, useBytes = TRUE))
 }
 
 # The names of the two sequences in the files of a gene pair.

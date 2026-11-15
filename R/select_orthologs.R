@@ -241,9 +241,9 @@ select_orthologs <-
                 }
                 
                 qry_species_name <-
-                        unlist(stringr::str_split(basename(annotation_file_query), "[.]"))[1]
+                        first_field(basename(annotation_file_query), ".")
                 sbj_species_name <-
-                        unlist(stringr::str_split(basename(annotation_file_subject), "[.]"))[1]
+                        first_field(basename(annotation_file_subject), ".")
                 res <-
                         dplyr::mutate(
                                 res,

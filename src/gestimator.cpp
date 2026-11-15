@@ -191,7 +191,9 @@ void gestimator(std::string file, std::string file_out = "", int maxHits = 3,
    
    // process ()
    
-   RedundancyCom95 code_degeneracy;
+   // the redundancy tables of the genetic code are the same for every call: built once per R process (building
+   // them took about 0.8 ms, a third of the time of a typical gene pair)
+   static const RedundancyCom95 code_degeneracy;
    
    // foreach sequence pair in data
    for(size_t i=0;i<data.size();i++){
