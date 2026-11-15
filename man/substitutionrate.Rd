@@ -131,6 +131,10 @@ for typical genes); for LWL, MLWL, LPB and MLPB 0 substitutions for a class of s
 defined (an underestimate). Since 0.5.0 these estimates are \code{NA} (and \code{dNdS} with them; status
 \code{"saturated"}), as with the COAL engine; they are recognised in the columns KaKs_Calculator prints (sites
 and differences by class), so the other values are unchanged. The methods GY, MA, MS and GMYN are not checked.
+(GMYN: KaKs_Calculator 2.0 decides whether it writes the header line of its output with memory it never
+initialises, so the line can be missing; orthologr then supplies it, so the values read do not depend on it.
+Since 0.6.0 GMYN is computed in chunks as the other methods; a run that came back without GMYN values for many
+pairs with an earlier version had lost these header lines.)
 Up to 0.4.3 such a value was returned as an estimate: e.g. dS = 99, which makes dN/dS look like strong
 purifying selection, put the pair into the most conserved stratum of \code{\link{divergence_map}} and passed
 \code{\link{filter_dNdS}}. \code{options(orthologr.legacy_kaks_saturation = TRUE)} restores the old values.

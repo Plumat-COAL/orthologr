@@ -328,12 +328,11 @@ compute_dnds <- function(complete_tbl,
         batch_tools <- isTRUE(getOption("orthologr.batch_tools", TRUE)) &&
                 !isTRUE(orthologr_option("orthologr.legacy_pairwise_aln", FALSE))
         batch_p2n <- batch_tools && identical(codon_aln_tool, "pal2nal") && pal2nal_batch_possible()
-        # (not GMYN: KaKs_Calculator 2.0 decides whether the header line is written for the gamma methods alone
-        # with a member that is never initialised, 'tempt', and counts it per process - with one record per process
-        # the output is what that memory holds, with several records it is not the same; on a CI runner most pairs
-        # came back without a result per pair and different ones in a batch)
+        # (GMYN too: KaKs_Calculator 2.0 decides whether the header line is written for the gamma methods with a
+        # member that is never initialised, 'tempt'; kaks_output_lines() supplies a missing header and drops repeated
+        # ones, for one pair and for a chunk alike)
         batch_kc <- batch_tools && identical(kaks_tool, "kaks_calculator") &&
-                is.element(dnds_est.method, setdiff(kaks_calculator_methods(), c("kaks_calc", "GMYN")))
+                is.element(dnds_est.method, setdiff(kaks_calculator_methods(), "kaks_calc"))
         
         # the gene pairs 'idx' (a chunk): a list with the result table of each pair
         run_pairs <- function(idx) {

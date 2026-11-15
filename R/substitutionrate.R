@@ -144,6 +144,10 @@
 #' defined (an underestimate). Since 0.5.0 these estimates are \code{NA} (and \code{dNdS} with them; status
 #' \code{"saturated"}), as with the COAL engine; they are recognised in the columns KaKs_Calculator prints (sites
 #' and differences by class), so the other values are unchanged. The methods GY, MA, MS and GMYN are not checked.
+#' (GMYN: KaKs_Calculator 2.0 decides whether it writes the header line of its output with memory it never
+#' initialises, so the line can be missing; orthologr then supplies it, so the values read do not depend on it.
+#' Since 0.6.0 GMYN is computed in chunks as the other methods; a run that came back without GMYN values for many
+#' pairs with an earlier version had lost these header lines.)
 #' Up to 0.4.3 such a value was returned as an estimate: e.g. dS = 99, which makes dN/dS look like strong
 #' purifying selection, put the pair into the most conserved stratum of \code{\link{divergence_map}} and passed
 #' \code{\link{filter_dNdS}}. \code{options(orthologr.legacy_kaks_saturation = TRUE)} restores the old values.
@@ -408,7 +412,7 @@ substitutionrate <- function(file,
                 )
                 
                 kaks_tbl <- tryCatch({
-                        utils::read.csv(kaks_file, sep = "\t", header = TRUE)
+                        utils::read.csv(text = kaks_output_lines(readLines(kaks_file, warn = FALSE)), sep = "\t", header = TRUE)
                 }, error = function(e) {
                         stop("The output of KaKs_Calculator for ", context, " ('", kaks_file, "') could not be read: ",
                              conditionMessage(e), call. = FALSE)
@@ -920,6 +924,33 @@ kaks_counts_agree <- function(exact, L, Si, Vi) {
         close(exact$L, L) && close(exact$Si, Si) && close(exact$Vi, Vi)
 }
 
+# The header line of KaKs_Calculator 2.0's output (all methods).
+kaks_calc_header <- function() {
+        paste(c("Sequence", "Method", "Ka", "Ks", "Ka/Ks", "P-Value(Fisher)", "Length", "S-Sites", "N-Sites",
+                "Fold-Sites(0:2:4)", "Substitutions", "S-Substitutions", "N-Substitutions", "Fold-S-Substitutions(0:2:4)",
+                "Fold-N-Substitutions(0:2:4)", "Divergence-Time", "Substitution-Rate-Ratio(rTC:rAG:rTA:rCG:rTG:rCA/rCA)",
+                "GC(1:2:3)", "ML-Score", "AICc", "Akaike-Weight", "Model"), collapse = "\t")
+}
+
+# The lines of an output file of KaKs_Calculator with exactly one header line, the first. KaKs_Calculator 2.0
+# (bioconda 2.0.1) decides whether it writes the header for the gamma methods (GMYN; also in "ALL") with a class
+# member it never initialises ('tempt'), so the line can be missing - read.csv() then took the first row of values
+# for the header and the pair came back without a result - or be written again further down. When the first line
+# is not a header, the known header is put first; later lines that are the header are dropped (AUDIT-OLP2 M1).
+# Output that has the header once, first (every other method), is returned as it is.
+kaks_output_lines <- function(lines) {
+        if (length(lines) == 0)
+                return(lines)
+        header <- kaks_calc_header()
+        if (!startsWith(lines[1], "Sequence\t"))
+                lines <- c(header, lines)
+        rest <- lines[-1]
+        drop <- rest == header | rest == lines[1]
+        if (any(drop))
+                lines <- c(lines[1], rest[!drop])
+        lines
+}
+
 # KaKs_Calculator for the codon alignments of several gene pairs with one process (compute_dnds()): one AXT file
 # with a record per pair, named 'subst_name', and one output table. Returns a list with, for every pair, the table
 # substitutionrate(file = files[k], est.method = est.method, quiet = TRUE, kaks_calc_path = kaks_calc_path,
@@ -930,7 +961,9 @@ kaks_counts_agree <- function(exact, L, Si, Vi) {
 # the record. The rows of a pair are read as the table of a call for that pair alone (the header line and these
 # rows, read by read.csv() as substitutionrate() reads its file) and go through kaks_result_table() as there.
 # Every pair is NULL when the program fails or its rows do not belong to the records one to one and in their order
-# (a record that KaKs_Calculator rejects is left out of its output); a pair whose alignment does not have two
+# (a record that KaKs_Calculator rejects is left out of its output), when a record has another number of rows than
+# the method gives (1; 17 for "ALL"), or when a line has another number of fields than the header (AUDIT-OLP2 L1);
+# a pair whose alignment does not have two
 # sequences of letters, '*' and '-' (an empty sequence or a line break would shift the records) is not handed over.
 kaks_calc_batch <- function(files, subst_name, est.method, kaks_calc_path = NULL) {
         n <- length(files)
@@ -972,24 +1005,30 @@ kaks_calc_batch <- function(files, subst_name, est.method, kaks_calc_path = NULL
                         context = paste0(length(use), " gene pairs"),
                         output  = kaks_file
                 )
-                lines <- readLines(kaks_file, warn = FALSE)
+                lines <- kaks_output_lines(readLines(kaks_file, warn = FALSE))
                 if (length(lines) < 2)
                         return(out)
                 key <- sub("\t.*$", "", lines[-1])
                 blocks <- rle(key)
                 if (!identical(blocks$values, subst_name[use]))
                         return(out)
+                rows_per_pair <- if (identical(est.method, "ALL")) 17L else 1L
+                if (any(blocks$lengths != rows_per_pair))
+                        return(out)
+                n_tabs <- lengths(regmatches(lines, gregexpr("\t", lines, fixed = TRUE)))
+                if (any(n_tabs != n_tabs[1]))
+                        return(out)
                 ends <- cumsum(blocks$lengths)
                 starts <- ends - blocks$lengths + 1L
                 genetic_code <- kaks_genetic_code(NULL)
-                # The table is read once when every line has the same number of fields and there is no quote
-                # character; the rows of a pair are then a table with the values of read.csv() for its rows alone:
+                # The table is read once when there is no quote character (every line has the fields of the
+                # header, checked above); the rows of a pair are then a table with the values of read.csv() for its
+                # rows alone:
                 # kaks_result_table() takes every column as character or numbers (as.numeric(as.character())),
                 # so a column that read.csv() types differently for all rows than for the rows of one pair (e.g.
                 # numbers instead of logical NA, double instead of integer) gives the same values. Otherwise the rows
                 # of each pair are read on their own.
-                n_tabs <- lengths(regmatches(lines, gregexpr("\t", lines, fixed = TRUE)))
-                whole <- if (length(unique(n_tabs)) == 1 && !any(grepl("\"", lines, fixed = TRUE)))
+                whole <- if (!any(grepl("\"", lines, fixed = TRUE)))
                         utils::read.csv(text = lines, sep = "\t", header = TRUE) else NULL
                 if (!is.null(whole) && nrow(whole) != length(lines) - 1L)
                         whole <- NULL
