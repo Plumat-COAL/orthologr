@@ -7,8 +7,11 @@ orthologr: Copyright (C) Hajk-Georg Drost and the orthologr contributors. GPL-3.
     DESCRIPTION; the text is in the files LICENSE and COPYING of the source repository and in
     share/licenses/GPL-3 of every R installation). Up to version 0.5.0 the License field said
     GPL-2; it was changed because the parts listed below as 1 and 2 are under GPL version 3 or later (1) and
-    treated as GPL version 3 (2; see the licence statements found there), which cannot be distributed under
-    GPL version 2 only.
+    treated as GPL version 3 (2; see the licence statements found there), which the Free Software
+    Foundation's GPL FAQ treats as not compatible with a licence of GPL version 2 only.
+    The change from GPL-2 is pending the agreement of the copyright holders of the code that orthologr
+    published under GPL-2 only (versions up to 0.4.3); this version is not to be released until they have
+    agreed.
 
 The package contains or is derived in part from the following third-party works.
 

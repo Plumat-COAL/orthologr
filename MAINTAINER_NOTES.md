@@ -28,8 +28,9 @@ version 2 of the License, or any later version", which permits GPL-3).
 | `inst/pal2nal/pal2nal.v14/` | PAL2NAL v14: **no licence statement** in any of its files (`README`, `pal2nal.pl`, `for_paml/`, test files; only "Mikita Suyama" in the header of `pal2nal.pl`). Debian's package records `License: GPL-2` and (Debian's record, not the files') "Copyright: 2004-2011 Mikita Suyama, David Torrents, and Peer Bork and their respective employing institute" (`debian/copyright` of pal2nal 14.1-3, https://metadata.ftp-master.debian.org/changelogs/main/p/pal2nal/pal2nal_14.1-3_copyright), after a Debian Med thread "Lack of license for pal2nal" (2017-2018). **Unverified**: the upstream statement (PAL2NAL web site, Suyama, Torrents & Bork 2006, NAR 34:W609) was not checked |
 | optional package **coalr** (COAL's R package; `dNdS(engine = "coal")`, `dNdS_coal()`, `dNdS_clusters()`, `dNdS_orthogroups(engine = "coal")`) | **GPL-3** (only). In `Suggests`, loaded only when installed; orthologr does not contain its code |
 
-Code under "GPL version 3 or later" and code under "GPL version 3" cannot be distributed as part of a work
-licensed "GPL-2 only", so `License: GPL-2` could not be right. **GPL-3 rather than GPL (>= 3)**: the
+According to the Free Software Foundation's GPL FAQ ("Is GPLv3 compatible with GPLv2?": no, for code licensed
+under GPLv2 only), code under "GPL version 3 or later" and code under "GPL version 3" cannot be combined into a
+work licensed "GPL-2 only"; on that reading `License: GPL-2` could not be right. **GPL-3 rather than GPL (>= 3)**: the
 KaKs_Calculator-derived functions are treated as GPL version 3 without "or later" (the GPL-3 `LICENSE` that the
 repository bioconda builds added; see the row above, including the section 14 question), so the package as a
 whole can only be distributed under GPL-3. (Alternatives that were not taken: (b) ask the
@@ -44,16 +45,19 @@ KaKs_Calculator's printed estimate is saturated. Either would still be possible 
   Scharfenberg, Jaruwatana Sodai Lotharukpong and other contributors) was published under `License: GPL-2`
   (version 2 only; only the libsequence-file changes say "or any later version"). Relicensing that code under
   GPL-3 is the decision of its copyright holders, not of this fork. The owner of the fork is obtaining their
-  consent; until it is given, the GPL-3 statement covers the fork's own additions and the third-party parts, and
-  the pre-existing GPL-2-only code needs that consent for the combined package to be distributable as stated.
-  (Before this change the package was already not distributable as stated: GPL-2-only cannot include the
-  GPL-3 parts above.)
+  consent, and this branch is not to be released until it is given (the README, `inst/COPYRIGHTS` and NEWS say
+  so where they state GPL-3). Whether, until then, the GPL-3 statement can apply to anything beyond the fork's
+  own additions and the third-party parts is a legal question for the copyright holders, not settled here.
+  (On the FSF's reading cited above, the GPL-2 statement before this change did not fit the GPL-3 parts either.)
 - **PAL2NAL.** If PAL2NAL is GPL-2 *only* (Debian's `License: GPL-2` does not say whether "or later" applies),
-  shipping it in a GPL-3 package is fine as a separate program that orthologr runs (`perl pal2nal.pl`, mere
-  aggregation), but `inst/pal2nal/pal2nal_batch.pl` (orthologr's code, GPL-3) loads and compiles `pal2nal.pl`
-  into its own Perl process, which may count as one combined program. Confirm the licence with the PAL2NAL
-  authors (a GPL-2-or-later or more permissive answer settles it); otherwise the per-pair `perl pal2nal.pl`
-  route (`options(orthologr.batch_tools = FALSE)`) avoids the combination.
+  the FSF's GPL FAQ (on "mere aggregation") suggests that shipping it next to a GPL-3 package and running it as a
+  separate program (`perl pal2nal.pl`, communicating through files and the command line) is aggregation rather
+  than one combined program, whereas `inst/pal2nal/pal2nal_batch.pl` (orthologr's code, GPL-3) loads and compiles
+  `pal2nal.pl` into its own Perl process, which by the same FAQ may count as one combined program. These are
+  readings for the maintainers and copyright holders to confirm, not conclusions of these notes. Asking the
+  PAL2NAL authors for their licence would clarify it (a GPL-2-or-later or more permissive answer would, on the
+  FSF's reading, remove the question); the per-pair `perl pal2nal.pl` route (`options(orthologr.batch_tools =
+  FALSE)`) does not load PAL2NAL into orthologr's process.
 - **Upstream (drostlab/orthologr).** The upstream series (`upstream-v2/*`, `upstream-v3/*`) still says GPL-2;
   whether upstream takes the GPL-3 change is the upstream maintainer's decision.
 
