@@ -1,4 +1,4 @@
-## `orthologr` 0.6.0 (in development)
+## `orthologr` 0.6.0
 
 ### Performance (results unchanged)
 
@@ -149,27 +149,35 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   release is downloaded only with its checksum given, `diamond_install(version = "v2.1.25", sha256 = "...")`;
   without one it is refused before any download (fails closed, `orthologr_error_bad_argument`). The checksum is
   computed with `tools::sha256sum()` (R >= 4.5.0) or `sha256sum` / `shasum` / `certutil`; without any of them the
-  download is refused.
+  downloaded file is deleted without being unpacked (`orthologr_error_checksum_unavailable`). `version` must look
+  like a release tag (`v2.2.8`, `2.2.8`) or be `"latest"`.
 - `diamond_install(timeout = )`: the download has a time limit (default as before: R's option `timeout`, at least
   600 s); a download that fails or times out is an error of class `orthologr_error_download_failed` that names
-  the limit, and the partial file is removed. The check that the program runs (`diamond version`) has 60 s. The
-  archive is unpacked into a temporary folder and the program copied into the cache only after it ran, so a failed
-  reinstallation (`force = TRUE`) leaves the cached copy in place (before, the archive was unpacked over it).
+  the limit, and the partial file is removed. The archive is unpacked into a temporary folder; the program must
+  run - `diamond version` exits with status 0 within 60 s and prints `diamond version <number>` (before, any
+  output containing "diamond" was accepted, also a loader error such as "GLIBC_2.38 not found", whose path
+  contains "diamond") - otherwise nothing is installed and the error shows its last lines of output. It is then
+  copied next to the cached copy under a temporary name and renamed over it, so a failed reinstallation
+  (`force = TRUE`) leaves the cached copy in place (before, the archive was unpacked over it).
 - Tests with a mocked download (matching and wrong checksum, timeout, truncated transfer, unpinned release with and
-  without `sha256`, a program that does not run); on CI (`ORTHOLOGR_TEST_DIAMOND_DOWNLOAD=true`) the real pinned
+  without `sha256`, no program to compute the checksum) and with real programs that do not run (not an executable,
+  missing library, exit status 1, no version line) over a working cached copy; on CI (`ORTHOLOGR_TEST_DIAMOND_DOWNLOAD=true`) the real pinned
   release is downloaded, verified and run on Linux, macOS and Windows.
 - Licence notes: the README said that no code of KaKs_Calculator is part of the package. The internal functions
   `kaks_transl_table()`, `kaks_lwl_tables()` and `kaks_lwl_counts()` (`R/substitutionrate.R`, added in 0.5.0 /
-  0.6.0 for the saturation test of the LWL family) are derived from KaKs_Calculator 2.0's source (GPL-3): the
+  0.6.0 for the saturation test of the LWL family) are derived from KaKs_Calculator 2.0's source (treated as
+  GPL-3; its files state no licence, the GPL-3 `LICENSE` was added by the repository that bioconda builds): the
   genetic codes of `base.cpp` and an R translation of the counts in `LWL85.cpp` / `LPB93.cpp`. The new file
   `inst/COPYRIGHTS` lists the third-party parts (libsequence, KaKs_Calculator 2.0, PAL2NAL v14) with origin,
   copyright holders and licence; the README section "Licenses" is corrected, and `MAINTAINER_NOTES.md` describes
   what this means for the `License` field (unchanged, `GPL-2`).
 - CI: the GitHub Actions are pinned to full commit SHAs (the release in a comment), every job and the long steps
   have time limits, the DIAMOND file that the Windows leg downloads is pinned and checked (SHA-256), a new job
-  compares the pinned checksums with GitHub's digests of the release files and a fresh download, and pushes to
+  compares the pinned checksums and sizes with GitHub's digests and sizes of the release files and with a fresh
+  download (token only in that step, `contents: read`), and pushes to
   `chore/**` branches of a fork are checked too.
-- `DESCRIPTION`: `Version: 0.6.0`. README: the install line says 0.6.0, MLPB and `kaks_tool = "coal"` are listed
+- `DESCRIPTION`: `Version: 0.6.0`. The articles "Install Prerequisite Tools" and "Setup on Windows" describe the
+  pinned DIAMOND release and `sha256`. README: the install line says 0.6.0, MLPB and `kaks_tool = "coal"` are listed
   with the KaKs_Calculator methods, the run time and `diamond_install()` lines are updated.
 
 ### Internal

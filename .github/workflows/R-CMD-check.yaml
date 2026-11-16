@@ -167,14 +167,16 @@ jobs:
   diamond-checksums:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-      - name: Compare the pinned checksums with GitHub's digests and with a download
+      - name: Compare the pinned checksums and sizes with GitHub's digests and with a download
         timeout-minutes: 10
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           python3 -I - R/diamond_install.R .github/workflows/R-CMD-check.yaml > pins.tsv <<'PY'
@@ -182,23 +184,29 @@ jobs:
           src = open(sys.argv[1]).read()
           body = src[src.index("diamond_release_checksums <- function()"):]
           body = body[:body.index("\n}\n")]
-          def col(name):
+          def col(name, pattern=r'"([^"]+)"'):
               m = re.search(name + r"\s*=\s*c\(([^)]*)\)", body)
-              return re.findall(r'"([^"]+)"', m.group(1))
-          rows = list(zip(col("version"), col("asset"), col("sha256")))
+              return re.findall(pattern, m.group(1))
+          rows = list(zip(col("version"), col("asset"), col("sha256"), col("size", r"([0-9]+)")))
           assert rows and all(re.fullmatch(r"[0-9a-f]{64}", r[2]) for r in rows), rows
+          assert len(rows) == len(col("version")) == len(col("size", r"([0-9]+)")), rows
           wf = open(sys.argv[2]).read()
           url = re.search(r"DIAMOND_URL: https://github.com/bbuchfink/diamond/releases/download/(\S+)/(\S+)", wf)
           sha = re.search(r"DIAMOND_SHA256: ([0-9a-f]{64})", wf).group(1)
-          assert (url.group(1), url.group(2), sha) in rows, "the Windows leg's pin is not in R/diamond_install.R"
+          assert (url.group(1), url.group(2), sha) in [r[:3] for r in rows], "the Windows leg's pin is not in R/diamond_install.R"
           for r in rows:
               print("\t".join(r))
           PY
           cat pins.tsv
           status=0
-          while IFS=$'\t' read -r version asset sha; do
-            digest=$(gh api "repos/bbuchfink/diamond/releases/tags/$version" \
-                       --jq ".assets[] | select(.name == \"$asset\") | .digest")
+          while IFS=$'\t' read -r version asset sha size; do
+            meta=$(gh api "repos/bbuchfink/diamond/releases/tags/$version" \
+                       --jq ".assets[] | select(.name == \"$asset\") | \"\(.digest) \(.size)\"")
+            digest=${meta% *}
+            gsize=${meta#* }
+            if [ "$gsize" != "$size" ]; then
+              echo "::error::$version/$asset: pinned size $size, GitHub $gsize"; status=1
+            fi
             if [ -z "$digest" ] || [ "$digest" = "null" ]; then
               echo "::error::GitHub records no digest for $version/$asset"; status=1
             elif [ "$digest" != "sha256:$sha" ]; then
@@ -209,6 +217,9 @@ jobs:
             curl -fsSL --max-time 300 --retry 2 -o asset.bin \
               "https://github.com/bbuchfink/diamond/releases/download/$version/$asset"
             got=$(sha256sum asset.bin | cut -d' ' -f1)
+            if [ "$(stat -c %s asset.bin)" != "$size" ]; then
+              echo "::error::$version/$asset: pinned size $size, downloaded $(stat -c %s asset.bin)"; status=1
+            fi
             if [ "$got" != "$sha" ]; then
               echo "::error::$version/$asset: pinned $sha, downloaded $got"; status=1
             else
