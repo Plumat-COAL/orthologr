@@ -466,7 +466,7 @@ test_that("the downloaded program is checked in the cache folder, not in the tem
                 calls <- with_mocked_download(res <- diamond_install(quiet = TRUE), archive,
                                               binary_version = function(exe) { seen <<- exe; "diamond version 2.2.8" })
                 expect_identical(normalizePath(dirname(seen)), normalizePath(orthologr:::diamond_cache_dir()))
-                expect_match(basename(seen), "^\\.new-[0-9]+-diamond$")
+                expect_match(basename(seen), "^\\.new-[0-9]+-[0-9a-f]+-diamond$")
                 # (not the temporary folder that the archive is unpacked into)
                 expect_false(grepl("diamond_install_|unpacked", seen))
                 expect_identical(list.files(res, all.files = TRUE, no.. = TRUE), "diamond")

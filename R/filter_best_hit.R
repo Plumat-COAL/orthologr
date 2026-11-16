@@ -6,7 +6,7 @@
 filter_best_hits <- function(x) {
         
         if (nrow(x) == 0)
-                orthologr_abort(class = "bad_input", "A group of the hit table without rows has no best hit.")
+                orthologr_abort(class = "bad_input", "The hit table is empty (no rows): there is no best hit.")
         min_val <- min(x$evalue)
         evalue <- alig_length <- NULL
         res <- dplyr::filter(x, evalue == min_val)

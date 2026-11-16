@@ -326,7 +326,8 @@ test_that("the file with corrupted coding sequences is not written to the workin
         res <- suppressMessages(read.cds(f, format = "fasta"))
         expect_identical(res$geneids, "g1")
         expect_setequal(list.files(getwd(), all.files = TRUE), wd_before)
-        out <- file.path(tempdir(), "cds.fasta_corrupted_cds_seqs.fasta")
+        out <- orthologr:::corrupted_cds_file(f, tempdir())
+        expect_match(basename(out), "^cds\\.fasta_[0-9a-f]{8}_corrupted_cds_seqs\\.fasta$")
         expect_true(file.exists(out))
         expect_identical(names(Biostrings::readDNAStringSet(out)), "g2")
         # ... or to the folder the user names
@@ -334,7 +335,7 @@ test_that("the file with corrupted coding sequences is not written to the workin
         old <- options(orthologr.corrupted_cds_dir = mine)
         on.exit(options(old), add = TRUE)
         expect_message(read.cds(f, format = "fasta", delete_corrupt_cds = FALSE), "inspect")
-        expect_true(file.exists(file.path(mine, "cds.fasta_corrupted_cds_seqs.fasta")))
+        expect_true(file.exists(orthologr:::corrupted_cds_file(f, mine)))
 })
 
 # ---------------------------------------------------------------- OrthoFinder (see also test-orthofinder2.R)
