@@ -241,6 +241,14 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   in its name (two installations into a cache folder shared by two machines could use the same name), and leftover
   copies whose time cannot be read are left alone.
 - `dnds_bind()` (internal) stops when the values of a gene pair hold no row, instead of leaving the pair out.
+- `dNdS_orthogroups()` given an `orthogroups` object reported only the coding sequences trimmed to a multiple of 3;
+  it now also reports the sequences left out, kept with ambiguous bases and with in-frame stop codons
+  (`dropped_sequences`, `ambiguous_sequences`, `stop_codon_sequences`), as when it is given the files. Its note on
+  saturation names the species pairs with the highest median dS.
+- A coal-cpp program without COAL's GY method: the message also suggests `pip install -U coal-align`. The error of
+  `substitutionrate()` for an unknown method names its argument `est.method` (it said `dnds_est.method`), and the
+  error of `kaks_tool = "coal"` for a method it does not take lists every method it takes (Comeron and Li too).
+- `?codon_aln` and the README name the pinned coalr release (`Plumat-COAL/COAL/packaging/r/coalr@v0.6.0`).
 - `?substitutionrate` said that Li's method is provided by `ape`; it is `seqinr::kaks()`.
 
 ### Other changes

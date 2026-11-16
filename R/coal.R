@@ -95,7 +95,10 @@ coal_check_methods <- function(methods, what, other = "engine = \"orthologr\"",
                      " needs a COAL that computes ", paste(unique(miss), collapse = " and "), "; ",
                      if (identical(backend, "binary")) "the coal-cpp program in use does not" else
                              if (is.null(have)) "coalr is not installed" else paste0("the installed coalr ", have, " does not"),
-                     ". Update it with ", coalr_install_hint(), ", choose one of ",
+                     ". Update it with ",
+                     if (identical(backend, "binary")) paste0("'pip install -U coal-align' (the coal-cpp program), or install coalr with ",
+                                                              coalr_install_hint()) else coalr_install_hint(),
+                     ", choose one of ",
                      q(intersect(known, coal_methods())), ", or use ", other, ".", call. = FALSE)
         }
         invisible(methods)
@@ -443,11 +446,16 @@ coal_codon_rows <- function(rows, cds, context) {
 # kaks_tool = "coal" with a method that is neither one of the KaKs_Calculator methods COAL computes nor one of
 # orthologr's own (Comeron, Li, which are computed by orthologr whatever kaks_tool is).
 kaks_tool_coal_abort <- function(arg, method) {
-        orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" computes the methods ",
-                        paste(coal_kaks_methods(), collapse = ", "), " (GY with a COAL that has it; Comeron and Li are ",
-                        "computed by orthologr itself, with either kaks_tool); ", arg, " = \"", paste(method, collapse = "\", \""),
+        orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" takes ", arg, " = ",
+                        paste0("\"", kaks_tool_coal_methods(), "\"", collapse = ", "),
+                        " (GY with a COAL that has it; Comeron and Li are computed by orthologr itself, with either ",
+                        "kaks_tool); ", arg, " = \"", paste(method, collapse = "\", \""),
                         "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
 }
+
+# The methods dNdS() and substitutionrate() take with kaks_tool = "coal": orthologr's own (Comeron, Li) and those
+# COAL computes in place of KaKs_Calculator.
+kaks_tool_coal_methods <- function() c(dnds_methods(kind = "own"), coal_kaks_methods())
 
 # Ka/Ks of a two-sequence codon alignment file with COAL: the table substitutionrate() returns for the
 # KaKs_Calculator methods (query_id, subject_id, dN, dS, dNdS, method). Only for the KaKs_Calculator methods COAL

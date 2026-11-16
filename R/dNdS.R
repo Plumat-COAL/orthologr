@@ -481,7 +481,7 @@ dNdS <- function(query_file,
         kaks_by_coal <- engine == "orthologr" && kaks_tool == "coal" &&
                 is.element(dnds_est.method, coal_kaks_methods())
         if (engine == "orthologr" && kaks_tool == "coal" &&
-            !is.element(dnds_est.method, c(dnds_methods(kind = "own"), coal_kaks_methods())))
+            !is.element(dnds_est.method, kaks_tool_coal_methods()))
                 kaks_tool_coal_abort("dnds_est.method", dnds_est.method)
         
         check_aa_aln_scoring(aa_aln_scoring)

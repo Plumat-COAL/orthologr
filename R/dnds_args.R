@@ -184,10 +184,10 @@ dnds_method_list <- function(kaks_calc = FALSE) {
 }
 
 # The error for a dnds_est.method that engine = "orthologr" does not compute: `what` names the function.
-dnds_method_abort <- function(method, what, kaks_calc = FALSE) {
+dnds_method_abort <- function(method, what, kaks_calc = FALSE, arg = "dnds_est.method") {
         shown <- if (is.character(method) && length(method) == 1) paste0("\"", method, "\"") else
                 paste(utils::capture.output(dput(method)), collapse = " ")
-        orthologr_abort(class = "bad_argument", "dnds_est.method = ", shown, " is not a method of ", what, ". ",
+        orthologr_abort(class = "bad_argument", arg, " = ", shown, " is not a method of ", what, ". ",
                         dnds_method_list(kaks_calc = kaks_calc), dnds_method_hint(method), call. = FALSE)
 }
 

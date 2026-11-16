@@ -79,7 +79,7 @@ orthologr_sitrep <- function() {
         probe("ClustalW", msa_for("clustalw"), "clustalw2", "-help", "CLUSTAL",
               "'conda install -c bioconda clustalw' (installs clustalw2 as well).")
 
-        coalr_hint <- "remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\")"
+        coalr_hint <- coalr_install_hint()
         has_coalr <- requireNamespace("coalr", quietly = TRUE)
         info <- if (has_coalr) tryCatch(coalr::coal_info(), error = function(e) NULL) else NULL
         add("coalr (COAL in R)", "engine = \"coal\", codon_aln_tool = \"coal\" (the default when installed), kaks_tool = \"coal\", dNdS_coal(), dNdS_clusters()",

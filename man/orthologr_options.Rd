@@ -117,8 +117,8 @@ when it is given nucleotide sequences as proteins.) A limit is a whole number of
 up. One number sets the limit of every program
 (\code{options(orthologr.tool_timeout = 600)}); numbers named by program replace the defaults of those programs
 (\code{options(orthologr.tool_timeout = c(KaKs_Calculator = 120, DIAMOND = Inf))}; names: \code{KaKs_Calculator},
-\code{PAL2NAL}, \code{"diamond makedb"}, \code{DIAMOND} (the searches), \code{"diamond deepclust"},
-\code{"diamond realign"}, \code{BLAST}, \code{COAL}, or the name of a program in the messages such as
+\code{PAL2NAL}, \code{DIAMOND} (every run of DIAMOND, also the three steps that follow unless they are
+named themselves), \code{"diamond makedb"}, \code{"diamond deepclust"}, \code{"diamond realign"}, \code{BLAST}, \code{COAL}, or the name of a program in the messages such as
 \code{ClustalW}; case is ignored; every number needs a name). \code{Inf} (or \code{0}, or a number larger than
 \code{.Machine$integer.max}): no limit.}
 \item{\code{orthologr.keep_tmp}}{\code{FALSE} (default): the folder with the intermediate files of a call (FASTA

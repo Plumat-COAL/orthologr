@@ -437,3 +437,46 @@ test_that("diamond_install(): a staged copy has a name of its own; a cached copy
         expect_setequal(basename(removed), basename(c(old1, old2)))
         expect_true(all(file.exists(c(fresh, other))))
 })
+
+# ---- after merging fix/review-ol-3b: AUDIT-OLB lows L1-L3 -----------------------------------------------------------
+
+test_that("dNdS_orthogroups(): an orthogroups object reports the same input tables as the files (L1)", {
+        skip_if_not(diamond_available, "DIAMOND is not installed")
+        toy <- make_toy_species()
+        a <- readLines(toy$files[["A"]])
+        seq_lines <- which(!startsWith(a, ">"))
+        substr(a[seq_lines[1]], 13, 15) <- "TAA"                       # an in-frame stop codon
+        substr(a[seq_lines[2]], 20, 20) <- "N"                         # an ambiguous base
+        writeLines(a, toy$files[["A"]])
+        from_files <- suppressWarnings(suppressMessages(dNdS_orthogroups(toy$files, comp_cores = 1)))
+        og <- suppressMessages(orthogroups(toy$files))
+        from_object <- suppressWarnings(suppressMessages(dNdS_orthogroups(og, comp_cores = 1)))
+        for (at in c("ambiguous_sequences", "stop_codon_sequences", "dropped_sequences", "trimmed_sequences"))
+                expect_identical(attr(from_object, at), attr(from_files, at), info = at)
+        expect_identical(nrow(attr(from_object, "ambiguous_sequences")), 1L)
+        expect_identical(nrow(attr(from_object, "stop_codon_sequences")), 1L)
+        expect_identical(from_object$pairs, from_files$pairs)
+})
+
+test_that("a coal-cpp without GY: the message also names 'pip install -U coal-align' (L2)", {
+        local_mocked_bindings(coal_backend = function(need = NULL) list(type = "binary", path = "/x/coal-cpp"),
+                              coal_has_gy = function() FALSE)
+        e <- tryCatch(coal_check_methods("GY", "engine = \"coal\""), error = function(e) e)
+        expect_s3_class(e, "orthologr_error_package_missing")
+        expect_match(conditionMessage(e), "pip install -U coal-align", fixed = TRUE)
+        expect_match(conditionMessage(e), coalr_install_hint(), fixed = TRUE)
+})
+
+test_that("substitutionrate() names est.method, kaks_tool = \"coal\" lists every method it takes (L3)", {
+        f <- system.file("seqs/pal2nal.aln", package = "orthologr")
+        expect_error(substitutionrate(f, est.method = "XX"), "^est\\.method = \"XX\" is not a method of substitutionrate\\(\\)",
+                     class = "orthologr_error_bad_argument")
+        e <- tryCatch(substitutionrate(f, est.method = "GMYN", kaks_tool = "coal"), error = function(e) e)
+        expect_s3_class(e, "orthologr_error_bad_argument")
+        for (m in kaks_tool_coal_methods())
+                expect_match(conditionMessage(e), paste0("\"", m, "\""), fixed = TRUE, info = m)
+        expect_true(all(c("Comeron", "Li") %in% kaks_tool_coal_methods()))
+        expect_match(conditionMessage(e), "takes est.method = ", fixed = TRUE)
+        e <- tryCatch(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "GMYN", kaks_tool = "coal"), error = function(e) e)
+        expect_match(conditionMessage(e), "takes dnds_est.method = \"Comeron\", \"Li\"", fixed = TRUE)
+})
