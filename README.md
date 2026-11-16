@@ -358,9 +358,12 @@ https://github.com/drostlab/orthologr/issues
 
 ## Licenses
 
-The `orthologr` package includes source code that has been published under the following licenses. The file
-[`inst/COPYRIGHTS`](inst/COPYRIGHTS) lists every third-party part of the package with its origin, copyright holders
-and licence.
+`orthologr` is distributed under the [GNU General Public License version 3](LICENSE) (`License: GPL-3` since
+version 0.6.0 of this fork; up to 0.5.0 the `License` field said GPL-2). The change from GPL-2 is pending the agreement of the copyright holders of the code that orthologr published under GPL-2 only (versions up to 0.4.3); this version is not to be released until they have agreed. It includes source code that has been published under
+the following licenses, which led to the choice of GPL-3 for the package as a whole: libsequence (GPL version 3 or
+later) and code derived from KaKs_Calculator 2.0 (treated as GPL version 3, see below); the Free Software
+Foundation's GPL FAQ treats code under GPL version 3 as not compatible with a licence of GPL version 2 only. The file [`inst/COPYRIGHTS`](inst/COPYRIGHTS) lists every
+third-party part of the package with its origin, copyright holders and licence.
 
 ### gestimator
 

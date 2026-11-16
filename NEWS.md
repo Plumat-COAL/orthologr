@@ -408,7 +408,18 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   genetic codes of `base.cpp` and an R translation of the counts in `LWL85.cpp` / `LPB93.cpp`. The new file
   `inst/COPYRIGHTS` lists the third-party parts (libsequence, KaKs_Calculator 2.0, PAL2NAL v14) with origin,
   copyright holders and licence; the README section "Licenses" is corrected, and `MAINTAINER_NOTES.md` describes
-  what this means for the `License` field (unchanged, `GPL-2`).
+  what this means for the `License` field.
+- **Licence: GPL-3** (was GPL-2). `DESCRIPTION` has `License: GPL-3` and `Copyright: See file inst/COPYRIGHTS`;
+  `LICENSE` and `COPYING` hold the text of the GNU GPL version 3 (verbatim, R's `share/licenses/GPL-3`). The
+  package contains code under GPL version 3 or later (libsequence: `src/gestimator.cpp` and its headers) and code
+  derived from KaKs_Calculator 2.0, treated as GPL version 3 (`kaks_transl_table()`, `kaks_lwl_tables()`,
+  `kaks_lwl_counts()`), which the FSF's GPL FAQ treats as not compatible with GPL version 2 only; GPL-3 rather than
+  GPL (>= 3) because the only licence found for KaKs_Calculator is the GPL-3 `LICENSE` of the repository that
+  bioconda builds, without "or any later version" (its source files state no licence). `inst/COPYRIGHTS` begins
+  with the licence of the package; the README section "Licenses" says it. The optional package coalr, used by
+  `engine = "coal"`, is GPL-3 as well. `MAINTAINER_NOTES.md`, section 1, records what is still open (the consent of
+  the orthologr copyright holders for their code that was published under GPL-2, and PAL2NAL's licence).
+  The change from GPL-2 is pending the agreement of the copyright holders of the code that orthologr published under GPL-2 only (versions up to 0.4.3); this version is not to be released until they have agreed.
 - CI: the GitHub Actions are pinned to full commit SHAs (the release in a comment), every job and the long steps
   have time limits, the DIAMOND file that the Windows leg downloads is pinned and checked (SHA-256), a new job
   compares the pinned checksums and sizes with GitHub's digests and sizes of the release files and with a fresh

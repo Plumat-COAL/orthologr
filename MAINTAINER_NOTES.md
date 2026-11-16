@@ -3,66 +3,64 @@
 Notes that need a decision by the maintainer of `drostlab/orthologr`. This file is not part of the built package
 (`.Rbuildignore`).
 
-## 1. Licence statements are inconsistent (finding R05 of the third review) - nothing was changed
+## 1. Licence: changed to GPL-3 on this fork in 0.6.0 (finding R05 of the third review; KaKs_Calculator finding of the final review)
 
-| Where | What it says |
+**What was changed** (branch `chore/gpl3`, decided by the owner of the fork, Chloe Newton, choosing option (a)
+below):
+
+| Where | Before | Now |
+|---|---|---|
+| `DESCRIPTION` | `License: GPL-2` (version 2 **only**) | `License: GPL-3`, `Copyright: See file inst/COPYRIGHTS` (no other field changed) |
+| `LICENSE`, `COPYING` | text of the GNU GPL version 2 | the GNU GPL version 3, verbatim: copied from `share/licenses/GPL-3` of the R 4.5.3 installation used for the checks; SHA-256 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986, the same bytes as `/usr/share/common-licenses/GPL-3` (Debian) and as the `LICENSE` of KaKs_Calculator 2.0 (kullrich/kakscalculator2) |
+| `inst/COPYRIGHTS` | the third-party parts, no licence for the package | begins with "orthologr: Copyright (C) Hajk-Georg Drost and the orthologr contributors. GPL-3." and why |
+| `README.md`, section "Licenses" | quoted the libsequence header; said (until 0.6.0) that no KaKs_Calculator code is part of the package | says GPL-3 and why; names the KaKs_Calculator-derived functions and PAL2NAL; points to `inst/COPYRIGHTS` |
+
+Not changed: the `@author` lines of the R files, `Authors@R`, and the file headers in `src/` (the libsequence
+headers still say that the orthologr changes to them are "free under the terms of GNU General Public License
+version 2 of the License, or any later version", which permits GPL-3).
+
+**Why** (the facts that remain true):
+
+| Part | Licence as stated by its authors |
 |---|---|
-| `DESCRIPTION:12` | `License: GPL-2` (version 2 **only**) |
-| `LICENSE`, `COPYING` | text of the GNU GPL version 2 |
-| `src/Comeron95.h:11`, `src/Comparisons.h:11`, `src/Grantham.h:11`, `src/GranthamWeights.h:11`, `src/Kimura80.h:11`, `src/RedundancyCom95.h:11`, `src/Sequence.h:11`, `src/SingleSub.h:11`, `src/Sites.h:11`, `src/TwoSubs.h:11` (also `src/ThreeSubs.h`, `src/gestimator.cpp`) | libsequence: "GNU General Public License [...] either **version 3** of the License, or (at your option) any later version" |
-| the same files, line 27 | the orthologr changes to them: "version 2 of the License, or any later version" |
-| `inst/pal2nal/pal2nal.v14/` | PAL2NAL v14: **no licence statement** in any of its files (`README`, `pal2nal.pl`, `for_paml/`, test files; only "Mikita Suyama" in the header of `pal2nal.pl`). Debian's package records `License: GPL-2`, "Copyright: 2004-2011 Mikita Suyama, David Torrents, and Peer Bork and their respective employing institute" (`debian/copyright` of pal2nal 14.1-3, https://metadata.ftp-master.debian.org/changelogs/main/p/pal2nal/pal2nal_14.1-3_copyright), after a Debian Med thread "Lack of license for pal2nal" (2017-2018). The upstream statement itself (PAL2NAL web site, Suyama, Torrents & Bork 2006, NAR 34:W609) was **not verified** for these notes |
+| `src/gestimator.cpp` and the headers `src/Comeron95.h`, `Comparisons.h`, `Grantham.h`, `GranthamWeights.h`, `Kimura80.h`, `RedundancyCom95.h`, `Sequence.h`, `SingleSub.h`, `Sites.h`, `ThreeSubs.h`, `TwoSubs.h` | libsequence (Kevin Thornton): GNU GPL "either **version 3** of the License, or (at your option) any later version" (line 11 of the headers); the orthologr changes to them (line 27): "version 2 of the License, or any later version" |
 | `R/substitutionrate.R`: `kaks_transl_table()`, `kaks_lwl_tables()`, `kaks_lwl_counts()` (added on this fork in 0.5.0 / 0.6.0) | derived from **KaKs_Calculator 2.0**: the genetic-code strings are copied from `transl_table` in `base.cpp`; the two other functions translate into R the site and transition / transversion counts of `LWL85.cpp` (`CountSiteAndDiff()`, `getCodonClass()`, `TransitionTransversion()`, `MLWL85::TransitionTransversion()`) and `LPB93.cpp` (`MLPB93::TransitionTransversion()`), step for step, so that the counts are KaKs_Calculator's to the last bit. Also derived: the class test of `kaks_saturated()` (1 - 2P - Q > 0, 1 - 2Q > 0) follows the Kimura two-parameter step of `LWL85::preProcess()`; `kaks_calc_header()` holds the column names of KaKs_Calculator's output (an interface fact, listed for completeness). KaKs_Calculator 2.0: Copyright (C) 2009 Beijing Institute of Genomics of CAS. Licence facts: its source files carry only "Copyright (C) 2009, Beijing Institute of Genomics of CAS / All rights reserved" and **no licence and no "or any later version"** statement; the original `KaKs_Calculator2.0.tar.gz` files, imported from SourceForge into github.com/kullrich/kakscalculator2 (the repository bioconda builds) in commit f646786 (2020-11-12), have **no licence file**; that repository's `LICENSE`, the text of the **GPL version 3**, was added by Kristian K. Ullrich in its initial commit bd24013 (2020-11-12), before the import; the SourceForge project page is said to list GPLv3 (not re-checked). Section 14 of the GPL version 3 lets a program that specifies no version number be used under any published version; whether that applies here (does the added `LICENSE` specify version 3?) is for the maintainers and the copyright holders to decide - these notes treat the code as GPL version 3 |
-| `inst/pal2nal/pal2nal_batch.pl` (new on this fork, 0.6.0; orthologr's own code, written for orthologr, not derived from PAL2NAL - it loads `pal2nal.pl` and runs it once per job) | **no licence header**. One was not added (REVIEW-OL-3): the file is under the licence of the package, and that licence is still to be decided (GPL-2 as `DESCRIPTION` says, or GPL-3, see below). When it is decided, add a header like the one of the `src/` files: "Copyright (C) <year> <its authors>. This file is part of orthologr ... GNU General Public License version ..." |
-| `inst/COPYRIGHTS` (new in 0.6.0, installed with the package) | the three third-party parts above with origin, copyright holders and licence as stated by them; it does not state a licence for the package as a whole |
-| `README.md`, section "Licenses" | quotes the libsequence header; names the KaKs_Calculator-derived functions (until 0.6.0 it said that no KaKs_Calculator code is part of the package, which was wrong once these functions were added) and PAL2NAL; points to `inst/COPYRIGHTS` |
+| `inst/pal2nal/pal2nal.v14/` | PAL2NAL v14: **no licence statement** in any of its files (`README`, `pal2nal.pl`, `for_paml/`, test files; only "Mikita Suyama" in the header of `pal2nal.pl`). Debian's package records `License: GPL-2` and (Debian's record, not the files') "Copyright: 2004-2011 Mikita Suyama, David Torrents, and Peer Bork and their respective employing institute" (`debian/copyright` of pal2nal 14.1-3, https://metadata.ftp-master.debian.org/changelogs/main/p/pal2nal/pal2nal_14.1-3_copyright), after a Debian Med thread "Lack of license for pal2nal" (2017-2018). **Unverified**: the upstream statement (PAL2NAL web site, Suyama, Torrents & Bork 2006, NAR 34:W609) was not checked |
+| optional package **coalr** (COAL's R package; `dNdS(engine = "coal")`, `dNdS_coal()`, `dNdS_clusters()`, `dNdS_orthogroups(engine = "coal")`) | **GPL-3** (only). In `Suggests`, loaded only when installed; orthologr does not contain its code |
+| `inst/pal2nal/pal2nal_batch.pl` (new on this fork, 0.6.0; orthologr's own code, written for orthologr, not derived from PAL2NAL - it loads `pal2nal.pl` and runs it once per job) | **no licence header** yet (REVIEW-OL-3 left it out until the package licence was decided): the file is under the licence of the package, GPL-3 on this branch. A header like the one of the `src/` files is added with the release commit: "Copyright (C) <year> <its authors>. This file is part of orthologr ... GNU General Public License version 3" |
 
-Code under "GPL version 3 or later" cannot be distributed as part of a work that is licensed "GPL-2 only": the
-package as a whole can only be GPL (>= 3). The `License` field was **not** changed on this fork, because that is
-the copyright holders' decision.
+According to the Free Software Foundation's GPL FAQ ("Is GPLv3 compatible with GPLv2?": no, for code licensed
+under GPLv2 only), code under "GPL version 3 or later" and code under "GPL version 3" cannot be combined into a
+work licensed "GPL-2 only"; on that reading `License: GPL-2` could not be right. **GPL-3 rather than GPL (>= 3)**: the
+KaKs_Calculator-derived functions are treated as GPL version 3 without "or later" (the GPL-3 `LICENSE` that the
+repository bioconda builds added; see the row above, including the section 14 question), so the package as a
+whole can only be distributed under GPL-3. (Alternatives that were not taken: (b) ask the
+KaKs_Calculator authors whether "or any later version" applies, which would allow GPL (>= 3); (c) replace the
+three functions by code written from the publications - Li, Wu & Luo 1985; Tzeng, Pan & Li 2004 - and the NCBI
+genetic codes and check it against KaKs_Calculator's output; they only tell, for a few values near 0, whether
+KaKs_Calculator's printed estimate is saturated. Either would still be possible later.)
 
-The KaKs_Calculator-derived R functions make this a second, independent conflict with `License: GPL-2`, and they
-narrow the choice: as far as their files show they are under GPL version **3** without "or later", so the
-package as a whole could then be distributed under GPL-3 only, not under "GPL (>= 3)". Options for the
-maintainer: (a) `License: GPL-3` for the package (compatible with libsequence's "GPL (>= 3)", with these
-functions and with coalr's GPL-3); (b) ask the KaKs_Calculator authors whether "or any later version" applies,
-then GPL (>= 3) as proposed below; (c) replace the three functions by code written from the publications (Li,
-Wu & Luo 1985; Tzeng, Pan & Li 2004) and the NCBI genetic codes, not from KaKs_Calculator's source, and check it
-against KaKs_Calculator's output instead (they are used only to tell, for a few values near 0, whether
-KaKs_Calculator's printed estimate is saturated; `tests/testthat/` compares their counts with those printed by
-KaKs_Calculator). The genetic-code strings are facts (NCBI's tables in KaKs_Calculator's notation) rather than
-expression, but they were copied, so they are listed too.
+**Still open - for the maintainer and the copyright holders:**
 
-Further fact: the optional package **coalr** (COAL's R package, used by `dNdS(engine = "coal")`,
-`dNdS_coal()`, `dNdS_clusters()`, `dNdS_orthogroups(engine = "coal")` on the branch with the COAL integration)
-is **GPL-3** (only). It is in `Suggests` and loaded only when installed; orthologr does not contain its code.
-A GPL-2-only orthologr that calls a GPL-3 package at run time is a second reason to move to version 3.
-
-**Proposal** (written before the KaKs_Calculator-derived functions were found; with them, see options (a) - (c)
-above: `GPL-3` unless (b) or (c) is done)
-
-- `DESCRIPTION`: `License: GPL (>= 3)` (or `GPL-3`), and `Copyright: See file inst/COPYRIGHTS`
-- replace the text of `LICENSE` / `COPYING` by the GPL version 3
-- `inst/COPYRIGHTS` exists since 0.6.0 (it lists libsequence, KaKs_Calculator 2.0 and PAL2NAL; it does not
-  name a licence for the package). With a new licence, add its first line, in substance (the text originally
-  proposed here):
-
-  ```
-  orthologr: Copyright (C) Hajk-Georg Drost and contributors. GPL (>= 3).
-
-  src/gestimator.cpp and the headers Comeron95.h, Comparisons.h, Grantham.h, GranthamWeights.h, Kimura80.h,
-  RedundancyCom95.h, Sequence.h, SingleSub.h, Sites.h, ThreeSubs.h, TwoSubs.h are taken from libsequence
-  (Copyright (C) Kevin Thornton), GNU GPL version 3 or (at your option) any later version; modified by
-  Sarah Scharfenberg and Hajk-Georg Drost (2014) and by the orthologr contributors (2026: memory, input checks,
-  saturation flags), modifications under GPL version 2 or any later version.
-
-  inst/pal2nal/pal2nal.v14: PAL2NAL v14, Copyright (C) 2004-2011 Mikita Suyama, David Torrents, Peer Bork.
-  Its files carry no licence statement; Debian distributes it under GPL-2 (see the table above).
-  ```
-
-  The PAL2NAL line is **unverified**: before it is used, the licence should be confirmed from PAL2NAL's own
-  distribution or from its authors (Debian's `debian/copyright` is the only statement found), and it must be
-  compatible with the licence chosen for the package.
+- **Consent of the orthologr copyright holders.** The code of orthologr up to 0.4.3 (Hajk-Georg Drost, Sarah
+  Scharfenberg, Jaruwatana Sodai Lotharukpong and other contributors) was published under `License: GPL-2`
+  (version 2 only; only the libsequence-file changes say "or any later version"). Relicensing that code under
+  GPL-3 is the decision of its copyright holders, not of this fork. The owner of the fork is obtaining their
+  consent, and this branch is not to be released until it is given (the README, `inst/COPYRIGHTS` and NEWS say
+  so where they state GPL-3). Whether, until then, the GPL-3 statement can apply to anything beyond the fork's
+  own additions and the third-party parts is a legal question for the copyright holders, not settled here.
+  (On the FSF's reading cited above, the GPL-2 statement before this change did not fit the GPL-3 parts either.)
+- **PAL2NAL.** If PAL2NAL is GPL-2 *only* (Debian's `License: GPL-2` does not say whether "or later" applies),
+  the FSF's GPL FAQ (on "mere aggregation") suggests that shipping it next to a GPL-3 package and running it as a
+  separate program (`perl pal2nal.pl`, communicating through files and the command line) is aggregation rather
+  than one combined program, whereas `inst/pal2nal/pal2nal_batch.pl` (orthologr's code, GPL-3) loads and compiles
+  `pal2nal.pl` into its own Perl process, which by the same FAQ may count as one combined program. These are
+  readings for the maintainers and copyright holders to confirm, not conclusions of these notes. Asking the
+  PAL2NAL authors for their licence would clarify it (a GPL-2-or-later or more permissive answer would, on the
+  FSF's reading, remove the question); the per-pair `perl pal2nal.pl` route (`options(orthologr.batch_tools =
+  FALSE)`) does not load PAL2NAL into orthologr's process.
+- **Upstream (drostlab/orthologr).** The upstream series (`upstream-v2/*`, `upstream-v3/*`) still says GPL-2;
+  whether upstream takes the GPL-3 change is the upstream maintainer's decision.
 
 ## 2. Defaults and results that differ from orthologr 0.4.3, and the option that restores each
 
