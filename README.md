@@ -3,6 +3,8 @@ orthologr <img src="man/figures/logo.png" align="right" height="174" width="150"
 
 ## Comparative Genomics with R
 
+This fork ([Plumat-COAL/orthologr](https://github.com/Plumat-COAL/orthologr)) is maintained by Chloe Newton ([@chloe-newt](https://github.com/chloe-newt)) and Keanu Murati ([@Keanu-MUR](https://github.com/Keanu-MUR)).
+
 ### Motivation
 
 The comparative method is a powerful approach in genomics research. Based on our knowledge about the phylogenetic relationships between species, we can study the evolution, diversification, and constraints of biological processes by comparing genomes, genes, and other genomic loci across species. The `orthologr` package aims to provide a framework to perform __large scale__ comparative genomics studies with R. `Orthologr` aims to be as easy to use as possible - from genomic data retrieval to orthology inference and dNdS estimation between several genomes.
@@ -136,6 +138,8 @@ remotes::install_github("drostlab/metablastr") # lncRNA orthology: orthologs_lnc
 
 The file [`environment.yml`](environment.yml) describes a conda environment with R, the R packages and all of these
 programs: `conda env create -f environment.yml` (or `mamba` / `micromamba`).
+`orthologr::orthologr_sitrep()` lists which of these programs (and of the optional R packages such as `coalr`) were
+found, their versions, what each one is needed for, and how to install what is missing.
 See [Install Prerequisite Tools](https://drostlab.github.io/orthologr/articles/Install.html) for details.
 
 ## Use Cases
@@ -206,7 +210,7 @@ dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'ortho
 ```
 
 A faster way to the same kind of table uses [COAL](https://github.com/Plumat-COAL/COAL) for the alignment,
-codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")`):
+codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.0")`):
 
 ```r
 # orthologs by DIAMOND reciprocal best hits, then all gene pairs in one batch (no Perl, no KaKs_Calculator)

@@ -3,30 +3,46 @@
 \name{write_dNdS}
 \alias{write_dNdS}
 \alias{read_dNdS}
+\alias{dnds_equal}
 \title{Write and read a dN/dS table together with the record of its run}
 \usage{
 write_dNdS(x, file)
 
 read_dNdS(file)
+
+dnds_equal(x, y, ignore = c("date", "commands", "call"))
 }
 \arguments{
 \item{x}{a dN/dS table (a \code{data.frame}), or the list returned by \code{dNdS_clusters()} /
 \code{dNdS_orthogroups()} (its \code{pairs} table is written).}
 
 \item{file}{the path of the tab-separated file. The record is written to \code{paste0(file, ".run.json")}.}
+
+\item{y}{a second result, compared with \code{x} by \code{dnds_equal()}.}
+
+\item{ignore}{the parts of the record of the run (\code{attr(, "orthologr_run")}, see Details) that
+\code{dnds_equal()} leaves out of the comparison: by default \code{"date"}, \code{"commands"} (the command
+lines of the searches name files of the working folder of the call, whose names are new for every call) and
+\code{"call"}. \code{character(0)}: everything is compared, as \code{identical()} does.}
 }
 \value{
 \code{write_dNdS()}: the two file names, invisibly. \code{read_dNdS()}: the table (a tibble) with the
-attributes \code{"orthologr_run"}, \code{"failed_pairs"} and \code{"dropped_sequences"} as far as they were
-written. A table file without a sidecar file is read with a warning.
+attributes \code{"orthologr_run"}, \code{"failed_pairs"}, \code{"dropped_sequences"}, \code{"trimmed_sequences"},
+\code{"stop_codon_sequences"}, \code{"ambiguous_sequences"} and \code{"coal"} as far as they were written (files
+written by orthologr 0.5.0 hold the first three only). A table file without a sidecar file is read
+with a warning: the number columns of the dN/dS tables (dN, dS, dNdS, the columns of the search such as
+\code{evalue} and \code{bit_score}, and those of COAL) as numbers, every other column as text. \code{dnds_equal()}: \code{TRUE} or \code{FALSE}.
 }
 \description{
 \code{write_dNdS()} writes the table returned by \code{\link{dNdS}} (or \code{\link{dNdS_coal}}, the
 \code{pairs} table of \code{\link{dNdS_clusters}} / \code{\link{dNdS_orthogroups}}, or the table in
 \code{attr(, "dNdS_tbl")} of a \code{\link{divergence_stratigraphy}} result) as a tab-separated file and, next to
 it, the file \code{<file>.run.json} with what a plain table file loses: the record of the run
-(\code{attr(x, "orthologr_run")}), the tables \code{attr(x, "failed_pairs")} and
-\code{attr(x, "dropped_sequences")}, and the type of every column. \code{read_dNdS()} reads both files back.
+(\code{attr(x, "orthologr_run")}), the tables of the run in the attributes \code{"failed_pairs"},
+\code{"dropped_sequences"}, \code{"trimmed_sequences"}, \code{"stop_codon_sequences"},
+\code{"ambiguous_sequences"} and \code{"coal"}, and the type of every column. \code{read_dNdS()} reads both
+files back. \code{dnds_equal()} compares two results without the parts of the record that differ between two
+runs of the same analysis.
 }
 \details{
 \strong{The record of a run.} Every result of \code{dNdS()}, \code{dNdS_coal()}, \code{dNdS_clusters()},
@@ -57,9 +73,31 @@ Attributes are lost by most functions that change a table (\code{dplyr} verbs, \
 \code{data.frame}) and by \code{write.table()} / \code{readr::write_tsv()}: save the result of a run with
 \code{write_dNdS()} (or \code{saveRDS()}) before working with it.
 
+\strong{Comparing two results.} Two runs of the same analysis give the same table and the same record of the
+run except for the date, the file names of the working folder in the command lines of the searches, and - when
+it was written differently - the call; \code{identical()} of the two results is therefore \code{FALSE}.
+\code{dnds_equal(x, y)} is \code{identical()} without these parts of the record (\code{ignore}); it also
+compares the results of \code{dNdS_clusters()} / \code{dNdS_orthogroups()} (lists) and of
+\code{divergence_stratigraphy()}. To see what differs, compare the parts, e.g.
+\code{all.equal(as.data.frame(x), as.data.frame(y))} and \code{attr(x, "orthologr_run")$tools}.
+
+\strong{What is read back.} \code{read_dNdS(write_dNdS(x))} returns the table with its columns, their types and
+the attributes listed under Value, so that \code{dnds_equal(x, read_dNdS(file))} is \code{TRUE} for the table
+that was written (a tibble; the \code{pairs} table of a list from \code{dNdS_clusters()} /
+\code{dNdS_orthogroups()}, with the attributes of the list). The record of the run is stored twice: as readable
+JSON (\code{"run"}) and with the R type of every value (\code{"run_r"}: whole numbers stay doubles, \code{Inf},
+\code{NaN} and \code{NA} stay what they were, names and attributes are kept), from which it is read back; the
+tables of the run keep their own attributes (e.g. \code{"seconds"} of the table \code{"coal"}). Not written:
+other attributes of the table, row names other than 1, 2, ..., and parts of the record that are neither vectors
+nor lists (they are stored as text). Files written by earlier versions have no \code{"run_r"}: whole numbers
+of their record come back as integers.
+
 The sidecar file is JSON and needs the package \pkg{jsonlite}. The table file has a header line, tab-separated
-columns and \code{NA} for missing values; it can be read by any program. Numbers are written with the digits
-needed to read the same number back.
+columns, \code{NA} for missing values and \code{NaN} for numbers that are not a number; it can be read by any
+program. Numbers are written with the digits
+needed to read the same number back (15 or 17 significant digits; a number that R would not read back exactly
+from 17 digits, as happens on some platforms for very small e-values, in the hexadecimal notation of C99, e.g.
+\code{0x1.7p-715}, which R and C's \code{strtod()} read exactly).
 }
 \examples{
 tbl <- data.frame(query_id = c("a", "b"), subject_id = c("x", "y"), dN = c(0.01, 0.02),
@@ -71,6 +109,12 @@ if (requireNamespace("jsonlite", quietly = TRUE)) {
         back <- read_dNdS(file)
         attr(back, "orthologr_run")$orthologr
 }
+# two runs of the same analysis differ in the date of their records
+tbl2 <- tbl
+attr(tbl, "orthologr_run")$date <- "2026-11-16 10:00:00 GMT"
+attr(tbl2, "orthologr_run")$date <- "2026-11-16 10:05:00 GMT"
+identical(tbl, tbl2)
+dnds_equal(tbl, tbl2)
 }
 \seealso{
 \code{\link{dNdS}}, \code{\link{orthologr_options}}

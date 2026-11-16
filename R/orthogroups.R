@@ -114,7 +114,7 @@
 #' the messages of every file are shown as well.
 #' See \code{\link{write_orthogroups}} for files in OrthoFinder's layout and \code{\link{dNdS_orthogroups}} for dN/dS
 #' within the groups.
-#' @author Chloe Newton
+#' @author Chloe Newton and Keanu Murati
 #' @examplesIf nzchar(Sys.which("diamond"))
 #' files <- c(
 #'   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),

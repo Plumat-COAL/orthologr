@@ -167,7 +167,7 @@ table(res$status)
 * **The summary** at the end of a run counts the gene pairs by status and gives the median dS. When more than a
   fifth of the pairs is saturated or the median dS is above 1.5 it says that the species are probably too
   distant for pairwise dN/dS. *S. cerevisiae* against *C. glabrata*: 3,012 of 4,164 pairs (72 %) have no dS,
-  and the median dS of the others is 1.9 - 0.4.3 and earlier development versions returned this table without
+  and the median of the estimated dS values is 1.9 - 0.4.3 and earlier development versions returned this table without
   a word.
 * **`attr(res, "orthologr_run")`** records the package version, the arguments, every `orthologr.*` option, the
   engine, the versions of the programs, the date, size and MD5 checksum of the input files and the counts by

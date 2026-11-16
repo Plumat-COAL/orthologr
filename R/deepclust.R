@@ -47,7 +47,10 @@
 #' into one file, without being parsed), so no sequence is held in R memory - meant for very large protein sets.
 #' The sequence IDs are the same, but the sequences reach DIAMOND2 in file order instead of sorted by ID, and
 #' \code{diamond deepclust} is sensitive to that order: \strong{cluster representatives and cluster membership
-#' can differ from the default}. Only for \code{seq_type = "protein"}.
+#' can differ from the default}. Only for \code{seq_type = "protein"}. A file whose first residues look like
+#' nucleotide sequences is refused, as on the default route (see \code{\link{read.proteome}}); the time limit of
+#' \code{diamond makedb} grows with the size of the input (see \code{orthologr.tool_timeout} in
+#' \code{\link{orthologr_options}}).
 #' @details
 #' This function wraps \code{diamond deepclust}, the graph-based sequence clustering
 #' algorithm available in DIAMOND2 v2.1.0 and later. The output is a two-column
@@ -168,7 +171,10 @@ deepclust <- function(
         if (isTRUE(direct_input)) {
                 if (seq_type != "protein")
                         stop("direct_input = TRUE needs protein sequences (seq_type = 'protein').", call. = FALSE)
-                # the files go to DIAMOND as they are
+                # the files go to DIAMOND as they are; nucleotide sequences are refused before DIAMOND is started
+                # (DIAMOND 2.2 hangs on them), as read.proteome() refuses them on the default route
+                for (f in input_file)
+                        check_protein_file(f)
                 db_in <- concatenate_files(input_file, file.path(work, "deepclust_input.fasta"))
                 database <- diamond_makedb(in_file = db_in, db_file = file.path(work, "deepclust_db.fasta"),
                                            path = path, comp_cores = comp_cores, quiet = quiet)

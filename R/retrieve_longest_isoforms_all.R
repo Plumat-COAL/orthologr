@@ -34,9 +34,9 @@ retrieve_longest_isoforms_all <-
                  annotation_format = "gff") {
                 
                 if (!file.exists(proteome_folder))
-                        stop("Folder ", proteome_folder, " seems not to exist.", call. = FALSE)
+                        orthologr_abort(class = "bad_input", "Folder ", proteome_folder, " seems not to exist.", call. = FALSE)
                 if (!file.exists(annotation_folder))
-                        stop("Folder ", annotation_folder, " seems not to exist.", call. = FALSE)
+                        orthologr_abort(class = "bad_input", "Folder ", annotation_folder, " seems not to exist.", call. = FALSE)
                 
                 message("Starting retrieval of longest splice variants ...")
                 
@@ -59,10 +59,15 @@ retrieve_longest_isoforms_all <-
                 }
                 
                 
+                # every file to be written must not be one of the input files (e.g. output_folder = proteome_folder
+                # and a proteome '<organism>.faa'): checked before anything is written
+                targets <- file.path(output_folder, paste0(vapply(basename(proteome_list), first_field, "", sep = "."), ".faa"))
+                check_output_not_input(targets, c(proteome_list, annotation_list), what = "output_folder")
+                
                 for (i in seq_len(length(proteome_list))) {
                         org_name <- first_field(basename(proteome_list[i]), ".")
                         if (org_name != first_field(basename(annotation_list[i]), "."))
-                                stop("The proteome file name ",basename(proteome_list[i])," and the annotation file name ", basename(annotation_list[i]), " seem not to match!",
+                                orthologr_abort(class = "bad_input", "The proteome file name ",basename(proteome_list[i])," and the annotation file name ", basename(annotation_list[i]), " seem not to match!",
                                      "Please make sure that organism file names *.faa and *.gtf/*.gff match so that the correct annotation file is matched with the correct proteome file.", call. = FALSE)
                         
                         message("Processing ", org_name, " ...")

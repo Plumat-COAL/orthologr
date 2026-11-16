@@ -93,23 +93,35 @@ diamond_install <- function(version = "latest", force = FALSE, quiet = FALSE, sh
         dest     <- diamond_cache_dir()
         exe      <- file.path(dest, exe_name)
 
+        pins <- diamond_release_checksums()
+
         if (file.exists(exe) && !force) {
-                if (!identical(version, "latest") || !is.null(sha256))
-                        orthologr_warn(class = "tool_version",
-                                       "DIAMOND is already installed in ", dest, "; 'version' and 'sha256' were not used. ",
-                                       "Use force = TRUE to install the release asked for.")
-                else if (!quiet)
+                # A release asked for (or a checksum given): a warning when the copy in the cache is another release
+                # (or its version cannot be read), a message when it is that release.
+                if (!identical(version, "latest") || !is.null(sha256)) {
+                        wanted <- if (identical(version, "latest"))
+                                diamond_latest_pinned(pins[pins$asset == asset, , drop = FALSE]) else sub("^v?", "", version)
+                        have <- diamond_cached_version(exe)
+                        if (is.na(have) || is.na(wanted) || !identical(have, sub("^v", "", wanted))) {
+                                orthologr_warn(class = "tool_version",
+                                               "DIAMOND ", if (is.na(have)) "(version unknown)" else paste0("v", have),
+                                               " is already installed in ", dest, "; ",
+                                               if (!is.na(wanted)) paste0("v", sub("^v", "", wanted), " was asked for. ") else "",
+                                               "'version' and 'sha256' were not used. Use force = TRUE to install the release asked for.")
+                                return(invisible(dest))
+                        }
+                }
+                if (!quiet)
                         message("DIAMOND is already installed in ", dest, " (use force = TRUE to reinstall).")
                 return(invisible(dest))
         }
 
-        pins <- diamond_release_checksums()
         pins <- pins[pins$asset == asset, , drop = FALSE]
         if (identical(version, "latest")) {
                 if (nrow(pins) == 0)
                         orthologr_abort(class = "bad_argument", "orthologr has no pinned checksum for the DIAMOND file '", asset,
                                         "'. Give a release and its checksum: diamond_install(version = \"v...\", sha256 = \"...\").")
-                version <- pins$version[order(numeric_version(sub("^v", "", pins$version)), decreasing = TRUE)][1]
+                version <- diamond_latest_pinned(pins)
         } else {
                 version <- sub("^v?", "v", version)
         }
@@ -182,7 +194,9 @@ diamond_install <- function(version = "latest", force = FALSE, quiet = FALSE, sh
         # copy in one step. Temporary copies that an interrupted installation left behind are removed first.
         dir.create(dest, recursive = TRUE, showWarnings = FALSE)
         diamond_remove_stale_staged(dest, exe_name)
-        staged <- file.path(dest, paste0(".new-", Sys.getpid(), "-", exe_name))
+        # (the process ID and a random part: two R processes, also on two machines that share the cache folder, never
+        # use the same name)
+        staged <- file.path(dest, paste0(basename(tempfile(paste0(".new-", Sys.getpid(), "-"))), "-", exe_name))
         on.exit(unlink(staged), add = TRUE)
         if (!file.copy(new_exe, staged, overwrite = TRUE))
                 orthologr_abort(class = "tool_failed", "Could not copy DIAMOND into ", dest, "; nothing was installed.")
@@ -230,6 +244,22 @@ diamond_release_checksums <- function() {
         )
 }
 
+# The newest release in a table of diamond_release_checksums() ("v2.2.8"); NA for none.
+diamond_latest_pinned <- function(pins) {
+        if (nrow(pins) == 0)
+                return(NA_character_)
+        pins$version[order(numeric_version(sub("^v", "", pins$version)), decreasing = TRUE)][1]
+}
+
+# The version of the DIAMOND program `exe` ("2.2.8"), NA when it cannot be read.
+diamond_cached_version <- function(exe) {
+        out <- diamond_binary_version(exe)
+        line <- grep("^diamond version [0-9]", out, value = TRUE)
+        if (length(line) == 0)
+                return(NA_character_)
+        sub("^diamond version ([0-9.]+).*$", "\\1", line[1])
+}
+
 diamond_platform <- function() {
         info <- Sys.info()
         c(sysname = info[["sysname"]], machine = info[["machine"]])
@@ -248,12 +278,14 @@ diamond_platform_asset <- function(sysname, machine) {
         )
 }
 
-# Remove copies '.new-<pid>-diamond[.exe]' that an installation interrupted between the copy and the rename left in
-# the cache folder (older than an hour, so that an installation running in another R process is not disturbed).
+# Remove copies '.new-<pid>-<random>-diamond[.exe]' that an installation interrupted between the copy and the
+# rename left in the cache folder (older than an hour, so that an installation running in another R process is not
+# disturbed). The random part may be missing (copies made by orthologr 0.5.0).
 diamond_remove_stale_staged <- function(dest, exe_name) {
-        f <- list.files(dest, pattern = paste0("^\\.new-[0-9]+-", gsub(".", "\\.", exe_name, fixed = TRUE), "$"),
+        f <- list.files(dest, pattern = paste0("^\\.new-[0-9]+-([0-9a-f]+-)?", gsub(".", "\\.", exe_name, fixed = TRUE), "$"),
                         all.files = TRUE, full.names = TRUE)
-        old <- f[difftime(Sys.time(), file.mtime(f), units = "hours") > 1]
+        # (a file removed in the meantime has no time: NA, not taken)
+        old <- f[which(difftime(Sys.time(), file.mtime(f), units = "hours") > 1)]
         unlink(old)
         invisible(old)
 }

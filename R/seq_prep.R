@@ -176,9 +176,20 @@ diamond_makedb <- function(in_file, db_file, path = NULL, comp_cores = 1, quiet 
                 tool    = "diamond makedb",
                 context = paste0("'", basename(in_file), "'"),
                 output  = paste0(db_file, ".dmnd"),
-                echo    = !quiet
+                echo    = !quiet,
+                limit   = makedb_time_limit(in_file)
         )
         invisible(db_file)
+}
+
+# The default time limit (seconds) of 'diamond makedb' for the FASTA file `in_file`: 1 hour, or the time to read
+# the file at 2 MB per second when that is longer. DIAMOND 2.2.8 builds a database at about 18-22 MB per second
+# with one thread (a 400 MB protein file: 21.6 s), so a file of 70-100 GB (deepclust(direct_input = TRUE)) takes
+# about an hour and gets 10-14 hours, ten times what it needs; a file below 7.2 GB keeps the 1 hour, which ends a
+# run that hangs (DIAMOND 2.2 can wait for ever, without using the processor, on input it cannot handle) after an
+# hour instead of 7 days. options(orthologr.tool_timeout) replaces it (names "diamond makedb" or "DIAMOND").
+makedb_time_limit <- function(in_file, bytes = sum(file.size(in_file), na.rm = TRUE)) {
+        max(3600, ceiling(bytes / 2e6))
 }
 
 # "x min." / "x sec." for the progress messages.

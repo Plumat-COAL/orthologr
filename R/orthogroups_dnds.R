@@ -23,7 +23,7 @@
 #' \code{\link{pairwise_aln}}, \code{\link{codon_aln}} and \code{\link{substitutionrate}}. The codon alignments are
 #' built as in \code{dNdS()}: by COAL when \pkg{coalr} is installed (no Perl), else by PAL2NAL;
 #' \code{options(orthologr.codon_aln_tool)} chooses. The alignments of the two are byte-identical, so the results are
-#' the same. (Up to 0.6.0 they were always built by PAL2NAL.)
+#' the same. (Up to 0.5.0 they were always built by PAL2NAL.)
 #' \code{"coal"}: COAL (\url{https://github.com/Plumat-COAL/COAL}) through the R package \pkg{coalr}, as
 #' \code{\link{dNdS_clusters}} does: all groups are computed in one call on \code{comp_cores} threads, which is much
 #' faster. It computes the methods \code{"YN"} (its default), \code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"},
@@ -83,7 +83,7 @@
 #' numbers behind the statistics. \code{\link{dNdS_clusters}} uses the same rule and the same column names;
 #' \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 #' }
-#' @author Chloe Newton
+#' @author Chloe Newton and Keanu Murati
 #' @examplesIf all(nzchar(Sys.which(c("diamond", "perl"))))
 #' files <- c(
 #'   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),
@@ -165,6 +165,9 @@ dNdS_orthogroups <- function(x,
         report <- NULL
         on.exit(if (is.null(report)) end_report(), add = TRUE)
         
+        # (an orthogroups object: its coding sequences are read here only, and the sequences left out, kept with
+        # ambiguous bases or with in-frame stop codons are reported from here, as orthogroups() reports them for files)
+        from_object <- inherits(x, "orthogroups")
         if (!inherits(x, "orthogroups")) {
                 if (!is.null(cds_files))
                         orthologr_abort(class = "bad_argument", "When 'x' holds the files of the coding sequences, 'cds_files' must be NULL.", call. = FALSE)
@@ -205,7 +208,7 @@ dNdS_orthogroups <- function(x,
                      else paste0("no group with at most ", max_group_size, " genes"), ").", call. = FALSE)
         
         # the coding sequences of these genes
-        cds <- dnds_groups_read_cds(x, cds_files, delete_corrupt_cds = delete_corrupt_cds)
+        cds <- dnds_groups_read_cds(x, cds_files, delete_corrupt_cds = delete_corrupt_cds, report_inputs = from_object)
         report <- end_report()
         usable <- is.element(members$gene, names(cds$cds))
         if (!any(usable))
@@ -297,10 +300,9 @@ dNdS_orthogroups <- function(x,
         res_pairs[["note"]] <- amb_rows$note
         if (dnds_status_column())
                 res_pairs[["status"]] <- status
-        # TODO(OL-FIX-A, fix/review-ol-3a): pass species_pair = paste(res_pairs$query_species, "/",
-        # res_pairs$subject_species) once dnds_summary_text() has that parameter, so that the note on saturation names
-        # the species pairs instead of "the two species"
+        # (the note on saturation names the species pairs with the highest median dS)
         message(dnds_summary_text(status, dS = res_pairs$dS, fun = "dNdS_orthogroups()",
+                                  species_pair = paste(res_pairs$query_species, "/", res_pairs$subject_species),
                                   what = paste0("gene pairs in ", length(unique(res_pairs$orthogroup)), " groups"),
                                   failed_where = "the column 'note' of the table 'pairs'", ambiguous_rows = amb_rows$n,
                                   ambiguous_where = "the column 'note' of the table 'pairs'",
@@ -378,7 +380,10 @@ dnds_groups_cds_files <- function(x, cds_files) {
 # The coding sequences of all species, named with the gene names of x. Returns
 #   cds      : named character vector (upper case) of the usable sequences
 #   unusable : named character vector gene -> reason
-dnds_groups_read_cds <- function(x, cds_files, delete_corrupt_cds = TRUE) {
+# report_inputs = TRUE: every file also goes through cds2aa(), which records (for input_report_start()) the
+# sequences it leaves out, keeps with ambiguous bases or finds in-frame stop codons in - what orthogroups() records
+# when it reads the files itself.
+dnds_groups_read_cds <- function(x, cds_files, delete_corrupt_cds = TRUE, report_inputs = FALSE) {
         geneids <- seqs <- NULL
         genes <- x$genes
         all <- list()
@@ -388,6 +393,8 @@ dnds_groups_read_cds <- function(x, cds_files, delete_corrupt_cds = TRUE) {
         first_id <- NA_character_
         for (k in x$species) {
                 dt <- read.cds(file = cds_files[[k]], format = "fasta", delete_corrupt_cds = delete_corrupt_cds)
+                if (report_inputs)
+                        dnds_groups_report_cds(dt, cds_files[[k]], delete_corrupt_cds)
                 ids <- as.character(dt[ , geneids])
                 check_duplicate_ids(ids, what = "coding sequences", file = cds_files[[k]])
                 if (is.na(first_id) && length(ids) > 0)
@@ -420,6 +427,16 @@ dnds_groups_read_cds <- function(x, cds_files, delete_corrupt_cds = TRUE) {
         }
         list(cds = unlist(unname(all)), unusable = unlist(unname(unusable)), first_id = first_id,
              ambiguous = unlist(unname(ambiguous)))
+}
+
+# The reports of cds2aa() about the coding sequences `dt` of `file` (read.cds()), as protein_table() makes them;
+# a sequence that cannot be translated is left to the checks of dnds_groups_read_cds().
+dnds_groups_report_cds <- function(dt, file, delete_corrupt_cds) {
+        old <- .orthologr_state$current_file
+        .orthologr_state$current_file <- file
+        on.exit(.orthologr_state$current_file <- old, add = TRUE)
+        tryCatch(cds2aa(data.table::copy(dt), delete_corrupt_cds = delete_corrupt_cds), error = function(e) NULL)
+        invisible(NULL)
 }
 
 # The column 'note' of the pair table with a note for every pair one of whose coding sequences was kept with

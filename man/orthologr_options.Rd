@@ -108,15 +108,21 @@ settings of 0.4.3 (\code{\link{orthologr_legacy_options}}), which compute one pa
 has not finished by then is stopped and the call fails with an error of class
 \code{orthologr_error_tool_timeout} (in \code{dNdS()} a per-pair program such as KaKs_Calculator or PAL2NAL that
 times out makes its gene pairs failed pairs with that reason, after a chunk that timed out was retried pair by
-pair). Defaults (since 0.6.0): KaKs_Calculator and PAL2NAL 3600 (one gene pair or one chunk of up to 100 pairs),
-DIAMOND, BLAST+ and coal-cpp 604800 (7 days; a whole search or pipeline); DIAMOND's clustering
-(\code{diamond deepclust}, \code{diamond realign}), the alignment programs (ClustalW, MAFFT, ...), OrthoFinder
-and the other helpers have no limit. One number sets the limit of every program
+pair, each pair with at most 300 seconds). Defaults: KaKs_Calculator and PAL2NAL 3600 (one gene pair or one chunk
+of up to 100 pairs); building a DIAMOND database (\code{"diamond makedb"}) 3600, or for an input file larger than
+7.2 GB the time to read it at 2 MB per second (DIAMOND reads about 20 MB per second: a 100 GB protein set of
+\code{deepclust(direct_input = TRUE)} gets 50,000 seconds, about 14 hours); DIAMOND, BLAST+ and coal-cpp
+604800 (7 days; a whole search or pipeline), DIAMOND's clustering (\code{"diamond deepclust"},
+\code{"diamond realign"}) 604800 as well; the alignment programs (ClustalW, MAFFT, ...), OrthoFinder and the other
+helpers have no limit. (DIAMOND 2.2 can hang, without using the processor, instead of stopping with an error, e.g.
+when it is given nucleotide sequences as proteins.) A limit is a whole number of seconds: fractions are rounded
+up. One number sets the limit of every program
 (\code{options(orthologr.tool_timeout = 600)}); numbers named by program replace the defaults of those programs
 (\code{options(orthologr.tool_timeout = c(KaKs_Calculator = 120, DIAMOND = Inf))}; names: \code{KaKs_Calculator},
-\code{PAL2NAL}, \code{DIAMOND}, \code{BLAST}, \code{COAL}, or the name of a program in the messages such as
-\code{ClustalW} or \code{"diamond deepclust"}; case is ignored). \code{Inf} (or \code{0}): no limit. Up to 0.5.0 there was no limit, and a program
-that hung stopped the whole run.}
+\code{PAL2NAL}, \code{DIAMOND} (every run of DIAMOND, also the three steps that follow unless they are
+named themselves), \code{"diamond makedb"}, \code{"diamond deepclust"}, \code{"diamond realign"}, \code{BLAST}, \code{COAL}, or the name of a program in the messages such as
+\code{ClustalW}; case is ignored; every number needs a name). \code{Inf} (or \code{0}, or a number larger than
+\code{.Machine$integer.max}): no limit.}
 \item{\code{orthologr.keep_tmp}}{\code{FALSE} (default): the folder with the intermediate files of a call (FASTA
 files of the pairs, alignments, program output) is removed when the call ends. \code{TRUE}: it is kept, and a
 message names it; it is inside \code{tempdir()}, which R removes when the session ends (so after
@@ -129,10 +135,19 @@ their own (\code{pairwise_aln()}, \code{multi_aln()}, \code{codon_aln()}, \code{
 and \code{_calculation}. \code{dNdS()}, \code{dNdS_orthogroups()} and \code{orthogroups()} set it to a folder of
 their own for the time of the call and restore it; it is rarely useful to set it by hand.}
 \item{\code{orthologr.corrupted_cds_dir}}{\code{NULL} (default: \code{tempdir()}; 0.4.3 wrote into the working
-directory): the folder in which the file \code{<name>_corrupted_cds_seqs.fasta} with the coding sequences whose
-length is not a multiple of 3 is written. A message names the file.}
+directory): the folder in which the file \code{<name>_<code>_corrupted_cds_seqs.fasta} with the coding sequences
+whose length is not a multiple of 3 is written (\code{<name>}: the name of the input file; \code{<code>}: eight
+characters derived from its whole path, so that input files of the same name in different folders do not share a
+file). A message names the file.}
 \item{\code{orthologr.isoform_warning}}{\code{TRUE} (default). \code{FALSE}: \code{dNdS()} and
 \code{orthologs()} and \code{orthogroups()} do not check whether the input files hold several isoforms per gene.}
+\item{\code{orthologr.check_protein}}{\code{TRUE} (default): \code{\link{read.proteome}}, and with it every function
+that reads proteins (\code{seq_type = "protein"}), and \code{deepclust(direct_input = TRUE)} refuse a FASTA file
+whose first residues (the first 2,000 lines) are 90 \% or more nucleotide codes (A, C, G, T, U and the IUPAC codes
+N, R, Y, K, M, S, W, B, D, H, V) and less than 1 \% E, F, I, L, P or Q (letters that no nucleotide code uses), with an error of class \code{orthologr_error_bad_input}: such a
+file holds nucleotide sequences, on which DIAMOND can hang instead of stopping with an error. \code{FALSE}: no
+such check, for files of proteins that are rejected (very short or low-complexity proteins made of A, G, T, N,
+C and S: a silk-like GAGAGS repeat is made of them alone). The option changes no result.}
 \item{\code{orthologr.ambiguous_cds}}{\code{"keep"} (default since 0.5.0): coding sequences whose characters other
 than A, C, G, T are IUPAC ambiguity codes (N, R, Y, K, M, S, W, B, D, H, V) are kept; a codon with such a base is
 translated to \code{X}, and the alignment and estimation programs do not compare it. \code{dNdS()} and

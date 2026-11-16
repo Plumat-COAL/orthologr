@@ -174,5 +174,5 @@ if (nzchar(Sys.which("diamond"))) {
 \code{\link{dNdS}}, \code{\link{dNdS_clusters}}, \code{\link{diamond_rec}}
 }
 \author{
-Chloe Newton
+Chloe Newton and Keanu Murati
 }

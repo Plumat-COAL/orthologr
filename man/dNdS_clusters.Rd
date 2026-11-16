@@ -79,7 +79,7 @@ A list of three tibbles:
 \item \code{summary}: one row per cluster and method: \code{cluster_id}, \code{n_members}, \code{n_used},
 \code{method}, \code{pair_selection}, \code{aligner}, \code{n_pairs}, \code{n_ok}, \code{n_not_converged},
 \code{n_saturated}, \code{n_no_data}, \code{n_failed} (the pairs by their \code{status} in the table \code{pairs},
-see \code{\link{dNdS}}, section "Status of a gene pair"; up to 0.6.0 COAL's own counts), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
+see \code{\link{dNdS}}, section "Status of a gene pair"; before 0.6.0 COAL's own counts), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
 and a dN/dS value), and median, mean, quartiles (\code{_q25}, \code{_q75}), minimum and maximum of dN, dS and
 dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
 cluster that have a dN (dS, dN/dS) value, whatever their status - a pair with status \code{"saturated"} that
@@ -129,5 +129,5 @@ res <- dNdS_clusters(cds, clusters = cl, aa_aln_tool = "clustalo", comp_cores = 
 \code{\link{deepclust}}, \code{\link{deepclust_realign}}, \code{\link{dNdS_coal}}, \code{\link{dNdS}}
 }
 \author{
-Chloe Newton
+Chloe Newton and Keanu Murati
 }

@@ -144,7 +144,7 @@ test_that("an external program that does not finish in time is stopped (options(
         expect_identical(tool_timeout("BLAST", "blastp"), 604800)
         expect_identical(tool_timeout("makeblastdb"), 604800)
         expect_identical(tool_timeout("COAL (coal-cpp)", "/x/coal-cpp"), 604800)
-        expect_identical(tool_timeout("diamond deepclust", "diamond"), Inf)
+        expect_identical(tool_timeout("diamond deepclust", "diamond"), 604800)
         expect_identical(tool_timeout("ClustalW", "clustalw2"), Inf)
         rlang::local_options(orthologr.tool_timeout = 5)
         expect_identical(tool_timeout("ClustalW", "clustalw2"), 5)

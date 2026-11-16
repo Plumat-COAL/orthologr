@@ -27,6 +27,15 @@ of interest as first argument.
 It is possible to read in different proteome file standards such as \emph{fasta} or \emph{fastq}.
 
 Proteomes stored in fasta files can be downloaded from https://www.ebi.ac.uk/reference_proteomes, etc.
+
+A FASTA file that holds nucleotide sequences rather than proteins (90 \% or more of the first residues are
+nucleotide codes - A, C, G, T, U and the IUPAC codes N, R, Y, K, M, S, W, B, D, H, V - and fewer than 1 \% are
+E, F, I, L, P or Q, letters no nucleotide code uses) is rejected
+with an error of class \code{orthologr_error_bad_input}: DIAMOND, which searches the proteins, can hang on such
+input instead of stopping with an error. Coding sequences are read with \code{\link{read.cds}}, or with
+\code{seq_type = "cds"} in the functions that search them. A file of proteins that is rejected (short
+low-complexity proteins made of A, G, T, N, C and S, for instance) is read with
+\code{options(orthologr.check_protein = FALSE)} (see \code{\link{orthologr_options}}).
 }
 \examples{
 # reading a proteome stored in a fasta file

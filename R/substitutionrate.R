@@ -252,12 +252,12 @@ substitutionrate <- function(file,
         kaks_calc_methods <- kaks_calculator_methods()
         
         if (length(est.method) != 1 || !is.dnds_est_method(est.method))
-                dnds_method_abort(est.method, "substitutionrate()", kaks_calc = TRUE)
+                dnds_method_abort(est.method, "substitutionrate()", kaks_calc = TRUE, arg = "est.method")
         
         if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
                 orthologr_abort(class = "bad_argument", "Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
         
-        if (kaks_tool == "coal" && !is.element(est.method, c(dnds_methods(kind = "own"), coal_kaks_methods())))
+        if (kaks_tool == "coal" && !is.element(est.method, kaks_tool_coal_methods()))
                 kaks_tool_coal_abort("est.method", est.method)
         
         if (!is.element(format, c("mase", "clustal", "phylip", "fasta" , "msf")))

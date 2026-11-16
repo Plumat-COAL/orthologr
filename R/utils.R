@@ -462,3 +462,24 @@ ambiguous_cds_mode <- function() {
 first_field <- function(x, sep) {
         sub(paste0("\\Q", sep, "\\E.*$"), "", x, perl = TRUE)
 }
+
+# Stop with an orthologr_error_bad_argument when writing a file to `output` would overwrite one of the files
+# `inputs` (the same file after normalizePath(): also "./a.fa" and "a.fa", or a path through a symbolic link).
+# `what`: the argument named in the message.
+check_output_not_input <- function(output, inputs, what = "output_file") {
+        norm <- function(x) normalizePath(x, winslash = "/", mustWork = FALSE)
+        hit <- norm(output) %in% norm(inputs[file.exists(inputs)])
+        if (any(hit))
+                orthologr_abort(class = "bad_argument", "'", output[hit][1], "' (", what, ") is an input file of this call: ",
+                                "writing it would overwrite the input. Please choose another ", what, ".", call. = FALSE)
+        invisible(output)
+}
+
+# The same for folders: `output_folder` must not be one of `input_folders`.
+check_output_folder_not_input <- function(output_folder, input_folders, what = "output_folder") {
+        norm <- function(x) normalizePath(x, winslash = "/", mustWork = FALSE)
+        if (dir.exists(output_folder) && norm(output_folder) %in% norm(input_folders[dir.exists(input_folders)]))
+                orthologr_abort(class = "bad_argument", "'", output_folder, "' (", what, ") is the folder of the input files: ",
+                                "the files written there would overwrite them. Please choose another ", what, ".", call. = FALSE)
+        invisible(output_folder)
+}

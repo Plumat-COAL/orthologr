@@ -39,7 +39,7 @@ read.genome <- function(file, format, ...){
                 genome <- Biostrings::readDNAStringSet(filepath = read_path, format = format, ...)
                 
                 if (length(genome) == 0)
-                        stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
+                        orthologr_abort(class = "bad_input", "The file '", file,"' seems to be empty and does not contain any sequences.")
                 
                 genome_names <- fasta_header_id(names(genome))
                 genome.dt <- data.table::data.table(geneids = genome_names,
@@ -68,6 +68,15 @@ read.genome <- function(file, format, ...){
 #'
 #' Proteomes stored in fasta files can be downloaded from https://www.ebi.ac.uk/reference_proteomes, etc.
 #'
+#' A FASTA file that holds nucleotide sequences rather than proteins (90 \% or more of the first residues are
+#' nucleotide codes - A, C, G, T, U and the IUPAC codes N, R, Y, K, M, S, W, B, D, H, V - and fewer than 1 \% are
+#' E, F, I, L, P or Q, letters no nucleotide code uses) is rejected
+#' with an error of class \code{orthologr_error_bad_input}: DIAMOND, which searches the proteins, can hang on such
+#' input instead of stopping with an error. Coding sequences are read with \code{\link{read.cds}}, or with
+#' \code{seq_type = "cds"} in the functions that search them. A file of proteins that is rejected (short
+#' low-complexity proteins made of A, G, T, N, C and S, for instance) is read with
+#' \code{options(orthologr.check_protein = FALSE)} (see \code{\link{orthologr_options}}).
+#'
 #' @examples
 #' # reading a proteome stored in a fasta file
 #' Ath.proteome <- read.proteome(system.file('seqs/ortho_thal_aa.fasta', package = 'orthologr'),
@@ -88,16 +97,21 @@ read.proteome <- function(file, format, ...){
         
         geneids <- seqs <- NULL 
         
-                
+        read_path <- readable_seq_file(file)
+        if (!identical(read_path, file))
+                on.exit(unlink(read_path), add = TRUE)
+        
+        # nucleotide sequences given as proteins: DIAMOND 2.2 hangs on them (makedb, blastp, deepclust) instead of
+        # stopping with an error
+        if (format == "fasta")
+                check_protein_file(read_path, name = file)
+        
                 tryCatch({
                         
-                        read_path <- readable_seq_file(file)
-                        if (!identical(read_path, file))
-                                on.exit(unlink(read_path), add = TRUE)
                         proteome <- Biostrings::readAAStringSet(filepath = read_path, format = format, ...)
                         
                         if (length(proteome) == 0)
-                                stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
+                                orthologr_abort(class = "bad_input", "The file '", file,"' seems to be empty and does not contain any sequences.")
                         
                         proteome_names <- fasta_header_id(names(proteome))
                         proteome.dt <- data.table::data.table(geneids = proteome_names,
@@ -164,7 +178,7 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                         Biostrings::readDNAStringSet(filepath = read_path, format = format, ...)
                 
                 if (length(cds_file) == 0)
-                        stop("The file '", file,"' seems to be empty and does not contain any sequences.", call. = FALSE)
+                        orthologr_abort(class = "bad_input", "The file '", file,"' seems to be empty and does not contain any sequences.")
                 
                 cds_names <-
                         fasta_header_id(names(cds_file))
@@ -210,15 +224,14 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                         " coding sequences in your input dataset which cannot be properly divided in base triplets, because their sequence length cannot be divided by 3."
                 )
                 # The file with the corrupted sequences is written to the folder given in
-                # options(orthologr.corrupted_cds_dir = ), by default to tempdir() - no longer to the working
-                # directory.
+                # options(orthologr.corrupted_cds_dir = ), by default to tempdir(). Its name holds the name of the
+                # input file and a code of its whole path (corrupted_cds_file()).
                 corrupted_dir <- getOption("orthologr.corrupted_cds_dir", NULL)
                 if (is.null(corrupted_dir))
                         corrupted_dir <- tempdir()
                 if (!dir.exists(corrupted_dir))
                         dir.create(corrupted_dir, recursive = TRUE)
-                corrupted_file <-
-                        file.path(corrupted_dir, paste0(basename(file), "_corrupted_cds_seqs.fasta"))
+                corrupted_file <- corrupted_cds_file(file, corrupted_dir)
                 
                 if (!quiet_run) {
                         message(
@@ -231,8 +244,11 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                 corrupted_seqs <- as.data.frame(cds.dt[which(!all_triplets)])
                 seq_vector <- corrupted_seqs$seqs
                 names(seq_vector) <- corrupted_seqs$geneids
-                corrupted_seqs_biostrings <- Biostrings::DNAStringSet(seq_vector, use.names = TRUE)                                       
-                Biostrings::writeXStringSet(corrupted_seqs_biostrings, filepath = corrupted_file)
+                corrupted_seqs_biostrings <- Biostrings::DNAStringSet(seq_vector, use.names = TRUE)
+                # (written under a name of its own and then moved: two calls never write into the same file)
+                tmp_corrupted <- tempfile("corrupted_", tmpdir = corrupted_dir, fileext = ".fasta")
+                Biostrings::writeXStringSet(corrupted_seqs_biostrings, filepath = tmp_corrupted)
+                publish_file(tmp_corrupted, corrupted_file)
                 
                 if (delete_corrupt_cds) {
                         if (!quiet_run) {
@@ -302,7 +318,7 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                         all_triplets_new <- cds.dt[ , mod3(seqs)]
                         
                         if (any(!all_triplets_new)) {
-                                stop("Something went wring during the trimming process. Not all sequences were trimmed properly.", call. = FALSE)
+                                orthologr_abort(class = "bad_input", "Not all sequences of '", file, "' could be trimmed to a multiple of 3.")
                         } else if (!quiet_run) {
                                 message("All corrupted CDS were trimmed.")
                         }
@@ -311,7 +327,8 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
                         n_seqs_new <- nrow(cds.dt)
                         
                         if(!(n_seqs == n_seqs_new))
-                                stop("After trimming corrupted CDS some sequences seem to be lost. Please check what might have gone wrong with the sequence trimming.", call. = FALSE)
+                                orthologr_abort(class = "bad_input", "After trimming the coding sequences of '", file, "' to a multiple of 3, ",
+                                                n_seqs - n_seqs_new, " sequences were missing.")
                         
                         return(cds.dt)
                 }
@@ -327,28 +344,90 @@ read.cds <- function(file, format, delete_corrupt_cds = TRUE, ...) {
 
 
 
-# The ID of a sequence: its FASTA header up to the first white space (space or tab; it used to be cut at the
-# first space only, so that '>g1<TAB>description' gave the ID 'g1\tdescription').
+# The ID of a sequence: its FASTA header up to the first white space (space or tab).
 fasta_header_id <- function(headers) {
         if (is.null(headers))
                 return(character(0))
         sub("[[:space:]].*$", "", as.character(headers))
 }
 
-# Does a FASTA file hold proteins rather than nucleotide sequences? Judged from its first 2,000 lines: TRUE when
-# more than 10 % of the residues are letters that are no IUPAC nucleotide code (E, F, I, L, P, Q, ...).
-fasta_looks_like_protein <- function(file) {
+# How often each byte occurs in the sequence lines of the first 2,000 lines of a FASTA file (upper case; a vector
+# of 255 counts, indexed by the byte value).
+fasta_residue_counts <- function(file) {
         x <- tryCatch(readLines(file, n = 2000, warn = FALSE), error = function(e) character(0))
         x <- x[!startsWith(x, ">")]
         x <- toupper(paste(x, collapse = ""))
-        # (P3 of REVIEW-OL-1) the letters A-Z and '*' are counted as bytes, instead of two gsub() calls over the
-        # text (the same counts: other characters, also those of more than one byte, are not counted either)
-        n <- tabulate(as.integer(charToRaw(x)), 255L)
+        tabulate(as.integer(charToRaw(x)), 255L)
+}
+
+# Does a FASTA file hold proteins rather than nucleotide sequences? Judged from its first 2,000 lines: TRUE when
+# more than 10 % of the residues (the letters A-Z and '*') are letters that are no IUPAC nucleotide code (E, F, I,
+# L, P, Q, ...).
+fasta_looks_like_protein <- function(file) {
+        n <- fasta_residue_counts(file)
         total <- sum(n[c(65:90, 42L)])
         if (total < 30)
                 return(FALSE)
         nucleotide <- sum(n[as.integer(charToRaw("ACGTUNRYKMSWBDHV"))])
         (total - nucleotide) / total > 0.1
+}
+
+# The share of A, C, G, T, U and N among the residues (the letters A-Z and '*') of the first 2,000 lines of a FASTA
+# file; NA for fewer than 30 residues. Proteins have about 25 % of these letters, nucleotide sequences nearly 100 %.
+fasta_nucleotide_share <- function(file) {
+        n <- fasta_residue_counts(file)
+        total <- sum(n[c(65:90, 42L)])
+        if (total < 30)
+                return(NA_real_)
+        sum(n[as.integer(charToRaw("ACGTUN"))]) / total
+}
+
+# Stop with an orthologr_error_bad_input when the FASTA file `file` looks like nucleotide sequences rather than
+# proteins: 90 % or more of its first residues are nucleotide codes (A, C, G, T, U and the IUPAC codes N, R, Y, K,
+# M, S, W, B, D, H, V: coding sequences with ambiguous bases count as nucleotides), and fewer than 1 %
+# are letters that only proteins have (E, F, I, L, P, Q: no IUPAC nucleotide code, so a nucleotide file has none of
+# them; a short low-complexity protein rich in A, G, T, N and C can reach 90 %, but one with a few Q, P, L, ... is
+# not taken for nucleotides). DIAMOND 2.2 hangs on nucleotide sequences given as proteins (makedb, blastp,
+# deepclust) instead of stopping with an error. Used by read.proteome() (every function that reads proteins) and
+# deepclust(direct_input = TRUE). options(orthologr.check_protein = FALSE) switches the check off. `name`: the file
+# named in the message.
+check_protein_file <- function(file, name = file) {
+        if (!protein_check_on())
+                return(invisible(NA))
+        n <- fasta_residue_counts(file)
+        total <- sum(n[c(65:90, 42L)])
+        if (total < 30)
+                return(invisible(NA))
+        nt <- sum(n[as.integer(charToRaw("ACGTUNRYKMSWBDHV"))]) / total
+        protein_only <- sum(n[as.integer(charToRaw("EFILPQ"))]) / total
+        if (nt >= 0.9 && protein_only < 0.01)
+                orthologr_abort(class = "bad_input", "'", name, "' does not look like protein sequences: ",
+                                floor(100 * nt), " % of the first residues are nucleotide codes (A, C, G, T, U, N or ",
+                                "another IUPAC code) and less than 1 % are E, F, I, L, P or Q. ",
+                                "Is this a file of coding sequences? Use seq_type = \"cds\" (the coding sequences are ",
+                                "translated) where a function has it, or give the protein file. If these are proteins ",
+                                "(e.g. short low-complexity ones), options(orthologr.check_protein = FALSE) switches this ",
+                                "check off.", call. = FALSE)
+        invisible(nt)
+}
+
+# Is the check of check_protein_file() on? options(orthologr.check_protein): TRUE (default) or FALSE.
+protein_check_on <- function() {
+        opt <- getOption("orthologr.check_protein", TRUE)
+        if (!is.logical(opt) || length(opt) != 1 || is.na(opt))
+                orthologr_abort(class = "bad_argument", "options(orthologr.check_protein = ) must be TRUE or FALSE.", call. = FALSE)
+        opt
+}
+
+# The file read.cds() writes the coding sequences of `file` that are not a multiple of 3 long to: in `dir`, named
+# after the file and a code of its whole path, so that input files of the same name in different folders get
+# files of their own, and the same input file always the same name.
+corrupted_cds_file <- function(file, dir) {
+        key <- tempfile("path_")
+        on.exit(unlink(key), add = TRUE)
+        writeBin(charToRaw(enc2utf8(normalizePath(file, winslash = "/", mustWork = FALSE))), key)
+        code <- substr(unname(tools::md5sum(key)), 1, 8)
+        file.path(dir, paste0(basename(file), "_", code, "_corrupted_cds_seqs.fasta"))
 }
 
 # A sequence file (FASTA / FASTQ, plain or gzip) as Biostrings can read it. A UTF-8 byte-order mark at the start of
