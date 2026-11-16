@@ -101,8 +101,8 @@ compute_dnds <- function(complete_tbl,
                         file.path(idx_dir, "pair_ids.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
         }
         
-        # The six columns of the pair table as plain vectors: one_pair() reads one element of each per gene pair,
-        # and six look-ups in the data.table per pair took about 9 % of the run time.
+        # The six columns of the pair table as plain vectors: one_pair() reads one element of each per gene pair
+        # (a look-up in the data.table per pair and column costs about 9 % of the run time).
         q_ids <- complete_tbl[["query_id"]]
         s_ids <- complete_tbl[["subject_id"]]
         q_cds <- complete_tbl[["query_cds"]]
@@ -134,7 +134,7 @@ compute_dnds <- function(complete_tbl,
                 
                 aa_aln_name <- paste0("q", i)
                 
-                # (P1 of REVIEW-OL-1) the codon alignment is built from the rows in memory (pair_codon(), same
+                # The codon alignment is built from the rows in memory (pair_codon(), same
                 # condition): the two FASTA files and the protein alignment file would never be read, so they are
                 # not written - unless the folder of the call is kept (options(orthologr.keep_tmp))
                 if (skip_pair_files && !is.null(aln_rows) && plain_seqs(c(q_cds[i], s_cds[i])))
@@ -427,6 +427,7 @@ compute_dnds <- function(complete_tbl,
                 todo <- which(vapply(res, is.null, TRUE))
                 # the codon alignments
                 codon <- rep(NA_character_, n)
+                timeouts <- tool_timeouts()
                 if (batch_p2n && length(todo) > 0) {
                         done <- pal2nal_batch(file_aln = vapply(files[todo], `[[`, "", "aa"),
                                               file_nuc = vapply(files[todo], `[[`, "", "cds"),
@@ -434,8 +435,11 @@ compute_dnds <- function(complete_tbl,
                         codon[todo[done]] <- file.path(orthologr_tmpdir(), "_alignment", "codon_aln",
                                                        paste0(paste0("q", idx[todo[done]]), "_", codon_aln_tool, ".aln"))
                 }
+                # (a chunk that timed out: each pair on its own gets at most 300 s, see dnds_retry())
+                p2n_timed_out <- tool_timeouts() > timeouts
                 for (k in todo[is.na(codon[todo])]) {
-                        x <- tryCatch(pair_codon(idx[k], files[[k]], rows[[k]]), error = function(e) e)
+                        x <- tryCatch(dnds_retry("PAL2NAL", p2n_timed_out, pair_codon(idx[k], files[[k]], rows[[k]])),
+                                      error = function(e) e)
                         if (inherits(x, "error"))
                                 res[[k]] <- pair_failed(idx[k], x)
                         else
@@ -444,15 +448,17 @@ compute_dnds <- function(complete_tbl,
                 todo <- which(vapply(res, is.null, TRUE))
                 # the estimates
                 rates <- vector("list", n)
+                timeouts <- tool_timeouts()
                 if (batch_kc && length(todo) > 0)
                         rates[todo] <- kaks_calc_batch(files = codon[todo], subst_name = paste0("q", idx[todo]),
                                                        est.method = dnds_est.method, kaks_calc_path = kaks_calc_path)
+                kc_timed_out <- tool_timeouts() > timeouts
                 for (k in todo) {
                         res[[k]] <- tryCatch({
                                 # (a table, a "dnds_values" record of kaks_calc_batch(), or NULL)
                                 r <- rates[[k]]
                                 if (is.null(r))
-                                        r <- pair_rates(idx[k], codon[k])
+                                        r <- dnds_retry("KaKs_Calculator", kc_timed_out, pair_rates(idx[k], codon[k]))
                                 pair_finish(idx[k], r)
                         }, error = function(e) pair_failed(idx[k], e))
                 }
@@ -489,18 +495,20 @@ compute_dnds <- function(complete_tbl,
         if (multicore) {
                 # The gene pairs are spread over 'comp_cores' R processes of the 'parallel' package: forked
                 # processes where the operating system can fork, otherwise (Windows) processes that are started
-                # anew and get the package, the options and the working folder of this call.
-                par_cores <- dnds_cluster(comp_cores)
+                # anew and get the package, the options and the working folder of this call. Each process gets
+                # run_pairs() - with the sequences of all pairs - once (dnds_cluster()); the tasks are only the
+                # numbers of the pairs of a chunk (dnds_worker_run()).
+                par_cores <- dnds_cluster(comp_cores, worker = run_pairs)
                 finished <- FALSE
                 on.exit(dnds_cluster_stop(par_cores, finished = finished), add = TRUE)
                 
                 if (!show_progress || n_pairs <= step) {
-                        dNdS_values <- do.call(c, parallel::parLapply(par_cores, dnds_chunks(seq_len(n_pairs), comp_cores), run_pairs))
+                        dNdS_values <- do.call(c, parallel::parLapply(par_cores, dnds_chunks(seq_len(n_pairs), comp_cores), dnds_worker_run))
                 } else {
                         dNdS_values <- list()
                         done <- 0L
                         for (piece in pieces) {
-                                dNdS_values <- c(dNdS_values, do.call(c, parallel::parLapply(par_cores, dnds_chunks(piece, comp_cores), run_pairs)))
+                                dNdS_values <- c(dNdS_values, do.call(c, parallel::parLapply(par_cores, dnds_chunks(piece, comp_cores), dnds_worker_run)))
                                 done <- done + length(piece)
                                 if (done < n_pairs)
                                         progress_message(done, n_pairs, t_start)
@@ -591,7 +599,7 @@ dnds_pair_reason <- function(reason, query_id, subject_id) {
 # pair_finish()): consecutive records with the same columns become one table, with the rows, columns and types the
 # tables of pair_finish() would have (query_id, subject_id, dN, dS, dNdS, [method,] .reason), so that rbindlist()
 # of the list gives the same result. (A table per gene pair - data.table(), setkey(), as.data.table() and set() -
-# took about a fifth of the run time of the YN and Comeron routes.)
+# would cost about a fifth of the run time of the YN and Comeron routes.)
 dnds_bind <- function(res) {
         n <- length(res)
         if (n == 0)
@@ -611,6 +619,10 @@ dnds_bind <- function(res) {
                 }
                 r <- res[at]
                 len <- vapply(r, function(x) length(x$dN), 1L)
+                # (every gene pair has at least one row: a record without values would drop the pair silently)
+                if (any(len == 0L))
+                        orthologr_abort(class = "tool_failed", "Internal error: the values of gene pair '", r[[which(len == 0L)[1]]]$query_id,
+                                        "' / '", r[[which(len == 0L)[1]]]$subject_id, "' hold no row. Please report this.")
                 col <- function(name) unlist(lapply(r, `[[`, name), use.names = FALSE)
                 tbl <- list(query_id   = rep(vapply(r, `[[`, "", "query_id"), len),
                             subject_id = rep(vapply(r, `[[`, "", "subject_id"), len),
@@ -654,13 +666,22 @@ dnds_na_row <- function(query_id, subject_id, est.method, reason) {
 #   "PSOCK" : new R processes; orthologr is loaded in each of them and the orthologr options of this session
 #             (working folder of the call, legacy switches, ...) are set there
 # options(orthologr.cluster_type = "PSOCK") chooses the second kind where both are possible.
-dnds_cluster <- function(n) {
+#   worker : NULL, or the function that dnds_worker_run() calls in every process. It is handed over once, when the
+#            processes start (forked processes find it in the state they were forked from), instead of with every
+#            call of parallel::parLapply(), which serialises a function together with its environment - for
+#            compute_dnds()'s run_pairs() the sequences of all gene pairs - for every process and every call.
+dnds_cluster <- function(n, worker = NULL) {
         type <- getOption("orthologr.cluster_type", if (.Platform$OS.type == "windows") "PSOCK" else "FORK")
         if (!is.element(type, c("FORK", "PSOCK")))
                 orthologr_abort(class = "bad_argument", "options(orthologr.cluster_type = ) must be \"FORK\" or \"PSOCK\".", call. = FALSE)
         if (type == "FORK" && .Platform$OS.type == "windows")
                 type <- "PSOCK"
         if (type == "FORK") {
+                if (!is.null(worker)) {
+                        .orthologr_state$dnds_worker <- worker
+                        # (the forked processes keep their copy; this session does not keep the sequences)
+                        on.exit(.orthologr_state$dnds_worker <- NULL, add = TRUE)
+                }
                 cl <- parallel::makeForkCluster(n)
                 attr(cl, "orthologr_pids") <- tryCatch(unlist(parallel::clusterCall(cl, Sys.getpid)), error = function(e) integer(0))
                 return(cl)
@@ -670,9 +691,8 @@ dnds_cluster <- function(n) {
         ok <- tryCatch({
                 opts <- options()
                 opts <- opts[startsWith(names(opts), "orthologr.")]
-                # the new processes have a tempdir() of their own: they must work in the folder of this session
-                # (it was not handed over when the caller had not set one, and every pair failed with
-                # "cannot open the connection")
+                # the new processes have a tempdir() of their own: they must work in the folder of this session,
+                # also when the caller has not set one
                 opts[["orthologr.tmpdir"]] <- orthologr_tmpdir()
                 parallel::clusterCall(cl, function(lib_paths, opts, path) {
                         .libPaths(lib_paths)
@@ -681,14 +701,39 @@ dnds_cluster <- function(n) {
                         options(opts)
                         TRUE
                 }, .libPaths(), opts, Sys.getenv("PATH"))
+                if (!is.null(worker))
+                        parallel::clusterCall(cl, dnds_worker_set, worker)
                 TRUE
         }, error = function(e) {
                 parallel::stopCluster(cl)
-                stop("The R processes for comp_cores = ", n, " could not be started: ", conditionMessage(e), call. = FALSE)
+                orthologr_abort(class = "tool_failed", "The R processes for comp_cores = ", n, " could not be started: ",
+                                conditionMessage(e))
         })
         attr(cl, "orthologr_pids") <- tryCatch(unlist(parallel::clusterCall(cl, Sys.getpid)), error = function(e) integer(0))
         cl
 }
+
+# In a process of dnds_cluster(): keep `fun` for dnds_worker_run().
+dnds_worker_set <- function(fun) {
+        .orthologr_state$dnds_worker <- fun
+        TRUE
+}
+
+# In a process of dnds_cluster(): the function handed over to dnds_cluster(worker = ) for the chunk `idx`.
+dnds_worker_run <- function(idx) {
+        .orthologr_state$dnds_worker(idx)
+}
+
+# After a chunk of gene pairs for PAL2NAL or KaKs_Calculator (`key`) timed out, its pairs are computed one by one,
+# each with at most 300 s (or the limit of the program when that is shorter): a pair that makes the program hang
+# would otherwise cost the whole limit once more, and only one of the pairs is usually the cause.
+dnds_retry <- function(key, timed_out, expr) {
+        if (!isTRUE(timed_out))
+                return(expr)
+        timeout_cap(key, min(tool_timeout(key), dnds_retry_limit()), expr)
+}
+
+dnds_retry_limit <- function() 300
 
 # Stop the processes of dnds_cluster(). When the work did not finish (error, interrupt) the workers may still be
 # busy with a gene pair - a forked worker only reads the request to stop after its current task - and would go on

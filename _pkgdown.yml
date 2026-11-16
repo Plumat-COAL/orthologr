@@ -105,10 +105,11 @@ reference:
   - testCoreOrthoParamsGeneLocus
   - testCoreOrthoParamsSpliceVariant
 - title: "Options"
-  desc: "Options and environment variables the package reads; how parameter strings for external programs are handled."
+  desc: "Options and environment variables the package reads; how parameter strings for external programs are handled; which external programs were found."
   contents:
   - orthologr_options
   - orthologr_legacy_options
+  - orthologr_sitrep
 
 articles:
 - title: Get started

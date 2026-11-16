@@ -110,7 +110,8 @@ test_that("best_hits() is identical to the per-query dplyr::do() result, with ti
         expect_identical(best_hits(h, "locus", rule = "evalue"), best_hits_do(h, "locus"))
         # the form used until 0.4.3
         query_id <- NULL
-        expect_identical(best_hits(h, rule = "evalue"), dplyr::do(dplyr::group_by(h, query_id), filter_best_hits(.)))
+        # (the rows; that result was grouped by query_id, best_hits() is not)
+        expect_identical(best_hits(h, rule = "evalue"), dplyr::ungroup(dplyr::do(dplyr::group_by(h, query_id), filter_best_hits(.))))
         # all hits tied: the first row of each query wins
         h$evalue <- 0; h$alig_length <- 10L
         expect_identical(best_hits(h, rule = "evalue"), best_hits_do(h))

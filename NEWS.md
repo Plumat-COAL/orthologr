@@ -158,13 +158,65 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - Stop codons written with an ambiguity code whose every reading is a stop codon (`TAR`, `TRA`) were not counted in
   `attr(result, "stop_codon_sequences")` and the summary line (they are translated to `X`); they are now.
 - External programs have a time limit (`options(orthologr.tool_timeout)`, see `?orthologr_options`): KaKs_Calculator
-  and PAL2NAL 1 hour per run (one pair or one chunk), DIAMOND, BLAST+ and coal-cpp 7 days (DIAMOND's clustering
-  and the alignment programs: none); one number for all programs or numbers by program, `Inf` for none. A program that hangs is stopped with an error of class
-  `orthologr_error_tool_timeout`; in `dNdS()` its gene pairs become failed pairs with that reason and the run goes
-  on (it used to wait for ever: KaKs_Calculator 2.0 `-m ALL` does not end for a pair of one codon).
+  and PAL2NAL 1 hour per run (one pair or one chunk), `diamond makedb` 1 hour, DIAMOND's searches and clustering
+  (`deepclust()`, realign), BLAST+ and coal-cpp 7 days (the alignment programs: none); one number for all programs
+  or numbers by program (a limit for `DIAMOND` also covers its steps that are not named themselves), `Inf` for none;
+  fractions of a second are rounded up, numbers above `.Machine$integer.max` mean no limit, and an unnamed number
+  among named ones is an error (it was not used for any program). A program that hangs is stopped with an error of
+  class `orthologr_error_tool_timeout`; in `dNdS()` its gene pairs become failed pairs with that reason and the run
+  goes on (it used to wait for ever: KaKs_Calculator 2.0 `-m ALL` does not end for a pair of one codon). After a
+  chunk of gene pairs timed out, each of its pairs is retried with at most 300 seconds (a chunk that hung cost its
+  limit a second time per pair before).
+- DIAMOND 2.2.8 can hang - waiting, without using the processor - instead of stopping with an error, e.g. when it is
+  given nucleotide sequences where it expects proteins (`makedb` hung in 25 of 40 trials, `deepclust` in 7 of 10,
+  `blastp` in 5 of 10); `orthologs()` and `deepclust()` read proteins by default (`seq_type = "protein"`), so a CDS
+  file given to them waited for 7 days (`makedb`, `blastp`) or for ever (`deepclust`, realign). `read.proteome()`,
+  and with it every function that reads proteins, now stops with an error of class `orthologr_error_bad_input` when
+  90 % or more of the first residues of a FASTA file are A, C, G, T, U or N (the message suggests `seq_type =
+  "cds"`), and `diamond makedb`, `deepclust` and realign have the finite limits above.
+- `orthologs()`, `diamond_best()`, `diamond_rec()`, `blast_best()` and `blast_rec()` return a tibble that is not
+  grouped (it was grouped by `query_id`, so that later `dplyr` verbs worked per query unasked). The rows are the
+  same.
+- `write_dNdS()` / `read_dNdS()` kept only the tables `failed_pairs` and `dropped_sequences` of a result; now every
+  table of the run is written and read back with its column types and class: also `trimmed_sequences`,
+  `stop_codon_sequences`, `ambiguous_sequences` and `coal` (COAL's own values). Files written by 0.6.0 before this
+  change are read as before.
+- The record of a run listed the `diamond version` check that the first run of a session makes among the commands
+  of the run (`attr(, "orthologr_run")$commands`): version checks are no longer listed, so two runs of the same
+  analysis have the same commands but for the names of the working files.
+- `read.cds()`: the file with the coding sequences whose length is not a multiple of 3 was named after the input
+  file alone, so that two input files of the same name in different folders wrote into the same file; its name now
+  holds a code of the whole path (`<name>_<code>_corrupted_cds_seqs.fasta`), and it is written under a name of its
+  own and then moved into place.
+- `dNdS(engine = NULL)` and `dNdS(kaks_tool = c(...))` stopped with R's "argument is of length zero" / "the condition
+  has length > 1"; they are errors of class `orthologr_error_bad_argument` that list the choices.
+- The note on saturated gene pairs said "the two species" also for runs with more than two species; the callers
+  with several species can now give the species pair of every gene pair, and the note then names the species pairs
+  with the highest median dS.
+- `diamond_install()`: with DIAMOND already in the cache, an explicit `version` (or `sha256`) warned that it was not
+  used even when the cached copy is that release; the warning now comes only when the cached copy is another
+  release (or its version cannot be read), and names both. The temporary copy in the cache folder has a random part
+  in its name (two installations into a cache folder shared by two machines could use the same name), and leftover
+  copies whose time cannot be read are left alone.
+- `dnds_bind()` (internal) stops when the values of a gene pair hold no row, instead of leaving the pair out.
 - `?substitutionrate` said that Li's method is provided by `ape`; it is `seqinr::kaks()`.
 
 ### Other changes
+
+- New `orthologr_sitrep()`: a table of the external programs and optional packages orthologr can use (DIAMOND, also
+  the copy of `diamond_install()`, BLAST+, Perl, KaKs_Calculator, Clustal Omega, MAFFT, MUSCLE, T-Coffee, ClustalW,
+  `coalr` with its GY, Comeron and Li methods, coal-cpp, OrthoFinder): found or not, where, the version, what it is
+  needed for and how to install what is missing. A program that is not found is looked for again at the next call.
+- New `dnds_equal(x, y, ignore = c("date", "commands", "call"))` (see `?write_dNdS`): `identical()` of two results
+  without the parts of the record of the run that differ between two runs of the same analysis (the date, the
+  names of the working files in the search commands, the call as written). `identical()` of two such results is
+  `FALSE`.
+- With `comp_cores > 1`, each R process gets the work of `dNdS()` once instead of with every chunk of gene pairs:
+  `parallel::parLapply()` serialised it, with the sequences of all pairs, for every process and every call (ten
+  calls with progress messages, `quiet = FALSE`). The results are identical.
+- Errors of `read.genome()`, `read.proteome()`, `read.cds()`, `write_dNdS()`, the best-hit rule and parameter strings
+  with an unbalanced quote that were plain errors have classes (`orthologr_error_bad_input` /
+  `orthologr_error_bad_argument`).
 
 - `dNdS_orthogroups()`: the summary has the minimum and maximum of dN, dS and dN/dS per group (`dN_min`, `dN_max`,
   ...), as `dNdS_clusters()`, `coalr` and COAL's command line (the statistics median, mean, `_q25`, `_q75`,

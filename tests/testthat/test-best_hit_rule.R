@@ -31,7 +31,9 @@ tie_fixture <- function() {
 test_that("the bit-score rule: bit score, then e-value, then alignment length, then identity, then subject_id ...", {
         h <- tie_fixture()
         res <- best_hits(h, "query_id", rule = "bitscore")
-        expect_s3_class(res, "grouped_df")
+        # a plain tibble (it was grouped by query_id until 0.6.0)
+        expect_s3_class(res, "tbl_df")
+        expect_false(inherits(res, "grouped_df"))
         expect_identical(res$query_id, paste0("q", 1:7))
         expect_identical(res$subject_id, c("ortholog", "s_e_small", "s_long", "s_ident", "aaa", "only", "high_bits"))
         # deterministic: the order of the rows of the hit table does not matter

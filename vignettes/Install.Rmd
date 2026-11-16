@@ -22,6 +22,18 @@ all bioinformatics tools for which R interface functions are implemented in `ort
 __Some tools are not trivial to install, so please read the corresponding sections carefully
 and execute test cases that are presented in each section.__
 
+### What is installed?
+
+`orthologr_sitrep()` looks for every program and optional package that `orthologr` can use and returns a table
+with what was found, where, which version, what it is needed for, and - for what is missing - how to install it:
+
+```r
+library(orthologr)
+orthologr_sitrep()
+```
+
+Run it again after installing a program: a program that was not found is looked for anew at every call.
+
 
 ## Programming Languages
 

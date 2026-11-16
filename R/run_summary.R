@@ -91,9 +91,12 @@ dnds_failed_reason <- function(tbl, failed_pairs) {
 #   dropped       : the table of input sequences left out before the search (file, id, reason), or NULL
 #   not_converged : number of pairs for which the engine reported that an iteration did not converge
 #   what          : the unit, e.g. "gene pairs"
+#   species_pair  : NULL (two species, dNdS()), or for every gene pair the species it compares (e.g. "A / B"):
+#                   the note on saturation then names the species pairs with the highest median dS
 dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged = 0, what = "gene pairs", fun = "dNdS()",
                               failed_where = "attr(<result>, \"failed_pairs\")", trimmed = NULL, ambiguous_rows = 0,
-                              ambiguous_where = "attr(<result>, \"ambiguous_sequences\")", stops = NULL) {
+                              ambiguous_where = "attr(<result>, \"ambiguous_sequences\")", stops = NULL,
+                              species_pair = NULL) {
         n <- length(status)
         counts <- dnds_status_counts(status)
         parts <- c(
@@ -108,6 +111,7 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
                 what <- "gene pair"
         txt <- paste0(fun, ": ", n, " ", what, " - ", paste(parts, collapse = ", "), ".")
         dS <- suppressWarnings(as.numeric(dS))
+        dS_all <- dS
         dS <- dS[!is.na(dS)]
         med <- if (length(dS) > 0) stats::median(dS) else NA_real_
         if (!is.na(med))
@@ -142,7 +146,8 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
                               "genetic code?); they were used as they are. They are listed in ",
                               "attr(<result>, \"stop_codon_sequences\").")
         if (dnds_saturation_hint(status, med))
-                txt <- paste0(txt, "\n", saturation_hint_text(counts[["saturated"]], n, med))
+                txt <- paste0(txt, "\n", saturation_hint_text(counts[["saturated"]], n, med,
+                                                              species_pair = species_pair, status = status, dS = dS_all))
         txt
 }
 
@@ -208,7 +213,7 @@ in_tempdir <- function(path) {
         startsWith(p, paste0(tmp, "/"))
 }
 
-# Most pairs saturated, or the synonymous distance of the estimated pairs high: the two species are too distant.
+# Most pairs saturated, or the synonymous distance of the estimated pairs high: the species are too distant.
 dnds_saturation_hint <- function(status, median_dS) {
         n <- length(status)
         if (n < 10)
@@ -216,12 +221,34 @@ dnds_saturation_hint <- function(status, median_dS) {
         isTRUE(mean(status == "saturated", na.rm = TRUE) > 0.2) || isTRUE(!is.na(median_dS) && median_dS > 1.5)
 }
 
-saturation_hint_text <- function(n_saturated, n, median_dS) {
+# The note on saturation.
+#   species_pair : NULL (the two species of dNdS()), or the species pair of every gene pair (with `status` and
+#                  `dS` of every gene pair): with more than one species pair the note names the (up to three)
+#                  species pairs with the highest median dS, and the share of their saturated gene pairs
+saturation_hint_text <- function(n_saturated, n, median_dS, species_pair = NULL, status = NULL, dS = NULL) {
+        groups <- if (!is.null(species_pair) && length(species_pair) == n && length(status) == n && length(dS) == n)
+                unique(stats::na.omit(as.character(species_pair))) else character(0)
+        who <- if (length(groups) > 1) {
+                sp <- as.character(species_pair)
+                med <- vapply(groups, function(g) {
+                        d <- dS[!is.na(sp) & sp == g & !is.na(dS)]
+                        if (length(d) == 0) NA_real_ else stats::median(d)
+                }, 0)
+                sat <- vapply(groups, function(g) mean(status[!is.na(sp) & sp == g] == "saturated"), 0)
+                # (species pairs with saturated gene pairs only have no median: they come first)
+                top <- order(-ifelse(is.na(med), Inf, med), -sat, groups)[seq_len(min(3, length(groups)))]
+                paste0("some of the species compared are probably too distant for pairwise dN/dS (highest median dS: ",
+                       paste0(groups[top], " (", ifelse(is.na(med[top]), "-", signif(med[top], 3)), ", ",
+                              round(100 * sat[top]), " % saturated)", collapse = "; "), "; dS above about 1.5 - 2 is ",
+                       "not informative). Compare more closely related species, or use dN only.")
+        } else {
+                paste0(if (length(groups) == 1) paste0("the two species (", groups, ") are") else "the two species are",
+                       " probably too distant for pairwise dN/dS (dS above about 1.5 - 2 is not informative). ",
+                       "Compare more closely related species, or use dN only.")
+        }
         paste0("Note: ", n_saturated, " of ", n, " pairs (", round(100 * n_saturated / n), " %) are saturated",
                if (!is.na(median_dS)) paste0(" and the median dS of the others is ", signif(median_dS, 3)) else "",
-               ". Synonymous sites have changed too often for dS to be estimated reliably: the two species are ",
-               "probably too distant for pairwise dN/dS (dS above about 1.5 - 2 is not informative). ",
-               "Compare more closely related species, or use dN only.")
+               ". Synonymous sites have changed too often for dS to be estimated reliably: ", who)
 }
 
 # ---- messages ------------------------------------------------------------------------------------------------
@@ -307,7 +334,7 @@ log_command <- function(cmd, args) {
 }
 
 # The user's call: the outermost call of a function of the package that records its runs (dNdS(engine = "coal")
-# runs dNdS_coal(), whose record then says how it was called; C07 of the integration pass).
+# runs dNdS_coal(), whose record then says how it was called).
 RECORDED_FUNCTIONS <- c("dNdS", "dNdS_coal", "dNdS_clusters", "dNdS_orthogroups", "divergence_stratigraphy")
 run_user_call <- function() {
         calls <- sys.calls()
@@ -378,7 +405,7 @@ tool_version_line <- function(program, args, path = NULL, pattern = NULL) {
 }
 
 # KaKs_Calculator's version: `-h` prints "Program: KaKs_Calculator Toolbox" and, on the next line,
-# "Version: 2.0, June. 2009"; the line with the version, else the program line (C04 of the integration pass).
+# "Version: 2.0, June. 2009"; the line with the version, else the program line.
 kaks_version_line <- function(kaks_calc_path = NULL) {
         line <- tool_version_line("KaKs_Calculator", "-h", kaks_calc_path, pattern = "[Vv]ersion")
         if (grepl("[Vv]ersion", line))
@@ -482,11 +509,19 @@ run_record <- function(fun, args, engine, tools, files, status = NULL, settings 
 #' \code{pairs} table of \code{\link{dNdS_clusters}} / \code{\link{dNdS_orthogroups}}, or the table in
 #' \code{attr(, "dNdS_tbl")} of a \code{\link{divergence_stratigraphy}} result) as a tab-separated file and, next to
 #' it, the file \code{<file>.run.json} with what a plain table file loses: the record of the run
-#' (\code{attr(x, "orthologr_run")}), the tables \code{attr(x, "failed_pairs")} and
-#' \code{attr(x, "dropped_sequences")}, and the type of every column. \code{read_dNdS()} reads both files back.
+#' (\code{attr(x, "orthologr_run")}), the tables of the run in the attributes \code{"failed_pairs"},
+#' \code{"dropped_sequences"}, \code{"trimmed_sequences"}, \code{"stop_codon_sequences"},
+#' \code{"ambiguous_sequences"} and \code{"coal"}, and the type of every column. \code{read_dNdS()} reads both
+#' files back. \code{dnds_equal()} compares two results without the parts of the record that differ between two
+#' runs of the same analysis.
 #' @param x a dN/dS table (a \code{data.frame}), or the list returned by \code{dNdS_clusters()} /
 #' \code{dNdS_orthogroups()} (its \code{pairs} table is written).
 #' @param file the path of the tab-separated file. The record is written to \code{paste0(file, ".run.json")}.
+#' @param y a second result, compared with \code{x} by \code{dnds_equal()}.
+#' @param ignore the parts of the record of the run (\code{attr(, "orthologr_run")}, see Details) that
+#' \code{dnds_equal()} leaves out of the comparison: by default \code{"date"}, \code{"commands"} (the command
+#' lines of the searches name files of the working folder of the call, whose names are new for every call) and
+#' \code{"call"}. \code{character(0)}: everything is compared, as \code{identical()} does.
 #' @details
 #' \strong{The record of a run.} Every result of \code{dNdS()}, \code{dNdS_coal()}, \code{dNdS_clusters()},
 #' \code{dNdS_orthogroups()} and \code{divergence_stratigraphy()} carries the attribute \code{"orthologr_run"}, a
@@ -516,12 +551,22 @@ run_record <- function(fun, args, engine, tools, files, status = NULL, settings 
 #' \code{data.frame}) and by \code{write.table()} / \code{readr::write_tsv()}: save the result of a run with
 #' \code{write_dNdS()} (or \code{saveRDS()}) before working with it.
 #'
+#' \strong{Comparing two results.} Two runs of the same analysis give the same table and the same record of the
+#' run except for the date, the file names of the working folder in the command lines of the searches, and - when
+#' it was written differently - the call; \code{identical()} of the two results is therefore \code{FALSE}.
+#' \code{dnds_equal(x, y)} is \code{identical()} without these parts of the record (\code{ignore}); it also
+#' compares the results of \code{dNdS_clusters()} / \code{dNdS_orthogroups()} (lists) and of
+#' \code{divergence_stratigraphy()}. To see what differs, compare the parts, e.g.
+#' \code{all.equal(as.data.frame(x), as.data.frame(y))} and \code{attr(x, "orthologr_run")$tools}.
+#'
 #' The sidecar file is JSON and needs the package \pkg{jsonlite}. The table file has a header line, tab-separated
 #' columns and \code{NA} for missing values; it can be read by any program. Numbers are written with the digits
 #' needed to read the same number back.
 #' @return \code{write_dNdS()}: the two file names, invisibly. \code{read_dNdS()}: the table (a tibble) with the
-#' attributes \code{"orthologr_run"}, \code{"failed_pairs"} and \code{"dropped_sequences"} as far as they were
-#' written. A table file without a sidecar file is read with a warning.
+#' attributes \code{"orthologr_run"}, \code{"failed_pairs"}, \code{"dropped_sequences"}, \code{"trimmed_sequences"},
+#' \code{"stop_codon_sequences"}, \code{"ambiguous_sequences"} and \code{"coal"} as far as they were written (files
+#' written by orthologr 0.6.0 and earlier hold the first three only). A table file without a sidecar file is read
+#' with a warning. \code{dnds_equal()}: \code{TRUE} or \code{FALSE}.
 #' @examples
 #' tbl <- data.frame(query_id = c("a", "b"), subject_id = c("x", "y"), dN = c(0.01, 0.02),
 #'                   dS = c(0.1, 0.2), dNdS = c(0.1, 0.1), status = "ok")
@@ -532,23 +577,32 @@ run_record <- function(fun, args, engine, tools, files, status = NULL, settings 
 #'         back <- read_dNdS(file)
 #'         attr(back, "orthologr_run")$orthologr
 #' }
+#' # two runs of the same analysis differ in the date of their records
+#' tbl2 <- tbl
+#' attr(tbl, "orthologr_run")$date <- "2026-11-16 10:00:00 GMT"
+#' attr(tbl2, "orthologr_run")$date <- "2026-11-16 10:05:00 GMT"
+#' identical(tbl, tbl2)
+#' dnds_equal(tbl, tbl2)
 #' @seealso \code{\link{dNdS}}, \code{\link{orthologr_options}}
 #' @export
 write_dNdS <- function(x, file) {
         need_package("jsonlite", "write_dNdS() (the record of the run is written as JSON)")
         if (!is.character(file) || length(file) != 1 || is.na(file) || !nzchar(file))
-                stop("'file' must be the path of the file to write.", call. = FALSE)
-        run <- attr(x, "orthologr_run")
+                orthologr_abort(class = "bad_argument", "'file' must be the path of the file to write.")
         if (!is.data.frame(x) && is.list(x) && is.data.frame(x$pairs)) {
                 tbl <- x$pairs
         } else if (is.data.frame(x)) {
                 tbl <- x
         } else {
-                stop("'x' must be a dN/dS table (a data.frame) or the list returned by dNdS_clusters() / dNdS_orthogroups().",
-                     call. = FALSE)
+                orthologr_abort(class = "bad_argument", "'x' must be a dN/dS table (a data.frame) or the list returned by ",
+                                "dNdS_clusters() / dNdS_orthogroups().")
         }
-        failed <- attr(x, "failed_pairs")
-        dropped <- attr(x, "dropped_sequences")
+        # (an attribute of the list returned by dNdS_clusters() / dNdS_orthogroups(), else of its table)
+        attr_of <- function(name) {
+                v <- attr(x, name)
+                if (is.null(v)) attr(tbl, name) else v
+        }
+        run <- attr_of("orthologr_run")
         plain <- as.data.frame(tbl, stringsAsFactors = FALSE)
         for (col in names(plain))
                 if (is.factor(plain[[col]]))
@@ -567,12 +621,29 @@ write_dNdS <- function(x, file) {
                 rows     = nrow(plain),
                 columns  = classes,
                 text_encoding = text_marks(plain),
-                run      = run,
-                failed_pairs      = if (is.data.frame(failed)) failed else NULL,
-                failed_pairs_encoding = if (is.data.frame(failed)) text_marks(failed) else NULL,
-                dropped_sequences = if (is.data.frame(dropped)) dropped else NULL,
-                dropped_sequences_encoding = if (is.data.frame(dropped)) text_marks(dropped) else NULL
+                run      = run
         )
+        # every table of the run kept in an attribute: its values (doubles as text that reads back as the same
+        # number), the encoding marks of its text, the type of its columns and its class
+        tables <- list()
+        for (a in dnds_table_attributes()) {
+                v <- attr_of(a)
+                if (!is.data.frame(v))
+                        next
+                p <- as.data.frame(v, stringsAsFactors = FALSE)
+                for (col in names(p))
+                        if (is.factor(p[[col]]))
+                                p[[col]] <- as.character(p[[col]])
+                cls <- lapply(p, function(col) class(col)[1])
+                for (col in names(p))
+                        if (is.double(p[[col]]))
+                                p[[col]] <- number_text(p[[col]])
+                side[[a]] <- p
+                side[[paste0(a, "_encoding")]] <- text_marks(p)
+                tables[[a]] <- list(columns = cls, class = class(v))
+        }
+        if (length(tables) > 0)
+                side$tables <- tables
         side_file <- paste0(file, ".run.json")
         writeLines(jsonlite::toJSON(json_text(side), auto_unbox = TRUE, pretty = TRUE, digits = NA, null = "null",
                                     na = "null", dataframe = "columns"), side_file, useBytes = TRUE)
@@ -595,12 +666,12 @@ read_dNdS <- function(file) {
         # every column is read as text and then given its type: R's own conversion reads a number exactly
         # The text is read byte for byte, as write_dNdS() wrote it, and gets back the encoding marks it had (from
         # the record; without one: unmarked, as dNdS() returns the IDs of the FASTA files). IDs read back thus equal
-        # the IDs of the run in every locale. (Marking all text as UTF-8 made non-ASCII IDs unequal to those of
-        # dNdS() in a C / POSIX locale: '==', match() and merge() failed.)
+        # the IDs of the run in every locale (non-ASCII IDs marked as UTF-8 would be unequal to those of dNdS() in a
+        # C / POSIX locale).
         tbl <- data.table::fread(file, sep = "\t", header = TRUE, na.strings = "NA", colClasses = "character",
                                  data.table = FALSE, showProgress = FALSE, encoding = "unknown")
         # write_dNdS() quotes a field that holds a quote (or a tab or a line end) and doubles the quotes inside it;
-        # fread() removes the outer quotes but keeps the doubled ones ('d"q' came back as 'd""q'). Every '""' in a
+        # fread() removes the outer quotes but keeps the doubled ones ('d"q' is read as 'd""q'). Every '""' in a
         # field therefore is one quote.
         for (col in names(tbl))
                 if (is.character(tbl[[col]])) {
@@ -633,14 +704,67 @@ read_dNdS <- function(file) {
                         run$input_files$size <- as.numeric(run$input_files$size)
                 }
                 attr(tbl, "orthologr_run") <- run
-                if (!is.null(side$failed_pairs))
-                        attr(tbl, "failed_pairs") <- restore_text_marks(as_table(side$failed_pairs),
-                                                                        side$failed_pairs_encoding, from_json = TRUE)
-                if (!is.null(side$dropped_sequences))
-                        attr(tbl, "dropped_sequences") <- restore_text_marks(as_table(side$dropped_sequences),
-                                                                             side$dropped_sequences_encoding, from_json = TRUE)
+                for (a in dnds_table_attributes()) {
+                        if (is.null(side[[a]]))
+                                next
+                        v <- restore_text_marks(as_table(side[[a]]), side[[paste0(a, "_encoding")]], from_json = TRUE)
+                        info <- side$tables[[a]]
+                        # (files of 0.6.0 and earlier: failed_pairs and dropped_sequences, without types)
+                        if (!is.null(info)) {
+                                cls <- unlist(info$columns)
+                                for (col in intersect(names(v), names(cls)))
+                                        v[[col]] <- switch(cls[[col]],
+                                                           numeric = as.numeric(v[[col]]), integer = as.integer(v[[col]]),
+                                                           logical = as.logical(v[[col]]),
+                                                           character = as.character(v[[col]]), v[[col]])
+                                v <- restore_table_class(v, unlist(info$class))
+                        }
+                        attr(tbl, a) <- v
+                }
         }
         tbl
+}
+
+# The attributes of a dN/dS result that hold tables of the run (written and read by write_dNdS() / read_dNdS()).
+dnds_table_attributes <- function() {
+        c("failed_pairs", "dropped_sequences", "trimmed_sequences", "stop_codon_sequences", "ambiguous_sequences", "coal")
+}
+
+# A data.frame read back with the class it had: a tibble or a data.table where it was one.
+restore_table_class <- function(v, cls) {
+        if (is.element("tbl_df", cls))
+                return(tibble::as_tibble(v))
+        if (is.element("data.table", cls))
+                return(data.table::as.data.table(v))
+        v
+}
+
+#' @rdname write_dNdS
+#' @export
+dnds_equal <- function(x, y, ignore = c("date", "commands", "call")) {
+        if (!is.null(ignore) && (!is.character(ignore) || anyNA(ignore)))
+                orthologr_abort(class = "bad_argument", "'ignore' must be the names of parts of the record of the run, ",
+                                "e.g. c(\"date\", \"commands\", \"call\"), or character(0).")
+        identical(dnds_strip_record(x, ignore), dnds_strip_record(y, ignore))
+}
+
+# `x` without the parts `ignore` of every record of a run (attribute "orthologr_run") in it: of `x`, of the
+# elements of a list (dNdS_clusters(), dNdS_orthogroups()) and of tables in attributes (divergence_stratigraphy():
+# "dNdS_tbl").
+dnds_strip_record <- function(x, ignore, depth = 0L) {
+        if (length(ignore) == 0 || depth > 3L)
+                return(x)
+        run <- attr(x, "orthologr_run", exact = TRUE)
+        if (is.list(run))
+                attr(x, "orthologr_run") <- run[setdiff(names(run), ignore)]
+        for (a in setdiff(names(attributes(x)), c("orthologr_run", "names", "row.names", "class", "dim", "dimnames")))
+                if (is.list(attr(x, a, exact = TRUE)))
+                        attr(x, a) <- dnds_strip_record(attr(x, a, exact = TRUE), ignore, depth + 1L)
+        if (is.list(x) && !is.data.frame(x))
+                for (i in seq_along(x))
+                        if (is.list(x[[i]]))
+                                x[[i]] <- dnds_strip_record(x[[i]], ignore, depth + 1L)
+        x
 }
 
 # The encoding marks of the non-ASCII text of the character columns of a table: list(<column> = list(row = <rows>,
@@ -672,7 +796,7 @@ is_ascii_text <- function(v) {
 
 # The text of a list (the record written by write_dNdS()) prepared for jsonlite::toJSON(): unmarked non-ASCII
 # text that is valid UTF-8 is marked as UTF-8 (the bytes are not changed), so that it is written as it is (in a
-# C / POSIX locale jsonlite wrote such text as escapes like '<c3><bc>').
+# C / POSIX locale jsonlite would write such text as escapes like '<c3><bc>').
 json_text <- function(x) {
         if (is.character(x)) {
                 u <- which(!is_ascii_text(x) & Encoding(x) == "unknown" & validUTF8(x))

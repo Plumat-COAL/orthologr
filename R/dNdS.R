@@ -406,8 +406,7 @@ dNdS <- function(query_file,
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
         codon_aln_tool <- default_codon_aln_tool(codon_aln_tool)
         
-        if (!is.element(engine, c("orthologr", "coal")))
-                orthologr_abort(class = "bad_argument", "Please choose engine = \"orthologr\" or engine = \"coal\".", call. = FALSE)
+        check_choice(engine, c("orthologr", "coal"), "engine")
         
         # codon_aln_tool = "coal" where COAL is not installed: PAL2NAL builds the same codon alignments (byte-identical,
         # see NEWS). This is what happens when the arguments of a run record (which names the tool that was used,
@@ -461,8 +460,7 @@ dNdS <- function(query_file,
         if (engine != "coal")
                 check_aa_sub_matrix(aa_sub_matrix)
         
-        if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
-                orthologr_abort(class = "bad_argument", "Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
+        check_choice(kaks_tool, c("kaks_calculator", "coal"), "kaks_tool")
         
         # (Comeron and Li are computed by orthologr's own code whatever kaks_tool is; kaks_tool = "coal" only
         # replaces KaKs_Calculator for the seven methods COAL computes)

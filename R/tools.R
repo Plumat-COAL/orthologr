@@ -63,7 +63,7 @@ split_params <- function(x) {
                 i <- i + 1L
         }
         if (nzchar(quote))
-                stop("Unbalanced quote (", quote, ") in the parameter string: ", x, call. = FALSE)
+                orthologr_abort(class = "bad_argument", "Unbalanced quote (", quote, ") in the parameter string: ", x)
         if (open_tok || length(cur) > 0)
                 out <- c(out, paste(cur, collapse = ""))
         out
@@ -72,8 +72,7 @@ split_params <- function(x) {
 # Quote arguments for the command line. An argument wrapped in I() is a free-text parameter string users hand over
 # (e.g. blast_params = "-seg no -word_size 3"): it is split into its arguments (split_params()) and every one of
 # them is quoted like all other arguments, so that the command line the shell sees holds no character with a
-# meaning for the shell. (Until 0.5.0 such strings were pasted into the command line as they were:
-# params = "--force; touch X" ran 'touch X'.)
+# meaning for the shell.
 quote_args <- function(args) {
         if (length(args) == 0)
                 return(character(0))
@@ -102,16 +101,17 @@ quote_args <- function(args) {
 #   output  : files that must exist and be non-empty when the program has finished
 #   error   : stop on failure (TRUE) or return the result for the caller to inspect (FALSE)
 #   echo    : show the program's messages (stderr) with message() also when it succeeded
+#   record  : FALSE: not listed in the commands of the record of a run (version checks of tool_available())
 # Returns (invisibly) list(status, stdout = <lines or NULL when sent to a file>, stderr = <lines>).
 run_tool <- function(program, args = list(), path = NULL, stdout = NULL, tool = program, context = NULL,
-                     output = NULL, error = TRUE, echo = FALSE) {
+                     output = NULL, error = TRUE, echo = FALSE, record = TRUE) {
         cmd <- tool_command(program, path)
         if (!is.null(path) && nzchar(path)) {
                 old_path <- Sys.getenv("PATH")
                 on.exit(Sys.setenv(PATH = old_path), add = TRUE)
                 Sys.setenv(PATH = paste(path, old_path, sep = .Platform$path.sep))
         }
-        if (is.element(program, c("diamond", "blastp", "makeblastdb")))
+        if (record && is.element(program, c("diamond", "blastp", "makeblastdb")))
                 log_command(cmd, args)
         err_file <- tempfile("orthologr_stderr_")
         out_file <- if (is.null(stdout)) tempfile("orthologr_stdout_") else stdout
@@ -136,13 +136,17 @@ run_tool <- function(program, args = list(), path = NULL, stdout = NULL, tool = 
         )
         # (the warning of system2() may be translated: status 124 after the time limit is a timeout as well)
         if (is.finite(limit) && identical(as.integer(status), 124L) &&
-            (timed_out || proc.time()[["elapsed"]] - t0 >= limit - 0.5))
+            (timed_out || proc.time()[["elapsed"]] - t0 >= limit - 0.5)) {
+                # (counted, so that a caller that catches the error knows that a program timed out:
+                # compute_dnds() then retries the pairs of a chunk with a shorter limit, timeout_cap())
+                .orthologr_state$timeouts <- tool_timeouts() + 1L
                 orthologr_abort(class = c("tool_timeout", "tool_failed"),
                                 tool, " did not finish within ", format(limit), " seconds",
                                 if (!is.null(context) && nzchar(context)) paste0(" for ", context), " and was stopped. ",
                                 "The time limit is options(orthologr.tool_timeout) (see ?orthologr_options), e.g. ",
                                 "options(orthologr.tool_timeout = c(\"", tool_timeout_key(tool, program), "\" = ",
                                 format(limit * 4), ")); Inf: no limit.", call. = FALSE)
+        }
         res <- list(
                 status = status,
                 stdout = if (is.null(stdout) && file.exists(out_file)) readLines(out_file, warn = FALSE) else NULL,
@@ -164,6 +168,7 @@ run_tool <- function(program, args = list(), path = NULL, stdout = NULL, tool = 
 # one number for every program or numbers named by program (names as tool_timeout_defaults(), or the name of the
 # program in messages, e.g. "ClustalW"; case is ignored) that replace the defaults for those programs. Inf (or 0,
 # or NA): no limit. Programs without a limit by default: the alignment programs, OrthoFinder, version checks.
+# A limit set by timeout_cap() for the program (or its key) applies when it is shorter.
 tool_timeout <- function(tool, program = tool) {
         limits <- tool_timeout_defaults()
         opt <- getOption("orthologr.tool_timeout", NULL)
@@ -176,56 +181,100 @@ tool_timeout <- function(tool, program = tool) {
                         if (length(opt) != 1)
                                 orthologr_abort(class = "bad_argument", "options(orthologr.tool_timeout = ) must be one number of seconds ",
                                                 "or numbers named by program, e.g. c(KaKs_Calculator = 600).", call. = FALSE)
-                        return(tool_timeout_value(opt))
+                        return(tool_timeout_capped(tool_timeout_value(opt), tool, program))
                 }
-                # (a name that is one of the defaults but for case replaces it)
                 nm <- names(opt)
+                if (any(is.na(nm) | !nzchar(nm)))
+                        orthologr_abort(class = "bad_argument", "options(orthologr.tool_timeout = ): every number of a named limit needs ",
+                                        "the name of its program, e.g. c(KaKs_Calculator = 600, DIAMOND = Inf); an element without ",
+                                        "a name is not used for any program.", call. = FALSE)
+                # (a name that is one of the defaults but for case replaces it)
                 known <- match(tolower(nm), tolower(names(limits)))
                 nm[!is.na(known)] <- names(limits)[known[!is.na(known)]]
                 limits[nm] <- opt
+                # a limit for DIAMOND is also the limit of the steps of DIAMOND that have defaults of their own,
+                # unless they are named as well
+                steps <- c("diamond makedb", "diamond deepclust", "diamond realign")
+                if (is.element("DIAMOND", nm))
+                        limits[setdiff(steps, nm)] <- limits[["DIAMOND"]]
         }
         keys <- tolower(names(limits))
         hit <- match(tolower(c(tool, tool_timeout_key(tool, program))), keys)
         hit <- hit[!is.na(hit)]
-        if (length(hit) == 0)
-                return(Inf)
-        tool_timeout_value(limits[[hit[1]]])
+        value <- if (length(hit) == 0) Inf else tool_timeout_value(limits[[hit[1]]])
+        tool_timeout_capped(value, tool, program)
 }
 
+# A limit in whole seconds as system2(timeout = ) takes it: fractions are rounded up (0.5 s would be 0 s, which is
+# no limit at all), and Inf, 0, NA and numbers too large for an integer mean no limit.
 tool_timeout_value <- function(x) {
         x <- as.numeric(x)
-        if (is.na(x) || x <= 0) Inf else x
+        if (is.na(x) || x <= 0 || x > .Machine$integer.max) Inf else ceiling(x)
 }
 
 # The default time limits (seconds) of one run: KaKs_Calculator and PAL2NAL (one gene pair, or one chunk of up to
-# 100 pairs) 1 hour; DIAMOND, BLAST+ and coal-cpp (a whole search or pipeline, which may take many hours on large
-# proteomes) 7 days; DIAMOND's clustering of a database (deepclust(), realign), which can take longer, no limit.
+# 100 pairs) 1 hour; building a DIAMOND database (diamond makedb) 1 hour; DIAMOND, BLAST+ and coal-cpp (a whole
+# search or pipeline, which may take many hours on large proteomes) and DIAMOND's clustering of a database
+# (deepclust(), realign) 7 days. (DIAMOND 2.2 can hang instead of exiting on some input errors, without using the
+# processor: a limit ends such a run.)
 tool_timeout_defaults <- function() {
-        c(KaKs_Calculator = 3600, PAL2NAL = 3600, DIAMOND = 604800, BLAST = 604800, COAL = 604800,
-          "diamond deepclust" = Inf, "diamond realign" = Inf)
+        c(KaKs_Calculator = 3600, PAL2NAL = 3600, "diamond makedb" = 3600, DIAMOND = 604800, BLAST = 604800,
+          COAL = 604800, "diamond deepclust" = 604800, "diamond realign" = 604800)
 }
 
 # The name of the program in tool_timeout_defaults() for a run of 'program' called 'tool' in messages (the name in
-# the messages when none fits).
+# the messages when none fits). The steps of DIAMOND with limits of their own are matched before DIAMOND.
 tool_timeout_key <- function(tool, program = tool) {
         x <- tolower(paste(tool, basename(as.character(program))))
         if (grepl("kaks", x, fixed = TRUE)) return("KaKs_Calculator")
         if (grepl("pal2nal", x, fixed = TRUE)) return("PAL2NAL")
+        for (step in c("makedb", "deepclust", "realign"))
+                if (grepl("diamond", x, fixed = TRUE) && grepl(step, x, fixed = TRUE)) return(paste("diamond", step))
         if (grepl("diamond", x, fixed = TRUE)) return("DIAMOND")
         if (grepl("blast", x, fixed = TRUE)) return("BLAST")
         if (grepl("coal", x, fixed = TRUE)) return("COAL")
         tool
 }
 
-# Is `program` available? It is started once per R session (and per `path`) with `version_args`; the answer and the
-# first line that matches `pattern` (the version line) are remembered, so that functions called for every gene
-# pair do not start the program again just to see that it is there. Stops with `not_found` when it is not.
+# How many runs of external programs were stopped at their time limit in this R process (run_tool()).
+tool_timeouts <- function() {
+        n <- .orthologr_state$timeouts
+        if (is.null(n)) 0L else n
+}
+
+# Evaluate `expr` with the time limit of the program `key` (a name of tool_timeout_defaults()) at most `seconds`
+# (or at most a shorter limit that an enclosing timeout_cap() set).
+timeout_cap <- function(key, seconds, expr) {
+        old <- .orthologr_state$timeout_cap
+        cap <- old
+        k <- tolower(key)
+        cap[[k]] <- if (is.null(old[[k]])) seconds else min(old[[k]], seconds)
+        .orthologr_state$timeout_cap <- cap
+        on.exit(.orthologr_state$timeout_cap <- old, add = TRUE)
+        expr
+}
+
+tool_timeout_capped <- function(value, tool, program = tool) {
+        cap <- .orthologr_state$timeout_cap
+        if (length(cap) == 0)
+                return(value)
+        c1 <- cap[[tolower(tool_timeout_key(tool, program))]]
+        if (!is.null(c1) && is.finite(c1))
+                value <- min(value, ceiling(c1))
+        value
+}
+
+# Is `program` available? It is started once per R session (and per `path`) with `version_args`; when it is there,
+# the first line that matches `pattern` (the version line) is remembered, so that functions called for every gene
+# pair do not start the program again just to see that it is there. Stops with `not_found` when it is not (that
+# answer is not remembered: a program installed later in the session is found). The check is not part of the
+# commands of the record of a run.
 tool_available <- function(program, version_args, pattern, path = NULL, not_found = NULL) {
         key <- paste0(program, "\r", if (is.null(path)) "" else path)
         hit <- .orthologr_state[[key]]
         if (!is.null(hit))
                 return(hit)
-        res <- run_tool(program, args = version_args, path = path, error = FALSE)
+        res <- run_tool(program, args = version_args, path = path, error = FALSE, record = FALSE)
         lines <- c(res$stdout, res$stderr)
         found <- grep(pattern, lines, value = TRUE, ignore.case = TRUE)
         status <- as.integer(res$status)
@@ -273,7 +322,7 @@ publish_file <- function(from, to) {
                 unlink(to)
         if (!suppressWarnings(file.rename(from, to))) {
                 if (!file.copy(from, to, overwrite = TRUE))
-                        stop("The result file '", to, "' could not be written.", call. = FALSE)
+                        orthologr_abort(class = "bad_input", "The result file '", to, "' could not be written.")
                 unlink(from)
         }
         invisible(to)
@@ -284,11 +333,9 @@ safe_file_name <- function(x) {
         gsub("[^A-Za-z0-9._+-]", "_", x)
 }
 
-# Number of threads / processes to use: when more cores are asked for than the machine has, the number of
-# available cores is used and a warning says so (this used to be an error).
+# Number of threads / processes to use: a positive whole number; when more cores are asked for than the machine
+# has, the number of available cores is used and a warning says so.
 check_comp_cores <- function(comp_cores) {
-        # a whole number (L2 of REVIEW-OL-1: 1.5 and 2.7 were accepted and recorded as given, while the cluster
-        # and COAL's threads truncated them)
         if (!is.numeric(comp_cores) || length(comp_cores) != 1 || is.na(comp_cores) || !is.finite(comp_cores) ||
             comp_cores < 1 || comp_cores != round(comp_cores))
                 orthologr_abort("comp_cores must be a positive whole number (1, 2, ...).", class = "bad_argument")

@@ -136,6 +136,8 @@ remotes::install_github("drostlab/metablastr") # lncRNA orthology: orthologs_lnc
 
 The file [`environment.yml`](environment.yml) describes a conda environment with R, the R packages and all of these
 programs: `conda env create -f environment.yml` (or `mamba` / `micromamba`).
+`orthologr::orthologr_sitrep()` lists which of these programs (and of the optional R packages such as `coalr`) were
+found, their versions, what each one is needed for, and how to install what is missing.
 See [Install Prerequisite Tools](https://drostlab.github.io/orthologr/articles/Install.html) for details.
 
 ## Use Cases
