@@ -18,6 +18,6 @@ orthologr_warn <- function(..., class = NULL, call. = FALSE) {
 # The kinds of condition orthologr signals (for the documentation and the tests).
 orthologr_condition_classes <- function() {
         list(error   = c("tool_missing", "package_missing", "tool_failed", "alignment_failed", "no_hits",
-                         "bad_input", "bad_argument", "alignment_too_large"),
+                         "bad_input", "bad_argument", "alignment_too_large", "tool_timeout"),
              warning = c("failed_pairs", "isoforms", "legacy_engine", "tool_version", "comp_cores", "coal_version"))
 }

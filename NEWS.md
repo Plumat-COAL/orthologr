@@ -76,6 +76,35 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - `stringr` (and with it `stringi`) is no longer imported: its 27 calls were splitting and matching of file names
   and are base R now.
 
+- (last round of 0.6.0) The result rows of a chunk of gene pairs are one table instead of one `data.table` per
+  pair (`data.table()`, `setkey()`, `as.data.table()` and `set()` per pair took up to a fifth of the run time):
+  KaKs_Calculator's output of a chunk is read in one pass (every step works row by row, so a row has the values
+  of its pair's own table; should that fail the pairs are read one by one as before), and Comeron's values come
+  back as numbers. With the codon alignments in memory (the default: pairwise alignments, COAL through `coalr`)
+  gestimator gets them as strings (`gestimator_pairs()`, one call per chunk) instead of a codon alignment file
+  that is written, checked and read back, and a result file that is read; it formats the numbers with the same
+  stream settings, so they are the same to the last bit. A pair whose alignment or numbers are not plain (letters,
+  `*` and `-`; `nan`) goes through the files as before; with `options(orthologr.keep_tmp)` every pair does, so the
+  folder of the call holds the files of every pair as before (without it, the codon alignment files of this route
+  are no longer written). Identical tables (all columns, the attributes, `failed_pairs`, the record of the run):
+  the 20-gene and 1,000-gene examples, S. cerevisiae / C. glabrata (700 S. cerevisiae genes) and Salmonella
+  Typhimurium / Shigella flexneri (700 Salmonella genes), with the default settings, `codon_aln_tool = "pal2nal"`,
+  Li, YN, MYN, GMYN and NG (KaKs_Calculator), YN with PAL2NAL, `engine = "coal"`, YN with `kaks_tool = "coal"`, 1
+  and 2 cores, and the legacy settings (20-gene example). CPU seconds of the whole `dNdS()` call (median of 3,
+  same machine):
+
+  | data, settings | before -> after |
+  |---|---|
+  | 1,000-gene example, default (Comeron, COAL codon step), 1 core | 9.94 -> 8.47 (-15 %) |
+  | 1,000-gene example, YN (KaKs_Calculator), 1 core | 11.99 -> 10.86 (-9 %) |
+  | 1,000-gene example, `codon_aln_tool = "pal2nal"` (Comeron), 1 core | 18.00 -> 17.63 (-2 %) |
+  | S. cerevisiae (700) / C. glabrata, default, 1 core | 9.67 -> 8.63 (-11 %) |
+  | S. cerevisiae (700) / C. glabrata, YN, 1 core | 11.79 -> 11.50 (-2 %) |
+  | Salmonella (700) / Shigella, default, 2 cores | 7.01 -> 5.31 (-24 %) |
+
+  The rest is mostly DIAMOND, the protein alignments and the programs themselves. (The only values that differ
+  from those before are those of the GMYN fix below: 1 - 4 pairs per data set whose dN and dN/dS of about 1e-15 are 0.)
+
 ### Changed results
 
 - Comeron's method (both engines; COAL #76): the rule of 0.5.0 that a site class with fewer than
@@ -89,6 +118,11 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   Real data: no value changes - the tables of the 20-gene and 1,000-gene examples and of S. cerevisiae /
   C. glabrata (4,384 pairs, where the rule gives 15 dN, all > 0) are identical to those of 0.5.0 (default
   settings, `engine = "coal"` with a `coalr` that has COAL #76, and the legacy switch).
+
+- GMYN (KaKs_Calculator): a gene pair without nonsynonymous difference had dN and dN/dS of about 1e-15 (Ka/Ks *
+  Ks of a printed Ka/Ks such as 1.2715e-15) instead of 0; they are exactly 0 now, and a pair without synonymous
+  difference has dS = 0 (status `"dS_zero"`), as for NG, YN and MYN: GMYN's columns "S-Substitutions" and
+  "N-Substitutions" count the differences as MYN's do. Values of pairs with both kinds of difference are unchanged.
 
 ### Fixed
 
@@ -114,6 +148,21 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - `dNdS(engine = "coal", kaks_tool = "coal", dnds_est.method = c("NG", "YN"))` stopped with R's error "the
   condition has length > 1": `engine = "coal"` ignores `kaks_tool`, and the check of it is no longer made there.
 - `comp_cores` must be a whole number of at least 1 (`1.5`, `2.7` were accepted and recorded as given).
+
+- KaKs_Calculator, chunk of gene pairs: a pair for which KaKs_Calculator writes no row (GMYN of a single codon:
+  only its header line) sent the whole chunk to one process per pair (results were correct); only that pair is
+  computed on its own now (the others are read when they are in the order and have the names of their records).
+- A gene pair named exactly `Sequence` (`substitutionrate(subst_name = "Sequence")`) whose KaKs_Calculator output
+  had no header line (GMYN) had its row taken for the header and came back without a result; the header is now
+  recognised by its second field, `Method`.
+- Stop codons written with an ambiguity code whose every reading is a stop codon (`TAR`, `TRA`) were not counted in
+  `attr(result, "stop_codon_sequences")` and the summary line (they are translated to `X`); they are now.
+- External programs have a time limit (`options(orthologr.tool_timeout)`, see `?orthologr_options`): KaKs_Calculator
+  and PAL2NAL 1 hour per run (one pair or one chunk), DIAMOND, BLAST+ and coal-cpp 7 days (DIAMOND's clustering
+  and the alignment programs: none); one number for all programs or numbers by program, `Inf` for none. A program that hangs is stopped with an error of class
+  `orthologr_error_tool_timeout`; in `dNdS()` its gene pairs become failed pairs with that reason and the run goes
+  on (it used to wait for ever: KaKs_Calculator 2.0 `-m ALL` does not end for a pair of one codon).
+- `?substitutionrate` said that Li's method is provided by `ape`; it is `seqinr::kaks()`.
 
 ### Other changes
 

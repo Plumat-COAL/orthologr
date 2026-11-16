@@ -70,7 +70,7 @@ of the corresponding alignments using predefined dNdS estimation methods.
 The dNdS estimation methods available in this function are:
 
 \itemize{
-\item "Li" : Li's method (1993) -> provided by the ape package
+\item "Li" : Li's method (1993) -> provided by the seqinr package (\code{seqinr::kaks()})
 
 \item "Comeron" : Comeron's method (1995)
 }
@@ -114,8 +114,11 @@ dS and dNdS (status \code{"saturated"}). Since 0.5.0:
 \item \code{dN = 0} and \code{dS = 0} (\code{dNdS = NA}, status \code{"dS_zero"}) when no nucleotide differs
 (column "Substitutions" of KaKs_Calculator 0);
 \item \code{dS = 0} (\code{dNdS = NA}, status \code{"dS_zero"}) when Ks is \code{NA}, Ka is a number and no
-difference is synonymous (methods NG, YN, MYN: "S-Substitutions"; LWL, MLWL, LPB, MLPB: no transition at
-2-fold and no difference at 4-fold sites).
+difference is synonymous (methods NG, YN, MYN, GMYN: "S-Substitutions"; LWL, MLWL, LPB, MLPB: no transition at
+2-fold and no difference at 4-fold sites);
+\item \code{dN = 0} (and \code{dNdS = 0} when dS is a positive number) when Ka is \code{NA} and no difference is
+nonsynonymous (NG, YN, MYN, GMYN: "N-Substitutions"; LWL family: no difference at 0-fold and no transversion at
+2-fold sites). (GMYN: since 0.6.0 exactly 0; it was Ka/Ks * Ks, a rounding residue of about 1e-15.)
 }
 These are the values and the status the COAL engine (\code{kaks_tool = "coal"}, \code{engine = "coal"}) gives
 for the same pairs. When Ka/Ks is \code{NA} for another reason (a model that failed) the values stay \code{NA}.
