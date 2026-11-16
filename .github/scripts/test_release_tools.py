@@ -43,8 +43,8 @@ def write(path, text, mode="w"):
         fh.write(text)
 
 
-def r_tarball(path, package, version, namespace="export(orthologr_sitrep)\n", imports="Rcpp"):
-    desc = f"Package: {package}\nVersion: {version}\nImports: {imports}\nLinkingTo: Rcpp\n"
+def r_tarball(path, package, version, namespace="export(orthologr_sitrep)\n", imports="Rcpp", package_field=None):
+    desc = f"Package: {package_field or package}\nVersion: {version}\nImports: {imports}\nLinkingTo: Rcpp\n"
     with tarfile.open(path, "w:gz") as tf:
         for name, text in (("DESCRIPTION", desc), ("NAMESPACE", namespace)):
             data = text.encode()
@@ -72,6 +72,18 @@ def fake_release(directory, tag, files, json_path, draft=False, prerelease=False
     return rel
 
 
+def api_json(directory, tag, json_path, digests=True):
+    """The API JSON of a release from the files of a folder as they are now (digest left out with digests=False)."""
+    assets = []
+    for name in sorted(os.listdir(directory)):
+        p = os.path.join(directory, name)
+        a = {"name": name, "size": os.path.getsize(p)}
+        if digests:
+            a["digest"] = "sha256:" + rt.sha256(p)
+        assets.append(a)
+    write(json_path, json.dumps({"tag_name": tag, "draft": False, "prerelease": False, "assets": assets}))
+
+
 class Version(unittest.TestCase):
     def repo(self, version="0.6.0", heading="## `orthologr` 0.6.0"):
         d = tmpdir(self)
@@ -96,7 +108,8 @@ class Version(unittest.TestCase):
                 rt.check_version("v0.6.0", self.repo(heading=heading))
 
     def test_bad_tags(self):
-        for tag in ("0.6.0", "v0.6.0rc1", "bundle-2026.11", "v0.6.0 ", "v0..6", "v0.6.0.1.2"):
+        for tag in ("0.6.0", "v0.6.0rc1", "bundle-2026.11", "v0.6.0 ", "v0..6", "v0.6.0.1.2", "v0.6.0\n",
+                    "v0.6.0\nversion=9.9.9"):
             with self.assertRaises(rt.Failure, msg=tag):
                 rt.check_version(tag, self.repo())
 
@@ -124,7 +137,9 @@ class Inputs(unittest.TestCase):
                      ("v0.6.1", "v0.6.0", "v2026.11"), ("v0.6.1", "v0.6.0", "2026.11"),
                      ("v0.6.1", "v0.6.0", "bundle-"), ("v0.6.1", "v0.6.0", "bundle-a..b"),
                      ("v0.6.1", "v0.6.0", "bundle-x.lock"), ("v0.6.1", "v0.6.0", "bundle-a b"),
-                     ("v0.6.1", "v0.6.0", "bundle-$(id)"), ("v0.6.1", "v0.6.0", "bundle-a/b")):
+                     ("v0.6.1", "v0.6.0", "bundle-$(id)"), ("v0.6.1", "v0.6.0", "bundle-a/b"),
+                     ("v0.6.1\n", "v0.6.0", "bundle-2026.11"), ("v0.6.1", "v0.6.0\n", "bundle-2026.11"),
+                     ("v0.6.1", "v0.6.0", "bundle-2026.11\n"), ("v0.6.1", "v0.6.0", "bundle-2026.11\nx=y")):
             with self.assertRaises(rt.Failure, msg=args):
                 rt.check_inputs(*args)
 
@@ -181,6 +196,54 @@ class Verify(unittest.TestCase):
         with self.assertRaisesRegex(rt.Failure, "not v2"):
             rt.verify_release(self.rel_dir, self.json, "v2.0.0")
 
+    def wrong_sums_line(self):
+        """SHA256SUMS.txt gives a.tar.gz a wrong hash; the file itself is as released."""
+        fake_release(self.rel_dir, "v1.0.0", self.files, self.json)
+        sums = os.path.join(self.rel_dir, rt.SUMS)
+        text = read(sums).replace(hashlib.sha256(b"aaa").hexdigest(), hashlib.sha256(b"AAA").hexdigest())
+        write(sums, text)
+
+    def test_wrong_sums_line_github_digest_agrees(self):
+        self.wrong_sums_line()
+        api_json(self.rel_dir, "v1.0.0", self.json)   # GitHub's digests are those of the files as they are
+        with self.assertRaisesRegex(rt.Failure, "a.tar.gz: SHA256SUMS.txt says"):
+            rt.verify_release(self.rel_dir, self.json, "v1.0.0")
+
+    def test_wrong_sums_line_no_github_digest(self):
+        self.wrong_sums_line()
+        api_json(self.rel_dir, "v1.0.0", self.json, digests=False)
+        with self.assertRaisesRegex(rt.Failure, "a.tar.gz: SHA256SUMS.txt says"):
+            rt.verify_release(self.rel_dir, self.json, "v1.0.0")
+
+    def test_no_github_digest_is_fine_otherwise(self):
+        fake_release(self.rel_dir, "v1.0.0", self.files, self.json)
+        api_json(self.rel_dir, "v1.0.0", self.json, digests=False)
+        rt.verify_release(self.rel_dir, self.json, "v1.0.0")
+
+    def test_size_mismatch(self):
+        fake_release(self.rel_dir, "v1.0.0", self.files, self.json)
+        rel = json.loads(read(self.json))
+        rel["assets"][0]["size"] += 1
+        del rel["assets"][0]["digest"]
+        write(self.json, json.dumps(rel))
+        with self.assertRaisesRegex(rt.Failure, "bytes, the download has"):
+            rt.verify_release(self.rel_dir, self.json, "v1.0.0")
+
+    def test_duplicate_sums_lines(self):
+        line = f"{hashlib.sha256(b'aaa').hexdigest()}  a.tar.gz"
+        fake_release(self.rel_dir, "v1.0.0", self.files, self.json, sums_extra=[line])
+        with self.assertRaisesRegex(rt.Failure, "listed twice"):
+            rt.verify_release(self.rel_dir, self.json, "v1.0.0")
+
+    def test_patterns_are_anchored_at_the_very_end(self):
+        # a trailing newline must not pass (it would reach $GITHUB_OUTPUT or a file name)
+        h = hashlib.sha256(b"x").hexdigest()
+        self.assertIsNotNone(rt.SUM_LINE_RE.fullmatch(f"{h}  a.tar.gz"))
+        self.assertIsNone(rt.SUM_LINE_RE.fullmatch(f"{h}  a.tar.gz\n"))
+        self.assertIsNone(rt.SUM_LINE_RE.fullmatch(f"{h}  a.tar.gz\r"))
+        self.assertIsNone(rt.RELEASE_TAG_RE.fullmatch("v0.6.0\n"))
+        self.assertIsNone(rt.BUNDLE_TAG_RE.fullmatch("bundle-2026.11\n"))
+
     def test_bad_sums_lines(self):
         fake_release(self.rel_dir, "v1.0.0", self.files, self.json, sums_extra=["0" * 64 + "  ../escape"])
         with self.assertRaisesRegex(rt.Failure, "not '<sha256>"):
@@ -188,7 +251,7 @@ class Verify(unittest.TestCase):
 
 
 class Bundle(unittest.TestCase):
-    def make(self, coalr=True, sitrep=True, orthologr_version="0.6.0"):
+    def make(self, coalr=True, sitrep=True, orthologr_version="0.6.0", orthologr_package="orthologr"):
         d = tmpdir(self)
         cdir, odir = os.path.join(d, "coal"), os.path.join(d, "orthologr")
         os.makedirs(cdir)
@@ -196,7 +259,8 @@ class Bundle(unittest.TestCase):
         if coalr:
             r_tarball(os.path.join(cdir, "coalr_0.6.1.tar.gz"), "coalr", "0.6.1", "useDynLib(coalr)\n")
         r_tarball(os.path.join(odir, "orthologr_0.6.0.tar.gz"), "orthologr", orthologr_version,
-                  "export(orthologr_sitrep)\n" if sitrep else "export(dNdS)\n",
+                  package_field=orthologr_package,
+                  namespace="export(orthologr_sitrep)\n" if sitrep else "export(dNdS)\n",
                   imports="data.table (>= 1.9.4), parallel, Biostrings,\n    pwalign")
         for x, extra in ((cdir, "coal_src.tar.gz"), (odir, "orthologr_0.6.0-check.log")):
             write(os.path.join(x, extra), "x")
@@ -234,6 +298,10 @@ class Bundle(unittest.TestCase):
     def test_orthologr_without_sitrep(self):
         with self.assertRaisesRegex(rt.Failure, "orthologr_sitrep"):
             rt.bundle(self.make(sitrep=False))
+
+    def test_tarball_of_another_package(self):
+        with self.assertRaisesRegex(rt.Failure, "DESCRIPTION says orthologrx 0.6.0, not orthologr 0.6.0"):
+            rt.bundle(self.make(orthologr_package="orthologrx"))
 
     def test_tarball_of_another_version(self):
         with self.assertRaisesRegex(rt.Failure, "DESCRIPTION says orthologr 0.5.9"):

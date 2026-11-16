@@ -40,7 +40,7 @@ AUTHORS_LINE = "Authors: Chloe Newton (@chloe-newt) and Keanu Murati (@Keanu-MUR
 RELEASE_TAG_RE = re.compile(r"^v(\d+(?:\.\d+){1,3})$")
 # bundle-<letters, digits, "." "_" "-">: never "v<digit>", so never a release tag of COAL or orthologr
 BUNDLE_TAG_RE = re.compile(r"^bundle-[0-9A-Za-z](?:[0-9A-Za-z._-]{0,62}[0-9A-Za-z])?$")
-SUM_LINE_RE = re.compile(r"^([0-9a-f]{64}) [ *]([^/\\]+)$")
+SUM_LINE_RE = re.compile(r"^([0-9a-f]{64}) [ *]([^/\\\x00-\x1f\x7f]+)$")  # a plain file name, no control characters
 # packages that come with R and are not installed from CRAN or Bioconductor
 BASE_PACKAGES = {"R", "base", "compiler", "datasets", "graphics", "grDevices", "grid", "methods", "parallel",
                  "splines", "stats", "stats4", "tcltk", "tools", "utils"}
@@ -67,7 +67,7 @@ def parse_dcf(text):
         if line[0] in " \t" and key:
             fields[key] += " " + line.strip()
             continue
-        m = re.match(r"^([A-Za-z0-9@/._-]+):\s*(.*)$", line)
+        m = re.fullmatch(r"([A-Za-z0-9@/._-]+):\s*(.*)", line)
         if not m:
             raise Failure(f"DESCRIPTION: cannot read the line {line!r}")
         key = m.group(1)
@@ -114,7 +114,7 @@ def check_version(tag, root=".", dry_run=False):
         raise Failure(f"DESCRIPTION has no usable Version ({version!r})")
     if tag == "" and dry_run:
         tag = "v" + version
-    m = RELEASE_TAG_RE.match(tag)
+    m = RELEASE_TAG_RE.fullmatch(tag)
     if not m:
         raise Failure(f"tag {tag!r} is not v<version>, e.g. v0.6.0")
     if m.group(1) != version:
@@ -137,10 +137,10 @@ def check_version(tag, root=".", dry_run=False):
 
 def check_inputs(coal_tag, orthologr_tag, bundle_tag):
     for what, tag in (("coal_tag", coal_tag), ("orthologr_tag", orthologr_tag)):
-        if not RELEASE_TAG_RE.match(tag):
+        if not RELEASE_TAG_RE.fullmatch(tag):
             raise Failure(f"{what} {tag!r} is not the tag of a release, v<version> (e.g. v0.6.1); a prerelease "
                           f"(rc) cannot go into a bundle")
-    if not BUNDLE_TAG_RE.match(bundle_tag) or ".." in bundle_tag or bundle_tag.endswith(".lock"):
+    if not BUNDLE_TAG_RE.fullmatch(bundle_tag) or ".." in bundle_tag or bundle_tag.endswith(".lock"):
         raise Failure(f"bundle_tag {bundle_tag!r} is not bundle-<name> (letters, digits, '.', '_', '-'; e.g. "
                       f"bundle-2026.11): a bundle tag must never look like a release tag of COAL or orthologr")
 
@@ -153,7 +153,7 @@ def read_sums(path):
     with open(path, encoding="utf-8") as fh:
         for n, line in enumerate(fh, 1):
             line = line.rstrip("\n")
-            m = SUM_LINE_RE.match(line)
+            m = SUM_LINE_RE.fullmatch(line)
             if not m:
                 raise Failure(f"{path}:{n}: not '<sha256>  <file name>': {line!r}")
             name = m.group(2)
@@ -267,8 +267,8 @@ what is missing.
 
 
 def bundle(args):
-    coal_v = RELEASE_TAG_RE.match(args.coal_tag).group(1)
-    orthologr_v = RELEASE_TAG_RE.match(args.orthologr_tag).group(1)
+    coal_v = RELEASE_TAG_RE.fullmatch(args.coal_tag).group(1)
+    orthologr_v = RELEASE_TAG_RE.fullmatch(args.orthologr_tag).group(1)
     coalr_file = f"coalr_{coal_v}.tar.gz"
     orthologr_file = f"orthologr_{orthologr_v}.tar.gz"
     coalr_path = os.path.join(args.coal_dir, coalr_file)

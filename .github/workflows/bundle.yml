@@ -12,7 +12,8 @@
 # checksum difference stops the run. The bundle release holds coalr_<v>.tar.gz and orthologr_<v>.tar.gz (unchanged),
 # INSTALL.md and SHA256SUMS.txt (all three files), and is created as a full release (not a prerelease) that is not
 # marked "Latest", so that releases/latest stays orthologr's own release; its tag points at the commit of
-# orthologr_tag. MAINTAINER_NOTES.md, section 6, has the steps.
+# orthologr_tag. MAINTAINER_NOTES.md, section 6, has the steps. "Run workflow" (and the dispatch API) needs this file
+# and .github/scripts/release_tools.py on the default branch (master): until then the workflow cannot run.
 #
 # Supply chain as in release.yml: actions pinned to full commit SHAs, a read-only token except in the publish job,
 # inputs reach the shell through env only.
@@ -72,10 +73,15 @@ jobs:
         run: python3 -I .github/scripts/release_tools.py check-inputs "$COAL_TAG" "$ORTHOLOGR_TAG" "$BUNDLE_TAG"
       - name: The bundle tag is not taken
         run: |
-          if gh api "repos/$GH_REPO/git/ref/tags/$BUNDLE_TAG" > /dev/null 2>&1 \
-             || gh api "repos/$GH_REPO/releases/tags/$BUNDLE_TAG" > /dev/null 2>&1; then
-            echo "::error::$GH_REPO already has a tag or release $BUNDLE_TAG"; exit 1
-          fi
+          # free = GitHub answers 404 for both the tag and the release; any other error stops the run
+          for path in "git/ref/tags/$BUNDLE_TAG" "releases/tags/$BUNDLE_TAG"; do
+            if err=$(gh api "repos/$GH_REPO/$path" 2>&1 > /dev/null); then
+              echo "::error::$GH_REPO already has $path"; exit 1
+            elif [[ "$err" != *"(HTTP 404)"* ]]; then
+              echo "::error::cannot tell whether $GH_REPO has $path: $err"; exit 1
+            fi
+          done
+          echo "$BUNDLE_TAG is free"
       - name: The two releases (published), and the commit of the orthologr tag
         id: sources
         run: |
@@ -84,7 +90,7 @@ jobs:
             || { echo "::error::$COAL_REPO has no published release $COAL_TAG"; exit 1; }
           gh api "repos/$GH_REPO/releases/tags/$ORTHOLOGR_TAG" > "$RUNNER_TEMP/meta/orthologr.json" \
             || { echo "::error::$GH_REPO has no published release $ORTHOLOGR_TAG"; exit 1; }
-          target=$(gh api "repos/$GH_REPO/commits/$ORTHOLOGR_TAG" --jq .sha)
+          target=$(gh api "repos/$GH_REPO/commits/refs/tags/$ORTHOLOGR_TAG" --jq .sha)
           [[ "$target" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no commit for $ORTHOLOGR_TAG"; exit 1; }
           echo "target=$target" >> "$GITHUB_OUTPUT"
           echo "the bundle tag will point at $target ($ORTHOLOGR_TAG)"
@@ -139,10 +145,14 @@ jobs:
         run: sha256sum -c SHA256SUMS.txt
       - name: gh release create
         run: |
-          if gh api "repos/$GH_REPO/git/ref/tags/$BUNDLE_TAG" > /dev/null 2>&1 \
-             || gh api "repos/$GH_REPO/releases/tags/$BUNDLE_TAG" > /dev/null 2>&1; then
-            echo "::error::$GH_REPO already has a tag or release $BUNDLE_TAG"; exit 1
-          fi
+          # as in the assemble job: free only if GitHub answers 404 for both; any other error stops the run
+          for path in "git/ref/tags/$BUNDLE_TAG" "releases/tags/$BUNDLE_TAG"; do
+            if err=$(gh api "repos/$GH_REPO/$path" 2>&1 > /dev/null); then
+              echo "::error::$GH_REPO already has $path"; exit 1
+            elif [[ "$err" != *"(HTTP 404)"* ]]; then
+              echo "::error::cannot tell whether $GH_REPO has $path: $err"; exit 1
+            fi
+          done
           gh release create "$BUNDLE_TAG" out/files/* --target "$TARGET" \
             --title "COAL $COAL_TAG + orthologr $ORTHOLOGR_TAG" --notes-file out/notes.md \
             --prerelease=false --latest=false
