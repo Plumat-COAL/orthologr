@@ -124,14 +124,24 @@ Comparison scripts: /home/claude/w-olclean-scratch/cmp_kc.R and cmp_zero.R. They
   - Pair lengths are 1–400 codons, with divergence from 2 % to 100 %.
   - 15 % of pairs have random `-`, `N`, `n`, `R` or `U`; 10 % are lowercase; 5 % have T->U.
   - `kaks_lwl_counts()` formatted with `%.6g` (KC's printing) is **character-identical to KC's three printed
-    fields in 20,400/20,400 rows**.
+    fields in 20,400/20,400 rows** with the first version (a1d0712), which computed U as KC does.
+  - With the final version (6d353c1), the 3,440 rows with U return NULL by design (section 4a). The other 16,960
+    rows are character-identical (0 mismatches).
 - **Boundary cases** (exp 4 set, 8,099 method rows). In R, the sign and magnitude of 1 - 2P - Q (and the 1 - 2Q
   test) give KC's decision in all rows.
-- **Existing tests.** The testthat tests pass unchanged (section 4).
+- **Existing tests.** The testthat tests pass unchanged. On 6d353c1 the local results are:
+  - test-lwl_counts (new, 629 expectations, including a live KC comparison on random pairs of all 17 codes);
+  - kaks_values (96 expectations);
+  - substitutionrate (147);
+  - golden_values (134);
+  - legacy (62).
+
+  All have 0 failures and 0 skips. The full suite runs in fork CI.
 
 ## 4. Identity of the package with integration/all
 
-Merged tree 1cd0470 (this branch + integration/all bf8d61b) against bf8d61b. Both were installed from `git archive`
+Final tree 6d353c1 (this branch merged with integration/all bf8d61b) against bf8d61b. The same checks also passed
+earlier on the merged tree 1cd0470. Both were installed from `git archive`
 and run with `/home/claude/w-olclean-scratch/run_id.R`, `dNdS()`, `comp_cores = 2`, using the KaKs_Calculator 2.0
 binary of tools-g and coalr 0.6.x.
 
@@ -180,11 +190,13 @@ chore/gpl2-cleanroom); the genetic code tables are NCBI data (public domain, US 
 
 ## 6. CI and R CMD check
 
-- **Fork CI** (R-CMD-check.yaml, workflow_dispatch):
-  - 7/7 green on a1d0712 (run 43788724616) and 7/7 green on the merged 1cd0470 (run 43796527172);
+- **Fork CI** (R-CMD-check.yaml, workflow_dispatch). Each run was 7/7 green:
+  - a1d0712, run 43788724616;
+  - the merged 1cd0470, run 43796527172;
+  - the final 6d353c1, run 43808677077 (ubuntu release: FAIL 0, PASS 5275);
   - the jobs: ubuntu release / devel / oldrel-1 / 4.4 / no optional tools, macOS, Windows;
   - on ubuntu release (bioconda kakscalculator2 2.0.1) the live black-box test in test-lwl_counts.R ran and passed:
-    FAIL 0, 5273 PASS, and no skip for it.
-- **Local `R CMD check --no-manual --as-cran`** of 1cd0470: Status 6 NOTEs, 0 errors, 0 warnings. These are the same
+    FAIL 0, 5273 PASS on 1cd0470, and no skip for it.
+- **Local `R CMD check --no-manual --as-cran`** of 1cd0470 and of 6d353c1 (code-identical to the final commit): Status 6 NOTEs, 0 errors, 0 warnings. These are the same
   six NOTEs as integration/all (future file timestamps, Rd line widths, Rd cross-references, compilation flags,
   examples timing, and CRAN incoming: no internet + `Remotes` field). None comes from this change.
