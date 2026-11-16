@@ -61,13 +61,16 @@ when this version of orthologr was made its release had no macOS binary yet and 
 rebuilt a day after the release, so a checksum taken then might not stay valid.
 
 The checksum is computed with \code{tools::sha256sum()} (R >= 4.5.0), else with the program
-\code{sha256sum}, \code{shasum} or \code{certutil} (Windows); when none of them is available the download
-is refused.
+\code{sha256sum}, \code{shasum} or \code{certutil} (Windows); when none of them is available the downloaded
+file is deleted without being unpacked (error of class \code{orthologr_error_checksum_unavailable}).
 
 \strong{Errors.} A download that fails or takes longer than \code{timeout} seconds is an error of class
 \code{orthologr_error_download_failed} (and \code{orthologr_error_tool_failed}); the partial file is deleted.
-The archive is unpacked into a temporary folder and the program is copied into the cache only after it ran
-(\code{diamond version}), so a failed installation leaves an existing copy in place.
+The archive is unpacked into a temporary folder and the program is copied into the cache only after it ran:
+\code{diamond version} must exit with status 0 within 60 seconds and print a line \code{diamond version
+<number>} (otherwise an error of class \code{orthologr_error_tool_failed} with the program's last lines of
+output). It is then copied next to the cached copy under a temporary name and renamed over it, so a failed
+installation leaves an existing copy in place.
 }
 \note{
 Pre-built DIAMOND2 releases exist for Linux x86_64, macOS and Windows; on other platforms (e.g. Linux

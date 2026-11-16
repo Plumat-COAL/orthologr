@@ -35,13 +35,16 @@
 #' rebuilt a day after the release, so a checksum taken then might not stay valid.
 #'
 #' The checksum is computed with \code{tools::sha256sum()} (R >= 4.5.0), else with the program
-#' \code{sha256sum}, \code{shasum} or \code{certutil} (Windows); when none of them is available the download
-#' is refused.
+#' \code{sha256sum}, \code{shasum} or \code{certutil} (Windows); when none of them is available the downloaded
+#' file is deleted without being unpacked (error of class \code{orthologr_error_checksum_unavailable}).
 #'
 #' \strong{Errors.} A download that fails or takes longer than \code{timeout} seconds is an error of class
 #' \code{orthologr_error_download_failed} (and \code{orthologr_error_tool_failed}); the partial file is deleted.
-#' The archive is unpacked into a temporary folder and the program is copied into the cache only after it ran
-#' (\code{diamond version}), so a failed installation leaves an existing copy in place.
+#' The archive is unpacked into a temporary folder and the program is copied into the cache only after it ran:
+#' \code{diamond version} must exit with status 0 within 60 seconds and print a line \code{diamond version
+#' <number>} (otherwise an error of class \code{orthologr_error_tool_failed} with the program's last lines of
+#' output). It is then copied next to the cached copy under a temporary name and renamed over it, so a failed
+#' installation leaves an existing copy in place.
 #' @return Invisibly, the directory containing the \code{diamond} executable. This can be passed
 #' to the \code{path} argument of the DIAMOND functions.
 #' @note Pre-built DIAMOND2 releases exist for Linux x86_64, macOS and Windows; on other platforms (e.g. Linux
@@ -63,7 +66,8 @@
 diamond_install <- function(version = "latest", force = FALSE, quiet = FALSE, sha256 = NULL,
                             timeout = max(600, getOption("timeout"))) {
 
-        if (!is.character(version) || length(version) != 1 || is.na(version) || !nzchar(version))
+        if (!is.character(version) || length(version) != 1 || is.na(version) ||
+            !(identical(version, "latest") || grepl("^v?[0-9]+(\\.[0-9]+)*$", version)))
                 orthologr_abort(class = "bad_argument", "'version' must be one DIAMOND release tag such as \"v2.2.8\", or \"latest\".")
         if (!is.numeric(timeout) || length(timeout) != 1 || is.na(timeout) || timeout <= 0)
                 orthologr_abort(class = "bad_argument", "'timeout' must be a positive number of seconds.")
@@ -163,19 +167,30 @@ diamond_install <- function(version = "latest", force = FALSE, quiet = FALSE, sh
                 stop("The downloaded archive did not contain '", exe_name, "'.", call. = FALSE)
         Sys.chmod(new_exe, mode = "0755")
 
-        # verify that the binary runs before it replaces a copy in the cache
+        # verify that the binary runs before it replaces a copy in the cache: exit status 0 and its version line
         out <- diamond_binary_version(new_exe)
-        if (is.null(out) || !any(grepl("diamond", out, ignore.case = TRUE)))
-                stop("DIAMOND was downloaded but could not be executed. ",
-                     "Please install it via conda instead: 'conda install -c bioconda diamond'.",
-                     call. = FALSE)
+        status <- attr(out, "status")
+        version_line <- grep("^diamond version [0-9]", out, value = TRUE)
+        if (is.null(out) || !(is.null(status) || identical(as.integer(status), 0L)) || length(version_line) == 0) {
+                last <- utils::tail(out[nzchar(trimws(out))], 5)
+                orthologr_abort(class = "tool_failed",
+                                "DIAMOND ", version, " was downloaded and verified but does not run on this computer ('diamond version' ",
+                                if (is.null(out)) "could not be started" else paste0("exited with status ", if (is.null(status)) 0L else status),
+                                if (length(last)) paste0("; its last output: ", paste(last, collapse = " | ")) else "; no output",
+                                "). Nothing was installed. Please install DIAMOND via conda instead: 'conda install -c bioconda diamond'.")
+        }
 
+        # into the cache under a temporary name, then renamed over the old copy (one step)
         dir.create(dest, recursive = TRUE, showWarnings = FALSE)
-        if (!file.copy(new_exe, exe, overwrite = TRUE))
+        staged <- file.path(dest, paste0(".", exe_name, ".new-", Sys.getpid()))
+        on.exit(unlink(staged), add = TRUE)
+        if (!file.copy(new_exe, staged, overwrite = TRUE))
                 stop("Could not copy DIAMOND into ", dest, ".", call. = FALSE)
-        Sys.chmod(exe, mode = "0755")
+        Sys.chmod(staged, mode = "0755")
+        if (!file.rename(staged, exe))
+                stop("Could not move DIAMOND into place in ", dest, ".", call. = FALSE)
 
-        if (!quiet) message("Installed ", out[1], " in ", dest)
+        if (!quiet) message("Installed ", version_line[1], " in ", dest)
         invisible(dest)
 }
 
@@ -252,12 +267,19 @@ diamond_sha256 <- function(file, use_r = TRUE) {
         h
 }
 
-# the output of 'diamond version', NULL when the program does not run (60 seconds at most)
+# the output of 'diamond version' (stdout and stderr, through a file, so that it is kept whatever the exit status)
+# with the attribute "status" (the exit status; 124 when it took more than 60 seconds), NULL when the program
+# cannot be started at all
 diamond_binary_version <- function(exe) {
-        tryCatch(
-                suppressWarnings(system2(exe, "version", stdout = TRUE, stderr = TRUE, timeout = 60)),
-                error = function(e) NULL
-        )
+        log <- tempfile("diamond_version_")
+        on.exit(unlink(log), add = TRUE)
+        status <- tryCatch(suppressWarnings(system2(exe, "version", stdout = log, stderr = log, timeout = 60)),
+                           error = function(e) NULL)
+        if (is.null(status))
+                return(NULL)
+        out <- if (file.exists(log)) suppressWarnings(readLines(log)) else character()
+        attr(out, "status") <- as.integer(status)
+        out
 }
 
 #' @title Locate the DIAMOND executable used by orthologr
