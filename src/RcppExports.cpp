@@ -155,6 +155,22 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// gestimator_pairs
+Rcpp::CharacterVector gestimator_pairs(std::vector<std::string> seq1, std::vector<std::string> seq2, int maxHits, bool legacy_saturation, bool twosubs_libsequence, double min_sites);
+RcppExport SEXP _orthologr_gestimator_pairs(SEXP seq1SEXP, SEXP seq2SEXP, SEXP maxHitsSEXP, SEXP legacy_saturationSEXP, SEXP twosubs_libsequenceSEXP, SEXP min_sitesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::vector<std::string> >::type seq1(seq1SEXP);
+    Rcpp::traits::input_parameter< std::vector<std::string> >::type seq2(seq2SEXP);
+    Rcpp::traits::input_parameter< int >::type maxHits(maxHitsSEXP);
+    Rcpp::traits::input_parameter< bool >::type legacy_saturation(legacy_saturationSEXP);
+    Rcpp::traits::input_parameter< bool >::type twosubs_libsequence(twosubs_libsequenceSEXP);
+    Rcpp::traits::input_parameter< double >::type min_sites(min_sitesSEXP);
+    rcpp_result_gen = Rcpp::wrap(gestimator_pairs(seq1, seq2, maxHits, legacy_saturation, twosubs_libsequence, min_sites));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_orthologr_Different", (DL_FUNC) &_orthologr_Different, 4},
@@ -169,6 +185,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_orthologr_Universal", (DL_FUNC) &_orthologr_Universal, 1},
     {"_orthologr_TranslateCodon", (DL_FUNC) &_orthologr_TranslateCodon, 1},
     {"_orthologr_gestimator", (DL_FUNC) &_orthologr_gestimator, 8},
+    {"_orthologr_gestimator_pairs", (DL_FUNC) &_orthologr_gestimator_pairs, 6},
     {NULL, NULL, 0}
 };
 
