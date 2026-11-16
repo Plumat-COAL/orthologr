@@ -37,7 +37,11 @@ File: R/substitutionrate.R, the internal functions
                           getCodonClass(), TransitionTransversion(), MLWL85::TransitionTransversion()) and
                           src/LPB93.cpp (MLPB93::TransitionTransversion()) of KaKs_Calculator 2.0, written so
                           that the counts are those of KaKs_Calculator to the last bit (they decide whether a
-                          value that KaKs_Calculator printed is a saturated estimate).
+                          value that KaKs_Calculator printed is a saturated estimate);
+    kaks_saturated()      its test of the 0-, 2- and 4-fold classes (1 - 2P - Q > 0 and 1 - 2Q > 0, from the
+                          counts above) follows the Kimura two-parameter step of LWL85::preProcess();
+    kaks_calc_header()    the column names of KaKs_Calculator 2.0's output (KaKs.cpp), an interface that
+                          orthologr reads, listed for completeness.
 
     KaKs_Calculator 2.0: Copyright (C) 2009 Beijing Institute of Genomics of CAS. Authors: Da-Peng Wang,
     Yu-Bin Zhang (2.0), Zhang Zhang (1.0); modified version 2.0.1 by Kristian K. Ullrich (2020).
@@ -45,8 +49,17 @@ File: R/substitutionrate.R, the internal functions
     methods and sliding window strategies. Genomics Proteomics Bioinformatics 8:77-80.
     Source compared: https://github.com/kullrich/kakscalculator2 (commit 4b96206f67c934792a6d02fb38bb356056ad84f9),
     the fork of https://sourceforge.net/projects/kakscalculator2 that bioconda builds (kakscalculator2 2.0.1).
-    Licence: GNU General Public License version 3 (the LICENSE file of that repository; the source files
-    themselves carry only the copyright line and no "or any later version" statement).
+    Licence statements found (facts only):
+      - the source files carry only "Copyright (C) 2009, Beijing Institute of Genomics of CAS / All rights
+        reserved", no licence and no "or any later version" statement;
+      - the original KaKs_Calculator2.0.tar.gz files, as imported from SourceForge into that repository (commit
+        f646786, 2020-11-12), contain no licence file;
+      - the repository's LICENSE file, the text of the GNU GPL version 3, was added by Kristian K. Ullrich in
+        its initial commit (bd24013, 2020-11-12), before the original files were imported; the SourceForge
+        project page lists the GNU GPL version 3 (not re-checked for these notes).
+    Whether this "specifies" a version in the sense of section 14 of the GPL version 3 (a program that
+    specifies no version number may be used under any version) is for the maintainers and the copyright
+    holders to decide; these notes treat it as GPL version 3.
 
     orthologr otherwise only runs the program KaKs_Calculator when it is installed and reads its output.
 
@@ -56,7 +69,9 @@ File: R/substitutionrate.R, the internal functions
 
 Files: inst/pal2nal/pal2nal.v14/ (pal2nal.pl, README, test files, for_paml/)
 
-    PAL2NAL v14, Copyright (C) 2004-2011 Mikita Suyama, David Torrents, Peer Bork.
+    PAL2NAL v14 by Mikita Suyama, David Torrents and Peer Bork. Its files name only Mikita Suyama (header of
+    pal2nal.pl); the copyright line "2004-2011 Mikita Suyama, David Torrents, and Peer Bork and their
+    respective employing institute" is Debian's record (debian/copyright of pal2nal 14.1-3).
     Suyama M, Torrents D, Bork P (2006) PAL2NAL: robust conversion of protein sequence alignments into the
     corresponding codon alignments. Nucleic Acids Res 34:W609-W612.
     Licence: none is stated in its files. Debian distributes PAL2NAL under GPL-2 (debian/copyright of the
