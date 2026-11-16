@@ -105,7 +105,7 @@ BiocManager::install(c("Biostrings", "pwalign"))
 
 # install orthologr 0.6.0 from GitHub (this also installs its CRAN dependencies)
 install.packages("remotes")
-remotes::install_github("Plumat-COAL/orthologr@integration/all")
+remotes::install_github("Plumat-COAL/orthologr@v0.6.0")
 ```
 
 **Coming from orthologr 0.4.3?** Version 0.5.0 changes some defaults and results; the article
@@ -210,7 +210,7 @@ dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'ortho
 ```
 
 A faster way to the same kind of table uses [COAL](https://github.com/Plumat-COAL/COAL) for the alignment,
-codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.0")`):
+codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.1")`):
 
 ```r
 # orthologs by DIAMOND reciprocal best hits, then all gene pairs in one batch (no Perl, no KaKs_Calculator)
@@ -290,7 +290,7 @@ On Windows the package is built from source, which needs [Rtools](https://cran.r
 
 ```r
 install.packages("remotes")
-remotes::install_github("Plumat-COAL/orthologr@integration/all")
+remotes::install_github("Plumat-COAL/orthologr@v0.6.0")
 ```
 
 The article [Setup on Windows](https://drostlab.github.io/orthologr/articles/setup_windows.html) describes how to
@@ -350,17 +350,28 @@ one place: `?orthologr_options` (source: [R/orthologr_options.R](R/orthologr_opt
 
 ## Discussions and Bug Reports
 
-I would be very happy to learn more about potential improvements of the concepts and functions provided in this package.
+Bugs, questions and suggestions about this version of `orthologr` (the Plumat-COAL fork: 0.5.0, 0.6.0 and later)
+are welcome in the fork's issue tracker:
 
-Furthermore, in case you find some bugs, need additional (more flexible) functionality of parts of this package, or want to contribute to this project please let me know:
+https://github.com/Plumat-COAL/orthologr/issues
 
-https://github.com/drostlab/orthologr/issues
+`orthologr` was created by Hajk-Georg Drost; its original repository (upstream, whose latest version is 0.4.3) is
+https://github.com/drostlab/orthologr (issues: https://github.com/drostlab/orthologr/issues). Please report
+problems with this fork here rather than there.
 
 ## Licenses
 
-The `orthologr` package includes source code that has been published under the following licenses. The file
+`orthologr` is distributed under the [GNU General Public License version 2](LICENSE) (`License: GPL-2`). It
+includes source code that has been published under the following licenses. The file
 [`inst/COPYRIGHTS`](inst/COPYRIGHTS) lists every third-party part of the package with its origin, copyright holders
 and licence.
+
+**This licence is not fully consistent with the code the package contains.** The libsequence files in `src/`
+(gestimator, see below; used for Comeron's method) are under the GNU GPL version 3 "or (at your option) any later
+version", and the Free Software Foundation's GPL FAQ treats code under GPL version 3 as not compatible with a
+licence of GPL version 2 only. This version of `orthologr` does not resolve that: it is a question for the
+copyright holders of orthologr and of libsequence. (The optional R package `coalr`, used by `engine = "coal"` and
+not part of `orthologr`, is GPL-3.)
 
 ### gestimator
 
@@ -397,14 +408,14 @@ version 2 of the License, or any later version.
 
 ### KaKs_Calculator
 
-`orthologr` runs the program KaKs_Calculator when it is installed and reads its output. In addition, a small part
-of the R code is derived from the source code of KaKs_Calculator 2.0 (Copyright (C) 2009 Beijing Institute of
-Genomics of CAS; treated as GNU General Public License version 3: the source files state no licence, the
-repository bioconda builds, github.com/kullrich/kakscalculator2, added the GPL-3 text as its `LICENSE` in its
-first commit, before the original SourceForge files, which have no licence file, were imported): the internal functions `kaks_transl_table()` (the genetic
-codes, copied from `base.cpp`), `kaks_lwl_tables()` and `kaks_lwl_counts()` (a translation into R of the counts of
-the LWL family in `LWL85.cpp` and `LPB93.cpp`) in `R/substitutionrate.R`, which tell whether a value that
-KaKs_Calculator printed is a saturated estimate. See [`inst/COPYRIGHTS`](inst/COPYRIGHTS). (The script
+`orthologr` runs the program KaKs_Calculator when it is installed and reads its output.
+The counts of the LWL family that orthologr recomputes in `R/lwl_counts.R` (sites and differences per degeneracy
+class, used to read KaKs_Calculator's saturation decisions) were implemented from the published methods (Li, Wu &
+Luo 1985; Li 1993; Pamilo & Bianchi 1993; Tzeng, Pan & Li 2004) and NCBI's genetic code tables, and were checked
+against KaKs_Calculator's output only. They contain no code derived from KaKs_Calculator. KaKs_Calculator itself
+is an external program, distributed separately under its own licence. (Versions of these functions in
+`R/substitutionrate.R` before the 0.6.0 release, on this fork only, were derived from KaKs_Calculator 2.0's source;
+they were replaced, see [`inst/COPYRIGHTS`](inst/COPYRIGHTS).) (The script
 `parseFastaIntoAXT.pl` of the KaKs_Calculator project, GNU GPL v3, was shipped in `inst/KaKs_Calc_parser` up to
 version 0.4.3; it is no longer used and was removed in 0.5.0.)
 

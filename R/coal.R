@@ -10,7 +10,7 @@
 
 # The coalr that has everything orthologr uses (a release tag of COAL), for the install hints.
 coalr_install_hint <- function() {
-        "remotes::install_github(\"Plumat-COAL/COAL/packaging/r/coalr@v0.6.0\")"
+        "remotes::install_github(\"Plumat-COAL/COAL/packaging/r/coalr@v0.6.1\")"
 }
 
 # Does the COAL at hand have a feature? `what`: "native" (Comeron's and Li's method: coalr::coal_info()$methods
@@ -595,7 +595,7 @@ cds_vector <- function(cds_dt) {
 #' protein identity, status and note) is attached as \code{attr(result, "coal")}.
 #'
 #' This function needs the R package \pkg{coalr}:
-#' \code{remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.0")} (COAL's release 0.6.0; a newer
+#' \code{remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.1")} (COAL's release 0.6.1; a newer
 #' release works as well).
 #'
 #' \strong{The same run with the COAL command line, and the other way.} The record of the run,
@@ -841,7 +841,7 @@ dNdS_coal <- function(query_file,
 #' @param ... additional arguments passed to \code{\link{deepclust}} when \code{clusters = NULL}
 #' (e.g. \code{approx_id}, \code{mutual_cover}).
 #' @details This function needs the R package \pkg{coalr}:
-#' \code{remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.0")} (COAL's release 0.6.0; a newer
+#' \code{remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.1")} (COAL's release 0.6.1; a newer
 #' release works as well).
 #' A gene, pair or cluster that cannot be used never ends the run: see the \code{status} and \code{note} columns and
 #' the \code{failed} table.

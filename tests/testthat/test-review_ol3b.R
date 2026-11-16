@@ -389,10 +389,10 @@ test_that("user-facing errors of the method and status code have orthologr's cla
         expect_error(write_orthogroups(list(), tempdir()), class = "orthologr_error_bad_argument")
 })
 
-test_that("the coalr of DESCRIPTION's Remotes and of the install hints is COAL's release v0.6.0", {
-        expect_identical(coalr_install_hint(), "remotes::install_github(\"Plumat-COAL/COAL/packaging/r/coalr@v0.6.0\")")
+test_that("the coalr of DESCRIPTION's Remotes and of the install hints is COAL's release v0.6.1", {
+        expect_identical(coalr_install_hint(), "remotes::install_github(\"Plumat-COAL/COAL/packaging/r/coalr@v0.6.1\")")
         remotes <- utils::packageDescription("orthologr")$Remotes
         skip_if(is.null(remotes), "the installed DESCRIPTION has no Remotes field")
-        expect_match(remotes, "coalr=Plumat-COAL/COAL/packaging/r/coalr@v0.6.0", fixed = TRUE)
+        expect_match(remotes, "coalr=Plumat-COAL/COAL/packaging/r/coalr@v0.6.1", fixed = TRUE)
         expect_match(coal_install_message(), coalr_install_hint(), fixed = TRUE)
 })

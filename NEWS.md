@@ -1,11 +1,13 @@
 ## `orthologr` 0.6.0
 
-The first release of this fork (Plumat-COAL/orthologr); changes are relative to 0.5.0.
+The first release of this fork (Plumat-COAL/orthologr); changes are relative to 0.5.0. 0.5.0 was the fork's earlier
+version, which was never tagged or released (upstream, drostlab/orthologr, ended at 0.4.3).
 
 ### Highlights
 
-- Faster: the dN/dS step spends about half the CPU time of 0.5.0 on the examples, with identical tables (see
-  Performance).
+- Faster: with the default settings, the dN/dS step spends about half the CPU time of 0.5.0 on the examples, with
+  identical tables; other settings gain less (1,000-gene example, whole `dNdS()` call, CPU seconds:
+  `codon_aln_tool = "pal2nal"` 43 -> 34, YN with KaKs_Calculator 33 -> 21; see Performance).
 - COAL's GY method, and the new status `"not_converged"` for COAL estimates that did not converge (they were
   `"saturated"`).
 - Changed results (small, listed under Changed results): Comeron's method gives `NA` instead of a dS (or dN) of
@@ -162,8 +164,9 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - Internal: one table of the dN/dS methods (`dnds_method_registry()`) from which every list, check and message
   about methods is derived (there were seven lists); user-facing errors of the method and orthogroup code have
   orthologr's condition classes.
-- `DESCRIPTION` `Remotes` installs coalr from COAL's release tag `v0.6.0` (it was main 03612da, which has no GY, so
+- `DESCRIPTION` `Remotes` installs coalr from COAL's release tag `v0.6.1` (it was main 03612da, which has no GY, so
   the GY tests of the COAL engine were skipped in CI); the install hints of the messages name the same tag.
+  `drostlab/metablastr` is pinned to a commit (02dad6d), as the release workflow requires.
 
 ### Changed results
 
@@ -324,7 +327,7 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - A coal-cpp program without COAL's GY method: the message also suggests `pip install -U coal-align`. The error of
   `substitutionrate()` for an unknown method names its argument `est.method` (it said `dnds_est.method`), and the
   error of `kaks_tool = "coal"` for a method it does not take lists every method it takes (Comeron and Li too).
-- `?codon_aln` and the README name the pinned coalr release (`Plumat-COAL/COAL/packaging/r/coalr@v0.6.0`).
+- `?codon_aln` and the README name the pinned coalr release (`Plumat-COAL/COAL/packaging/r/coalr@v0.6.1`).
 - `?substitutionrate` said that Li's method is provided by `ape`; it is `seqinr::kaks()`.
 
 ### Other changes
@@ -401,14 +404,18 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   without `sha256`, no program to compute the checksum) and with real programs that do not run (not an executable,
   missing library, exit status 1, no version line) over a working cached copy; on CI (`ORTHOLOGR_TEST_DIAMOND_DOWNLOAD=true`) the real pinned
   release is downloaded, verified and run on Linux, macOS and Windows.
-- Licence notes: the README said that no code of KaKs_Calculator is part of the package. The internal functions
-  `kaks_transl_table()`, `kaks_lwl_tables()` and `kaks_lwl_counts()` (`R/substitutionrate.R`, added in 0.5.0 /
-  0.6.0 for the saturation test of the LWL family) are derived from KaKs_Calculator 2.0's source (treated as
-  GPL-3; its files state no licence, the GPL-3 `LICENSE` was added by the repository that bioconda builds): the
-  genetic codes of `base.cpp` and an R translation of the counts in `LWL85.cpp` / `LPB93.cpp`. The new file
-  `inst/COPYRIGHTS` lists the third-party parts (libsequence, KaKs_Calculator 2.0, PAL2NAL v14) with origin,
-  copyright holders and licence; the README section "Licenses" is corrected, and `MAINTAINER_NOTES.md` describes
-  what this means for the `License` field (unchanged, `GPL-2`).
+- Licence notes: the internal functions `kaks_transl_table()`, `kaks_lwl_tables()` and `kaks_lwl_counts()` (added
+  in 0.5.0 / 0.6.0 for the saturation test of the LWL family) were derived from KaKs_Calculator 2.0's source
+  (treated as GPL-3). They are replaced by an independent implementation, `R/lwl_counts.R`, written from the
+  published methods (Li, Wu & Luo 1985; Li 1993; Pamilo & Bianchi 1993; Tzeng, Pan & Li 2004) and NCBI's genetic
+  code tables and checked against KaKs_Calculator's output only (a clean room, recorded in `CLEANROOM.md` of the
+  source repository); its counts are the same, and the `dNdS()` tables are identical to those of the derived
+  version. The new file `inst/COPYRIGHTS` lists the third-party parts (libsequence, PAL2NAL v14) with origin,
+  copyright holders and licence, and says what orthologr takes from KaKs_Calculator (only its output, which it
+  reads). The `License` field is unchanged, `GPL-2`; this is **not fully consistent**: the libsequence files in
+  `src/` (gestimator, used for Comeron's method) are under GPL version 3 or later, which the FSF's GPL FAQ treats
+  as not compatible with GPL version 2 only. The README section "Licenses", `inst/COPYRIGHTS` and
+  `MAINTAINER_NOTES.md` say so; resolving it is for the copyright holders.
 - CI: the GitHub Actions are pinned to full commit SHAs (the release in a comment), every job and the long steps
   have time limits, the DIAMOND file that the Windows leg downloads is pinned and checked (SHA-256), a new job
   compares the pinned checksums and sizes with GitHub's digests and sizes of the release files and with a fresh

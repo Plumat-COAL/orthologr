@@ -5,6 +5,19 @@ Notes that need a decision by the maintainer of `drostlab/orthologr`. This file 
 
 ## 1. Licence statements are inconsistent (finding R05 of the third review) - nothing was changed
 
+**On `release/0.6.0-gpl2` (the GPL-2 fallback of release 0.6.0, not the main candidate, which is `release/0.6.0`,
+GPL-3):** `License: GPL-2` is kept. Option (c) below was taken: the three KaKs_Calculator-derived functions of the
+table were replaced by an independent implementation, `R/lwl_counts.R` (branch `chore/gpl2-cleanroom`, its log in
+`CLEANROOM.md`, section 5 for the wording used in `README.md` and `inst/COPYRIGHTS`); the `dNdS()` tables are
+identical. That removes the KaKs_Calculator conflict only. **The libsequence conflict remains:** `src/gestimator.cpp`
+and its headers are GPL version 3 or later, so on the FSF's reading the package as a whole is still not consistent
+with GPL-2 only; `README.md` ("Licenses"), `inst/COPYRIGHTS` and `NEWS.md` say so instead of claiming GPL-2
+consistency. Still left as described in the table: the class test of `kaks_saturated()` (the condition under which
+the published Kimura two-parameter formula is defined; recorded below as following `LWL85::preProcess()`, not
+rewritten in the clean room) and `kaks_calc_header()` (interface). `inst/pal2nal/pal2nal_batch.pl` still has no
+licence header (row below); if this fallback is published, add one naming the package licence. The table below is
+the state of `integration/all` and is kept for the record.
+
 | Where | What it says |
 |---|---|
 | `DESCRIPTION:12` | `License: GPL-2` (version 2 **only**) |
@@ -96,9 +109,10 @@ the 0.4.3 package installed) on every run, for both ways of setting the switch.
 
 | Where | Now | Change to |
 |---|---|---|
-| `DESCRIPTION`, `Remotes:` | `coalr=Plumat-COAL/COAL/packaging/r/coalr@v0.6.0` - pinned to COAL's release tag v0.6.0 (Comeron / Li, COAL #76's refinements and GY, `coalr::coal_info()$features` `"gy94_ml"`; the pin was main 03612da before, which has no GY, so the GY tests of the COAL engine were skipped in CI) (syntax `package=owner/repo/subdir[@ref]`; the `coalr=` prefix is needed because the package is not named like its repository - without it pak, which GitHub Actions uses, reports "Can't find package called coalr"). The install hints of `R/coal.R` (`coalr_install_hint()`) name the same tag | the tag of a newer COAL release when one is needed (move `coalr_install_hint()` with it) |
-| install command of orthologr in `README.md` (two places), `environment.yml`, `vignettes/orthologr.Rmd` | `remotes::install_github("Plumat-COAL/orthologr@integration/all")`, so that the command installs the version the page describes | `remotes::install_github("drostlab/orthologr")` |
-| `.github/workflows/R-CMD-check.yaml`, `on: push: branches` | also `integration/**`, `upstream/**`, `upstream-v2/**`, `fix/**`, `chore/**` (the fork's working branches) and `workflow_dispatch` | the fork branches can be removed; `workflow_dispatch` is worth keeping |
+| `DESCRIPTION`, `Remotes:` | `coalr=Plumat-COAL/COAL/packaging/r/coalr@v0.6.1` - pinned to COAL's release tag v0.6.1 (since the release commit of 0.6.0, so that the coalr the release is checked with is the coalr of the COAL release that carries `coalr_0.6.1.tar.gz`; before that v0.6.0: Comeron / Li, COAL #76's refinements and GY, `coalr::coal_info()$features` `"gy94_ml"`; the pin was main 03612da before, which has no GY, so the GY tests of the COAL engine were skipped in CI) (syntax `package=owner/repo/subdir[@ref]`; the `coalr=` prefix is needed because the package is not named like its repository - without it pak, which GitHub Actions uses, reports "Can't find package called coalr"). The install hints of `R/coal.R` (`coalr_install_hint()`) name the same tag | the tag of a newer COAL release when one is needed (move `coalr_install_hint()` with it) |
+| `DESCRIPTION`, `Remotes:` | `drostlab/metablastr@02dad6daf9f4a0675317177ff434ae9bbcec535f` - the head of metablastr's default branch on 2026-11-16, pinned because the release workflow refuses an unpinned `Remotes` entry (section 6) | a newer commit when one is needed |
+| install command of orthologr in `README.md` (two places), `environment.yml`, `vignettes/orthologr.Rmd` | `remotes::install_github("Plumat-COAL/orthologr@v0.6.0")` (the release tag; it was `@integration/all` before the release commit), so that the command installs the version the page describes | `remotes::install_github("drostlab/orthologr")` |
+| `.github/workflows/R-CMD-check.yaml`, `on: push: branches` | also `integration/**`, `upstream/**`, `upstream-v2/**`, `fix/**`, `chore/**`, `release/**` (the fork's working and release branches; `release/**` since the release commit of 0.6.0, so that the release branches are checked on push: `workflow_dispatch` cannot be used while the workflow with it is not on `master`) and `workflow_dispatch` | the fork branches can be removed; `workflow_dispatch` is worth keeping |
 
 GitHub Actions runs on the fork. All six legs (Linux release / devel / oldrel-1, Linux without the optional
 programs, Windows, macOS; the programs installed with micromamba) passed on `upstream-v2/15-coal` (run

@@ -3,7 +3,10 @@ orthologr: copyright and licences of the code it contains
 
 orthologr
     Copyright (C) Hajk-Georg Drost and the orthologr contributors.
-    Licence: see the License field of DESCRIPTION.
+    Licence: see the License field of DESCRIPTION (GPL-2).
+    Note: this is not fully consistent with part 1 below, which is under GPL version 3 or later; the Free
+    Software Foundation's GPL FAQ treats such code as not compatible with a licence of GPL version 2 only.
+    This version of orthologr does not resolve that (it is for the copyright holders to decide).
 
 The package contains or is derived in part from the following third-party works.
 
@@ -24,44 +27,25 @@ Files: src/gestimator.cpp and the headers src/Comeron95.h, src/Comparisons.h, sr
     version.
 
 
-2. KaKs_Calculator 2.0 (Beijing Institute of Genomics, Chinese Academy of Sciences)
------------------------------------------------------------------------------------
+2. KaKs_Calculator 2.0 (not contained: orthologr runs the program and reads its output)
+---------------------------------------------------------------------------------------
 
-File: R/substitutionrate.R, the internal functions
+    orthologr runs the program KaKs_Calculator when it is installed and reads its output;
+    kaks_calc_header() (R/substitutionrate.R) holds the column names of that output, an interface that
+    orthologr reads.
 
-    kaks_transl_table()   the genetic codes as 64-character strings ('!' for a stop codon), copied from the
-                          array 'transl_table' of src/base.cpp of KaKs_Calculator 2.0 (the codes themselves are
-                          the NCBI genetic codes);
-    kaks_lwl_tables()     a translation into R of the counting of sites and of transitions / transversions per
-    kaks_lwl_counts()     0-, 2- and 4-fold degenerate class of src/LWL85.cpp (LWL85::CountSiteAndDiff(),
-                          getCodonClass(), TransitionTransversion(), MLWL85::TransitionTransversion()) and
-                          src/LPB93.cpp (MLPB93::TransitionTransversion()) of KaKs_Calculator 2.0, written so
-                          that the counts are those of KaKs_Calculator to the last bit (they decide whether a
-                          value that KaKs_Calculator printed is a saturated estimate);
-    kaks_saturated()      its test of the 0-, 2- and 4-fold classes (1 - 2P - Q > 0 and 1 - 2Q > 0, from the
-                          counts above) follows the Kimura two-parameter step of LWL85::preProcess();
-    kaks_calc_header()    the column names of KaKs_Calculator 2.0's output (KaKs.cpp), an interface that
-                          orthologr reads, listed for completeness.
+    R/lwl_counts.R (kaks_transl_table(), kaks_lwl_tables(), kaks_lwl_counts()): independent implementation
+    (clean room, see CLEANROOM.md in the source repository, branch chore/gpl2-cleanroom) from the published
+    methods (Li, Wu & Luo 1985; Li 1993; Pamilo & Bianchi 1993; Tzeng, Pan & Li 2004), checked against
+    KaKs_Calculator's output only; the genetic code tables are NCBI data. It contains no code derived from
+    KaKs_Calculator. Earlier versions of these three functions (in R/substitutionrate.R, on this fork only,
+    before the 0.6.0 release) were derived from KaKs_Calculator 2.0's source; they were removed.
 
-    KaKs_Calculator 2.0: Copyright (C) 2009 Beijing Institute of Genomics of CAS. Authors: Da-Peng Wang,
-    Yu-Bin Zhang (2.0), Zhang Zhang (1.0); modified version 2.0.1 by Kristian K. Ullrich (2020).
-    Wang D, Zhang Y, Zhang Z, Zhu J, Yu J (2010) KaKs_Calculator 2.0: a toolkit incorporating gamma-series
-    methods and sliding window strategies. Genomics Proteomics Bioinformatics 8:77-80.
-    Source compared: https://github.com/kullrich/kakscalculator2 (commit 4b96206f67c934792a6d02fb38bb356056ad84f9),
-    the fork of https://sourceforge.net/projects/kakscalculator2 that bioconda builds (kakscalculator2 2.0.1).
-    Licence statements found (facts only):
-      - the source files carry only "Copyright (C) 2009, Beijing Institute of Genomics of CAS / All rights
-        reserved", no licence and no "or any later version" statement;
-      - the original KaKs_Calculator2.0.tar.gz files, as imported from SourceForge into that repository (commit
-        f646786, 2020-11-12), contain no licence file;
-      - the repository's LICENSE file, the text of the GNU GPL version 3, was added by Kristian K. Ullrich in
-        its initial commit (bd24013, 2020-11-12), before the original files were imported; the SourceForge
-        project page lists the GNU GPL version 3 (not re-checked for these notes).
-    Whether this "specifies" a version in the sense of section 14 of the GPL version 3 (a program that
-    specifies no version number may be used under any version) is for the maintainers and the copyright
-    holders to decide; these notes treat it as GPL version 3.
-
-    orthologr otherwise only runs the program KaKs_Calculator when it is installed and reads its output.
+    kaks_saturated() (R/substitutionrate.R) tests whether the logarithms of the Kimura two-parameter step of
+    the LWL family are defined (1 - 2P - Q > 0 and 1 - 2Q > 0, Kimura 1980; Li, Wu & Luo 1985) from the counts
+    above. Earlier notes recorded that this test follows the same step of KaKs_Calculator's LWL85::preProcess();
+    it is the condition under which the published formula is defined, and it was not rewritten in the clean
+    room.
 
 
 3. PAL2NAL v14 (Mikita Suyama, David Torrents, Peer Bork)
