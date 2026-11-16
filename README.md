@@ -357,7 +357,7 @@ https://github.com/drostlab/orthologr/issues
 `orthologr` is distributed under the [GNU General Public License version 3](LICENSE) (`License: GPL-3` since
 version 0.6.0 of this fork; up to 0.5.0 the `License` field said GPL-2). It includes source code that has been published under
 the following licenses, which is why the package as a whole is GPL-3: libsequence (GPL version 3 or later) and code
-derived from KaKs_Calculator 2.0 (GPL version 3). The file [`inst/COPYRIGHTS`](inst/COPYRIGHTS) lists every
+derived from KaKs_Calculator 2.0 (treated as GPL version 3, see below). The file [`inst/COPYRIGHTS`](inst/COPYRIGHTS) lists every
 third-party part of the package with its origin, copyright holders and licence.
 
 ### gestimator
@@ -394,7 +394,9 @@ version 2 of the License, or any later version.
 
 `orthologr` runs the program KaKs_Calculator when it is installed and reads its output. In addition, a small part
 of the R code is derived from the source code of KaKs_Calculator 2.0 (Copyright (C) 2009 Beijing Institute of
-Genomics of CAS; GNU General Public License version 3): the internal functions `kaks_transl_table()` (the genetic
+Genomics of CAS; treated as GNU General Public License version 3: the source files state no licence, the
+repository bioconda builds, github.com/kullrich/kakscalculator2, added the GPL-3 text as its `LICENSE` in its
+first commit, before the original SourceForge files, which have no licence file, were imported): the internal functions `kaks_transl_table()` (the genetic
 codes, copied from `base.cpp`), `kaks_lwl_tables()` and `kaks_lwl_counts()` (a translation into R of the counts of
 the LWL family in `LWL85.cpp` and `LPB93.cpp`) in `R/substitutionrate.R`, which tell whether a value that
 KaKs_Calculator printed is a saturated estimate. See [`inst/COPYRIGHTS`](inst/COPYRIGHTS). (The script
@@ -403,5 +405,6 @@ version 0.4.3; it is no longer used and was removed in 0.5.0.)
 
 ### PAL2NAL
 
-`inst/pal2nal/pal2nal.v14/` is PAL2NAL v14 (Copyright (C) 2004-2011 Mikita Suyama, David Torrents, Peer Bork). Its
-files state no licence; Debian distributes it under the GNU GPL version 2. See [`inst/COPYRIGHTS`](inst/COPYRIGHTS).
+`inst/pal2nal/pal2nal.v14/` is PAL2NAL v14 by Mikita Suyama, David Torrents and Peer Bork. Its files state no
+licence and name only Mikita Suyama; Debian records "Copyright: 2004-2011 Mikita Suyama, David Torrents, and Peer
+Bork and their respective employing institute" and distributes it under the GNU GPL version 2. See [`inst/COPYRIGHTS`](inst/COPYRIGHTS).

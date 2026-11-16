@@ -288,19 +288,91 @@ test_that("version = 'latest' is the newest pinned release that has a file for t
         })
 })
 
-test_that("a binary that does not run is not copied into the cache", {
-        archive <- fake_diamond_archive()
+# an archive with a file 'diamond' of the given content (lines, or raw bytes)
+archive_with <- function(content) {
+        src <- tempfile("fake_diamond_src_")
+        dir.create(src)
+        f <- file.path(src, "diamond")
+        if (is.raw(content)) writeBin(content, f) else writeLines(content, f)
+        Sys.chmod(f, "755")
+        archive <- tempfile("fake_diamond_", fileext = ".tar.gz")
+        old <- setwd(src)
+        on.exit(setwd(old), add = TRUE)
+        utils::tar(archive, "diamond", compression = "gzip", tar = "internal")
+        archive
+}
+
+# force = TRUE over a working cached copy with a download whose program does not run (the real check, not mocked):
+# an error that shows the program's output, and the cached copy is unchanged
+expect_not_installed <- function(content, pattern) {
+        archive <- archive_with(content)
+        dir <- place_fake_diamond()
+        writeLines(c("#!/bin/sh", "echo 'diamond version 2.1.0'"), file.path(dir, "diamond"))
+        Sys.chmod(file.path(dir, "diamond"), "755")
+        before <- readLines(file.path(dir, "diamond"))
+        local_mocked_bindings(diamond_platform = function() c(sysname = "Linux", machine = "x86_64"),
+                              diamond_exe_name = function() "diamond",
+                              diamond_release_checksums = function() data.frame(version = "v2.2.8", asset = "diamond-linux64.tar.gz",
+                                                                                size = 1, sha256 = orthologr:::diamond_sha256(archive),
+                                                                                stringsAsFactors = FALSE),
+                              diamond_download = function(url, file, timeout, quiet = FALSE) file.copy(archive, file),
+                              .package = "orthologr")
+        e <- tryCatch(diamond_install(force = TRUE, quiet = TRUE), error = function(e) e)
+        expect_s3_class(e, "orthologr_error_tool_failed")
+        expect_match(conditionMessage(e), "does not run on this computer")
+        if (!is.null(pattern))
+                expect_match(conditionMessage(e), pattern)
+        expect_identical(readLines(file.path(dir, "diamond")), before)
+        expect_length(list.files(dir, all.files = TRUE, no.. = TRUE), 1)
+}
+
+test_that("a downloaded program that does not run (exit status, no version line) never replaces the cached copy", {
         with_fake_cache({
-                local_mocked_bindings(diamond_binary_version = function(exe) NULL, .package = "orthologr")
-                local_mocked_bindings(diamond_platform = function() c(sysname = "Linux", machine = "x86_64"),
-                                      diamond_exe_name = function() "diamond",
-                                      diamond_release_checksums = function() data.frame(version = "v2.2.8", asset = "diamond-linux64.tar.gz",
-                                                                                        size = 1, sha256 = orthologr:::diamond_sha256(archive),
-                                                                                        stringsAsFactors = FALSE),
-                                      diamond_download = function(url, file, timeout, quiet = FALSE) file.copy(archive, file),
-                                      .package = "orthologr")
-                expect_error(diamond_install(quiet = TRUE), "could not be executed")
+                # not an executable format (the temporary path contains "diamond", which the old check accepted)
+                expect_not_installed(as.raw(1:200), NULL)
+                expect_not_installed(as.raw(c(0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, rep(0, 100))), NULL)
+        })
+})
+
+test_that("a downloaded program that prints 'diamond' but fails, or prints no version line, is not installed", {
+        skip_on_os("windows")
+        with_fake_cache({
+                expect_not_installed(c("#!/bin/sh", "echo \"$0: /lib64/libc.so.6: version 'GLIBC_2.38' not found\" >&2", "exit 1"),
+                                     "exited with status 1; its last output: .*GLIBC_2.38")
+                expect_not_installed(c("#!/bin/sh", "echo 'diamond: error while loading shared libraries' >&2", "exit 127"),
+                                     "status 127")
+                expect_not_installed(c("#!/bin/sh", "exit 1"), "no output")
+                expect_not_installed(c("#!/bin/sh", "echo 'diamond v2 (no version line)'"), "exited with status 0")
+                expect_not_installed(c("#!/nonexistent/interpreter", "x"), NULL)
+        })
+})
+
+test_that("a download is discarded when no SHA-256 can be computed", {
+        skip_on_os("windows")                          # (certutil is always there)
+        archive <- fake_diamond_archive()
+        real_sha <- orthologr:::diamond_sha256
+        f <- tempfile()
+        writeBin(charToRaw("abc"), f)
+        with_fake_cache({
+                old <- Sys.getenv("PATH")
+                on.exit(Sys.setenv(PATH = old), add = TRUE)
+                pins_sha <- real_sha(archive)
+                Sys.setenv(PATH = new_test_dir("no_hash_tools_"))
+                expect_error(real_sha(f, use_r = FALSE), class = "orthologr_error_checksum_unavailable")
+                local_mocked_bindings(diamond_sha256 = function(file, use_r = TRUE) real_sha(file, use_r = FALSE), .package = "orthologr")
+                calls <- with_mocked_download(
+                        expect_error(diamond_install(quiet = TRUE), "Cannot compute the SHA-256", class = "orthologr_error_checksum_unavailable"),
+                        archive, pinned_sha = pins_sha)
+                expect_equal(calls$n, 1L)
                 expect_false(file.exists(file.path(orthologr:::diamond_cache_dir(), "diamond")))
+                expect_length(list.files(tempdir(), pattern = "^diamond_install_"), 0)
+        })
+})
+
+test_that("'version' must look like a release tag", {
+        with_fake_cache({
+                for (v in c("../../evil", "v2.2.8/../x", "2.2.8-beta", "", "vlatest"))
+                        expect_error(diamond_install(version = v, quiet = TRUE), class = "orthologr_error_bad_argument")
         })
 })
 

@@ -78,9 +78,11 @@ library(orthologr)
 diamond_install()
 ```
 
-`diamond_install()` downloads `diamond-windows.zip` from the
-[official `DIAMOND2` releases](https://github.com/bbuchfink/diamond/releases), extracts `diamond.exe` into the
-R user cache folder and checks that it runs. No administrator rights are needed. Windows has no ARM build upstream,
+`diamond_install()` downloads `diamond-windows.zip` of DIAMOND2 v2.2.8 from the
+[official `DIAMOND2` releases](https://github.com/bbuchfink/diamond/releases), checks that the file has the SHA-256
+checksum pinned in `orthologr` (otherwise it is deleted and nothing is installed), extracts `diamond.exe` into the
+R user cache folder and checks that it runs. Another release is installed only with its checksum,
+`diamond_install(version = "v...", sha256 = "...")` (see `?diamond_install`). No administrator rights are needed. Windows has no ARM build upstream,
 so on Windows on ARM please install `DIAMOND2` manually (see the sections below).
 
 You can see where the binary was placed, and which copy `orthologr` will use, with:
