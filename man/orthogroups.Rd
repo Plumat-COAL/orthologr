@@ -193,5 +193,5 @@ og <- orthogroups("path/to/folder_with_proteomes", method = "deepclust", seq_typ
 \code{\link{deepclust}}, \code{\link{orthologs}}
 }
 \author{
-Chloe Newton
+Chloe Newton and Keanu Murati
 }

@@ -622,7 +622,7 @@ cds_vector <- function(cds_dt) {
 #' \code{orthologs.tsv} as \code{pairs} and the run's options (\code{report.json}, \code{parameters}) as arguments of
 #' the same names; a \code{coal pipeline clusters} run: \code{\link{dNdS_clusters}} with its \code{clusters.tsv} as
 #' \code{clusters}.
-#' @author Chloe Newton
+#' @author Chloe Newton and Keanu Murati
 #' @return A tibble with the columns of \code{\link{dNdS}}: \code{query_id}, \code{subject_id}, \code{dN}, \code{dS},
 #' \code{dNdS}, \code{method} and the columns of the hit table.
 #' @examplesIf nzchar(system.file(package = "coalr"))
@@ -842,7 +842,7 @@ dNdS_coal <- function(query_file,
 #' release works as well).
 #' A gene, pair or cluster that cannot be used never ends the run: see the \code{status} and \code{note} columns and
 #' the \code{failed} table.
-#' @author Chloe Newton
+#' @author Chloe Newton and Keanu Murati
 #' @return A list of three tibbles:
 #' \itemize{
 #' \item \code{pairs}: one row per gene pair and method: \code{cluster_id}, \code{query_id}, \code{subject_id},

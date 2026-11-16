@@ -3,6 +3,8 @@ orthologr <img src="man/figures/logo.png" align="right" height="174" width="150"
 
 ## Comparative Genomics with R
 
+This fork ([Plumat-COAL/orthologr](https://github.com/Plumat-COAL/orthologr)) is maintained by Chloe Newton ([@chloe-newt](https://github.com/chloe-newt)) and Keanu Murati ([@Keanu-MUR](https://github.com/Keanu-MUR)).
+
 ### Motivation
 
 The comparative method is a powerful approach in genomics research. Based on our knowledge about the phylogenetic relationships between species, we can study the evolution, diversification, and constraints of biological processes by comparing genomes, genes, and other genomic loci across species. The `orthologr` package aims to provide a framework to perform __large scale__ comparative genomics studies with R. `Orthologr` aims to be as easy to use as possible - from genomic data retrieval to orthology inference and dNdS estimation between several genomes.

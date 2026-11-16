@@ -22,5 +22,5 @@ A data.frame with the columns \code{orthogroup}, \code{species} and \code{gene}.
 The long table of an \code{"orthogroups"} object: one row per gene in a group.
 }
 \author{
-Chloe Newton
+Chloe Newton and Keanu Murati
 }

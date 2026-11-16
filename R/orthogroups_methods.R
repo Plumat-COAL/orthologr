@@ -9,7 +9,7 @@
 #' \code{per_species} (data.frame: \code{species}, \code{genes}, \code{in_groups}, \code{percent_in_groups},
 #' \code{groups}, \code{unassigned}), \code{group_sizes} (data.frame: \code{genes}, \code{groups}) and
 #' \code{species_per_group} (data.frame: \code{species}, \code{groups}).
-#' @author Chloe Newton
+#' @author Chloe Newton and Keanu Murati
 #' @seealso \code{\link{orthogroups}}
 #' @export
 print.orthogroups <- function(x, ...) {
@@ -87,7 +87,7 @@ print.summary.orthogroups <- function(x, ...) {
 #' @param unassigned a logical value: add the genes in no group, with \code{orthogroup = NA}. Default is \code{FALSE}.
 #' @param ... not used.
 #' @return A data.frame with the columns \code{orthogroup}, \code{species} and \code{gene}.
-#' @author Chloe Newton
+#' @author Chloe Newton and Keanu Murati
 #' @export
 as.data.frame.orthogroups <- function(x, row.names = NULL, optional = FALSE, unassigned = FALSE, ...) {
         res <- as.data.frame(x$groups, stringsAsFactors = FALSE)
@@ -123,7 +123,7 @@ as.data.frame.orthogroups <- function(x, row.names = NULL, optional = FALSE, una
 #' \code{orthofinder2_retrieve_core_orthologs(file.path(dir, "Orthogroups", "Orthogroups.tsv"),
 #' file.path(dir, "Orthogroups", "Orthogroups_SingleCopyOrthologues.txt"))} returns \code{x$single_copy}.
 #' @return invisibly, a named character vector with the paths of the files.
-#' @author Chloe Newton
+#' @author Chloe Newton and Keanu Murati
 #' @examplesIf nzchar(Sys.which("diamond"))
 #' og <- orthogroups(c(
 #'   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),

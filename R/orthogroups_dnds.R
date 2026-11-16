@@ -83,7 +83,7 @@
 #' numbers behind the statistics. \code{\link{dNdS_clusters}} uses the same rule and the same column names;
 #' \item \code{failed}: genes and groups that could not be used (\code{orthogroup}, \code{gene}, \code{reason}).
 #' }
-#' @author Chloe Newton
+#' @author Chloe Newton and Keanu Murati
 #' @examplesIf all(nzchar(Sys.which(c("diamond", "perl"))))
 #' files <- c(
 #'   Athaliana = system.file('seqs/ortho_thal_cds.fasta', package = 'orthologr'),

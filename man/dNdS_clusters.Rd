@@ -129,5 +129,5 @@ res <- dNdS_clusters(cds, clusters = cl, aa_aln_tool = "clustalo", comp_cores = 
 \code{\link{deepclust}}, \code{\link{deepclust_realign}}, \code{\link{dNdS_coal}}, \code{\link{dNdS}}
 }
 \author{
-Chloe Newton
+Chloe Newton and Keanu Murati
 }

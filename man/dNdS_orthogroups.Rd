@@ -150,5 +150,5 @@ res <- dNdS_orthogroups(files, groups = "all", aa_aln_tool = "clustalo", comp_co
 \code{\link{orthogroups}}, \code{\link{dNdS_clusters}}, \code{\link{dNdS}}, \code{\link{substitutionrate}}
 }
 \author{
-Chloe Newton
+Chloe Newton and Keanu Murati
 }

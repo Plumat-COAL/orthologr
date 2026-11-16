@@ -33,5 +33,5 @@ group sizes and of the number of species per group.
 \code{\link{orthogroups}}
 }
 \author{
-Chloe Newton
+Chloe Newton and Keanu Murati
 }

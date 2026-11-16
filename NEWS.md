@@ -287,6 +287,10 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 
 ### Other changes
 
+- The README says who maintains this fork (Chloe Newton and Keanu Murati, with their GitHub accounts); the original
+  authors' credit is unchanged, and so is `DESCRIPTION`. The help pages of the functions written for the fork
+  (`orthogroups()`, its `print()` and `as.data.frame()` methods, `write_orthogroups()`, `dNdS_orthogroups()`,
+  `dNdS_coal()`, `dNdS_clusters()`) name both as authors.
 - New `orthologr_sitrep()`: a table of the external programs and optional packages orthologr can use (DIAMOND, also
   the copy of `diamond_install()`, BLAST+, Perl, KaKs_Calculator, Clustal Omega, MAFFT, MUSCLE, T-Coffee, ClustalW,
   `coalr` with its GY, Comeron and Li methods, coal-cpp, OrthoFinder): found or not, where, the version, what it is

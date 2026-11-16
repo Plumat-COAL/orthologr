@@ -56,5 +56,5 @@ unlink(file.path(tempdir(), "og"), recursive = TRUE)
 \code{\link{orthogroups}}, \code{\link{orthofinder2_retrieve_core_orthologs}}
 }
 \author{
-Chloe Newton
+Chloe Newton and Keanu Murati
 }
