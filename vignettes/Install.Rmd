@@ -78,12 +78,22 @@ copy automatically whenever the `path` argument is `NULL` and no `diamond` is fo
 already on your `PATH` always takes precedence. To see which copy `orthologr` uses, run `diamond_path()`
 (it returns `NULL` when `diamond` is found on the `PATH`, and the cache folder otherwise).
 
+`diamond_install()` installs a fixed DIAMOND2 release, v2.2.8, and only if the downloaded file has the SHA-256
+checksum that `orthologr` pins for it (the DIAMOND releases publish no checksums; a file that does not match is
+deleted and nothing is installed). `version = "latest"`, the default, means the newest release pinned in your
+version of `orthologr`, not the newest release on GitHub.
+
 Useful arguments:
 
 ```{r,eval=FALSE}
-diamond_install(version = "v2.1.9")  # install a specific DIAMOND2 release instead of the latest
-diamond_install(force = TRUE)        # re-download, e.g. to update to the latest release
+diamond_install(force = TRUE)        # re-download and reinstall the pinned release (v2.2.8)
+# another release: only with its SHA-256 checksum from a source you trust (e.g. the "sha256:" digest
+# GitHub shows next to the file on the release page); without it the release is not downloaded
+diamond_install(version = "v2.1.9", sha256 = "<64 hexadecimal digits>")
+diamond_install(timeout = 1200)      # allow the download more than the default 600 seconds
 ```
+
+For a newer DIAMOND2 than the pinned one, `conda install -c bioconda diamond` is the simplest way.
 
 Pre-compiled binaries are provided for __Linux (x86_64)__, __macOS__ and __Windows (x86_64)__. On other systems
 (e.g. Linux on ARM) or if you prefer to manage `DIAMOND2` yourself, use the manual installation below
