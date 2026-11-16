@@ -1,11 +1,13 @@
 ## `orthologr` 0.6.0
 
-The first release of this fork (Plumat-COAL/orthologr); changes are relative to 0.5.0.
+The first release of this fork (Plumat-COAL/orthologr); changes are relative to 0.5.0. 0.5.0 was the fork's earlier
+version, which was never tagged or released (upstream, drostlab/orthologr, ended at 0.4.3).
 
 ### Highlights
 
-- Faster: the dN/dS step spends about half the CPU time of 0.5.0 on the examples, with identical tables (see
-  Performance).
+- Faster: with the default settings, the dN/dS step spends about half the CPU time of 0.5.0 on the examples, with
+  identical tables; other settings gain less (1,000-gene example, whole `dNdS()` call, CPU seconds:
+  `codon_aln_tool = "pal2nal"` 43 -> 34, YN with KaKs_Calculator 33 -> 21; see Performance).
 - COAL's GY method, and the new status `"not_converged"` for COAL estimates that did not converge (they were
   `"saturated"`).
 - Changed results (small, listed under Changed results): Comeron's method gives `NA` instead of a dS (or dN) of
@@ -162,8 +164,9 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - Internal: one table of the dN/dS methods (`dnds_method_registry()`) from which every list, check and message
   about methods is derived (there were seven lists); user-facing errors of the method and orthogroup code have
   orthologr's condition classes.
-- `DESCRIPTION` `Remotes` installs coalr from COAL's release tag `v0.6.0` (it was main 03612da, which has no GY, so
+- `DESCRIPTION` `Remotes` installs coalr from COAL's release tag `v0.6.1` (it was main 03612da, which has no GY, so
   the GY tests of the COAL engine were skipped in CI); the install hints of the messages name the same tag.
+  `drostlab/metablastr` is pinned to a commit (02dad6d), as the release workflow requires.
 
 ### Changed results
 
@@ -324,7 +327,7 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - A coal-cpp program without COAL's GY method: the message also suggests `pip install -U coal-align`. The error of
   `substitutionrate()` for an unknown method names its argument `est.method` (it said `dnds_est.method`), and the
   error of `kaks_tool = "coal"` for a method it does not take lists every method it takes (Comeron and Li too).
-- `?codon_aln` and the README name the pinned coalr release (`Plumat-COAL/COAL/packaging/r/coalr@v0.6.0`).
+- `?codon_aln` and the README name the pinned coalr release (`Plumat-COAL/COAL/packaging/r/coalr@v0.6.1`).
 - `?substitutionrate` said that Li's method is provided by `ape`; it is `seqinr::kaks()`.
 
 ### Other changes

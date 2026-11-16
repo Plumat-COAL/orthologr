@@ -128,7 +128,7 @@ COAL's complete table for the gene pairs (standard errors, numbers of sites and 
 protein identity, status and note) is attached as \code{attr(result, "coal")}.
 
 This function needs the R package \pkg{coalr}:
-\code{remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.0")} (COAL's release 0.6.0; a newer
+\code{remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.1")} (COAL's release 0.6.1; a newer
 release works as well).
 
 \strong{The same run with the COAL command line, and the other way.} The record of the run,

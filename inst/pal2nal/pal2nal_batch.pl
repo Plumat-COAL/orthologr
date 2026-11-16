@@ -2,6 +2,19 @@
 #
 # pal2nal_batch.pl  -  PAL2NAL for many gene pairs in one Perl process (orthologr)
 #
+# Copyright (C) 2026 Chloe Newton and Keanu Murati (orthologr contributors).
+#
+# This file is part of orthologr. It is orthologr's own code, written for orthologr; it is not derived from
+# PAL2NAL, which it loads and runs (pal2nal.pl, PAL2NAL v14, is a separate work: see inst/COPYRIGHTS).
+#
+# This file is free software: you can redistribute it and/or modify it under the terms of the GNU General
+# Public License version 3 as published by the Free Software Foundation.
+#
+# It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+# details. You should have received a copy of the GNU General Public License along with orthologr. If not, see
+# <https://www.gnu.org/licenses/>.
+#
 #   perl pal2nal_batch.pl <pal2nal.pl> <jobs> <status>
 #
 #   <jobs>   : one line per gene pair, fields separated by tabs: the output file, then the arguments of pal2nal.pl

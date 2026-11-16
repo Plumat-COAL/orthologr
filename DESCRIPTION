@@ -2,7 +2,7 @@ Package: orthologr
 Type: Package
 Title: Comparative Genomics with R
 Version: 0.6.0
-Date: 2026-11-12
+Date: 2026-11-16
 Authors@R: c(
             person("Hajk-Georg", "Drost", , "hajk-georg.drost@tuebingen.mpg.de", c("aut", "cre")),
             person("Sarah", "Scharfenberg", , "Sarah.Scharfenberg@ipb-halle.de", role = "ctb"),
@@ -41,8 +41,8 @@ Suggests:
     jsonlite,
     coalr
 Remotes:
-    drostlab/metablastr,
-    coalr=Plumat-COAL/COAL/packaging/r/coalr@v0.6.0
+    drostlab/metablastr@02dad6daf9f4a0675317177ff434ae9bbcec535f,
+    coalr=Plumat-COAL/COAL/packaging/r/coalr@v0.6.1
 LinkingTo: Rcpp
 URL: https://github.com/Plumat-COAL/orthologr, https://github.com/drostlab/orthologr, https://drostlab.github.io/orthologr
 BugReports: https://github.com/Plumat-COAL/orthologr/issues

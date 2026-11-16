@@ -105,7 +105,7 @@ BiocManager::install(c("Biostrings", "pwalign"))
 
 # install orthologr 0.6.0 from GitHub (this also installs its CRAN dependencies)
 install.packages("remotes")
-remotes::install_github("Plumat-COAL/orthologr@integration/all")
+remotes::install_github("Plumat-COAL/orthologr@v0.6.0")
 ```
 
 **Coming from orthologr 0.4.3?** Version 0.5.0 changes some defaults and results; the article
@@ -210,7 +210,7 @@ dNdS(query_file      = system.file('seqs/ortho_thal_cds.fasta', package = 'ortho
 ```
 
 A faster way to the same kind of table uses [COAL](https://github.com/Plumat-COAL/COAL) for the alignment,
-codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.0")`):
+codon-alignment and Ka/Ks steps (optional; `remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.1")`):
 
 ```r
 # orthologs by DIAMOND reciprocal best hits, then all gene pairs in one batch (no Perl, no KaKs_Calculator)
@@ -290,7 +290,7 @@ On Windows the package is built from source, which needs [Rtools](https://cran.r
 
 ```r
 install.packages("remotes")
-remotes::install_github("Plumat-COAL/orthologr@integration/all")
+remotes::install_github("Plumat-COAL/orthologr@v0.6.0")
 ```
 
 The article [Setup on Windows](https://drostlab.github.io/orthologr/articles/setup_windows.html) describes how to
@@ -350,11 +350,14 @@ one place: `?orthologr_options` (source: [R/orthologr_options.R](R/orthologr_opt
 
 ## Discussions and Bug Reports
 
-I would be very happy to learn more about potential improvements of the concepts and functions provided in this package.
+Bugs, questions and suggestions about this version of `orthologr` (the Plumat-COAL fork: 0.5.0, 0.6.0 and later)
+are welcome in the fork's issue tracker:
 
-Furthermore, in case you find some bugs, need additional (more flexible) functionality of parts of this package, or want to contribute to this project please let me know:
+https://github.com/Plumat-COAL/orthologr/issues
 
-https://github.com/drostlab/orthologr/issues
+`orthologr` was created by Hajk-Georg Drost; its original repository (upstream, whose latest version is 0.4.3) is
+https://github.com/drostlab/orthologr (issues: https://github.com/drostlab/orthologr/issues). Please report
+problems with this fork here rather than there.
 
 ## Licenses
 
