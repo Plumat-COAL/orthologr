@@ -46,7 +46,8 @@ required. Once installed, \code{\link{diamond}}, \code{\link{diamond_best}},
 \details{
 Pre-compiled binaries are provided upstream for Linux (x86_64), macOS (one universal binary for
 x86_64 and arm64) and Windows (x86_64).
-On other platforms (e.g. Linux ARM) please install DIAMOND via conda:
+On other platforms (e.g. Linux on ARM, Windows on ARM; error of class \code{orthologr_error_tool_missing})
+please install DIAMOND via conda or build it from source:
 \code{conda install -c bioconda diamond}.
 
 \strong{Checksums.} The DIAMOND releases do not publish checksum files, so orthologr carries the SHA-256
@@ -66,11 +67,15 @@ file is deleted without being unpacked (error of class \code{orthologr_error_che
 
 \strong{Errors.} A download that fails or takes longer than \code{timeout} seconds is an error of class
 \code{orthologr_error_download_failed} (and \code{orthologr_error_tool_failed}); the partial file is deleted.
-The archive is unpacked into a temporary folder and the program is copied into the cache only after it ran:
-\code{diamond version} must exit with status 0 within 60 seconds and print a line \code{diamond version
-<number>} (otherwise an error of class \code{orthologr_error_tool_failed} with the program's last lines of
-output). It is then copied next to the cached copy under a temporary name and renamed over it, so a failed
-installation leaves an existing copy in place.
+The archive is unpacked into a temporary folder; the program is copied into the cache folder under a temporary
+name and run there (not in the temporary folder, which may be mounted \code{noexec}): \code{diamond version}
+must exit with status 0 within 60 seconds and print a line \code{diamond version <number>} (otherwise an error
+of class \code{orthologr_error_tool_failed} with the program's last lines of output, and the temporary copy is
+removed). Only then is it renamed over the cached copy, so a failed installation leaves an existing copy in
+place. Temporary copies left by an interrupted installation are removed by the next one.
+
+With a cached copy and \code{force = FALSE} nothing is downloaded; a \code{version} other than
+\code{"latest"} or a \code{sha256} is then not used, with a warning.
 }
 \note{
 Pre-built DIAMOND2 releases exist for Linux x86_64, macOS and Windows; on other platforms (e.g. Linux

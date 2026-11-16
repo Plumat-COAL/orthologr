@@ -360,11 +360,15 @@ and licence.
 
 ### gestimator
 
-The header of `src/gestimator.cpp` and of the libsequence headers in `src/` reads (quoted as shipped):
+All files included in `orthologr` that were taken from gestimator are also part of libsequence. The header of
+`src/gestimator.cpp` reads (verbatim; the libsequence headers in `src/` carry the same licence text as comments):
 
 ```
-All files included in `orthologr` that were taken from gestimator are 
-also part of libsequence.
+Copyright (C) 2003-2009 Kevin Thornton, krthornt[]@[]uci.edu
+
+Remove the brackets to email me.
+
+This file is part of libsequence.
 
 libsequence is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -380,12 +384,11 @@ You should have received a copy of the GNU General Public License
 long with libsequence.  If not, see <http://www.gnu.org/licenses/>.
 
 
-Modified by Sarah Scharfenberg and Hajk-Georg Drost (2014) to work 
+Modified by Sarah Scharfenberg and Hajk-Georg Drost 2014 to work 
 in orthologr without using external libraries from libsequence.
 
 All changes are also free under the terms of GNU General Public License
 version 2 of the License, or any later version.
-
 ```
 
 ### KaKs_Calculator

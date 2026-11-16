@@ -94,7 +94,8 @@ fake_diamond_archive <- function(zip = FALSE) {
 
 # mock the download (copy 'archive' or call 'fail'), the platform (Linux x86_64 unless zip), the checksum table
 # (the archive's checksum for 'version', or 'pinned_sha') and the run of the program
-with_mocked_download <- function(code, archive, version = "v2.2.8", pinned_sha = NULL, fail = NULL, zip = FALSE) {
+with_mocked_download <- function(code, archive, version = "v2.2.8", pinned_sha = NULL, fail = NULL, zip = FALSE,
+                                 binary_version = function(exe) "diamond version 2.2.8") {
         calls <- new.env()
         calls$n <- 0L
         asset <- if (zip) "diamond-windows.zip" else "diamond-linux64.tar.gz"
@@ -112,7 +113,7 @@ with_mocked_download <- function(code, archive, version = "v2.2.8", pinned_sha =
                         file.copy(archive, file)
                         invisible(0L)
                 },
-                diamond_binary_version = function(exe) "diamond version 2.2.8",
+                diamond_binary_version = binary_version,
                 .package = "orthologr"
         )
         force(code)
@@ -130,6 +131,10 @@ test_that("the pinned checksums are well-formed and name the files diamond_insta
         expect_true(all(assets %in% pins$asset))
         expect_true(all(pins$size > 1e6))
         expect_true(is.na(orthologr:::diamond_platform_asset("Linux", "aarch64")))
+        expect_true(is.na(orthologr:::diamond_platform_asset("Windows", "aarch64")))
+        expect_true(is.na(orthologr:::diamond_platform_asset("Windows", "ARM64")))
+        expect_identical(orthologr:::diamond_platform_asset("Windows", "x86-64"), "diamond-windows.zip")
+        expect_identical(orthologr:::diamond_platform_asset("Darwin", "arm64"), "diamond-macos.tar.gz")
 })
 
 test_that("diamond_sha256() gives the SHA-256 digest (R and the programs of the operating system)", {
@@ -320,7 +325,7 @@ expect_not_installed <- function(content, pattern) {
         before <- readLines(file.path(dir, "diamond"))
         e <- tryCatch(diamond_install(force = TRUE, quiet = TRUE), error = function(e) e)
         expect_s3_class(e, "orthologr_error_tool_failed")
-        expect_match(conditionMessage(e), "does not run on this computer")
+        expect_match(conditionMessage(e), "does not run here")
         if (!is.null(pattern))
                 expect_match(conditionMessage(e), pattern)
         expect_identical(readLines(file.path(dir, "diamond")), before)
@@ -443,4 +448,102 @@ test_that("diamond_install() fails clearly for a non-existing version", {
 test_that("the condition classes of diamond_install() are registered", {
         expect_true(all(c("checksum_mismatch", "download_failed", "checksum_unavailable", "bad_argument", "tool_failed",
                           "tool_missing") %in% orthologr:::orthologr_condition_classes()$error))
+})
+
+test_that("no binary for the platform is orthologr_error_tool_missing (Linux and Windows on ARM)", {
+        with_fake_cache({
+                for (p in list(c(sysname = "Linux", machine = "aarch64"), c(sysname = "Windows", machine = "aarch64"))) {
+                        local_mocked_bindings(diamond_platform = function() p, .package = "orthologr")
+                        expect_error(diamond_install(quiet = TRUE), "No pre-compiled DIAMOND binary", class = "orthologr_error_tool_missing")
+                }
+        })
+})
+
+test_that("the downloaded program is checked in the cache folder, not in the temporary folder (noexec TMPDIR)", {
+        archive <- fake_diamond_archive()
+        seen <- NULL
+        with_fake_cache({
+                calls <- with_mocked_download(res <- diamond_install(quiet = TRUE), archive,
+                                              binary_version = function(exe) { seen <<- exe; "diamond version 2.2.8" })
+                expect_identical(normalizePath(dirname(seen)), normalizePath(orthologr:::diamond_cache_dir()))
+                expect_match(basename(seen), "^\\.new-[0-9]+-diamond$")
+                # (not the temporary folder that the archive is unpacked into)
+                expect_false(grepl("diamond_install_|unpacked", seen))
+                expect_identical(list.files(res, all.files = TRUE, no.. = TRUE), "diamond")
+        })
+})
+
+test_that("the version check reports a time-out as such, and status 126 with a hint", {
+        archive <- fake_diamond_archive()
+        with_fake_cache({
+                with_mocked_download(
+                        expect_error(diamond_install(quiet = TRUE), "did not finish within 60 seconds", class = "orthologr_error_tool_failed"),
+                        archive, binary_version = function(exe) structure("", status = 124L))
+                with_mocked_download(
+                        expect_error(diamond_install(quiet = TRUE), "exited with status 126.*noexec", class = "orthologr_error_tool_failed"),
+                        archive, binary_version = function(exe) structure("sh: 1: Permission denied", status = 126L))
+                expect_false(file.exists(file.path(orthologr:::diamond_cache_dir(), "diamond")))
+                expect_length(list.files(orthologr:::diamond_cache_dir(), all.files = TRUE, no.. = TRUE), 0)
+        })
+})
+
+test_that("temporary copies left by an interrupted installation are removed (older than an hour)", {
+        archive <- fake_diamond_archive()
+        with_fake_cache({
+                dir <- orthologr:::diamond_cache_dir()
+                dir.create(dir, recursive = TRUE)
+                old <- file.path(dir, ".new-999-diamond")
+                fresh <- file.path(dir, ".new-998-diamond")
+                file.create(old, fresh)
+                Sys.setFileTime(old, Sys.time() - 7200)
+                with_mocked_download(diamond_install(quiet = TRUE), archive)
+                expect_false(file.exists(old))
+                expect_true(file.exists(fresh))
+                expect_true(file.exists(file.path(dir, "diamond")))
+        })
+})
+
+test_that("an archive without the program is orthologr_error_download_failed", {
+        src <- tempfile("no_exe_")
+        dir.create(src)
+        writeLines("x", file.path(src, "README"))
+        archive <- tempfile(fileext = ".tar.gz")
+        old <- setwd(src)
+        utils::tar(archive, "README", compression = "gzip", tar = "internal")
+        setwd(old)
+        with_fake_cache({
+                with_mocked_download(expect_error(diamond_install(quiet = TRUE), "did not contain 'diamond'",
+                                                  class = "orthologr_error_download_failed"), archive)
+        })
+})
+
+test_that("with a cached copy, an explicit version or sha256 warns that it was not used", {
+        with_fake_cache({
+                place_fake_diamond()
+                expect_warning(diamond_install(version = "v2.2.8"), "were not used", class = "orthologr_warning_tool_version")
+                expect_warning(diamond_install(sha256 = strrep("a", 64)), "force = TRUE", class = "orthologr_warning_tool_version")
+                expect_silent(diamond_install(quiet = TRUE))
+        })
+})
+
+test_that("a non-running diamond.exe from the Windows zip is not installed (real check, every OS)", {
+        skip_if_not(nzchar(Sys.which(zip_program())), "no zip program")
+        src <- tempfile("bad_exe_")
+        dir.create(src)
+        writeBin(as.raw(c(0x4d, 0x5a, rep(0, 62))), file.path(src, "diamond.exe"))   # "MZ" and nothing runnable
+        archive <- tempfile(fileext = ".zip")
+        old <- setwd(src)
+        utils::zip(archive, "diamond.exe", flags = "-q", zip = zip_program())
+        setwd(old)
+        with_fake_cache({
+                local_mocked_bindings(diamond_platform = function() c(sysname = "Windows", machine = "x86-64"),
+                                      diamond_exe_name = function() "diamond.exe",
+                                      diamond_release_checksums = function() data.frame(version = "v2.2.8", asset = "diamond-windows.zip",
+                                                                                        size = 1, sha256 = orthologr:::diamond_sha256(archive),
+                                                                                        stringsAsFactors = FALSE),
+                                      diamond_download = function(url, file, timeout, quiet = FALSE) file.copy(archive, file),
+                                      .package = "orthologr")
+                expect_error(diamond_install(quiet = TRUE), "does not run here", class = "orthologr_error_tool_failed")
+                expect_length(list.files(orthologr:::diamond_cache_dir(), all.files = TRUE, no.. = TRUE), 0)
+        })
 })
