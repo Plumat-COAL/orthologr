@@ -5,7 +5,7 @@
 lwl_printed <- function(e) {
         g <- function(v) sub("^\\s+", "", formatC(v, digits = 6, format = "g"))
         fold <- function(v, na_when_zero) if (na_when_zero && all(v == 0)) "NA" else paste(g(v), collapse = ":")
-        c(fold(e$L, FALSE), fold(e$Si, TRUE), fold(e$Vi, TRUE))
+        c(fold(e$L, TRUE), fold(e$Si, TRUE), fold(e$Vi, TRUE))
 }
 
 lwl_cases <- list(
@@ -76,6 +76,8 @@ test_that("kaks_lwl_counts() returns NULL where it cannot compute", {
         expect_null(kaks_lwl_counts("ATG", "ATGA", "LWL"))
         expect_null(kaks_lwl_counts("ATGA", "ATGA", "LWL"))
         expect_null(kaks_lwl_counts("ATG", "ATG", "LWL", genetic_code = 7))
+        expect_null(kaks_lwl_counts("ATG", "ATG", "LWL", genetic_code = 24))
+        expect_null(kaks_lwl_counts("", "", "LWL"))
         expect_null(kaks_lwl_counts(c("ATG", "ATG"), "ATG", "LWL"))
         # RNA letters: left to the counts KaKs_Calculator printed
         expect_null(kaks_lwl_counts("AUGTTT", "ATGTTC", "LWL"))
@@ -87,10 +89,22 @@ test_that("kaks_lwl_counts() returns NULL where it cannot compute", {
 })
 
 test_that("kaks_lwl_counts() adds the counts of the codon pairs in alignment order, in double precision", {
+        # Exact-zero cases: 1 - 2P - Q (or 1 - 2Q) of one class is 0 in exact arithmetic, so its sign comes from the
+        # rounding of the running totals. 'kc' is the decision KaKs_Calculator 2.0 took (from its printed Ka/Ks).
+        # Sequential double-precision addition in alignment order reproduces it in every case; sum() (extended
+        # precision) gives the other decision in each of these cases.
+        x <- utils::read.delim(test_path("fixtures", "lwl_boundary.tsv"), colClasses = "character",
+                               na.strings = character())
+        expect_gte(nrow(x), 10)
+        for (r in seq_len(nrow(x))) {
+                e <- kaks_lwl_counts(x$s1[r], x$s2[r], x$method[r], as.integer(x$code[r]))
+                k <- as.integer(x$target[r]) + 1
+                defined <- (1 - 2 * e$P[k] - e$Q[k]) > 0 && (1 - 2 * e$Q[k]) > 0
+                expect_identical(if (defined) "nonsat" else "sat", x$kc[r],
+                                 info = paste("row", r, x$method[r], "class", x$target[r]))
+        }
         # a codon pair that differs at three positions has counts in twelfths, which are not exact in binary
-        s1 <- "GCTGCTGCT"
-        s2 <- "ATCGCCGCC"
-        e <- kaks_lwl_counts(s1, s2, "LWL")
+        e <- kaks_lwl_counts("GCTGCTGCT", "ATCGCCGCC", "LWL")
         expect_identical(e$Si, Reduce(`+`, list(kaks_lwl_counts("GCT", "ATC", "LWL")$Si,
                                                  kaks_lwl_counts("GCT", "GCC", "LWL")$Si,
                                                  kaks_lwl_counts("GCT", "GCC", "LWL")$Si), c(0, 0, 0)))

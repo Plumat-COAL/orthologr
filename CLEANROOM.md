@@ -50,20 +50,29 @@ Read:
 | Differences are transitions (A<->G, C<->T) or transversions, counted per class (S_i, V_i); P_i = S_i/L_i, Q_i = V_i/L_i. | Li et al. 1985; Li 1993; Pamilo & Bianchi 1993. |
 | Codons that differ at 2 or 3 positions: every order of the changes (pathway) has equal weight; pathways through a stop codon are left out. | Li 1993 / Tzeng et al. 2004 ("equal weights (0.5) for the two pathways"). Pathway exclusion and equal weighting were confirmed by KC (exp 2). |
 | MLWL/MLPB: CGA<->AGA and CGG<->AGG (first position) count as S2, not V2. ATA's third position is the other exception (synonymous changes are transitions, nonsynonymous ones transversions). | Tzeng et al. 2004, section "Arginine corrections" ("every synonymous difference … at a twofold degenerate site is counted as a transition"). The exact set of codon pairs and how it applies in other codes came from exp 2. |
-| Genetic codes 1–6, 9–16, 21–23 (those KC offers with `-c`, from `KaKs_Calculator -h`) | NCBI gc.prt (`https://ftp.ncbi.nlm.nih.gov/entrez/misc/data/gc.prt`, `ncbieaa` strings, downloaded 15 Nov 2026). These agree with KC's behaviour for every codon and every codon pair in all 17 codes (exp 1, 2). |
+| Genetic codes 1–6, 9–16, 21–23 (those KC offers with `-c`, from `KaKs_Calculator -h`); every other code (7, 8, 17–20, 24–33, NA) returns NULL. KC 2.0.1 writes no result row for `-c 24`, `25` or `33`, so there is never a printed row for these functions to check, and no package result changes. | NCBI gc.prt (`https://ftp.ncbi.nlm.nih.gov/entrez/misc/data/gc.prt`, `ncbieaa` strings, downloaded 15 Nov 2026). These agree with KC's behaviour for every codon and every codon pair in all 17 codes (exp 1, 2). |
 
 ## 2. Behavioural details established by black-box experiments
+
+Evidence: all experiment scripts and their inputs/outputs are in `/home/claude/w-olclean-scratch`, about 58 MB:
+- the black-box tables `pairs.json`, `zero_*.json`, `zero_all.tsv`, `rand1.tsv`, `rand2.tsv`;
+- NCBI's `gc.prt`.
+
+Copies of the small scripts (no data) are on this branch under `cleanroom/`, which is excluded from the package
+build by `.Rbuildignore`.
 
 All experiments use the KaKs_Calculator binary with `-m LWL -m MLWL -m LPB -m MLPB` on AXT files I built. They read
 the printed "Fold-Sites(0:2:4)", "Fold-S-Substitutions(0:2:4)" (transitions) and "Fold-N-Substitutions(0:2:4)"
 (transversions). Scripts are in /home/claude/w-olclean-scratch (kc.py, model.py, exp_*.py, an*.py).
 
-**Exp 1: per-codon classes.** Each codon c (all 64, all 17 codes) is placed in front of a fixed background. The
+**Exp 1: per-codon classes** (`exp_pairs.py` runs KC; `an1.py` compares). Each codon c (all 64, all 17 codes) is
+placed in front of a fixed background. The
 pair is (c + BG1, c + BG2), and the background's own counts are subtracted.
 - 0 of 64 x 17 x 4 rows differ from the NCBI-derived classes.
 - A stop codon contributes 0 sites.
 
-**Exp 2: every ordered codon pair (x, y), x != y.** 4032 pairs x 17 codes x 4 methods = 274,176 rows, built the same
+**Exp 2: every ordered codon pair (x, y), x != y** (same KC run as exp 1, `pairs.json`; `an2.py`, `model.py`,
+`an3.py`). 4032 pairs x 17 codes x 4 methods = 274,176 rows, built the same
 way. The model below gives the printed values for all 274,176 rows (`an3.py`, tolerance at printing precision).
 - **Pairs that contribute nothing.** A pair where either codon is a stop codon contributes nothing, not even
   sites. If every pathway passes through a stop codon, the sites still count but there are no differences.
@@ -111,6 +120,14 @@ sign of 1 - 2P - Q when it is exactly 0 in rational arithmetic.
 
   The best alternative scheme failed on 87 cases. In R the totals are summed with `Reduce(`+`, x, 0)`; `sum()` uses
   extended precision and would differ.
+- **Regression test for the summation** (audit follow-up F2):
+  - `tests/testthat/fixtures/lwl_boundary.tsv` holds the shortest exact-zero case of each of the 18 groups
+    (method LWL / LPB / MLPB × class 0 / 2 / 4 × KC decision saturated / defined). `cleanroom/pick_f2.R` picked them
+    from the exact-zero set; KC's own decision is in the `kc` column.
+  - The `Reduce` running total agrees with KC on all 8,099 boundary rows. A version that totals with `sum()`
+    (extended precision) gives the other decision on 2,209 of them, including every fixture row.
+  - The test "adds the counts … in alignment order, in double precision" checks the fixture rows against KC's
+    decision. Run against a `sum()` variant of `kaks_lwl_counts()` (`cleanroom/sumfail.R`), it fails on all 18 fixture rows (18 failed expectations). With `Reduce` it passes.
 - **Side observations about KC's estimator** (not part of the counts). These only refine my black-box analysis:
   - a saturated class contributes A_i = B_i = 0;
   - a negative A_i is set to 0 in LWL.
@@ -129,8 +146,10 @@ Comparison scripts: /home/claude/w-olclean-scratch/cmp_kc.R and cmp_zero.R. They
     rows are character-identical (0 mismatches).
 - **Boundary cases** (exp 4 set, 8,099 method rows). In R, the sign and magnitude of 1 - 2P - Q (and the 1 - 2Q
   test) give KC's decision in all rows.
-- **Existing tests.** The testthat tests pass unchanged. On 6d353c1 the local results are:
-  - test-lwl_counts (new, 629 expectations, including a live KC comparison on random pairs of all 17 codes);
+- **Existing tests.** The testthat tests pass unchanged. The local results were first taken on 6d353c1; after the
+  audit follow-ups test-lwl_counts has 650 expectations:
+  - test-lwl_counts (new, 629 expectations on 6d353c1, including a live KC comparison on random pairs of all 17
+    codes);
   - kaks_values (96 expectations);
   - substitutionrate (147);
   - golden_values (134);
@@ -141,7 +160,16 @@ Comparison scripts: /home/claude/w-olclean-scratch/cmp_kc.R and cmp_zero.R. They
 ## 4. Identity of the package with integration/all
 
 Final tree 6d353c1 (this branch merged with integration/all bf8d61b) against bf8d61b. The same checks also passed
-earlier on the merged tree 1cd0470. Both were installed from `git archive`
+earlier on the merged tree 1cd0470.
+
+After the audit follow-ups (the match()-based pair lookup, and NULL for empty input), the checks were re-run on
+the working tree that became the follow-up commit:
+- KC comparison: 0 mismatches (16,960 random rows; 3,440 U rows give NULL; 8,099 boundary rows);
+- function outputs vs bf8d61b: 28,499/28,499 `identical()`;
+- `dNdS()` identity: 7/7 configurations identical (d20 LWL; d1000 LWL, MLPB, default, coal; yeast ScCg LWL, ScKl
+  MLPB);
+- `R CMD check --as-cran`: 0 errors, 0 warnings, and the same six NOTEs. That build also included the untracked
+  PROGRESS.md, which added a seventh NOTE (top-level file); PROGRESS.md is not committed. Both were installed from `git archive`
 and run with `/home/claude/w-olclean-scratch/run_id.R`, `dNdS()`, `comp_cores = 2`, using the KaKs_Calculator 2.0
 binary of tools-g and coalr 0.6.x.
 
@@ -171,22 +199,29 @@ the new function now also returns NULL for sequences containing U/u. This is com
 contract-level choice (decline RNA letters), not a port of any code. All KaKs_Calculator comparisons were re-run
 after it, and the U rows were dropped from the comparison set.
 
-## 5. Proposed licence wording (README "Licenses" / inst/COPYRIGHTS)
+## 5. Licence wording: what this branch does and does not settle
 
-Neither file has the KaKs_Calculator-derived statement on integration/all; that statement is added on
-chore/ol-hygiene. If chore/ol-hygiene and this branch both merge, replace its KaKs_Calculator paragraph with this:
+This branch only replaces the code that was derived from KaKs_Calculator 2.0 (GPL-3): `kaks_transl_table()`,
+`kaks_lwl_tables()` and `kaks_lwl_counts()`.
 
-> orthologr is free software under the GNU General Public License version 2 (GPL-2). It calls the external programs
-> KaKs_Calculator, PAL2NAL, DIAMOND, BLAST, MAFFT and others, which are distributed separately under their own
-> licences; no code of those programs is included. The counts of the LWL family that orthologr recomputes in
-> `R/lwl_counts.R` (sites and differences per degeneracy class, used to read KaKs_Calculator's saturation
-> decisions) were implemented from the published methods (Li, Wu & Luo 1985; Li 1993; Pamilo & Bianchi 1993;
-> Tzeng, Pan & Li 2004) and NCBI's genetic code tables, and checked against KaKs_Calculator's output only. They
-> contain no code derived from KaKs_Calculator.
+It does **not** make the package consistently GPL-2-only. `src/` contains C++ headers from libsequence (for example
+`Comeron95.h`, `Kimura80.h`, `Sequence.h`, `Sites.h`) whose headers say "either version 3 of the License, or (at
+your option) any later version". That question predates this branch, is separate from it, and is not addressed
+here. No README or COPYRIGHTS wording that claims GPL-2 consistency should be based on this branch.
 
-For inst/COPYRIGHTS: drop the entry that attributes the three functions to KaKs_Calculator 2.0 (Zhang et al., GPL-3).
-If wanted, replace it with: "R/lwl_counts.R: independent implementation (clean room, see CLEANROOM.md on branch
-chore/gpl2-cleanroom); the genetic code tables are NCBI data (public domain, US Government work)."
+Neither README nor inst/COPYRIGHTS has the KaKs_Calculator statement on integration/all; it is added on
+chore/ol-hygiene. If both branches merge, its KaKs_Calculator paragraph can be replaced with a statement limited to
+this change:
+
+> The counts of the LWL family that orthologr recomputes in `R/lwl_counts.R` (sites and differences per degeneracy
+> class, used to read KaKs_Calculator's saturation decisions) were implemented from the published methods (Li, Wu &
+> Luo 1985; Li 1993; Pamilo & Bianchi 1993; Tzeng, Pan & Li 2004) and NCBI's genetic code tables, and were checked
+> against KaKs_Calculator's output only. They contain no code derived from KaKs_Calculator. KaKs_Calculator itself
+> is an external program, distributed separately under its own licence.
+
+For inst/COPYRIGHTS: drop the entry that attributes the three functions to KaKs_Calculator 2.0. If wanted, replace
+it with: "R/lwl_counts.R: independent implementation (clean room, see CLEANROOM.md on branch
+chore/gpl2-cleanroom); the genetic code tables are NCBI data." The libsequence entries stay as they are.
 
 ## 6. CI and R CMD check
 

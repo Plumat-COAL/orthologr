@@ -199,8 +199,8 @@ kaks_permutations <- function(x) {
 # The counts of the LWL family for two aligned coding sequences: list(L, Si, Vi, P, Q), each a vector of the
 # classes 0-, 2- and 4-fold (sites, transitions, transversions, P = Si / L, Q = Vi / L), as KaKs_Calculator
 # computes them for 'method' (LWL, LPB, MLWL or MLPB) and genetic code 'genetic_code' ('-c'). NULL when they cannot
-# be computed here: another method, a genetic code KaKs_Calculator does not have, sequences of different length
-# or a length that is not a multiple of 3, or sequences with U (RNA letters; kaks_saturated() then goes by the
+# be computed here: another method, a genetic code KaKs_Calculator does not have, empty sequences, sequences of
+# different length or a length that is not a multiple of 3, or sequences with U (RNA letters; kaks_saturated() then goes by the
 # printed counts, as orthologr always did for them).
 kaks_lwl_counts <- function(seq1, seq2, method, genetic_code = 1L) {
         if (length(method) != 1 || !is.element(method, kaks_lwl_methods()))
@@ -216,7 +216,7 @@ kaks_lwl_counts <- function(seq1, seq2, method, genetic_code = 1L) {
                 return(NULL)
         none <- c(0, 0, 0)
         if (n == 0)
-                return(list(L = none, Si = none, Vi = none, P = none / none, Q = none / none))
+                return(NULL)
         at <- seq(1, n, by = 3)
         c1 <- substring(toupper(seq1), at, at + 2)
         c2 <- substring(toupper(seq2), at, at + 2)
@@ -237,20 +237,22 @@ kaks_lwl_counts <- function(seq1, seq2, method, genetic_code = 1L) {
         # differences: one row per codon pair that differs, in alignment order
         d <- which(c1 != c2)
         pairs <- paste(c1[d], c2[d])
-        S <- matrix(0, length(d), 3)
-        V <- matrix(0, length(d), 3)
-        for (u in unique(pairs)) {
-                pk <- paste(tab$key, u)
-                pc <- kaks_lwl_store[[pk]]
-                if (is.null(pc)) {
-                        cc <- strsplit(u, " ", fixed = TRUE)[[1]]
-                        pc <- kaks_lwl_pair(tab, cc[1], cc[2])
-                        assign(pk, pc, envir = kaks_lwl_store)
+        # the counts of each distinct codon pair (kept for the session), then one row per pair in alignment order
+        u <- unique(pairs)
+        pc <- lapply(u, function(x) {
+                pk <- paste(tab$key, x)
+                r <- kaks_lwl_store[[pk]]
+                if (is.null(r)) {
+                        cc <- strsplit(x, " ", fixed = TRUE)[[1]]
+                        r <- kaks_lwl_pair(tab, cc[1], cc[2])
+                        assign(pk, r, envir = kaks_lwl_store)
                 }
-                k <- pairs == u
-                S[k, ] <- rep(pc$S, each = sum(k))
-                V[k, ] <- rep(pc$V, each = sum(k))
-        }
+                r
+        })
+        k <- match(pairs, u)
+        rows <- function(field) matrix(as.numeric(unlist(lapply(pc, `[[`, field))), ncol = 3, byrow = TRUE)[k, , drop = FALSE]
+        S <- rows("S")
+        V <- rows("V")
         # added up one codon pair after the other in double precision (sum() would use extended precision)
         total <- function(m) vapply(1:3, function(i) Reduce(`+`, m[, i], 0), numeric(1))
         Si <- total(S)
