@@ -563,7 +563,9 @@ run_record <- function(fun, args, engine, tools, files, status = NULL, settings 
 #'
 #' The sidecar file is JSON and needs the package \pkg{jsonlite}. The table file has a header line, tab-separated
 #' columns and \code{NA} for missing values; it can be read by any program. Numbers are written with the digits
-#' needed to read the same number back.
+#' needed to read the same number back (15 or 17 significant digits; a number that R would not read back exactly
+#' from 17 digits, as happens on some platforms for very small e-values, in the hexadecimal notation of C99, e.g.
+#' \code{0x1.7p-715}, which R and C's \code{strtod()} read exactly).
 #' @return \code{write_dNdS()}: the two file names, invisibly. \code{read_dNdS()}: the table (a tibble) with the
 #' attributes \code{"orthologr_run"}, \code{"failed_pairs"}, \code{"dropped_sequences"}, \code{"trimmed_sequences"},
 #' \code{"stop_codon_sequences"}, \code{"ambiguous_sequences"} and \code{"coal"} as far as they were written (files
@@ -857,12 +859,17 @@ restore_text_marks <- function(tbl, marks, from_json = FALSE) {
         tbl
 }
 
-# Numbers as text that reads back as the same number.
+# Numbers as text that reads back as the same number: 15 significant digits where that is enough, else 17, and
+# where R does not read even 17 digits back exactly (R's own conversion is not exact for some numbers on platforms
+# without an extended-precision long double, e.g. 1.37e-215 on macOS arm64) the hexadecimal notation of C99
+# ("%a", e.g. 0x1.5p-3), which R reads exactly.
 number_text <- function(x) {
         txt <- as.character(x)
         ok <- !is.na(x) & is.finite(x)
         longer <- ok & suppressWarnings(as.numeric(txt)) != x
         txt[longer] <- sprintf("%.17g", x[longer])
+        hex <- longer & suppressWarnings(as.numeric(txt)) != x
+        txt[hex] <- sprintf("%a", x[hex])
         txt[is.na(x)] <- NA_character_
         txt
 }

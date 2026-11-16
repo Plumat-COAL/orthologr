@@ -82,7 +82,9 @@ compares the results of \code{dNdS_clusters()} / \code{dNdS_orthogroups()} (list
 
 The sidecar file is JSON and needs the package \pkg{jsonlite}. The table file has a header line, tab-separated
 columns and \code{NA} for missing values; it can be read by any program. Numbers are written with the digits
-needed to read the same number back.
+needed to read the same number back (15 or 17 significant digits; a number that R would not read back exactly
+from 17 digits, as happens on some platforms for very small e-values, in the hexadecimal notation of C99, e.g.
+\code{0x1.7p-715}, which R and C's \code{strtod()} read exactly).
 }
 \examples{
 tbl <- data.frame(query_id = c("a", "b"), subject_id = c("x", "y"), dN = c(0.01, 0.02),

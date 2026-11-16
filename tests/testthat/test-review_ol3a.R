@@ -480,3 +480,16 @@ test_that("substitutionrate() names est.method, kaks_tool = \"coal\" lists every
         e <- tryCatch(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "GMYN", kaks_tool = "coal"), error = function(e) e)
         expect_match(conditionMessage(e), "takes dnds_est.method = \"Comeron\", \"Li\"", fixed = TRUE)
 })
+
+test_that("number_text(): every double reads back as the same number, also very small e-values", {
+        x <- c(1.37e-215, 2.17e-180, 1.2e-215, 4.47e-161, 0.1, 1 / 3, pi, 1e-300, 5e-324, .Machine$double.xmax, 0, -2.5, NA,
+               Inf, -Inf, NaN)
+        txt <- number_text(x)
+        back <- suppressWarnings(as.numeric(txt))
+        fin <- is.finite(x)
+        expect_identical(back[fin], x[fin])
+        expect_true(all(is.na(txt[is.na(x)])))
+        # the hexadecimal fallback is read exactly by R
+        expect_identical(as.numeric(sprintf("%a", x[fin])), x[fin])
+        expect_identical(number_text(0.25), "0.25")
+})

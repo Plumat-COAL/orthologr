@@ -222,7 +222,10 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - `write_dNdS()` / `read_dNdS()` kept only the tables `failed_pairs` and `dropped_sequences` of a result; now every
   table of the run is written and read back with its column types and class: also `trimmed_sequences`,
   `stop_codon_sequences`, `ambiguous_sequences` and `coal` (COAL's own values). Files written by 0.6.0 before this
-  change are read as before.
+  change are read as before. A number that R does not read back exactly from 17 significant digits (very small e-values
+  such as 1.37e-215 on macOS arm64, whose R has no extended-precision long double) is written in the hexadecimal
+  notation of C99 (`0x1.7p-715`), which is read back exactly: on that platform such e-values came back changed in
+  the last bit.
 - The record of a run listed the `diamond version` check that the first run of a session makes among the commands
   of the run (`attr(, "orthologr_run")$commands`): version checks are no longer listed, so two runs of the same
   analysis have the same commands but for the names of the working files.
