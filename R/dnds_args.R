@@ -26,11 +26,19 @@ orthologr_sensitivity_mode <- function(mode = NULL) {
 # One value out of a fixed set, with an error in the style of match.arg() that also names the argument.
 check_choice <- function(value, choices, arg, hint = NULL) {
         if (!is.character(value) || length(value) != 1 || is.na(value) || !is.element(value, choices))
-                orthologr_abort(class = "bad_argument", arg, " = '", paste(value, collapse = "', '"), "' is not supported. Please choose ",
+                orthologr_abort(class = "bad_argument", arg, " = ", choice_text(value), " is not supported. Please choose ",
                      if (length(choices) > 1) "one of: " else "",
                      paste0("'", choices, "'", collapse = ", "), ".",
                      if (!is.null(hint)) paste0(" ", hint) else "", call. = FALSE)
         invisible(value)
+}
+
+# A value as the messages of check_choice() show it: one text in single quotes ('coal'), anything else as R code
+# (NULL, NA, c("coal", "orthologr"), 1).
+choice_text <- function(value) {
+        if (is.character(value) && length(value) == 1 && !is.na(value))
+                return(paste0("'", value, "'"))
+        paste(deparse(value, width.cutoff = 500L, nlines = 1L), collapse = "")
 }
 
 dnds_check_args <- function(aligner, sensitivity_mode, seq_type, format, ortho_detection, aa_aln_type, aa_aln_tool,

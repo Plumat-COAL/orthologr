@@ -200,7 +200,8 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
 - Stop codons written with an ambiguity code whose every reading is a stop codon (`TAR`, `TRA`) were not counted in
   `attr(result, "stop_codon_sequences")` and the summary line (they are translated to `X`); they are now.
 - External programs have a time limit (`options(orthologr.tool_timeout)`, see `?orthologr_options`): KaKs_Calculator
-  and PAL2NAL 1 hour per run (one pair or one chunk), `diamond makedb` 1 hour, DIAMOND's searches and clustering
+  and PAL2NAL 1 hour per run (one pair or one chunk), `diamond makedb` 1 hour or, for an input file above 7.2 GB,
+  the time to read it at 2 MB per second (see below), DIAMOND's searches and clustering
   (`deepclust()`, realign), BLAST+ and coal-cpp 7 days (the alignment programs: none); one number for all programs
   or numbers by program (a limit for `DIAMOND` also covers its steps that are not named themselves), `Inf` for none;
   fractions of a second are rounded up, numbers above `.Machine$integer.max` mean no limit, and an unnamed number
@@ -215,7 +216,22 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   file given to them waited for 7 days (`makedb`, `blastp`) or for ever (`deepclust`, realign). `read.proteome()`,
   and with it every function that reads proteins, now stops with an error of class `orthologr_error_bad_input` when
   90 % or more of the first residues of a FASTA file are A, C, G, T, U or N (the message suggests `seq_type =
-  "cds"`), and `diamond makedb`, `deepclust` and realign have the finite limits above.
+  "cds"`), and `diamond makedb`, `deepclust` and realign have the finite limits above. `deepclust(direct_input =
+  TRUE)`, which hands its files to `diamond makedb` without reading them into R, checks each file the same way
+  before DIAMOND is started (it reached DIAMOND, which failed or hung). A file is not refused when 1 % or more of
+  its first residues are E, F, I, L, P or Q, letters that no nucleotide code uses: of 10,621 FASTA files on the
+  test machine, the 6,104 that the 90 % rule refuses are all still refused (the most such letters: 0.13 %, in
+  seqinr's `humanMito.fasta`), so a stray letter in a coding sequence file does not let it through, while
+  asparagine-rich proteins with a few Q or P are read. `options(orthologr.check_protein = FALSE)`, which the error
+  names, switches the check off for proteins that are still refused (short low-complexity proteins: a silk-like
+  GAGAGS repeat has 92 % A, C, G, T, U and N; see `?orthologr_options`).
+- The time limit of `diamond makedb` is 1 hour or, for an input file larger than 7.2 GB, the time to read it at
+  2 MB per second (`options(orthologr.tool_timeout)` still sets it). DIAMOND 2.2.8 built a database from a 400 MB
+  protein file in 21.6 s with one thread (18.5 MB/s; 22 MB/s in another measurement), so a 70-100 GB protein set
+  of `deepclust(direct_input = TRUE)` needs about 55-75 minutes and was stopped after one hour; it now gets 10-14
+  hours, about ten times what it needs. A fixed 7 days, as for the searches, was not chosen: inputs below 7.2 GB
+  (every proteome) keep the 1 hour, which stops a `makedb` that hangs on input it cannot handle after an hour
+  instead of a week.
 - `orthologs()`, `diamond_best()`, `diamond_rec()`, `blast_best()` and `blast_rec()` return a tibble that is not
   grouped (it was grouped by `query_id`, so that later `dplyr` verbs worked per query unasked). The rows are the
   same.
@@ -225,7 +241,14 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   change are read as before. A number that R does not read back exactly from 17 significant digits (very small e-values
   such as 1.37e-215 on macOS arm64, whose R has no extended-precision long double) is written in the hexadecimal
   notation of C99 (`0x1.7p-715`), which is read back exactly: on that platform such e-values came back changed in
-  the last bit.
+  the last bit. `read_dNdS(write_dNdS(x))` is now equal to `x` (`dnds_equal()`, also with `ignore =
+  character(0)`): the record of the run is also written with the R type of every value (`"run_r"` in the sidecar
+  file; `"run"` stays the readable form), so that numbers such as `comp_cores = 1` and
+  `orthologr.max_aln_cells = 5e8` come back as doubles (they came back as integers), `Inf` and `NA` options as
+  themselves (they came back as `NULL`), and names and empty arguments as they were; the tables of the run keep
+  their own attributes (the table `coal` lost `"seconds"`, COAL's time per step); `NaN` in a table is written as
+  `NaN` (it came back as `NA`). The record of `dNdS(engine = "coal")` no longer carries an internal mark
+  (`"command_mark"`) on the arguments of `called_as`. Files written before are read as before.
 - The record of a run listed the `diamond version` check that the first run of a session makes among the commands
   of the run (`attr(, "orthologr_run")$commands`): version checks are no longer listed, so two runs of the same
   analysis have the same commands but for the names of the working files.
@@ -234,7 +257,15 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   holds a code of the whole path (`<name>_<code>_corrupted_cds_seqs.fasta`), and it is written under a name of its
   own and then moved into place.
 - `dNdS(engine = NULL)` and `dNdS(kaks_tool = c(...))` stopped with R's "argument is of length zero" / "the condition
-  has length > 1"; they are errors of class `orthologr_error_bad_argument` that list the choices.
+  has length > 1"; they are errors of class `orthologr_error_bad_argument` that list the choices and show the value
+  given as R code (`engine = NULL is not supported`; the message said `engine = ''`).
+- `is_installed_orthofinder()` took any output that mentions "OrthoFinder", whatever the exit status, for an
+  installed OrthoFinder, so a broken installation that stops with a Python traceback (which names its folder) was
+  "installed", and `orthologr_sitrep()`, which shares the remembered answer, then reported it as found with the
+  traceback line as its version. Both now need the line "OrthoFinder version" and exit status 0; a program that
+  prints the line but exits with another status is reported as not running. The remembered answer of a version
+  check is kept per program, folder, arguments and pattern, so that two checks of the same program never answer
+  for each other.
 - The note on saturated gene pairs said "the two species" also for runs with more than two species; the callers
   with several species can now give the species pair of every gene pair, and the note then names the species pairs
   with the highest median dS.

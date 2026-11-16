@@ -102,9 +102,12 @@ quote_args <- function(args) {
 #   error   : stop on failure (TRUE) or return the result for the caller to inspect (FALSE)
 #   echo    : show the program's messages (stderr) with message() also when it succeeded
 #   record  : FALSE: not listed in the commands of the record of a run (version checks of tool_available())
+#   limit   : the default time limit of this run in seconds, in place of that of its program in
+#             tool_timeout_defaults() (options(orthologr.tool_timeout) still decide when they name it); NULL: the
+#             default of the program
 # Returns (invisibly) list(status, stdout = <lines or NULL when sent to a file>, stderr = <lines>).
 run_tool <- function(program, args = list(), path = NULL, stdout = NULL, tool = program, context = NULL,
-                     output = NULL, error = TRUE, echo = FALSE, record = TRUE) {
+                     output = NULL, error = TRUE, echo = FALSE, record = TRUE, limit = NULL) {
         cmd <- tool_command(program, path)
         if (!is.null(path) && nzchar(path)) {
                 old_path <- Sys.getenv("PATH")
@@ -117,7 +120,7 @@ run_tool <- function(program, args = list(), path = NULL, stdout = NULL, tool = 
         out_file <- if (is.null(stdout)) tempfile("orthologr_stdout_") else stdout
         on.exit(unlink(c(err_file, if (is.null(stdout)) out_file)), add = TRUE)
         # (a program that does not finish within its time limit is stopped: tool_timeout(), status 124)
-        limit <- tool_timeout(tool, program)
+        limit <- tool_timeout(tool, program, default = limit)
         timed_out <- FALSE
         t0 <- proc.time()[["elapsed"]]
         status <- tryCatch(
@@ -168,9 +171,15 @@ run_tool <- function(program, args = list(), path = NULL, stdout = NULL, tool = 
 # one number for every program or numbers named by program (names as tool_timeout_defaults(), or the name of the
 # program in messages, e.g. "ClustalW"; case is ignored) that replace the defaults for those programs. Inf (or 0,
 # or NA): no limit. Programs without a limit by default: the alignment programs, OrthoFinder, version checks.
-# A limit set by timeout_cap() for the program (or its key) applies when it is shorter.
-tool_timeout <- function(tool, program = tool) {
+# A limit set by timeout_cap() for the program (or its key) applies when it is shorter. `default`: the default limit
+# of this run in place of that of its program (diamond_makedb(): scaled with the size of the input).
+tool_timeout <- function(tool, program = tool, default = NULL) {
         limits <- tool_timeout_defaults()
+        if (!is.null(default)) {
+                key <- tool_timeout_key(tool, program)
+                hit <- match(tolower(key), tolower(names(limits)))
+                limits[[if (is.na(hit)) key else names(limits)[hit]]] <- default
+        }
         opt <- getOption("orthologr.tool_timeout", NULL)
         if (!is.null(opt)) {
                 if (!is.numeric(opt) || length(opt) == 0 || any(!is.na(opt) & opt < 0))
@@ -213,7 +222,8 @@ tool_timeout_value <- function(x) {
 }
 
 # The default time limits (seconds) of one run: KaKs_Calculator and PAL2NAL (one gene pair, or one chunk of up to
-# 100 pairs) 1 hour; building a DIAMOND database (diamond makedb) 1 hour; DIAMOND, BLAST+ and coal-cpp (a whole
+# 100 pairs) 1 hour; building a DIAMOND database (diamond makedb) 1 hour, or longer for a large input
+# (makedb_time_limit(), which diamond_makedb() gives run_tool()); DIAMOND, BLAST+ and coal-cpp (a whole
 # search or pipeline, which may take many hours on large proteomes) and DIAMOND's clustering of a database
 # (deepclust(), realign) 7 days. (DIAMOND 2.2 can hang instead of exiting on some input errors, without using the
 # processor: a limit ends such a run.)
@@ -264,13 +274,15 @@ tool_timeout_capped <- function(value, tool, program = tool) {
         value
 }
 
-# Is `program` available? It is started once per R session (and per `path`) with `version_args`; when it is there,
-# the first line that matches `pattern` (the version line) is remembered, so that functions called for every gene
-# pair do not start the program again just to see that it is there. Stops with `not_found` when it is not (that
-# answer is not remembered: a program installed later in the session is found). The check is not part of the
-# commands of the record of a run.
-tool_available <- function(program, version_args, pattern, path = NULL, not_found = NULL) {
-        key <- paste0(program, "\r", if (is.null(path)) "" else path)
+# Is `program` available? It is started once per R session (and per `path`, `version_args`, `pattern` and
+# `ok_status`) with `version_args`; when it is there, the first line that matches `pattern` (the version line) is
+# remembered, so that functions called for every gene pair do not start the program again just to see that it is
+# there. Stops with `not_found` when it is not (that answer is not remembered: a program installed later in the
+# session is found). `ok_status`: the exit statuses of a program that runs (NULL: any; the version line decides);
+# a program that prints the pattern but exits with another status does not run (e.g. a Python program that stops
+# with a traceback naming its own folder). The check is not part of the commands of the record of a run.
+tool_available <- function(program, version_args, pattern, path = NULL, not_found = NULL, ok_status = NULL) {
+        key <- paste(c(program, if (is.null(path)) "" else path, version_args, pattern, ok_status), collapse = "\r")
         hit <- .orthologr_state[[key]]
         if (!is.null(hit))
                 return(hit)
@@ -278,6 +290,9 @@ tool_available <- function(program, version_args, pattern, path = NULL, not_foun
         lines <- c(res$stdout, res$stderr)
         found <- grep(pattern, lines, value = TRUE, ignore.case = TRUE)
         status <- as.integer(res$status)
+        if (!is.null(ok_status) && length(found) > 0 && !identical(status, 127L) &&
+            !(length(status) == 1 && is.element(status, ok_status)))
+                found <- character(0)
         if (length(found) == 0 && length(status) == 1 && !is.na(status) && !is.element(status, c(0L, 127L))) {
                 # the program is there but does not run (e.g. it crashes, exit status 139): that is not a missing program
                 said <- utils::tail(lines[nzchar(trimws(lines))], 3)

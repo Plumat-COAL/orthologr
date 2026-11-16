@@ -109,7 +109,9 @@ has not finished by then is stopped and the call fails with an error of class
 \code{orthologr_error_tool_timeout} (in \code{dNdS()} a per-pair program such as KaKs_Calculator or PAL2NAL that
 times out makes its gene pairs failed pairs with that reason, after a chunk that timed out was retried pair by
 pair, each pair with at most 300 seconds). Defaults: KaKs_Calculator and PAL2NAL 3600 (one gene pair or one chunk
-of up to 100 pairs); building a DIAMOND database (\code{"diamond makedb"}) 3600; DIAMOND, BLAST+ and coal-cpp
+of up to 100 pairs); building a DIAMOND database (\code{"diamond makedb"}) 3600, or for an input file larger than
+7.2 GB the time to read it at 2 MB per second (DIAMOND reads about 20 MB per second: a 100 GB protein set of
+\code{deepclust(direct_input = TRUE)} gets 50,000 seconds, about 14 hours); DIAMOND, BLAST+ and coal-cpp
 604800 (7 days; a whole search or pipeline), DIAMOND's clustering (\code{"diamond deepclust"},
 \code{"diamond realign"}) 604800 as well; the alignment programs (ClustalW, MAFFT, ...), OrthoFinder and the other
 helpers have no limit. (DIAMOND 2.2 can hang, without using the processor, instead of stopping with an error, e.g.
@@ -139,6 +141,13 @@ characters derived from its whole path, so that input files of the same name in 
 file). A message names the file.}
 \item{\code{orthologr.isoform_warning}}{\code{TRUE} (default). \code{FALSE}: \code{dNdS()} and
 \code{orthologs()} and \code{orthogroups()} do not check whether the input files hold several isoforms per gene.}
+\item{\code{orthologr.check_protein}}{\code{TRUE} (default): \code{\link{read.proteome}}, and with it every function
+that reads proteins (\code{seq_type = "protein"}), and \code{deepclust(direct_input = TRUE)} refuse a FASTA file
+whose first residues (the first 2,000 lines) are 90 \% or more A, C, G, T, U or N and less than 1 \% E, F, I, L,
+P or Q (letters that no nucleotide code uses), with an error of class \code{orthologr_error_bad_input}: such a
+file holds nucleotide sequences, on which DIAMOND can hang instead of stopping with an error. \code{FALSE}: no
+such check, for files of proteins that are rejected (very short or low-complexity proteins made of A, G, T, N,
+C and S: a silk-like GAGAGS repeat has 92 \% of these letters). The option changes no result.}
 \item{\code{orthologr.ambiguous_cds}}{\code{"keep"} (default since 0.5.0): coding sequences whose characters other
 than A, C, G, T are IUPAC ambiguity codes (N, R, Y, K, M, S, W, B, D, H, V) are kept; a codon with such a base is
 translated to \code{X}, and the alignment and estimation programs do not compare it. \code{dNdS()} and

@@ -74,7 +74,10 @@ the input files are handed to \code{diamond makedb} as they are (several files a
 into one file, without being parsed), so no sequence is held in R memory - meant for very large protein sets.
 The sequence IDs are the same, but the sequences reach DIAMOND2 in file order instead of sorted by ID, and
 \code{diamond deepclust} is sensitive to that order: \strong{cluster representatives and cluster membership
-can differ from the default}. Only for \code{seq_type = "protein"}.}
+can differ from the default}. Only for \code{seq_type = "protein"}. A file whose first residues look like
+nucleotide sequences is refused, as on the default route (see \code{\link{read.proteome}}); the time limit of
+\code{diamond makedb} grows with the size of the input (see \code{orthologr.tool_timeout} in
+\code{\link{orthologr_options}}).}
 }
 \value{
 A \code{\link[tibble]{tibble}} with two columns:

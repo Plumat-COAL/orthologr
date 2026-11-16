@@ -69,9 +69,12 @@ read.genome <- function(file, format, ...){
 #' Proteomes stored in fasta files can be downloaded from https://www.ebi.ac.uk/reference_proteomes, etc.
 #'
 #' A FASTA file that holds nucleotide sequences rather than proteins (90 \% or more of the first residues are
-#' A, C, G, T, U or N) is rejected with an error of class \code{orthologr_error_bad_input}: DIAMOND, which
-#' searches the proteins, can hang on such input instead of stopping with an error. Coding sequences are read
-#' with \code{\link{read.cds}}, or with \code{seq_type = "cds"} in the functions that search them.
+#' A, C, G, T, U or N, and fewer than 1 \% are E, F, I, L, P or Q, letters no nucleotide code uses) is rejected
+#' with an error of class \code{orthologr_error_bad_input}: DIAMOND, which searches the proteins, can hang on such
+#' input instead of stopping with an error. Coding sequences are read with \code{\link{read.cds}}, or with
+#' \code{seq_type = "cds"} in the functions that search them. A file of proteins that is rejected (short
+#' low-complexity proteins made of A, G, T, N, C and S, for instance) is read with
+#' \code{options(orthologr.check_protein = FALSE)} (see \code{\link{orthologr_options}}).
 #'
 #' @examples
 #' # reading a proteome stored in a fasta file
@@ -99,14 +102,8 @@ read.proteome <- function(file, format, ...){
         
         # nucleotide sequences given as proteins: DIAMOND 2.2 hangs on them (makedb, blastp, deepclust) instead of
         # stopping with an error
-        if (format == "fasta") {
-                nt <- fasta_nucleotide_share(read_path)
-                if (!is.na(nt) && nt >= 0.9)
-                        orthologr_abort(class = "bad_input", "'", file, "' does not look like protein sequences: ",
-                                        floor(100 * nt), " % of the first residues are A, C, G, T, U or N. ",
-                                        "Is this a file of coding sequences? Use seq_type = \"cds\" (the coding sequences are ",
-                                        "translated) where a function has it, or give the protein file.")
-        }
+        if (format == "fasta")
+                check_protein_file(read_path, name = file)
         
                 tryCatch({
                         
@@ -382,6 +379,41 @@ fasta_nucleotide_share <- function(file) {
         if (total < 30)
                 return(NA_real_)
         sum(n[as.integer(charToRaw("ACGTUN"))]) / total
+}
+
+# Stop with an orthologr_error_bad_input when the FASTA file `file` looks like nucleotide sequences rather than
+# proteins: 90 % or more of its first residues are A, C, G, T, U or N (fasta_nucleotide_share()), and fewer than 1 %
+# are letters that only proteins have (E, F, I, L, P, Q: no IUPAC nucleotide code, so a nucleotide file has none of
+# them; a short low-complexity protein rich in A, G, T, N and C can reach 90 %, but one with a few Q, P, L, ... is
+# not taken for nucleotides). DIAMOND 2.2 hangs on nucleotide sequences given as proteins (makedb, blastp,
+# deepclust) instead of stopping with an error. Used by read.proteome() (every function that reads proteins) and
+# deepclust(direct_input = TRUE). options(orthologr.check_protein = FALSE) switches the check off. `name`: the file
+# named in the message.
+check_protein_file <- function(file, name = file) {
+        if (!protein_check_on())
+                return(invisible(NA))
+        n <- fasta_residue_counts(file)
+        total <- sum(n[c(65:90, 42L)])
+        if (total < 30)
+                return(invisible(NA))
+        nt <- sum(n[as.integer(charToRaw("ACGTUN"))]) / total
+        protein_only <- sum(n[as.integer(charToRaw("EFILPQ"))]) / total
+        if (nt >= 0.9 && protein_only < 0.01)
+                orthologr_abort(class = "bad_input", "'", name, "' does not look like protein sequences: ",
+                                floor(100 * nt), " % of the first residues are A, C, G, T, U or N. ",
+                                "Is this a file of coding sequences? Use seq_type = \"cds\" (the coding sequences are ",
+                                "translated) where a function has it, or give the protein file. If these are proteins ",
+                                "(e.g. short low-complexity ones), options(orthologr.check_protein = FALSE) switches this ",
+                                "check off.", call. = FALSE)
+        invisible(nt)
+}
+
+# Is the check of check_protein_file() on? options(orthologr.check_protein): TRUE (default) or FALSE.
+protein_check_on <- function() {
+        opt <- getOption("orthologr.check_protein", TRUE)
+        if (!is.logical(opt) || length(opt) != 1 || is.na(opt))
+                orthologr_abort(class = "bad_argument", "options(orthologr.check_protein = ) must be TRUE or FALSE.", call. = FALSE)
+        opt
 }
 
 # The file read.cds() writes the coding sequences of `file` that are not a multiple of 3 long to: in `dir`, named

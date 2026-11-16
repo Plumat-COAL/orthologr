@@ -325,9 +325,9 @@ test_that("orthologr_sitrep() reports what is found and hints at what is missing
         ol3_fake_program("mafft", "exec sleep 120", dir = bin)
         local_mocked_bindings(sitrep_probe = local({
                 real <- sitrep_probe
-                function(program, version_args, pattern, path = NULL) {
-                        if (program == "mafft") return(timeout_cap("mafft", 1, real(program, version_args, pattern, path)))
-                        real(program, version_args, pattern, path)
+                function(program, version_args, pattern, path = NULL, ...) {
+                        if (program == "mafft") return(timeout_cap("mafft", 1, real(program, version_args, pattern, path, ...)))
+                        real(program, version_args, pattern, path, ...)
                 }
         }))
         t0 <- proc.time()[["elapsed"]]
@@ -490,7 +490,10 @@ test_that("number_text(): every double reads back as the same number, also very 
         back <- suppressWarnings(as.numeric(txt))
         fin <- is.finite(x)
         expect_identical(back[fin], x[fin])
-        expect_true(all(is.na(txt[is.na(x)])))
+        expect_true(all(is.na(txt[is.na(x) & !is.nan(x)])))
+        # NaN is written as "NaN" and reads back as NaN (it was NA before)
+        expect_identical(txt[is.nan(x)], "NaN")
+        expect_true(is.nan(back[is.nan(x)]))
         # the hexadecimal fallback is read exactly by R (normal numbers; not every platform reads subnormal ones exactly)
         normal <- fin & (x == 0 | abs(x) >= .Machine$double.xmin)
         expect_identical(as.numeric(sprintf("%a", x[normal])), x[normal])

@@ -348,9 +348,12 @@ run_user_call <- function() {
                 nm <- nm[length(nm)]
                 if (length(nm) == 1 && is.element(nm, RECORDED_FUNCTIONS) &&
                     identical(environment(fns[[i]]), ns)) {
+                        arguments <- run_arguments(env = frames[[i]], fun = fns[[i]])
+                        # (the mark of the log of search commands belongs to the record of the run itself)
+                        attr(arguments, "command_mark") <- NULL
                         return(list("function" = nm,
                                     call = paste(deparse(calls[[i]], width.cutoff = 500L), collapse = " "),
-                                    arguments = run_arguments(env = frames[[i]], fun = fns[[i]])))
+                                    arguments = arguments))
                 }
         }
         NULL
@@ -381,10 +384,12 @@ orthologr_options_in_force <- function() {
         set <- options()
         set <- set[startsWith(names(set), "orthologr.")]
         # (the working folder of the call is not a setting of the user; whether the note of library(orthologr) is
-        # shown, and whether PAL2NAL / KaKs_Calculator handle a chunk of gene pairs per process, change no result)
+        # shown, whether PAL2NAL / KaKs_Calculator handle a chunk of gene pairs per process, and whether protein
+        # files are checked for nucleotide sequences change no result)
         set[["orthologr.tmpdir"]] <- NULL
         set[["orthologr.quiet_upgrade"]] <- NULL
         set[["orthologr.batch_tools"]] <- NULL
+        set[["orthologr.check_protein"]] <- NULL
         for (n in setdiff(names(set), names(out)))
                 out[[n]] <- set[[n]]
         out[order(names(out))]
@@ -561,8 +566,20 @@ run_record <- function(fun, args, engine, tools, files, status = NULL, settings 
 #' \code{divergence_stratigraphy()}. To see what differs, compare the parts, e.g.
 #' \code{all.equal(as.data.frame(x), as.data.frame(y))} and \code{attr(x, "orthologr_run")$tools}.
 #'
+#' \strong{What is read back.} \code{read_dNdS(write_dNdS(x))} returns the table with its columns, their types and
+#' the attributes listed under Value, so that \code{dnds_equal(x, read_dNdS(file))} is \code{TRUE} for the table
+#' that was written (a tibble; the \code{pairs} table of a list from \code{dNdS_clusters()} /
+#' \code{dNdS_orthogroups()}, with the attributes of the list). The record of the run is stored twice: as readable
+#' JSON (\code{"run"}) and with the R type of every value (\code{"run_r"}: whole numbers stay doubles, \code{Inf},
+#' \code{NaN} and \code{NA} stay what they were, names and attributes are kept), from which it is read back; the
+#' tables of the run keep their own attributes (e.g. \code{"seconds"} of the table \code{"coal"}). Not written:
+#' other attributes of the table, row names other than 1, 2, ..., and parts of the record that are neither vectors
+#' nor lists (they are stored as text). Files written by earlier versions have no \code{"run_r"}: whole numbers
+#' of their record come back as integers.
+#'
 #' The sidecar file is JSON and needs the package \pkg{jsonlite}. The table file has a header line, tab-separated
-#' columns and \code{NA} for missing values; it can be read by any program. Numbers are written with the digits
+#' columns, \code{NA} for missing values and \code{NaN} for numbers that are not a number; it can be read by any
+#' program. Numbers are written with the digits
 #' needed to read the same number back (15 or 17 significant digits; a number that R would not read back exactly
 #' from 17 digits, as happens on some platforms for very small e-values, in the hexadecimal notation of C99, e.g.
 #' \code{0x1.7p-715}, which R and C's \code{strtod()} read exactly).
@@ -625,7 +642,10 @@ write_dNdS <- function(x, file) {
                 rows     = nrow(plain),
                 columns  = classes,
                 text_encoding = text_marks(plain),
-                run      = run
+                run      = run,
+                # the same record with the type of every value (whole numbers stay doubles, Inf / NA / NaN, names and
+                # attributes are kept), from which read_dNdS() restores it; "run" is the readable form
+                run_r    = if (!is.null(run)) typed_value(run)
         )
         # every table of the run kept in an attribute: its values (doubles as text that reads back as the same
         # number), the encoding marks of its text, the type of its columns and its class
@@ -645,6 +665,10 @@ write_dNdS <- function(x, file) {
                 side[[a]] <- p
                 side[[paste0(a, "_encoding")]] <- text_marks(p)
                 tables[[a]] <- list(columns = cls, class = class(v))
+                # attributes of the table itself (e.g. "seconds" of the table "coal"), with their types
+                more <- attributes(v)[setdiff(names(attributes(v)), c("names", "row.names", "class", ".internal.selfref"))]
+                if (length(more) > 0)
+                        tables[[a]]$attributes <- typed_value(more)
         }
         if (length(tables) > 0)
                 side$tables <- tables
@@ -689,7 +713,7 @@ read_dNdS <- function(file) {
                 }
         tbl <- restore_text_marks(tbl, side$text_encoding, from_json = FALSE)
         classes <- if (!is.null(side$columns)) unlist(side$columns) else
-                vapply(tbl, function(v) if (all(is.na(v) | !is.na(suppressWarnings(as.numeric(v))))) "numeric" else "character", "")
+                vapply(tbl, function(v) if (all(is.na(v) | v == "NaN" | !is.na(suppressWarnings(as.numeric(v))))) "numeric" else "character", "")
         for (col in intersect(names(tbl), names(classes)))
                 tbl[[col]] <- switch(classes[[col]],
                                      numeric = as.numeric(tbl[[col]]), integer = as.integer(tbl[[col]]),
@@ -702,10 +726,15 @@ read_dNdS <- function(file) {
                 as.data.frame(l, stringsAsFactors = FALSE)
         }
         if (!is.null(side)) {
-                run <- side$run
-                if (!is.null(run$input_files)) {
-                        run$input_files <- as_table(run$input_files)
-                        run$input_files$size <- as.numeric(run$input_files$size)
+                if (!is.null(side$run_r)) {
+                        run <- untyped_value(side$run_r)
+                } else {
+                        # (files written before the record with types: numbers that are whole come back as integers)
+                        run <- side$run
+                        if (!is.null(run$input_files)) {
+                                run$input_files <- as_table(run$input_files)
+                                run$input_files$size <- as.numeric(run$input_files$size)
+                        }
                 }
                 attr(tbl, "orthologr_run") <- run
                 for (a in dnds_table_attributes()) {
@@ -722,6 +751,11 @@ read_dNdS <- function(file) {
                                                            logical = as.logical(v[[col]]),
                                                            character = as.character(v[[col]]), v[[col]])
                                 v <- restore_table_class(v, unlist(info$class))
+                                if (!is.null(info$attributes)) {
+                                        more <- untyped_value(info$attributes)
+                                        for (m in names(more))
+                                                attr(v, m) <- more[[m]]
+                                }
                         }
                         attr(tbl, a) <- v
                 }
@@ -873,8 +907,63 @@ number_text <- function(x) {
         h <- sprintf("%a", x[hex])
         exact <- !is.na(suppressWarnings(as.numeric(h))) & suppressWarnings(as.numeric(h)) == x[hex]
         txt[hex[exact]] <- h[exact]
-        txt[is.na(x)] <- NA_character_
+        # (NaN is written as "NaN", which reads back as NaN; NA as missing)
+        txt[is.na(x) & !is.nan(x)] <- NA_character_
         txt
+}
+
+# A value of the record of a run as a list that jsonlite writes as JSON and reads back as the same value
+# (untyped_value()): list(type = typeof(x), value, names, attributes). JSON alone loses whether a number is a
+# double or an integer (1 is read back as 1L), Inf, NaN, the difference between NA and NULL, the names of a vector
+# and other attributes. Doubles are written as number_text() writes them; values that are neither vectors nor
+# lists (functions, calls) as their deparsed text.
+typed_value <- function(x) {
+        if (is.null(x))
+                return(list(type = "NULL"))
+        attrs <- attributes(x)
+        nm <- names(x)
+        attrs$names <- NULL
+        out <- if (is.list(x)) {
+                list(type = "list", value = lapply(unname(as.list(x)), typed_value))
+        } else if (is.double(x)) {
+                list(type = "double", value = I(number_text(as.vector(unclass(x)))))
+        } else if (is.integer(x) || is.logical(x) || is.character(x)) {
+                list(type = typeof(x), value = I(as.vector(unclass(x))))
+        } else if (is.atomic(x)) {
+                list(type = typeof(x), value = I(as.character(as.vector(unclass(x)))))
+        } else {
+                attrs <- NULL
+                nm <- NULL
+                list(type = "character", value = paste(deparse(x), collapse = "\n"))
+        }
+        if (!is.null(nm))
+                out$names <- I(nm)
+        if (length(attrs) > 0)
+                out$attributes <- lapply(attrs, typed_value)
+        out
+}
+
+# The value that typed_value() wrote, as jsonlite::fromJSON(simplifyVector = TRUE, simplifyDataFrame = FALSE) reads
+# it back.
+untyped_value <- function(t) {
+        type <- as.character(t$type)
+        if (identical(type, "NULL"))
+                return(NULL)
+        v <- t$value
+        if (identical(type, "list")) {
+                x <- lapply(v, untyped_value)
+        } else {
+                v <- if (length(v) == 0) character(0) else unlist(lapply(v, function(e) if (is.null(e)) NA else e))
+                x <- if (identical(type, "double")) as.numeric(v) else as.vector(v, mode = type)
+        }
+        if (!is.null(t$names))
+                names(x) <- as.character(unlist(t$names))
+        if (!is.null(t$attributes)) {
+                more <- lapply(t$attributes, untyped_value)
+                for (m in names(more))
+                        attr(x, m) <- more[[m]]
+        }
+        x
 }
 
 # ---- one switch for the results of 0.4.3 -----------------------------------------------------------------------

@@ -80,8 +80,20 @@ compares the results of \code{dNdS_clusters()} / \code{dNdS_orthogroups()} (list
 \code{divergence_stratigraphy()}. To see what differs, compare the parts, e.g.
 \code{all.equal(as.data.frame(x), as.data.frame(y))} and \code{attr(x, "orthologr_run")$tools}.
 
+\strong{What is read back.} \code{read_dNdS(write_dNdS(x))} returns the table with its columns, their types and
+the attributes listed under Value, so that \code{dnds_equal(x, read_dNdS(file))} is \code{TRUE} for the table
+that was written (a tibble; the \code{pairs} table of a list from \code{dNdS_clusters()} /
+\code{dNdS_orthogroups()}, with the attributes of the list). The record of the run is stored twice: as readable
+JSON (\code{"run"}) and with the R type of every value (\code{"run_r"}: whole numbers stay doubles, \code{Inf},
+\code{NaN} and \code{NA} stay what they were, names and attributes are kept), from which it is read back; the
+tables of the run keep their own attributes (e.g. \code{"seconds"} of the table \code{"coal"}). Not written:
+other attributes of the table, row names other than 1, 2, ..., and parts of the record that are neither vectors
+nor lists (they are stored as text). Files written by earlier versions have no \code{"run_r"}: whole numbers
+of their record come back as integers.
+
 The sidecar file is JSON and needs the package \pkg{jsonlite}. The table file has a header line, tab-separated
-columns and \code{NA} for missing values; it can be read by any program. Numbers are written with the digits
+columns, \code{NA} for missing values and \code{NaN} for numbers that are not a number; it can be read by any
+program. Numbers are written with the digits
 needed to read the same number back (15 or 17 significant digits; a number that R would not read back exactly
 from 17 digits, as happens on some platforms for very small e-values, in the hexadecimal notation of C99, e.g.
 \code{0x1.7p-715}, which R and C's \code{strtod()} read exactly).

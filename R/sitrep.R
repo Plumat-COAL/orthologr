@@ -39,8 +39,8 @@ orthologr_sitrep <- function() {
                                                    hint = if (isTRUE(found)) NA_character_ else hint)
         }
         # (a program that is there but does not run: the hint starts with what went wrong)
-        probe <- function(component, needed_for, program, version_args, pattern, hint, path = NULL) {
-                p <- sitrep_probe(program, version_args, pattern, path)
+        probe <- function(component, needed_for, program, version_args, pattern, hint, path = NULL, ok_status = NULL) {
+                p <- sitrep_probe(program, version_args, pattern, path, ok_status = ok_status)
                 add(component, needed_for, p$found, p$path, p$version, if (p$broken) paste(p$error, hint) else hint)
                 p
         }
@@ -107,8 +107,9 @@ orthologr_sitrep <- function() {
                 probe("coal-cpp", "engine = \"coal\" without coalr (options(orthologr.coal_backend = \"binary\"))",
                       basename(exe), "--version", "coal", "coal-cpp was found but does not run.", path = dirname(exe))
         }
+        # (the same check as is_installed_orthofinder(): the version line and exit status 0)
         probe("OrthoFinder", "orthofinder2(), retrieve_core_orthologs()", "orthofinder", "-h", "OrthoFinder version",
-              "'conda install -c bioconda orthofinder'.")
+              "'conda install -c bioconda orthofinder'.", ok_status = 0L)
 
         tibble::tibble(component  = vapply(rows, `[[`, "", "component"),
                        needed_for = vapply(rows, `[[`, "", "needed_for"),
@@ -121,10 +122,10 @@ orthologr_sitrep <- function() {
 # Is `program` there (tool_available(), at most 60 seconds)? list(found, path, version, broken, error); a program
 # that is not found or does not run is found = FALSE (and is looked for again next time); broken = TRUE when it
 # is there but does not run or does not print what it should (error: what went wrong).
-sitrep_probe <- function(program, version_args, pattern, path = NULL) {
+sitrep_probe <- function(program, version_args, pattern, path = NULL, ok_status = NULL) {
         key <- tool_timeout_key(program, program)
         version <- tryCatch(timeout_cap(key, 60, tool_available(program, version_args = version_args, pattern = pattern,
-                                                                  path = path)),
+                                                                  path = path, ok_status = ok_status)),
                             orthologr_error = function(e) e)
         if (inherits(version, "error")) {
                 exists <- nzchar(if (is.null(path)) Sys.which(program) else
