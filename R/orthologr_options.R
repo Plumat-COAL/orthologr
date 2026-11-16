@@ -77,6 +77,19 @@
 #' pair: the same files and values (a pair the batch does not compute is computed on its own). Not with the
 #' settings of 0.4.3 (\code{\link{orthologr_legacy_options}}), which compute one pair at a time as 0.4.3 did.
 #' \code{FALSE}: one process per gene pair. The option changes no result and is not part of the record of a run.}
+#' \item{\code{orthologr.tool_timeout}}{the time limit, in seconds, of one run of an external program; a program that
+#' has not finished by then is stopped and the call fails with an error of class
+#' \code{orthologr_error_tool_timeout} (in \code{dNdS()} a per-pair program such as KaKs_Calculator or PAL2NAL that
+#' times out makes its gene pairs failed pairs with that reason, after a chunk that timed out was retried pair by
+#' pair). Defaults (since 0.6.0): KaKs_Calculator and PAL2NAL 3600 (one gene pair or one chunk of up to 100 pairs),
+#' DIAMOND, BLAST+ and coal-cpp 604800 (7 days; a whole search or pipeline); DIAMOND's clustering
+#' (\code{diamond deepclust}, \code{diamond realign}), the alignment programs (ClustalW, MAFFT, ...), OrthoFinder
+#' and the other helpers have no limit. One number sets the limit of every program
+#' (\code{options(orthologr.tool_timeout = 600)}); numbers named by program replace the defaults of those programs
+#' (\code{options(orthologr.tool_timeout = c(KaKs_Calculator = 120, DIAMOND = Inf))}; names: \code{KaKs_Calculator},
+#' \code{PAL2NAL}, \code{DIAMOND}, \code{BLAST}, \code{COAL}, or the name of a program in the messages such as
+#' \code{ClustalW} or \code{"diamond deepclust"}; case is ignored). \code{Inf} (or \code{0}): no limit. Up to 0.5.0 there was no limit, and a program
+#' that hung stopped the whole run.}
 #' \item{\code{orthologr.keep_tmp}}{\code{FALSE} (default): the folder with the intermediate files of a call (FASTA
 #' files of the pairs, alignments, program output) is removed when the call ends. \code{TRUE}: it is kept, and a
 #' message names it; it is inside \code{tempdir()}, which R removes when the session ends (so after
@@ -136,6 +149,8 @@
 #' (e.g. it crashes when asked for its version; that is not reported as a missing program); with
 #' \code{orthologr_error_alignment_failed} when it was an alignment program (PAL2NAL, Clustal, MAFFT, MUSCLE,
 #' T-Coffee, COAL);}
+#' \item{\code{orthologr_error_tool_timeout}}{an external program did not finish within its time limit
+#' (\code{options(orthologr.tool_timeout)}) and was stopped (also \code{orthologr_error_tool_failed});}
 #' \item{\code{orthologr_error_no_hits}}{the search found no (reciprocal best) hits, so there are no gene pairs;}
 #' \item{\code{orthologr_error_bad_input}}{an input file cannot be used (it does not exist, it is empty, a protein file
 #' given as coding sequences, duplicated sequence IDs);}

@@ -116,13 +116,33 @@ run_tool <- function(program, args = list(), path = NULL, stdout = NULL, tool = 
         err_file <- tempfile("orthologr_stderr_")
         out_file <- if (is.null(stdout)) tempfile("orthologr_stdout_") else stdout
         on.exit(unlink(c(err_file, if (is.null(stdout)) out_file)), add = TRUE)
+        # (a program that does not finish within its time limit is stopped: tool_timeout(), status 124)
+        limit <- tool_timeout(tool, program)
+        timed_out <- FALSE
+        t0 <- proc.time()[["elapsed"]]
         status <- tryCatch(
-                suppressWarnings(system2(cmd, args = quote_args(args), stdout = out_file, stderr = err_file)),
+                withCallingHandlers(
+                        system2(cmd, args = quote_args(args), stdout = out_file, stderr = err_file,
+                                timeout = if (is.finite(limit)) limit else 0),
+                        warning = function(w) {
+                                if (grepl("timed out", conditionMessage(w), fixed = TRUE))
+                                        timed_out <<- TRUE
+                                invokeRestart("muffleWarning")
+                        }),
                 error = function(e) {
                         writeLines(conditionMessage(e), err_file)
                         127L
                 }
         )
+        # (the warning of system2() may be translated: status 124 after the time limit is a timeout as well)
+        if (is.finite(limit) && identical(as.integer(status), 124L) &&
+            (timed_out || proc.time()[["elapsed"]] - t0 >= limit - 0.5))
+                orthologr_abort(class = c("tool_timeout", "tool_failed"),
+                                tool, " did not finish within ", format(limit), " seconds",
+                                if (!is.null(context) && nzchar(context)) paste0(" for ", context), " and was stopped. ",
+                                "The time limit is options(orthologr.tool_timeout) (see ?orthologr_options), e.g. ",
+                                "options(orthologr.tool_timeout = c(\"", tool_timeout_key(tool, program), "\" = ",
+                                format(limit * 4), ")); Inf: no limit.", call. = FALSE)
         res <- list(
                 status = status,
                 stdout = if (is.null(stdout) && file.exists(out_file)) readLines(out_file, warn = FALSE) else NULL,
@@ -138,6 +158,63 @@ run_tool <- function(program, args = list(), path = NULL, stdout = NULL, tool = 
         if (echo && length(res$stderr) > 0)
                 message(paste(res$stderr, collapse = "\n"))
         invisible(res)
+}
+
+# The time limit in seconds for one run of an external program (run_tool()): options(orthologr.tool_timeout), either
+# one number for every program or numbers named by program (names as tool_timeout_defaults(), or the name of the
+# program in messages, e.g. "ClustalW"; case is ignored) that replace the defaults for those programs. Inf (or 0,
+# or NA): no limit. Programs without a limit by default: the alignment programs, OrthoFinder, version checks.
+tool_timeout <- function(tool, program = tool) {
+        limits <- tool_timeout_defaults()
+        opt <- getOption("orthologr.tool_timeout", NULL)
+        if (!is.null(opt)) {
+                if (!is.numeric(opt) || length(opt) == 0 || any(!is.na(opt) & opt < 0))
+                        orthologr_abort(class = "bad_argument", "options(orthologr.tool_timeout = ) must be a number of seconds ",
+                                        "(Inf: no limit), or numbers named by program, e.g. c(KaKs_Calculator = 600).",
+                                        call. = FALSE)
+                if (is.null(names(opt))) {
+                        if (length(opt) != 1)
+                                orthologr_abort(class = "bad_argument", "options(orthologr.tool_timeout = ) must be one number of seconds ",
+                                                "or numbers named by program, e.g. c(KaKs_Calculator = 600).", call. = FALSE)
+                        return(tool_timeout_value(opt))
+                }
+                # (a name that is one of the defaults but for case replaces it)
+                nm <- names(opt)
+                known <- match(tolower(nm), tolower(names(limits)))
+                nm[!is.na(known)] <- names(limits)[known[!is.na(known)]]
+                limits[nm] <- opt
+        }
+        keys <- tolower(names(limits))
+        hit <- match(tolower(c(tool, tool_timeout_key(tool, program))), keys)
+        hit <- hit[!is.na(hit)]
+        if (length(hit) == 0)
+                return(Inf)
+        tool_timeout_value(limits[[hit[1]]])
+}
+
+tool_timeout_value <- function(x) {
+        x <- as.numeric(x)
+        if (is.na(x) || x <= 0) Inf else x
+}
+
+# The default time limits (seconds) of one run: KaKs_Calculator and PAL2NAL (one gene pair, or one chunk of up to
+# 100 pairs) 1 hour; DIAMOND, BLAST+ and coal-cpp (a whole search or pipeline, which may take many hours on large
+# proteomes) 7 days; DIAMOND's clustering of a database (deepclust(), realign), which can take longer, no limit.
+tool_timeout_defaults <- function() {
+        c(KaKs_Calculator = 3600, PAL2NAL = 3600, DIAMOND = 604800, BLAST = 604800, COAL = 604800,
+          "diamond deepclust" = Inf, "diamond realign" = Inf)
+}
+
+# The name of the program in tool_timeout_defaults() for a run of 'program' called 'tool' in messages (the name in
+# the messages when none fits).
+tool_timeout_key <- function(tool, program = tool) {
+        x <- tolower(paste(tool, basename(as.character(program))))
+        if (grepl("kaks", x, fixed = TRUE)) return("KaKs_Calculator")
+        if (grepl("pal2nal", x, fixed = TRUE)) return("PAL2NAL")
+        if (grepl("diamond", x, fixed = TRUE)) return("DIAMOND")
+        if (grepl("blast", x, fixed = TRUE)) return("BLAST")
+        if (grepl("coal", x, fixed = TRUE)) return("COAL")
+        tool
 }
 
 # Is `program` available? It is started once per R session (and per `path`) with `version_args`; the answer and the

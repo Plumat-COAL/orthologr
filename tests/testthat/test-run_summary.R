@@ -189,7 +189,8 @@ test_that("a failed gene pair has status 'failed' and is counted in the summary"
                         stop("made to fail")
                 real(...)
         }, .package = "orthologr")
-        run <- collect_messages(suppressWarnings(dNdS(thal_cds(), lyra_cds(), print_citation = FALSE)))
+        # (Li's method: substitutionrate() for every pair; Comeron's values come without it since 0.6.0)
+        run <- collect_messages(suppressWarnings(dNdS(thal_cds(), lyra_cds(), dnds_est.method = "Li", print_citation = FALSE)))
         res <- run$value
         expect_identical(sum(res$status == "failed"), 1L)
         fp <- attr(res, "failed_pairs")
