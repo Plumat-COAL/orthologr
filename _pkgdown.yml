@@ -120,6 +120,7 @@ articles:
 - title: Workflows
   navbar: Workflows
   contents:
+  - orthologr_with_coal
   - dNdS_estimation
   - divergence_stratigraphy
   - orthology_inference

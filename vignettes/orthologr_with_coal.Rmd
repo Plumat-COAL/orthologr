@@ -1,0 +1,705 @@
+---
+title: "orthologr with COAL: a tutorial"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{orthologr with COAL: a tutorial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\usepackage[utf8]{inputenc}
+---
+
+```{r setup, echo = FALSE, message = FALSE}
+options(width = 110)
+library(orthologr)
+has_diamond <- nzchar(Sys.which("diamond"))
+has_perl    <- nzchar(Sys.which("perl"))
+has_kaks    <- nzchar(Sys.which("KaKs_Calculator"))
+has_clustalo <- nzchar(Sys.which("clustalo"))
+has_coalr   <- requireNamespace("coalr", quietly = TRUE)
+# coalr's own GY method (maximum likelihood) is in coalr >= 0.6.0
+has_coalr_gy <- has_coalr && is.element("GY", coalr::coal_info()$methods)
+# Part 3 uses four Chlamydia genomes from NCBI (1.4 MB). The chunks that need them run when the environment
+# variable ORTHOLOGR_TUTORIAL_DATA names a folder for them (they are downloaded there once); the package build does
+# not set it, so that building the package needs no network.
+tut_dir     <- Sys.getenv("ORTHOLOGR_TUTORIAL_DATA")
+get_genomes <- nzchar(tut_dir) && has_diamond && has_coalr
+knitr::opts_chunk$set(
+  comment = "#>",
+  collapse = TRUE,
+  error = FALSE,
+  tidy = FALSE,
+  eval = has_diamond)
+```
+
+This tutorial shows how to estimate dN, dS and dN/dS of orthologous genes with **orthologr**, first on its own and
+then with **COAL** working inside it, and ends with a worked example on four bacterial genomes. It is written for
+someone who knows R but neither package. Every code chunk was run to make this document; the output under each
+chunk is what it printed (long tables are cut with `head()`).
+
+It covers the fork of orthologr at [Plumat-COAL/orthologr](https://github.com/Plumat-COAL/orthologr) (branch
+`integration/all`, version `r packageVersion("orthologr")`), which is where COAL support lives, and COAL's R package
+**coalr** `r if (has_coalr) as.character(packageVersion("coalr")) else "(not installed when this was built)"`.
+
+# 1. What the two packages do
+
+**orthologr** answers "which genes of species A and species B are orthologs, and how fast have they diverged?".
+For two CDS (coding sequence) files it
+
+1. translates the CDS and finds orthologs with DIAMOND (or BLAST+): best hits (`"BH"`) or reciprocal best hits
+   (`"RBH"`, the default);
+2. aligns the two proteins of each gene pair (Needleman-Wunsch, BLOSUM62);
+3. turns each protein alignment into a codon alignment (the job of PAL2NAL);
+4. estimates dN and dS from each codon alignment (Comeron's method by default; Li's method; or one of the
+   KaKs_Calculator methods NG, LWL, LPB, MLWL, MLPB, YN, MYN, GY, ...);
+
+and returns one table with a row per gene pair. Around this it has orthogroups of several species
+(`orthogroups()`), DIAMOND DeepClust clusters (`deepclust()`), divergence strata (`divergence_stratigraphy()`) and
+filters (`filter_dNdS()`).
+
+**COAL** is a re-implementation of steps 2 to 4 in C++: a protein aligner, a codon threader that produces the same
+codon alignments as PAL2NAL (byte for byte), and the Ka/Ks methods of KaKs_Calculator plus orthologr's Comeron and
+Li. Its R package **coalr** runs that code inside the R process, on several threads, without starting a program per
+gene pair and without writing files.
+
+How they fit together:
+
+```text
+             orthologr                                   with COAL (coalr installed)
+CDS files ──► DIAMOND / BLAST ortholog search ──────────► same search (orthologr)
+               │
+               ├─ per gene pair (engine = "orthologr"):     ─ all pairs in one batch (engine = "coal"):
+               │   protein alignment   pwalign (R)            protein alignment   COAL (C++, pwalign's scoring)
+               │   codon alignment     PAL2NAL (Perl)  ──►    codon alignment     COAL (same alignment as PAL2NAL)
+               │                       or COAL                Ka/Ks               COAL (Comeron, Li, NG, ..., MYN)
+               │   dN/dS               gestimator (C++), seqinr,
+               │                       KaKs_Calculator, or COAL
+               ▼                                             ▼
+          one tibble per run: query_id, subject_id, dN, dS, dNdS, the hit columns, status
+```
+
+There are three levels of using COAL:
+
+| What you set | What COAL does | Results |
+|---|---|---|
+| nothing (coalr installed) | codon alignments in place of PAL2NAL (`codon_aln_tool = "coal"` is the default then) | identical |
+| `kaks_tool = "coal"` | also the KaKs_Calculator methods (NG ... MYN) in place of the KaKs_Calculator program | same values, no external program |
+| `engine = "coal"` or `dNdS_coal()` | protein alignment, codon alignment and dN/dS for all pairs in one call, on `comp_cores` threads | same table, several times faster |
+
+# 2. Installation
+
+## orthologr (the fork)
+
+orthologr needs R >= 4.4 and the Bioconductor packages Biostrings and pwalign:
+
+```{r install-orthologr, eval = FALSE}
+install.packages(c("BiocManager", "remotes"))
+BiocManager::install(c("Biostrings", "pwalign"))
+remotes::install_github("Plumat-COAL/orthologr@integration/all")
+```
+
+It compiles C++ code (Comeron's method), so it needs a compiler: Rtools on Windows, the Xcode command line tools on
+macOS.
+
+## coalr (COAL's R package)
+
+coalr is not on CRAN and the COAL release on GitHub has no R package file among its assets; it is installed from
+the source in COAL's repository. Pin it to the release tag so that you get the version this tutorial used:
+
+```{r install-coalr, eval = FALSE}
+remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr", ref = "v0.6.0")
+```
+
+It needs a C++17 compiler and Rcpp, nothing else: no Python, no Perl, no external program. (COAL also has a Python
+command line, `coal`, with its own pipeline; it is not needed for anything in this tutorial.)
+
+## External programs
+
+| Program | Needed for | How to get it |
+|---|---|---|
+| DIAMOND >= 2.1 | every ortholog search (`dNdS()`, `orthologs()`, `orthogroups()`, `deepclust()`) | `orthologr::diamond_install()` (downloads the official release into a user cache folder that orthologr finds), or `conda install -c bioconda diamond` |
+| Perl | PAL2NAL (when coalr is not installed or `codon_aln_tool = "pal2nal"`) | on the PATH on Linux and macOS; Strawberry Perl on Windows |
+| PAL2NAL | the same | bundled with orthologr (`system.file("pal2nal", package = "orthologr")`) |
+| KaKs_Calculator 2.0 | the methods NG ... MYN with the default `kaks_tool`, and GY, GMYN, MS, MA, ALL | `conda install -c bioconda kakscalculator2` |
+| Clustal Omega or MAFFT | multiple alignments of orthogroups and clusters (`dNdS_orthogroups()`, `dNdS_clusters()`) | `conda install -c bioconda clustalo mafft` |
+
+```{r diamond-install, eval = FALSE}
+orthologr::diamond_install()   # once; verifies the download against the release's checksum
+```
+
+## Checking the setup
+
+orthologr has no single "check my setup" function, but the pieces are quick to look at. Which programs are found:
+
+```{r setup-check-tools, eval = TRUE}
+Sys.which(c("diamond", "perl", "KaKs_Calculator", "clustalo", "mafft"))
+```
+
+```{r setup-check-diamond}
+diamond_path()   # NULL: DIAMOND is on the PATH; otherwise the folder diamond_install() used (an error if neither)
+```
+
+What COAL brings (versions, methods, genetic codes):
+
+```{r setup-check-coal, eval = has_coalr}
+packageVersion("coalr")
+info <- coalr::coal_info()
+names(info)
+info$coal_version
+info$methods
+"comeron_min_sites_positive" %in% info$features   # orthologr checks this feature of a recent coalr
+```
+
+and a tiny run whose record names every program that was used (more on the record in section 6):
+
+```{r setup-check-run}
+q20 <- system.file("seqs/ortho_thal_cds.fasta", package = "orthologr")   # 20 genes of Arabidopsis thaliana
+s20 <- system.file("seqs/ortho_lyra_cds.fasta", package = "orthologr")   # their orthologs in A. lyrata
+res20 <- dNdS(q20, s20)
+str(attr(res20, "orthologr_run")$tools)
+attr(res20, "orthologr_run")$arguments$codon_aln_tool
+```
+
+# 3. Part 1: orthologr on its own
+
+The package ships two pairs of CDS files of *Arabidopsis thaliana* and *A. lyrata*: 20 genes, and 1,000 genes.
+They are real genes of the two genomes, which diverged about 10 million years ago.
+
+## Orthologs between two species
+
+`orthologs()` runs only the search. With CDS files say `seq_type = "cds"` (they are translated first):
+
+```{r orthologs}
+o <- orthologs(query_file = q20, subject_files = s20, seq_type = "cds")
+dim(o)
+head(o[, c("query_id", "subject_id", "perc_identity", "alig_length", "evalue", "bit_score")], 5)
+```
+
+`"DIAMOND_RBH"` (reciprocal best hits) is the default. Best hits are chosen by bit score (the rule of 0.4.3 was the
+e-value; `best_hit_rule = "evalue"` restores it).
+
+## dN/dS with the default method (Comeron)
+
+`dNdS()` does the whole pipeline. The default method is Comeron's (1995), computed by C++ code inside orthologr, so
+no external program is needed apart from DIAMOND (and Perl for PAL2NAL if coalr is not installed):
+
+```{r dnds-default}
+res20
+```
+
+The columns:
+
+- `query_id`, `subject_id`: the gene pair (IDs exactly as in the FASTA headers, up to the first space);
+- `dN`, `dS`, `dNdS`: the estimates; dN/dS < 1 means purifying selection, about 1 neutral evolution, > 1 positive
+  selection (as an average over the whole gene);
+- the columns of the DIAMOND hit table (identity, alignment length, coordinates, e-value, bit score);
+- `status`, the last column: how each pair came out (`"ok"`, `"dS_zero"`, `"saturated"`, `"no_data"`, `"failed"`;
+  see section 6).
+
+Two messages bracket the run: one line at the start and a summary at the end (pairs by status, median dS,
+sequences that were left out). They are messages, so `suppressMessages()` hides them.
+
+## Other methods
+
+`dnds_est.method` chooses the method. Li's method is computed with `seqinr::kaks()`:
+
+```{r dnds-li}
+li20 <- dNdS(q20, s20, dnds_est.method = "Li")
+head(li20[, c("query_id", "subject_id", "dN", "dS", "dNdS", "status")], 5)
+```
+
+The methods of KaKs_Calculator (`"NG"`, `"LWL"`, `"LPB"`, `"MLWL"`, `"MLPB"`, `"YN"`, `"MYN"`, `"GY"`, `"GMYN"`,
+`"MS"`, `"MA"`, `"ALL"`) run the KaKs_Calculator program, unless `kaks_tool = "coal"` hands the seven methods NG ...
+MYN to COAL:
+
+```{r dnds-yn, eval = has_diamond && has_kaks}
+yn20 <- dNdS(q20, s20, dnds_est.method = "YN")
+head(yn20[, c("query_id", "subject_id", "dN", "dS", "dNdS", "status")], 5)
+```
+
+```{r dnds-yn-coal, eval = has_diamond && has_kaks && has_coalr}
+yn20_coal <- dNdS(q20, s20, dnds_est.method = "YN", kaks_tool = "coal")
+all.equal(yn20$dS, yn20_coal$dS)       # KaKs_Calculator prints 6 significant digits; COAL keeps all of them
+max(abs(yn20$dNdS - yn20_coal$dNdS), na.rm = TRUE)
+```
+
+## Saturation and NA
+
+A dN or dS of `NA` is not a failure of the program: for very divergent sequences the correction for multiple
+substitutions at a site is not defined (the logarithm in the formula gets a negative argument), so the number of
+substitutions cannot be estimated. Such a pair has status `"saturated"`. orthologr returns `NA` there (0.4.3
+returned a finite, too small value), and the KaKs_Calculator methods' capped values (99, ...) are `NA` too. The
+1,000-gene example has a few:
+
+```{r dnds-1000}
+q1k <- system.file("seqs/ortho_thal_cds_1000.fasta", package = "orthologr")
+s1k <- system.file("seqs/ortho_lyra_cds_1000.fasta", package = "orthologr")
+time_default <- system.time(res1k <- dNdS(q1k, s1k))
+table(res1k$status)
+subset(res1k, status != "ok")[, c("query_id", "subject_id", "dN", "dS", "dNdS", "perc_identity", "status")]
+```
+
+This pair has only 52 % protein identity: too many differences for Comeron's correction, so dN, dS and dN/dS are
+all `NA`. A pair saturated at synonymous sites only usually still has its dN. A pair with status `"dS_zero"` has
+no synonymous change at all: dS is 0, dN is estimated, and the ratio is `NA` because it is not defined.
+
+The messages under the run say that 12 *A. lyrata* sequences were trimmed to a multiple of 3 and that 2 pairs have
+ambiguous bases (N), whose codons were not compared; the attributes `trimmed_sequences` and
+`ambiguous_sequences` list them.
+
+## Cores and chunks
+
+`comp_cores` spreads the gene pairs over R processes (with the default engine; on Windows one process is used).
+The results do not depend on it. PAL2NAL and KaKs_Calculator are started once per chunk of up to 100 pairs rather
+than once per pair (`options(orthologr.batch_tools = FALSE)` goes back to one process per pair, again with the same
+results).
+
+To compare two result tables, compare their columns: the attributes differ by design (the record of the run
+holds the arguments, here `comp_cores`).
+
+```{r same-columns}
+# every column identical (names, types, values, order of rows); attributes ignored
+same_columns <- function(x, y) identical(names(x), names(y)) && all(mapply(identical, x, y))
+```
+
+From here on the messages of runs that repeat an earlier one are not shown (`message = FALSE`).
+
+```{r dnds-cores, message = FALSE}
+time_2cores <- system.time(res1k_2 <- dNdS(q1k, s1k, comp_cores = 2))
+same_columns(res1k, res1k_2)
+rbind(`1 core` = time_default, `2 cores` = time_2cores)[, "elapsed"]
+```
+
+## Settings of orthologr 0.4.3
+
+Version 0.5.0 changed several defaults (best hits by bit score, DIAMOND's default sensitivity, BLOSUM62 pairwise
+alignments, `NA` for saturation, the `status` column, ...). The vignette "Upgrading from 0.4.3" lists each with
+its measured effect. One call restores them all, for example to reproduce an old analysis:
+
+```{r legacy}
+old <- orthologr_legacy_options()
+leg20 <- dNdS(q20, s20)
+names(leg20)[ncol(leg20)]     # no status column under the old settings
+options(old)                  # back to the current defaults
+```
+
+Only the default engine reproduces 0.4.3's numbers; `engine = "coal"` warns under these settings.
+
+# 4. Part 2: COAL inside orthologr
+
+## The codon alignments are the same
+
+When coalr is installed, `dNdS()` already uses COAL for the codon alignments (`codon_aln_tool = NULL` picks
+`"coal"`), because it gives the same alignments without starting Perl. The single step can be compared directly
+with `codon_aln()`:
+
+```{r codon-aln, eval = has_coalr && has_perl}
+aln <- system.file("seqs/aa_seqs.aln", package = "orthologr")      # a protein alignment (CLUSTAL)
+nuc <- system.file("seqs/dna_seqs.fasta", package = "orthologr")   # the CDS of the same genes
+p <- codon_aln(aln, nuc, tool = "pal2nal", get_aln = TRUE, quiet = TRUE)
+k <- codon_aln(aln, nuc, tool = "coal", get_aln = TRUE, quiet = TRUE)
+identical(p$seq, k$seq)
+substr(k$seq[[1]], 1, 60)
+```
+
+and in a whole run:
+
+```{r dnds-pal2nal, eval = has_diamond && has_coalr && has_perl, message = FALSE}
+time_pal2nal <- system.time(res1k_pal <- dNdS(q1k, s1k, codon_aln_tool = "pal2nal"))
+same_columns(res1k_pal, res1k)
+```
+
+## `engine = "coal"`: the batched fast path
+
+With `engine = "coal"` orthologr still runs its own DIAMOND search, then hands all gene pairs to COAL in one call.
+The table has the same columns and attributes:
+
+```{r dnds-coal, eval = has_diamond && has_coalr, message = FALSE}
+time_coal <- system.time(coal1k <- dNdS(q1k, s1k, engine = "coal"))
+identical(names(coal1k), names(res1k))
+table(coal1k$status)
+```
+
+The table is identical to the default engine's, column for column: the protein alignments are scored as `pairwise_aln()` scores them
+(`aa_aln_scoring = "pwalign"`, the default), the codon alignments are PAL2NAL's, and COAL's Comeron is a port of
+orthologr's:
+
+```{r dnds-coal-compare, eval = has_diamond && has_coalr}
+same_columns(coal1k, res1k)
+```
+
+And the time (elapsed seconds of the whole call, DIAMOND included; this machine was shared with other jobs, so
+take the ratios as indicative):
+
+```{r timing-1k, eval = has_diamond && has_coalr && has_perl, message = FALSE}
+time_coal2 <- system.time(dNdS(q1k, s1k, engine = "coal", comp_cores = 2))
+round(rbind(`default (COAL codon step)` = time_default,
+            `codon_aln_tool = "pal2nal"` = time_pal2nal,
+            `engine = "coal"` = time_coal,
+            `engine = "coal", 2 threads` = time_coal2)[, c("user.self", "elapsed")], 1)
+```
+
+`dNdS_coal()` is the same function under its own name, with one difference: its default method is `"YN"` (Yang and
+Nielsen 2000), where `dNdS()` (also with `engine = "coal"`) defaults to `"Comeron"`. Several methods can be computed
+in one call; the result then has a row per gene pair and method:
+
+```{r dnds-coal-methods, eval = has_diamond && has_coalr}
+m <- dNdS_coal(q20, s20, dnds_est.method = c("Comeron", "NG", "YN", "MYN"))
+table(m$method)
+head(m[order(m$query_id), c("query_id", "method", "dN", "dS", "dNdS", "status")], 8)
+```
+
+What `engine = "coal"` changes, in short:
+
+- **speed**: no Perl or KaKs_Calculator process, no files per pair, several threads;
+- **the same values** for the same pairs, for every method it has;
+- **methods**: Comeron, Li, NG, LWL, MLWL, LPB, MLPB, YN, MYN. GY, GMYN, MS, MA and ALL are KaKs_Calculator's only
+  (with the default engine). coalr 0.6.0 also has its own GY (maximum likelihood), but orthologr does not offer it
+  through `engine = "coal"`; call `coalr::coal_dnds_pairs()` for it (below);
+- **status `"no_data"`** for a pair without comparable codons, and `"saturated"` for a YN / MYN iteration that did
+  not converge (KaKs_Calculator does not report this);
+- `aa_aln_type`, `aa_aln_tool`, `codon_aln_tool`, `kaks_tool` and `store_locally` are ignored; `ortho_detection`
+  must be `"RBH"` or `"BH"`.
+
+## GY through coalr directly
+
+The ortholog pairs that orthologr found can be passed to coalr as they are. `coal_dnds_pairs()` takes the CDS (file
+names, or the table of `read.cds()`), the pairs, and the methods. Give it `preset = "pwalign"`: coalr's own default
+protein alignment scoring is EMBOSS needle's (gap extension 0.5, free end gaps), not the one orthologr uses, so
+without it some pairs get other alignments and slightly other values.
+
+```{r coalr-gy, eval = has_diamond && has_coalr_gy}
+pairs20 <- as.data.frame(res20[, c("query_id", "subject_id")])
+gy <- coalr::coal_dnds_pairs(q20, s20, pairs = pairs20, methods = c("YN", "GY"), preset = "pwalign")
+head(gy[, c("seq1", "method", "dN", "dS", "dNdS", "status")], 6)
+# coalr's YN is orthologr's YN with engine = "coal" (same alignments, same code)
+identical(gy$dS[gy$method == "YN"], dNdS_coal(q20, s20, dnds_est.method = "YN", print_citation = FALSE)$dS)
+```
+
+The same pairs with KaKs_Calculator's GY (default engine):
+
+```{r kaks-gy, eval = has_diamond && has_coalr_gy && has_kaks}
+gy_kc <- dNdS(q20, s20, dnds_est.method = "GY")
+cmp <- merge(gy[gy$method == "GY", c("seq1", "dS", "dNdS")], gy_kc[, c("query_id", "dS", "dNdS")],
+             by.x = "seq1", by.y = "query_id", suffixes = c("_coal", "_kaks"))
+head(cmp, 5)
+summary(abs(cmp$dNdS_coal - cmp$dNdS_kaks))
+```
+
+The two implement the same model (Goldman and Yang 1994, F3x4 codon frequencies) but are different programs. For
+some pairs they agree to KaKs_Calculator's six printed digits; for others they differ by up to about 0.05 in dN/dS.
+COAL's documentation (`docs/kaks.md`, "GY: maximum likelihood") gives the reasons: KaKs_Calculator bounds the
+branch length at 3 substitutions per codon and omega at 0.001 (see AT1G01050.1 above, a pair without
+nonsynonymous change: COAL reports omega 1e-6, KaKs_Calculator 0.001), and starts kappa and omega at random
+values, so its maximum is not always the highest one. COAL's GY is deterministic.
+
+## Orthogroups of more than two species
+
+`orthogroups()` builds groups of orthologs for 2 to N species from one all-against-all DIAMOND search (reciprocal
+best hits, joined into connected components), or from DeepClust clusters (`method = "deepclust"`).
+`dNdS_orthogroups()` then estimates dN/dS for every pair of genes of different species within each group. With
+`engine = "coal"` COAL threads the codons onto one multiple alignment per group (Clustal Omega by default) and
+estimates all pairs in process. The package's protein example has four Brassicaceae:
+
+```{r orthogroups-small}
+files <- c(Athaliana = system.file("seqs/example_athal_aa.faa", package = "orthologr"),
+           Alyrata   = system.file("seqs/example_alyra_aa.faa", package = "orthologr"),
+           Brapa     = system.file("seqs/example_brapa_aa.faa", package = "orthologr"),
+           Thalophila = system.file("seqs/example_thalo_aa.faa", package = "orthologr"))
+og4 <- orthogroups(files, seq_type = "protein")
+og4
+```
+
+These are proteins, so there is no dN/dS for them; section 5 runs `dNdS_orthogroups()` on the CDS of four
+bacteria.
+
+## DeepClust clusters
+
+`dNdS_clusters()` estimates dN/dS for all pairs within DIAMOND DeepClust clusters of one or more CDS files (it runs
+`deepclust()` when no clusters are given) and summarises each cluster. It always uses COAL:
+
+```{r clusters-small, eval = has_diamond && has_coalr}
+cl20 <- dNdS_clusters(c(q20, s20), aa_aln_tool = "pairwise")
+head(cl20$summary[, c("cluster_id", "n_members", "method", "n_pairs", "n_ok", "dS_median", "dNdS_median")])
+```
+
+# 5. Part 3: a worked example on four Chlamydia genomes
+
+COAL's tutorials use the coding sequences of four Chlamydia genomes from NCBI RefSeq: two strains of *C.
+trachomatis* (D/UW-3/CX and L2/434/Bu, very close), *C. muridarum* (Nigg; a sister species that infects mice) and
+*C. pneumoniae* (CWL029; distant). Each has about 900 to 1,050 genes. The chunks of this section run when the
+environment variable `ORTHOLOGR_TUTORIAL_DATA` names a folder for the files (which is how this document was made);
+the package build does not set it.
+
+## Getting the data
+
+```{r get-data, eval = get_genomes}
+genomes <- data.frame(
+  file = c("ctrachomatis_D.cds.fna.gz", "ctrachomatis_L2.cds.fna.gz",
+           "cmuridarum_Nigg.cds.fna.gz", "cpneumoniae_CWL029.cds.fna.gz"),
+  path = c("GCF/000/008/725/GCF_000008725.1_ASM872v1",  "GCF/000/068/585/GCF_000068585.1_ASM6858v1",
+           "GCF/000/006/685/GCF_000006685.1_ASM668v1",  "GCF/000/008/745/GCF_000008745.1_ASM874v1"),
+  md5  = c("5b011994dd999e140e6f6686d1c0265d", "45521c789e56723398b470750e7891b9",
+           "fa60229127c9a08cbb1a421bf0aa9cd5", "6c8cf86b9291ec57fbcf99a86de3366b"))
+dir.create(tut_dir, showWarnings = FALSE, recursive = TRUE)
+for (i in seq_len(nrow(genomes))) {
+  dest <- file.path(tut_dir, genomes$file[i])
+  if (!file.exists(dest))
+    download.file(paste0("https://ftp.ncbi.nlm.nih.gov/genomes/all/", genomes$path[i], "/",
+                         basename(genomes$path[i]), "_cds_from_genomic.fna.gz"), dest, mode = "wb", quiet = TRUE)
+  stopifnot(unname(tools::md5sum(dest)) == genomes$md5[i])
+}
+cds <- setNames(file.path(tut_dir, genomes$file), c("ctrD", "ctrL2", "cmu", "cpn"))
+sapply(cds, function(f) length(Biostrings::fasta.seqlengths(f)))
+```
+
+(COAL has the same download as a shell script, `docs/tutorials/data/get_chlamydia.sh`, which checks SHA-256
+checksums.) orthologr reads gzipped FASTA directly.
+
+## One species pair, both engines
+
+*C. trachomatis* D against *C. muridarum*, with the default engine and with COAL:
+
+```{r chl-pair, eval = get_genomes}
+t_default <- system.time(ct_cm <- dNdS(cds["ctrD"], cds["cmu"]))
+```
+
+The messages are worth reading once: RefSeq CDS files contain a few sequences whose length is not a multiple of 3
+(trimmed), some with ambiguous bases, and some with internal stop codons (pseudogenes); all are listed in the
+attributes of the result. The same with COAL, on one and on two threads:
+
+```{r chl-pair-coal, eval = get_genomes, message = FALSE}
+t_coal  <- system.time(ct_cm_coal <- dNdS(cds["ctrD"], cds["cmu"], engine = "coal"))
+t_coal2 <- system.time(dNdS(cds["ctrD"], cds["cmu"], engine = "coal", comp_cores = 2))
+same_columns(ct_cm, ct_cm_coal)
+round(rbind(default = t_default, coal = t_coal, `coal, 2 threads` = t_coal2)[, c("user.self", "elapsed")], 1)
+```
+
+`user.self` is the CPU time of the R process itself (DIAMOND, PAL2NAL and other programs it starts are not in it);
+`elapsed` is the wall-clock time of the whole call. The search is a large part of the time at this size (about
+900 genes): COAL's share is a fraction of a second.
+
+## Reading the results
+
+```{r chl-status, eval = get_genomes}
+table(ct_cm$status)
+summary(ct_cm$dS)
+summary(ct_cm$dNdS)
+```
+
+How to read this:
+
+- **dS** is the estimated number of synonymous substitutions per synonymous site. A median of 0.93 means that
+  *C. trachomatis* and *C. muridarum* differ at almost one change per synonymous site: in the upper part of the
+  range where pairwise estimates still work (up to about 1, at most 1.5 - 2), with a quarter of the genes above
+  1.06. For comparison, the two *C. trachomatis* strains differ by a dS of about 0.01 (section "orthogroups"
+  below) and *A. thaliana* / *A. lyrata* by 0.13.
+- **dN/dS** has a median of 0.077: nonsynonymous sites change at about a thirteenth of the rate of synonymous
+  sites. Most genes are under strong purifying selection; none has a ratio above 1 over its whole length (the
+  maximum is 0.61). A ratio averaged over a whole gene rarely exceeds 1 even when a few sites are under positive
+  selection; site models (codeml, HyPhy) are needed for those.
+- **8 pairs are saturated**: dN or dS cannot be estimated; they are `NA`, not 0.
+
+The genes with the highest dN/dS among the well-estimated pairs (dS between 0.05 and 1, at least 100 aligned
+amino acids), with the gene names from the FASTA headers:
+
+```{r chl-top, eval = get_genomes}
+hdr <- names(Biostrings::readDNAStringSet(cds["ctrD"]))
+tag <- function(h, key) ifelse(grepl(paste0("[", key, "="), h, fixed = TRUE),
+                                sub(paste0(".*\\[", key, "=([^]]+)\\].*"), "\\1", h), NA)
+gene <- setNames(ifelse(is.na(tag(hdr, "gene")), tag(hdr, "locus_tag"), tag(hdr, "gene")), sub(" .*", "", hdr))
+product <- setNames(tag(hdr, "protein"), sub(" .*", "", hdr))
+ok <- subset(ct_cm, status == "ok" & dS >= 0.05 & dS <= 1 & alig_length >= 100)
+ok$gene <- gene[ok$query_id]
+ok$product <- substr(product[ok$query_id], 1, 40)
+head(ok[order(-ok$dNdS), c("gene", "product", "dN", "dS", "dNdS", "perc_identity", "alig_length")], 8)
+```
+
+The top of the list is what one expects of an obligate intracellular bacterium: an inclusion membrane protein
+(CT_228; Inc proteins sit in the membrane of the vacuole the bacterium lives in, in contact with the host) and
+several hypothetical proteins, next to a few enzymes. Short alignments were left out on purpose: without the length
+filter the top of the list is dominated by alignments of 50 - 100 amino acids, whose ratios are the noisiest.
+
+## Filtering
+
+`filter_dNdS()` keeps the pairs with dN/dS below a threshold (default 2) and leaves out pairs whose dS is 0 or
+`NA`:
+
+```{r chl-filter, eval = get_genomes}
+filtered <- filter_dNdS(ct_cm)
+c(all = nrow(ct_cm), kept = nrow(filtered))
+```
+
+For gene-by-gene interpretation a stricter filter is common: enough codons and dS in a range where it is estimated
+well (COAL's tutorials use 0.05 <= dS <= 1 and at least 100 compared codons as a start; here the length of the
+DIAMOND alignment, in amino acids, stands in for the number of codons):
+
+```{r chl-strict, eval = get_genomes}
+strict <- subset(ct_cm, status == "ok" & dS >= 0.05 & dS <= 1 & alig_length >= 100)
+nrow(strict)
+median(strict$dNdS)
+```
+
+## Saturation: a distant species
+
+*C. pneumoniae* is far from *C. trachomatis*. The same call gives many saturated pairs and a high median dS, and
+the summary message says that the species are too distant for pairwise dN/dS:
+
+```{r chl-distant, eval = get_genomes}
+ct_cp <- dNdS(cds["ctrD"], cds["cpn"], engine = "coal")
+table(ct_cp$status)
+summary(ct_cp$dS)
+```
+
+A dS above about 1.5 to 2 means that most synonymous sites have changed more than once: the estimates are dominated
+by the correction for multiple hits and are noisy, and ratios computed from them are not reliable. Use closer
+species (or a phylogenetic method over many species, such as codeml or HyPhy) for such comparisons.
+
+## More than two species: orthogroups
+
+`orthogroups()` and `dNdS_orthogroups()` report every trimmed sequence in a block of messages per file; to keep
+this document short only their summary lines are shown, with this helper:
+
+```{r summary-lines, eval = get_genomes}
+summary_lines <- function(expr, pattern = "^(orthogroups|dNdS_orthogroups)\\(\\)|^Note: [0-9]") {
+  msgs <- character()
+  value <- withCallingHandlers(expr, message = function(m) {
+    msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+  message(paste(grep(pattern, msgs, value = TRUE), collapse = ""), appendLF = FALSE)
+  value
+}
+```
+
+```{r chl-og, eval = get_genomes}
+og <- summary_lines(orthogroups(cds))
+og
+```
+
+```{r chl-og-dnds, eval = get_genomes && has_clustalo}
+t_ogd <- system.time(og_dnds <- summary_lines(dNdS_orthogroups(og, cds_files = cds, engine = "coal")))
+t_ogd[["elapsed"]]
+table(og_dnds$pairs$status)
+head(og_dnds$summary)
+```
+
+The median dS of each pair of species within the single-copy orthogroups orders the species as expected:
+
+```{r chl-og-species, eval = get_genomes && has_clustalo}
+pr <- og_dnds$pairs
+pr$species_pair <- paste(pr$query_species, pr$subject_species, sep = " - ")
+aggregate(dS ~ species_pair, data = pr, FUN = median)
+table(pr$species_pair, pr$status)
+```
+
+The two *C. trachomatis* strains differ by a median dS of 0.009: so close that many of their pairs have no
+synonymous difference at all (status `"dS_zero"`). *C. trachomatis* against *C. muridarum* gives 1.29 here
+(method YN, the default of `dNdS_orthogroups()`, on one Clustal Omega alignment per group) against 0.93 with
+Comeron's method on pairwise alignments above: different methods disagree most where dS is large. Every pair with
+*C. pneumoniae* is beyond 2, mostly saturated. The summary message's warning that "the two species are probably too
+distant" refers to the pooled pairs of all species; here it is the *C. pneumoniae* pairs that are.
+
+## Divergence stratigraphy
+
+`divergence_stratigraphy()` assigns each gene of a query species a divergence stratum: the decile of its dS among
+the orthologs to a subject species (genes with dN/dS above `dnds.threshold` are left out):
+
+```{r chl-ds, eval = get_genomes, message = FALSE}
+ds <- divergence_stratigraphy(cds["ctrD"], cds["cmu"])
+head(ds)
+table(ds$DS)
+```
+
+The strata are deciles, so they hold equal numbers of genes by construction: stratum 1 holds the tenth of the genes
+with the smallest dS (the most conserved at synonymous sites), stratum 10 the most diverged. The strata are the
+input of `myTAI`-style analyses that ask whether, for example, genes expressed at a stage of development are
+younger or more diverged than others.
+
+# 6. Choosing a method, saturation, reproducibility, troubleshooting
+
+## Choosing a method
+
+- **Comeron** (default): fast, no external program; a good default for pairs of moderately diverged species.
+- **YN** (Yang and Nielsen 2000) and **MYN**: account for the transition / transversion bias and codon frequencies;
+  the usual choice when a reviewer asks for "a model-based estimate"; compute them with `engine = "coal"` or
+  `kaks_tool = "coal"` if KaKs_Calculator is not installed.
+- **NG**, **LWL**, **LPB**, **MLWL**, **MLPB**, **Li**: counting methods; mostly for comparison with older studies.
+- **GY**, **GMYN**, **MS**, **MA**: maximum likelihood and model selection / averaging in KaKs_Calculator; much
+  slower (MS and MA several seconds per pair).
+
+For closely related species the methods agree closely; they differ most where dS is large, which is where no
+pairwise method is reliable. Compare two methods on your own data before choosing (as `dNdS_coal()` does above
+in one call).
+
+## Saturation and NA, in one place
+
+| `status` | dN | dS | dNdS | meaning |
+|---|---|---|---|---|
+| `"ok"` | value | value | value | estimated |
+| `"dS_zero"` | value | 0 | `NA` | no synonymous change: the ratio is not defined |
+| `"saturated"` | value or `NA` | `NA` (usually) | `NA` | too many differences for the correction of multiple hits |
+| `"no_data"` | `NA` | `NA` | `NA` | no codons to compare (engine COAL) |
+| `"failed"` | `NA` | `NA` | `NA` | a step failed; reason in `attr(result, "failed_pairs")` |
+
+Do not replace `NA` by 0 or by a large number: both are wrong. Leave such pairs out (`filter_dNdS()`) and report how
+many there were.
+
+## Reproducibility
+
+Every result carries a record of its run: the package version, all arguments, every `orthologr.*` option in force,
+the engine, the versions of the programs, and the size and MD5 checksum of the input files.
+
+```{r record}
+run <- attr(res1k, "orthologr_run")
+names(run)
+run$orthologr
+run$status_counts
+```
+
+`write_dNdS()` writes the table with this record (as `<file>.run.json`, needs jsonlite) and `read_dNdS()` reads
+both back:
+
+```{r write-read, eval = has_diamond && requireNamespace("jsonlite", quietly = TRUE)}
+f <- tempfile(fileext = ".tsv")
+write_dNdS(res1k, f)
+back <- read_dNdS(f)
+all.equal(as.data.frame(back), as.data.frame(res1k), check.attributes = FALSE)
+unlink(c(f, paste0(f, ".run.json")))
+```
+
+Results do not depend on `comp_cores` or on whether COAL builds the codon alignments. In a methods section, give
+the versions of orthologr, coalr (if used), DIAMOND and KaKs_Calculator, the method and the engine.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `DIAMOND was not found. Run diamond_install() ...` | install DIAMOND (`diamond_install()`), or pass `aligner_path` |
+| `engine = "coal" ... needs the package coalr` / class `orthologr_error_package_missing` | install coalr (section 2) |
+| `dNdS_coal() computes dnds_est.method = ...; "GY" is only available with engine = "orthologr"` | GY, GMYN, MS, MA and ALL need KaKs_Calculator and the default engine (or use coalr's GY directly) |
+| a warning of class `orthologr_warning_coal_version` | the installed coalr predates COAL's Comeron rule of 0.6.0; reinstall coalr |
+| many `"saturated"` pairs, a message that the species are too distant | expected for distant species (section 5): choose closer species |
+| a warning that a file seems to hold several transcripts per gene | keep one transcript per gene first, e.g. with `retrieve_longest_isoforms()` |
+| pairs with status `"failed"` | `attr(result, "failed_pairs")` gives the program and its message |
+| sequences missing from the result | `attr(result, "dropped_sequences")` and `attr(result, "trimmed_sequences")` list them with the reason |
+| you need the intermediate files | `options(orthologr.keep_tmp = "some/folder")` keeps them |
+
+Errors and warnings have classes (`orthologr_error_tool_missing`, `_package_missing`, `_bad_input`,
+`_bad_argument`, ...), so they can be caught with `tryCatch()`:
+
+```{r errors}
+tryCatch(dNdS(q20, s20, dnds_est.method = "YNN"),
+         orthologr_error_bad_argument = function(e) conditionMessage(e))
+```
+
+## Where next
+
+- `vignette("dNdS_estimation", package = "orthologr")`, `vignette("orthogroups", package = "orthologr")`,
+  `vignette("deepclust", package = "orthologr")`, `vignette("divergence_stratigraphy", package = "orthologr")`;
+- `vignette("upgrading_from_0.4.3", package = "orthologr")` for what changed since 0.4.3 and why;
+- `?orthologr_options` for every option;
+- coalr: `vignette("from-two-cds-files-to-dnds", package = "coalr")`;
+- COAL's tutorials (`docs/tutorials` in [Plumat-COAL/COAL](https://github.com/Plumat-COAL/COAL)), in particular
+  "Choosing a method" (tutorial 5) and the method notes in `docs/kaks.md`.
+
+```{r session}
+sessionInfo()
+```
