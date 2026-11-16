@@ -145,14 +145,20 @@ Options are:
 \item \code{dnds_est.method = "YN"}: Yang, Z. and Nielsen, R. (2000)
 \item \code{dnds_est.method ="MYN"} (Modified YN): Zhang, Z., et al. (2006)
 \item \code{dnds_est.method = "GY"} (Goldman and Yang 1994, maximum likelihood), \code{"GMYN"} (MYN with a gamma
-distribution of rates), \code{"MS"} (model selection) and \code{"MA"} (model averaging), computed by KaKs_Calculator
-only: they are much slower (MA and MS: about 6.5 s per gene pair of typical length) and their capped values are
-not checked (\code{\link{substitutionrate}}, section "Saturation")
+distribution of rates), \code{"MS"} (model selection) and \code{"MA"} (model averaging), computed by KaKs_Calculator:
+they are much slower (MA and MS: about 6.5 s per gene pair of typical length) and their capped values are
+not checked (\code{\link{substitutionrate}}, section "Saturation"). \code{"GY"} is also computed by COAL (below)
 \item \code{dnds_est.method = "ALL"}: every method of KaKs_Calculator (17 rows per gene pair, column
 \code{method}); the summary counts gene pairs and methods
 }
 \code{"kaks_calc"} (methods given as KaKs_Calculator parameters) is only available in
-\code{\link{substitutionrate}}, which has the argument \code{kaks_calc.params}.}
+\code{\link{substitutionrate}}, which has the argument \code{kaks_calc.params}.
+\code{"GY"} with COAL (\code{kaks_tool = "coal"} or \code{engine = "coal"}; a \pkg{coalr} whose
+\code{coalr::coal_info()$features} lists \code{"gy94_ml"}, i.e. coalr >= 0.6.0, or a \code{coal-cpp} that lists GY): COAL's GY is
+Goldman and Yang's model with F3x4 codon frequencies, fitted as PAML codeml's pairwise estimate - not
+KaKs_Calculator's GY (GY-HKY), so its values differ from those of \code{kaks_tool = "kaks_calculator"} (unlike
+the seven methods above, which agree). A GY estimate that did not converge has the status
+\code{"not_converged"}, a saturated one \code{"saturated"}.}
 
 \item{comp_cores}{a numeric value specifying the number of cores that shall be used to perform parallel computations on a multicore machine.
 When it is larger than the number of available cores, the number of available cores is used and a warning is given.}
@@ -173,8 +179,10 @@ for the scoring of \pkg{orthologr} <= 0.4.3 (no substitution matrix). See \code{
 reproduce dN/dS values computed with earlier versions.}
 
 \item{kaks_tool}{the program that computes the KaKs_Calculator methods (\code{dnds_est.method} = \code{"NG"}, \code{"LWL"},
-\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the external
-program) or \code{"coal"} (COAL's implementation of these methods, no external program; see \code{\link{substitutionrate}}).
+\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}, and \code{"GY"} with a COAL that has it):
+\code{"kaks_calculator"} (Default; the external program) or \code{"coal"} (COAL's implementation of these methods,
+no external program; see \code{\link{substitutionrate}}). COAL's \code{"GY"} is not KaKs_Calculator's: see
+\code{dnds_est.method}.
 \code{"Comeron"} and \code{"Li"} are computed by \pkg{orthologr}'s own code with either value (\code{kaks_tool}
 does not change them); \code{engine = "coal"} computes them with COAL's ports, which give the same values for the
 same codon alignment.}
@@ -184,8 +192,8 @@ dN/dS estimation with the tools chosen above, with intermediate files per pair).
 \code{\link{dNdS_coal}}: orthologs are detected as usual, then all gene pairs are aligned and estimated by COAL in one
 call, in memory and on \code{comp_cores} threads. \code{engine = "coal"} needs the package \pkg{coalr}, a
 \code{dnds_est.method} that COAL computes (\code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"},
-\code{"YN"}, \code{"MYN"}; and \code{"Comeron"} - the default method - and \code{"Li"} with a \pkg{coalr} that has
-them, see \code{\link{dNdS_coal}}), \code{ortho_detection} \code{"RBH"} or \code{"BH"}, and ignores
+\code{"YN"}, \code{"MYN"}; and \code{"Comeron"} - the default method - \code{"Li"} and \code{"GY"} with a
+\pkg{coalr} that has them, see \code{\link{dNdS_coal}}), \code{ortho_detection} \code{"RBH"} or \code{"BH"}, and ignores
 \code{aa_aln_type}, \code{aa_aln_tool}, \code{codon_aln_tool}, \code{kaks_tool} and \code{store_locally}. It
 returns the same table, with the same attributes.}
 
@@ -321,7 +329,8 @@ The \code{dNdS()} function can be used choosing the folllowing options:
 \item "MLWL" (Modified LWL), MLPB (Modified LPB): Tzeng, Y.H., et al. (2004)
 \item "YN": Yang, Z. and Nielsen, R. (2000)
 \item "MYN" (Modified YN): Zhang, Z., et al. (2006)
-\item "GY", "GMYN", "MS", "MA" and "ALL" (KaKs_Calculator only; see the argument \code{dnds_est.method})
+\item "GY" (KaKs_Calculator, or COAL with \code{engine = "coal"} / \code{kaks_tool = "coal"} and other values; see
+the argument \code{dnds_est.method}); "GMYN", "MS", "MA" and "ALL" (KaKs_Calculator only)
 }
 
 }
@@ -340,6 +349,9 @@ not defined: the two sequences differ at so many sites of a class that the numbe
 estimated. A pair that is saturated at synonymous sites usually still has its dN;}
 \item{\code{"no_data"}}{the pair has no codons that can be compared (reported by \code{engine = "coal"}; the
 programs of \code{engine = "orthologr"} do not tell this case from \code{"saturated"});}
+\item{\code{"not_converged"}}{COAL reports that its iteration (\code{"YN"}, \code{"MYN"}) or optimisation
+(\code{"GY"}) did not converge: there is no estimate, dN, dS and dNdS are \code{NA} (\code{engine = "coal"},
+\code{kaks_tool = "coal"}; up to 0.6.0 such a pair had the status \code{"saturated"});}
 \item{\code{"failed"}}{a step of the pipeline failed for the pair, or KaKs_Calculator printed \code{nan} for
 its estimate (see \code{\link{substitutionrate}}); the reason is in \code{attr(result, "failed_pairs")} (with
 \code{dnds_est.method = "ALL"} also the method, in the column \code{method}).}
@@ -347,7 +359,7 @@ its estimate (see \code{\link{substitutionrate}}); the reason is in \code{attr(r
 KaKs_Calculator does not report whether the iteration of \code{"YN"} or \code{"MYN"} converged: such a pair has
 the values of the last round and status \code{"ok"} (about 3\% of the estimates of distant yeasts, all with dS
 above 1.4; see \code{\link{substitutionrate}}, section "Saturation (KaKs_Calculator methods)"). \code{kaks_tool = "coal"} or
-\code{engine = "coal"} computes these methods and reports such pairs as not converged.
+\code{engine = "coal"} computes these methods and reports such pairs with the status \code{"not_converged"}.
 At the end of a run one message gives the numbers by status and the median dS, and says so when a large part of
 the pairs is saturated or the median dS is above 1.5: the two species are then too distant for pairwise dN/dS
 (S. cerevisiae against C. glabrata: 72 \% of 4,164 pairs saturated, median dS of the others 1.9).

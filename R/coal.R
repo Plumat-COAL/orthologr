@@ -4,55 +4,82 @@
 # COAL is optional. It is used in process through the R package 'coalr' when that is installed, otherwise through
 # the 'coal-cpp' program (part of the Python package 'coal-align').
 
-# The Ka/Ks methods every COAL computes (KaKs_Calculator's names).
-coal_kaks_calculator_methods <- function() {
-        c("NG", "LWL", "MLWL", "LPB", "MLPB", "YN", "MYN")
+# Which methods COAL computes is in dnds_method_registry() (column 'coal'): seven of KaKs_Calculator's methods
+# always; "Comeron" and "Li" (orthologr's own methods) and "GY" only with a COAL that has them - asked of the COAL at
+# hand, never by its version number (a pinned development coalr reports 0.6.0.9000 without GY).
+
+# The coalr that has everything orthologr uses (a release tag of COAL), for the install hints.
+coalr_install_hint <- function() {
+        "remotes::install_github(\"Plumat-COAL/COAL/packaging/r/coalr@v0.6.0\")"
 }
 
-# The methods of orthologr itself that newer versions of COAL also compute: "Comeron" (as gestimator) and "Li"
-# (as seqinr::kaks()).
-coal_native_methods <- function() {
-        c("Comeron", "Li")
-}
-
-# Does the COAL at hand compute Comeron's and Li's method? coalr says so in coal_info()$methods; the coal-cpp
-# program in its help text. FALSE when there is no COAL at all. The answer is remembered for the session.
-coal_has_native_methods <- function() {
+# Does the COAL at hand have a feature? `what`: "native" (Comeron's and Li's method: coalr::coal_info()$methods
+# lists both; the coal-cpp program mentions --comeron-flavour in `coal dnds --help`) or "gy" (Goldman & Yang's
+# maximum likelihood estimate: coalr::coal_info()$features lists "gy94_ml"; the coal-cpp program lists GY among the
+# methods of `coal dnds --help`). FALSE when there is no COAL at all. The answer is remembered for the session, per
+# backend and program.
+coal_has <- function(what = c("native", "gy")) {
+        what <- match.arg(what)
         backend <- tryCatch(coal_backend(), error = function(e) NULL)
         if (is.null(backend))
                 return(FALSE)
-        key <- paste0("coal_native\r", backend$type, "\r", if (is.null(backend$path)) "" else backend$path)
+        key <- paste0("coal_", what, "\r", backend$type, "\r", if (is.null(backend$path)) "" else backend$path)
         hit <- .orthologr_state[[key]]
         if (!is.null(hit))
                 return(hit)
         res <- if (backend$type == "coalr") {
-                isTRUE(tryCatch(all(is.element(coal_native_methods(), coalr::coal_info()$methods)), error = function(e) FALSE))
+                if (what == "native")
+                        isTRUE(tryCatch(all(is.element(coal_native_methods(), coalr::coal_info()$methods)), error = function(e) FALSE))
+                else
+                        is.element("gy94_ml", coal_features())
         } else {
                 help <- tryCatch(run_tool(basename(backend$path), args = list("dnds", "--help"), path = dirname(backend$path),
                                           error = FALSE), error = function(e) NULL)
-                any(grepl("comeron-flavour", c(help$stdout, help$stderr), fixed = TRUE))
+                txt <- c(help$stdout, help$stderr)
+                if (what == "native")
+                        any(grepl("comeron-flavour", txt, fixed = TRUE))
+                else
+                        # (the line of -m: "-m METHOD  YN (default), NG, LWL, MLWL, LPB, MLPB, MYN, GY, Comeron ...")
+                        any(grepl("-m METHOD", txt, fixed = TRUE) & grepl("(^|[^A-Za-z])GY([^A-Za-z]|$)", txt))
         }
         .orthologr_state[[key]] <- res
         res
 }
+coal_has_native_methods <- function() coal_has("native")
+coal_has_gy <- function() coal_has("gy")
 
-# The methods the COAL at hand computes: KaKs_Calculator's seven and, with a COAL that has them, "Comeron" and "Li".
+# The methods the COAL at hand computes: the seven KaKs_Calculator methods every COAL has and, with a COAL that has
+# them, "GY", "Comeron" and "Li" (in the order of dnds_method_registry()).
 coal_methods <- function() {
-        c(coal_kaks_calculator_methods(), if (coal_has_native_methods()) coal_native_methods())
+        dnds_methods(coal = c("always", if (coal_has_native_methods()) "native", if (coal_has_gy()) "gy"))
+}
+
+# The methods among `methods` that COAL could compute but the COAL at hand does not, with what is missing:
+# a named character vector, method -> requirement (empty when nothing is missing).
+coal_method_missing <- function(methods) {
+        need <- c(native = "Comeron's and Li's method (coalr >= 0.5.0 whose coalr::coal_info()$methods lists \"Comeron\" and \"Li\")",
+                  gy = "Goldman & Yang's maximum likelihood estimate (coalr >= 0.6.0 whose coalr::coal_info()$features lists \"gy94_ml\", or a coal-cpp whose 'coal dnds --help' lists GY)")
+        r <- dnds_method_registry()
+        kind <- r$coal[match(methods, r$method)]
+        miss <- (kind %in% "native" & !coal_has_native_methods()) | (kind %in% "gy" & !coal_has_gy())
+        stats::setNames(unname(need[kind[miss]]), methods[miss])
 }
 
 # Stop unless COAL computes all `methods`; `what` names the caller for the message ("engine = \"coal\"").
-coal_check_methods <- function(methods, what, other = "engine = \"orthologr\"") {
+#   other   : what computes the methods COAL never computes
+#   methods_of_what : the methods `what` takes at all (default: every method COAL can compute)
+coal_check_methods <- function(methods, what, other = "engine = \"orthologr\"",
+                               methods_of_what = dnds_methods(coal = c("always", "native", "gy"))) {
         if (!is.character(methods) || length(methods) < 1 || anyNA(methods))
                 orthologr_abort(class = "bad_argument", "dnds_est.method must be the name of a method.", call. = FALSE)
-        known <- c(coal_kaks_calculator_methods(), coal_native_methods())
+        known <- methods_of_what
         unknown <- setdiff(methods, known)
+        q <- function(x) paste0("\"", x, "\"", collapse = ", ")
         if (length(unknown) > 0) {
                 # (U09) "only available with <other>" only for the methods the other engine / tool has; a name that is
                 # no method at all is said to be one, with the method it probably meant
-                elsewhere <- unknown[is.element(unknown, c("Comeron", "Li", kaks_calculator_methods()))]
+                elsewhere <- unknown[is.element(unknown, dnds_methods())]
                 none <- setdiff(unknown, elsewhere)
-                q <- function(x) paste0("\"", x, "\"", collapse = ", ")
                 orthologr_abort(class = "bad_argument", what, " computes dnds_est.method = ", q(known), ".",
                      if (length(elsewhere) > 0) paste0(" ", q(elsewhere), if (length(elsewhere) > 1) " are" else " is",
                                                        " only available with ", other, "."),
@@ -60,15 +87,16 @@ coal_check_methods <- function(methods, what, other = "engine = \"orthologr\"") 
                                                   " of either.", if (length(none) == 1) dnds_method_hint(none) else ""),
                      call. = FALSE)
         }
-        if (any(is.element(methods, coal_native_methods())) && !coal_has_native_methods()) {
+        miss <- coal_method_missing(methods)
+        if (length(miss) > 0) {
                 have <- tryCatch(as.character(utils::packageVersion("coalr")), error = function(e) NULL)
-                orthologr_abort(class = "package_missing", what, ": dnds_est.method = \"", paste(intersect(methods, coal_native_methods()), collapse = "\", \""),
-                     "\" needs a COAL that computes Comeron's and Li's method (coalr >= 0.5.0 whose ",
-                     "coalr::coal_info()$methods lists \"Comeron\" and \"Li\"; ",
-                     if (is.null(have)) "coalr is not installed" else paste0("the installed coalr ", have, " does not"),
-                     "). Update it with remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\"), ",
-                     "choose one of ", paste0("\"", coal_kaks_calculator_methods(), "\"", collapse = ", "),
-                     ", or use ", other, ".", call. = FALSE)
+                backend <- tryCatch(coal_backend()$type, error = function(e) NULL)
+                orthologr_abort(class = "package_missing", what, ": dnds_est.method = ", q(names(miss)),
+                     " needs a COAL that computes ", paste(unique(miss), collapse = " and "), "; ",
+                     if (identical(backend, "binary")) "the coal-cpp program in use does not" else
+                             if (is.null(have)) "coalr is not installed" else paste0("the installed coalr ", have, " does not"),
+                     ". Update it with ", coalr_install_hint(), ", choose one of ",
+                     q(intersect(known, coal_methods())), ", or use ", other, ".", call. = FALSE)
         }
         invisible(methods)
 }
@@ -125,7 +153,7 @@ coal_flavour_args <- function(fun, methods = NULL) {
                                "does not list \"comeron_min_sites_positive\"): its Comeron can differ from engine = ",
                                "\"orthologr\" (codons that differ at two positions, small site classes; e.g. dS = 0 ",
                                "instead of NA). Install a current coalr: ",
-                               "remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\").", call. = FALSE)
+                               coalr_install_hint(), ".", call. = FALSE)
         args[intersect(names(args), have)]
 }
 
@@ -256,7 +284,7 @@ coal_orthologr_values <- function(tbl) {
 coal_install_message <- function() {
         paste0(
                 "COAL is not available. Install its R package (recommended; runs inside R, no other program needed):\n",
-                "    remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\")\n",
+                "    ", coalr_install_hint(), "\n",
                 "or put COAL's 'coal-cpp' program on the PATH (pip install coal-align; ",
                 "or set options(orthologr.coal_path = \"/path/to/coal-cpp\"))."
         )
@@ -278,7 +306,7 @@ coal_backend <- function(need = NULL) {
         if (identical(forced, "coalr") || identical(need, "coalr"))
                 orthologr_abort(class = "package_missing",
                         "This needs the R package 'coalr' (COAL's C++ engine inside R). Install it with:\n",
-                        "    remotes::install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\")",
+                        "    ", coalr_install_hint(),
                         call. = FALSE
                 )
 
@@ -412,40 +440,40 @@ coal_codon_rows <- function(rows, cds, context) {
         )
 }
 
-# kaks_tool = "coal" with a method that is neither one of the seven KaKs_Calculator methods COAL computes nor one
-# of orthologr's own (Comeron, Li, which are computed by orthologr whatever kaks_tool is).
+# kaks_tool = "coal" with a method that is neither one of the KaKs_Calculator methods COAL computes nor one of
+# orthologr's own (Comeron, Li, which are computed by orthologr whatever kaks_tool is).
 kaks_tool_coal_abort <- function(arg, method) {
         orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" computes the methods ",
-                        paste(coal_kaks_calculator_methods(), collapse = ", "), " (Comeron and Li are computed by ",
-                        "orthologr itself, with either kaks_tool); ", arg, " = \"", paste(method, collapse = "\", \""),
+                        paste(coal_kaks_methods(), collapse = ", "), " (GY with a COAL that has it; Comeron and Li are ",
+                        "computed by orthologr itself, with either kaks_tool); ", arg, " = \"", paste(method, collapse = "\", \""),
                         "\" needs kaks_tool = \"kaks_calculator\".", call. = FALSE)
 }
 
 # Ka/Ks of a two-sequence codon alignment file with COAL: the table substitutionrate() returns for the
-# KaKs_Calculator methods (query_id, subject_id, dN, dS, dNdS, method). Only for these seven methods:
-# substitutionrate() computes Comeron and Li with orthologr's own code whatever kaks_tool is.
+# KaKs_Calculator methods (query_id, subject_id, dN, dS, dNdS, method). Only for the KaKs_Calculator methods COAL
+# computes (coal_kaks_methods()): substitutionrate() computes Comeron and Li with orthologr's own code whatever
+# kaks_tool is.
+# COAL's status of the pair ("ok", "warning", "not_converged", "saturated", "no_data") is the attribute
+# "engine_status" of the table: compute_dnds() carries it to dNdS(), which reports an estimate that did not
+# converge as status "not_converged" (up to 0.6.0 such a pair was reported as "saturated").
 coal_kaks_file <- function(file, est.method, subst_name = NULL) {
         query_id <- NULL
-        coal_check_methods(est.method, "kaks_tool = \"coal\"", other = "kaks_tool = \"kaks_calculator\"")
-        if (!is.element(est.method, coal_kaks_calculator_methods()))
+        coal_check_methods(est.method, "kaks_tool = \"coal\"", other = "kaks_tool = \"kaks_calculator\"",
+                           methods_of_what = c(coal_native_methods(), coal_kaks_methods()))
+        if (!is.element(est.method, coal_kaks_methods()))
                 orthologr_abort(class = "bad_argument", "coal_kaks_file() computes the KaKs_Calculator methods ",
-                                paste(coal_kaks_calculator_methods(), collapse = ", "), "; \"", est.method,
+                                paste(coal_kaks_methods(), collapse = ", "), "; \"", est.method,
                                 "\" is computed by substitutionrate() itself.", call. = FALSE)
         backend <- coal_backend()
         context <- pair_context(file, subst_name)
         seqs <- read_fasta_strings(file)
         if (length(seqs) != 2)
-                stop("The codon alignment of ", context, " must hold two sequences, but '", file, "' holds ",
-                     length(seqs), ".", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The codon alignment of ", context, " must hold two sequences, but '",
+                                file, "' holds ", length(seqs), ".", call. = FALSE)
 
         if (backend$type == "coalr") {
                 k <- do.call(coalr::coal_kaks, c(list(seqs[[1]], seqs[[2]], method = est.method),
                                                  coal_flavour_args(coalr::coal_kaks, est.method)))
-                if (identical(k$status[1], "error"))
-                        stop("COAL could not estimate dN/dS for ", context, ": ", k$note[1], call. = FALSE)
-                k <- coal_orthologr_values(k)
-                res <- data.table::data.table(query_id = names(seqs)[1], subject_id = names(seqs)[2],
-                                              dN = k$dN[1], dS = k$dS[1], dNdS = k$dNdS[1], method = k$method[1])
         } else {
                 calc_dir <- file.path(orthologr_tmpdir(), "_calculation")
                 if (!file.exists(calc_dir))
@@ -461,15 +489,16 @@ coal_kaks_file <- function(file, est.method, subst_name = NULL) {
                                 context = context, output = out_file)
                 k <- utils::read.delim(out_file, sep = "\t", quote = "", na.strings = "NA", stringsAsFactors = FALSE)
                 if (nrow(k) < 1)
-                        stop("COAL returned no result for ", context, ".", call. = FALSE)
-                if (identical(k$status[1], "error"))
-                        stop("COAL could not estimate dN/dS for ", context, ": ", k$note[1], call. = FALSE)
-                k <- coal_orthologr_values(k)
-                res <- data.table::data.table(query_id = names(seqs)[1], subject_id = names(seqs)[2],
-                                              dN = as.numeric(k$dN[1]), dS = as.numeric(k$dS[1]),
-                                              dNdS = as.numeric(k$dNdS[1]), method = as.character(k$method[1]))
+                        orthologr_abort(class = "tool_failed", "COAL returned no result for ", context, ".", call. = FALSE)
         }
+        if (identical(k$status[1], "error"))
+                orthologr_abort(class = "tool_failed", "COAL could not estimate dN/dS for ", context, ": ", k$note[1], call. = FALSE)
+        k <- coal_orthologr_values(k)
+        res <- data.table::data.table(query_id = names(seqs)[1], subject_id = names(seqs)[2],
+                                      dN = as.numeric(k$dN[1]), dS = as.numeric(k$dS[1]),
+                                      dNdS = as.numeric(k$dNdS[1]), method = as.character(k$method[1]))
         data.table::setkey(res, query_id)
+        data.table::setattr(res, "engine_status", as.character(k$status[1]))
         return(res)
 }
 
@@ -508,8 +537,11 @@ cds_vector <- function(cds_dt) {
 #' KaKs_Calculator 2.0's for the same codon alignment. Several methods can be given; the result then has one row
 #' per gene pair and method.
 #' \code{"Comeron"} and \code{"Li"} - the two methods \pkg{orthologr} computes itself - are available when the
-#' installed \pkg{coalr} lists them in \code{coalr::coal_info()$methods} (coalr >= 0.5.0); otherwise an error
-#' says so. See Details.
+#' installed \pkg{coalr} lists them in \code{coalr::coal_info()$methods} (coalr >= 0.5.0), \code{"GY"} (Goldman and
+#' Yang 1994, maximum likelihood) when \code{coalr::coal_info()$features} lists \code{"gy94_ml"} (coalr >= 0.6.0);
+#' otherwise an error says so. COAL's GY uses F3x4 codon frequencies and is fitted as PAML codeml's pairwise
+#' estimate; it is not KaKs_Calculator's GY (GY-HKY), so its values differ from those of
+#' \code{dNdS(dnds_est.method = "GY")} with KaKs_Calculator. See Details.
 #' @param aa_aln_scoring how the pairwise protein alignment is scored:
 #' \itemize{
 #' \item \code{"pwalign"} (Default): the scoring of \code{\link{pairwise_aln}} (BLOSUM62, gap opening 10, gap
@@ -555,7 +587,8 @@ cds_vector <- function(cds_dt) {
 #' protein identity, status and note) is attached as \code{attr(result, "coal")}.
 #'
 #' This function needs the R package \pkg{coalr}:
-#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+#' \code{remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.0")} (COAL's release 0.6.0; a newer
+#' release works as well).
 #'
 #' \strong{The same run with the COAL command line, and the other way.} The record of the run,
 #' \code{attr(result, "orthologr_run")}, has in \code{engine_settings} what orthologr gave COAL (\code{preset},
@@ -699,7 +732,7 @@ dNdS_coal <- function(query_file,
         coal_raw <- coal_tbl
         coal_tbl <- coal_orthologr_values(coal_tbl)
 
-        # (.coal_status / .coal_note: what COAL said about the row; used for the column 'status' and removed)
+        # (.coal_status: what COAL said about the row; used for the column 'status' and removed)
         dNdS_tbl <- data.table::data.table(
                 query_id   = coal_tbl$seq1,
                 subject_id = coal_tbl$seq2,
@@ -707,8 +740,7 @@ dNdS_coal <- function(query_file,
                 dS         = coal_tbl$dS,
                 dNdS       = coal_tbl$dNdS,
                 method     = coal_tbl$method,
-                .coal_status = as.character(coal_tbl$status),
-                .coal_note   = as.character(coal_tbl$note)
+                .coal_status = as.character(coal_tbl$status)
         )
         data.table::setkeyv(dNdS_tbl, c("query_id", "subject_id"))
         dNdS_tbl <- tibble::as_tibble(dNdS_tbl)
@@ -728,7 +760,7 @@ dNdS_coal <- function(query_file,
         }
 
         # as dNdS(): Comeron's and Li's method have no 'method' column (one method only: several methods keep it)
-        if (length(dnds_est.method) == 1 && is.element(dnds_est.method, coal_native_methods()))
+        if (length(dnds_est.method) == 1 && is.element(dnds_est.method, dnds_methods(kind = "own")))
                 dNdS_tbl$method <- NULL
 
         # joined with the hit table by the pair (query_id and subject_id), as dNdS() does
@@ -737,16 +769,13 @@ dNdS_coal <- function(query_file,
         # The end of the run, as in dNdS(): the status of every row (last column), the attributes
         # "dropped_sequences", "failed_pairs", "coal" (COAL's own table) and "orthologr_run", one summary message.
         engine_status <- res[[".coal_status"]]
-        note <- res[[".coal_note"]]
         res[[".coal_status"]] <- NULL
-        res[[".coal_note"]] <- NULL
         trimmed <- trimmed_table()
         ambiguous <- ambiguous_table()
         stops <- stop_codon_table()
         res <- dnds_finish(
                 res, failed_pairs = failed, dropped = end_dropped(), ambiguous = ambiguous, engine_status = engine_status, trimmed = trimmed,
                 stops = stops,
-                not_converged = sum(grepl("not converge|did not converge|no convergence", note, ignore.case = TRUE)),
                 record = list(fun = "dNdS_coal", args = run_args, engine = "coal",
                               tools = c(run_tool_versions(aligner = aligner, aligner_path = aligner_path), coal_versions()),
                               files = c(query_file, subject_file),
@@ -772,8 +801,9 @@ dNdS_coal <- function(query_file,
 #' with these two columns first, or the path to such a tab-separated file. If \code{clusters = NULL} (Default),
 #' \code{\link{deepclust}} is run on \code{cds_file}.
 #' @param dnds_est.method the dN/dS estimation method(s): \code{"YN"} (Default), \code{"NG"}, \code{"LWL"},
-#' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"} or \code{"MYN"}. \code{"Comeron"} and \code{"Li"} with a \pkg{coalr} that
-#' has them (see \code{\link{dNdS_coal}}; values as \code{\link{substitutionrate}} returns them).
+#' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"} or \code{"MYN"}. \code{"Comeron"}, \code{"Li"} and \code{"GY"} with a
+#' \pkg{coalr} that has them (see \code{\link{dNdS_coal}}; Comeron and Li as \code{\link{substitutionrate}} returns
+#' them).
 #' @param aa_aln_tool how the proteins of clusters with three or more members are aligned:
 #' \itemize{
 #' \item \code{"clustalo"} (Default): one Clustal Omega multiple alignment per cluster;
@@ -800,7 +830,8 @@ dNdS_coal <- function(query_file,
 #' @param ... additional arguments passed to \code{\link{deepclust}} when \code{clusters = NULL}
 #' (e.g. \code{approx_id}, \code{mutual_cover}).
 #' @details This function needs the R package \pkg{coalr}:
-#' \code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+#' \code{remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.0")} (COAL's release 0.6.0; a newer
+#' release works as well).
 #' A gene, pair or cluster that cannot be used never ends the run: see the \code{status} and \code{note} columns and
 #' the \code{failed} table.
 #' @author Chloe Newton
@@ -810,14 +841,15 @@ dNdS_coal <- function(query_file,
 #' \code{method}, \code{dN}, \code{dS}, \code{dNdS}, standard errors, numbers of sites and differences,
 #' \code{codons_compared}, \code{prot_aln_length}, \code{prot_identity}, \code{status} and \code{note};
 #' \item \code{summary}: one row per cluster and method: \code{cluster_id}, \code{n_members}, \code{n_used},
-#' \code{method}, \code{pair_selection}, \code{aligner}, \code{n_pairs}, \code{n_ok}, \code{n_saturated},
-#' \code{n_no_data}, \code{n_failed}, \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
+#' \code{method}, \code{pair_selection}, \code{aligner}, \code{n_pairs}, \code{n_ok}, \code{n_not_converged},
+#' \code{n_saturated}, \code{n_no_data}, \code{n_failed} (the pairs by their \code{status} in the table \code{pairs},
+#' see \code{\link{dNdS}}, section "Status of a gene pair"; up to 0.6.0 COAL's own counts), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
 #' and a dN/dS value), and median, mean, quartiles (\code{_q25}, \code{_q75}), minimum and maximum of dN, dS and
 #' dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
 #' cluster that have a dN (dS, dN/dS) value, whatever their status - a pair with status \code{"saturated"} that
 #' has a dN counts with it. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the numbers behind the statistics
-#' (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule and the
-#' same column names (the names of \pkg{coalr}'s summary), but has no minimum and maximum.
+#' (\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rules and the
+#' same column names (the names of \pkg{coalr}'s summary).
 #' The column \code{status} of the summary: \code{"ok"} (at least one pair has an estimate), \code{"failed"} (no
 #' estimate, and a pair failed or the cluster could not be aligned), \code{"saturated"} / \code{"no_data"} /
 #' \code{"not_converged"} (no estimate because the pairs are saturated, have no codons to compare or did not
@@ -892,18 +924,7 @@ dNdS_clusters <- function(cds_file,
                 cds_vector(read.cds(file = f, format = "fasta", delete_corrupt_cds = delete_corrupt_cds))
         }))
 
-        msa_aligner <- NULL
-        if (aa_aln_tool != "pairwise") {
-                exe <- if (is.null(aa_aln_path)) NULL else {
-                        if (dir.exists(aa_aln_path)) file.path(aa_aln_path, aa_aln_tool) else aa_aln_path
-                }
-                msa_aligner <- tryCatch(
-                        coalr::coal_msa_aligner(aa_aln_tool, path = exe, threads = 1),
-                        error = function(e) stop(conditionMessage(e),
-                                                 "\nOr use aa_aln_tool = \"pairwise\" (no external program needed).",
-                                                 call. = FALSE)
-                )
-        }
+        msa_aligner <- if (aa_aln_tool != "pairwise") coal_msa_aligner_for(aa_aln_tool, aa_aln_path) else NULL
 
         message("Estimating dN/dS within ", length(unique(clusters[[1]])), " clusters with COAL ...")
         res <- do.call(coalr::coal_dnds_clusters, c(list(
@@ -923,26 +944,27 @@ dNdS_clusters <- function(cds_file,
         pairs <- coal_orthologr_values(res$pairs)
         names(pairs)[names(pairs) == "seq1"] <- "query_id"
         names(pairs)[names(pairs) == "seq2"] <- "subject_id"
-        # the statistics of the summary by the rule of dNdS_orthogroups(): over all pairs that have the value
+        # the column 'status' in the words used by all dN/dS functions (see ?dNdS, "Status of a gene pair"; COAL's
+        # own words are "ok", "warning", "not_converged", "saturated", "no_data", "error")
+        has_status <- nrow(pairs) > 0 && all(is.element(c("dN", "dS", "dNdS", "status"), names(pairs)))
+        status <- if (has_status) dnds_status(pairs$dN, pairs$dS, pairs$dNdS, engine_status = pairs$status) else NULL
+        # the summary by the rules of dNdS_orthogroups(): the statistics over all pairs that have the value, the
+        # counts by the status of the pairs as the table 'pairs' gives it (coalr counts COAL's own statuses)
         res$summary <- dnds_cluster_summary_stats(res$summary, pairs)
+        if (has_status)
+                res$summary <- dnds_cluster_status_counts(res$summary, pairs, status)
         res$summary <- dnds_cluster_status(res$summary)
 
         if (nrow(res$failed) > 0)
                 message(nrow(res$failed), " gene(s) or cluster(s) could not be used; see the 'failed' table of the result.")
 
-        # the column 'status' in the words used by all dN/dS functions (see ?dNdS, "Status of a gene pair"; COAL's
-        # own words are "ok", "saturated", "no_data", "warning", "error"), one summary message, the record of the run
-        if (nrow(pairs) > 0 && all(is.element(c("dN", "dS", "dNdS", "status"), names(pairs)))) {
-                not_converged <- if (is.element("note", names(pairs)))
-                        sum(grepl("not converge|did not converge|no convergence", pairs$note, ignore.case = TRUE)) else 0
-                status <- dnds_status(pairs$dN, pairs$dS, pairs$dNdS, engine_status = pairs$status)
+        # one summary message, the record of the run
+        if (has_status) {
                 if (dnds_status_column())
                         pairs$status <- status
-                message(dnds_summary_text(status, dS = pairs$dS, not_converged = not_converged, fun = "dNdS_clusters()",
+                message(dnds_summary_text(status, dS = pairs$dS, fun = "dNdS_clusters()",
                                           what = paste0("gene pairs in ", length(unique(pairs$cluster_id)), " clusters"),
                                           failed_where = "the column 'note' of the table 'pairs'"))
-        } else {
-                status <- NULL
         }
 
         out <- list(
@@ -959,6 +981,20 @@ dNdS_clusters <- function(cds_file,
                 settings = coal_engine_settings("coal_dnds_clusters", coalr::coal_dnds_clusters, list(
                         methods = dnds_est.method, preset = aa_aln_scoring), mode = "clusters"))
         out
+}
+
+# The multiple alignment program of coalr (coalr::coal_msa_aligner()) for dNdS_clusters() and
+# dNdS_orthogroups(engine = "coal"). `aa_aln_path`: NULL (the program on the PATH), the program, or the folder that
+# holds it - there it is found as every other program of orthologr is (tool_command(): on Windows also
+# '<tool>.exe'; a folder used to be turned into '<folder>/clustalo', which does not exist on Windows).
+coal_msa_aligner_for <- function(aa_aln_tool, aa_aln_path = NULL) {
+        exe <- if (is.null(aa_aln_path)) NULL else if (dir.exists(aa_aln_path)) tool_command(aa_aln_tool, aa_aln_path) else aa_aln_path
+        tryCatch(
+                coalr::coal_msa_aligner(aa_aln_tool, path = exe, threads = 1),
+                error = function(e) orthologr_abort(class = "tool_missing", conditionMessage(e),
+                                                    "\nOr use aa_aln_tool = \"pairwise\" (no external program needed).",
+                                                    call. = FALSE)
+        )
 }
 
 # The status of a cluster in the summary of dNdS_clusters(), from the numbers of its pairs. COAL calls a cluster
@@ -986,7 +1022,8 @@ dnds_cluster_status <- function(summary) {
         }
         for (i in which(none)) {
                 if (n_fail[i] == 0) {
-                        summary$status[i] <- if (n_sat[i] > 0) "saturated" else if (n_nd[i] > 0) "no_data" else "not_converged"
+                        summary$status[i] <- if (n_sat[i] > 0) "saturated" else if (n_nd[i] > 0) "no_data" else
+                                if (n_nc[i] > 0) "not_converged" else summary$status[i]
                 }
                 if (empty_note[i])
                         summary$note[i] <- words(i)
@@ -1019,6 +1056,40 @@ dnds_value_stats <- function(pairs, by, stats = c("median", "mean", "q25", "q75"
                                 out[[paste0(v, "_", f)]] <- fun[[f]](as.numeric(get(v)))
                 out
         }, by = by]
+}
+
+# The number of pairs by status for each group of `keys` (a data.frame of the grouping columns, one row per pair, e.g.
+# cluster_id and method), `status` the status of every pair (dnds_status()): a data.table with the columns of `keys`
+# and n_ok, n_dS_zero, n_saturated, n_no_data, n_not_converged, n_failed - the counts of the summaries of
+# dNdS_clusters() and dNdS_orthogroups(), in the words of the column 'status' of their pair tables.
+dnds_status_count_table <- function(keys, status) {
+        .status <- NULL
+        d <- data.table::as.data.table(keys)
+        by <- names(d)
+        d[[".status"]] <- status
+        d[ , list(n_ok = sum(.status == "ok"), n_dS_zero = sum(.status == "dS_zero"),
+                  n_saturated = sum(.status == "saturated"), n_no_data = sum(.status == "no_data"),
+                  n_not_converged = sum(.status == "not_converged"), n_failed = sum(.status == "failed")), by = by]
+}
+
+# The counts by status of the summary of coalr::coal_dnds_clusters() (n_ok, n_not_converged, n_saturated, n_no_data,
+# n_failed; those it has) from the status of the pairs as dNdS_clusters() returns them (dnds_status()), so that
+# n_ok means what it means in dNdS_orthogroups(): the pairs with status "ok" in the table 'pairs'.
+dnds_cluster_status_counts <- function(summary, pairs, status) {
+        summary <- as.data.frame(summary, stringsAsFactors = FALSE)
+        if (nrow(summary) == 0 || !all(is.element(c("cluster_id", "method"), names(summary))) ||
+            !all(is.element(c("cluster_id", "method"), names(pairs))))
+                return(summary)
+        new <- as.data.frame(dnds_status_count_table(as.data.frame(pairs)[ , c("cluster_id", "method")], status))
+        at <- match(paste(summary$cluster_id, summary$method, sep = "\r"), paste(new$cluster_id, new$method, sep = "\r"))
+        for (col in intersect(c("n_ok", "n_not_converged", "n_saturated", "n_no_data", "n_failed"), names(summary))) {
+                # (a cluster without pairs in the table, e.g. one that was skipped or could not be aligned, keeps
+                # coalr's counts)
+                v <- suppressWarnings(as.integer(summary[[col]]))
+                v[!is.na(at)] <- as.integer(new[[col]][at[!is.na(at)]])
+                summary[[col]] <- v
+        }
+        summary
 }
 
 # The summary of coalr::coal_dnds_clusters() with its dN / dS / dN/dS statistics computed by dnds_value_stats() from

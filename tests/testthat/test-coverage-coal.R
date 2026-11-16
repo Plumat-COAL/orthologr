@@ -62,7 +62,8 @@ test_that("coal_backend() checks options(orthologr.coal_backend) and says how to
         expect_match(conditionMessage(err), "pip install coal-align", fixed = TRUE)
         expect_identical(conditionMessage(err), coal_install_message())
         # methods without COAL: only KaKs_Calculator's seven
-        expect_identical(coal_methods(), coal_kaks_calculator_methods())
+        expect_false(coal_has_gy())
+        expect_identical(coal_methods(), dnds_methods(coal = "always"))
 })
 
 test_that("coal_backend(): the binary backend is used when forced, and 'coalr' is asked for by name", {
@@ -121,7 +122,8 @@ test_that("the binary backend: version, native methods (from the help text) and 
         expect_true(coal_has_native_methods())
         # (the answer is remembered: asked again it comes from the cache)
         expect_true(coal_has_native_methods())
-        expect_identical(coal_methods(), c(coal_kaks_calculator_methods(), coal_native_methods()))
+        expect_true(coal_has_gy())
+        expect_setequal(coal_methods(), c(dnds_methods(coal = "always"), "GY", coal_native_methods()))
         v <- coal_versions()
         expect_identical(v$coal_backend, "binary")
         expect_identical(v$`coal-cpp`, "coal-cpp 0.0.0-fake")
@@ -133,8 +135,11 @@ test_that("the binary backend: a coal-cpp without Comeron and Li says what is ne
         on.exit(restore(), add = TRUE)
         local_fake_coal("nonative")
         expect_false(coal_has_native_methods())
-        expect_identical(coal_methods(), coal_kaks_calculator_methods())
+        expect_false(coal_has_gy())
+        expect_identical(coal_methods(), dnds_methods(coal = "always"))
         expect_error(coal_check_methods("Li", "engine = \"coal\""), "needs a COAL that computes Comeron's and Li's method",
+                     class = "orthologr_error_package_missing")
+        expect_error(coal_check_methods("GY", "kaks_tool = \"coal\""), "the coal-cpp program in use does not",
                      class = "orthologr_error_package_missing")
 })
 
@@ -142,9 +147,9 @@ test_that("coal_check_methods() checks the methods it is given", {
         expect_error(coal_check_methods(1, "x"), class = "orthologr_error_bad_argument")
         expect_error(coal_check_methods(character(0), "x"), class = "orthologr_error_bad_argument")
         expect_error(coal_check_methods(NA_character_, "x"), class = "orthologr_error_bad_argument")
-        expect_error(coal_check_methods(c("YN", "GY", "ML"), "engine = \"coal\"", other = "the other engine"),
-                     "\"GY\" is only available with the other engine. \"ML\" is not a method of either", class = "orthologr_error_bad_argument")
-        expect_invisible(coal_check_methods(coal_kaks_calculator_methods(), "x"))
+        expect_error(coal_check_methods(c("YN", "GMYN", "ML"), "engine = \"coal\"", other = "the other engine"),
+                     "\"GMYN\" is only available with the other engine. \"ML\" is not a method of either", class = "orthologr_error_bad_argument")
+        expect_invisible(coal_check_methods(dnds_methods(coal = "always"), "x"))
 })
 
 test_that("the binary backend: substitutionrate's Ka/Ks of one codon alignment (coal_kaks_file)", {
@@ -182,7 +187,7 @@ test_that("the binary backend: errors of coal-cpp name the gene pair", {
         Sys.setenv(FAKE_COAL_MODE = "ok")
         expect_error(coal_kaks_file(three, "YN"), "must hold two sequences")
         # an unknown method is refused before COAL is started
-        expect_error(coal_kaks_file(f, "GY"), "kaks_tool = \"kaks_calculator\"", class = "orthologr_error_bad_argument")
+        expect_error(coal_kaks_file(f, "GMYN"), "kaks_tool = \"kaks_calculator\"", class = "orthologr_error_bad_argument")
 })
 
 test_that("the binary backend: codon alignments with PAL2NAL's command line (coal_codon_aln_file)", {
@@ -482,7 +487,7 @@ test_that("dNdS_clusters() checks the clusters it is given (coalr)", {
         expect_error(dNdS_clusters(cds, clusters = 1:3), "'clusters' must be", class = "orthologr_error_bad_argument")
         expect_error(dNdS_clusters(cds, clusters = data.frame(a = "x")), "'clusters' must be",
                      class = "orthologr_error_bad_argument")
-        expect_error(dNdS_clusters(cds, clusters = data.frame(r = "x", m = "x"), dnds_est.method = "GY"),
+        expect_error(dNdS_clusters(cds, clusters = data.frame(r = "x", m = "x"), dnds_est.method = "GMYN"),
                      "only available with dNdS\\(\\)", class = "orthologr_error_bad_argument")
 })
 

@@ -5,19 +5,22 @@
 
 # The words used in the column 'status', in the order in which they are counted.
 dnds_status_levels <- function() {
-        c("ok", "dS_zero", "saturated", "no_data", "failed")
+        c("ok", "dS_zero", "saturated", "no_data", "not_converged", "failed")
 }
 
 # The status of gene pairs from their values.
 #   dN, dS, dNdS  : the values of the result
 #   failed        : logical, TRUE for pairs that could not be processed (a program failed; attr "failed_pairs")
-#   engine_status : NULL, or what the engine said about the pair (COAL: "ok", "saturated", "no_data", "error", ...)
+#   engine_status : NULL, or what the engine said about the pair (COAL: "ok", "warning", "not_converged",
+#                   "saturated", "no_data", "error"; NA where the engine said nothing)
 # Both engines are read by the same rule, so that the same pair has the same status with either:
-#   failed    - the pair could not be processed
-#   ok        - there is a dN/dS value
-#   dS_zero   - dN and dS were estimated and dS is 0: the ratio is not defined
-#   no_data   - the engine reports that the pair has no codons to compare
-#   saturated - dN or dS could not be estimated (the correction for multiple substitutions is not defined)
+#   failed        - the pair could not be processed
+#   ok            - there is a dN/dS value
+#   dS_zero       - dN and dS were estimated and dS is 0: the ratio is not defined
+#   no_data       - the engine reports that the pair has no codons to compare
+#   not_converged - the engine reports that its iteration (YN, MYN) or optimisation (GY) did not converge, so
+#                   there is no estimate (COAL; KaKs_Calculator does not report it)
+#   saturated     - dN or dS could not be estimated (the correction for multiple substitutions is not defined)
 dnds_status <- function(dN, dS, dNdS, failed = NULL, engine_status = NULL) {
         dN <- suppressWarnings(as.numeric(dN))
         dS <- suppressWarnings(as.numeric(dS))
@@ -27,6 +30,7 @@ dnds_status <- function(dN, dS, dNdS, failed = NULL, engine_status = NULL) {
         if (!is.null(engine_status)) {
                 engine_status <- as.character(engine_status)
                 status[!is.na(engine_status) & engine_status == "no_data"] <- "no_data"
+                status[!is.na(engine_status) & engine_status == "not_converged"] <- "not_converged"
         }
         status[!is.na(dN) & !is.na(dS) & dS == 0] <- "dS_zero"
         status[is.finite(dNdS)] <- "ok"
@@ -89,11 +93,10 @@ dnds_failed_reason <- function(tbl, failed_pairs) {
 #   status        : the status of every gene pair
 #   dS            : their dS values (for the median)
 #   dropped       : the table of input sequences left out before the search (file, id, reason), or NULL
-#   not_converged : number of pairs for which the engine reported that an iteration did not converge
 #   what          : the unit, e.g. "gene pairs"
 #   species_pair  : NULL (two species, dNdS()), or for every gene pair the species it compares (e.g. "A / B"):
 #                   the note on saturation then names the species pairs with the highest median dS
-dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged = 0, what = "gene pairs", fun = "dNdS()",
+dnds_summary_text <- function(status, dS = NULL, dropped = NULL, what = "gene pairs", fun = "dNdS()",
                               failed_where = "attr(<result>, \"failed_pairs\")", trimmed = NULL, ambiguous_rows = 0,
                               ambiguous_where = "attr(<result>, \"ambiguous_sequences\")", stops = NULL,
                               species_pair = NULL) {
@@ -104,6 +107,7 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
                 if (counts[["dS_zero"]] > 0) paste0(counts[["dS_zero"]], " with dS = 0 (no ratio)"),
                 if (counts[["saturated"]] > 0) paste0(counts[["saturated"]], " saturated (dN or dS not estimable)"),
                 if (counts[["no_data"]] > 0) paste0(counts[["no_data"]], " without codons to compare"),
+                if (counts[["not_converged"]] > 0) paste0(counts[["not_converged"]], " not converged (no estimate)"),
                 if (counts[["failed"]] > 0) paste0(counts[["failed"]], " failed (reasons in ", failed_where, ")")
         )
         # (one gene pair: "1 gene pair")
@@ -116,8 +120,6 @@ dnds_summary_text <- function(status, dS = NULL, dropped = NULL, not_converged =
         med <- if (length(dS) > 0) stats::median(dS) else NA_real_
         if (!is.na(med))
                 txt <- paste0(txt, " Median dS: ", signif(med, 3), ".")
-        if (not_converged > 0)
-                txt <- paste0(txt, " ", not_converged, " not converged (see the notes of the engine).")
         if (!is.null(dropped) && NROW(dropped) > 0) {
                 tab <- table(dropped$reason)
                 txt <- paste0(txt, "\n", nrow(dropped), " input sequence", if (nrow(dropped) > 1) "s were" else " was",
@@ -168,7 +170,7 @@ dnds_ambiguous_rows <- function(tbl, ambiguous) {
 #   record        : list(fun, args, engine, tools, files) for run_record()
 #   trimmed       : data.frame (file, id, removed_nt, corrupted_file) of the sequences trimmed to a multiple of 3,
 #                   or NULL
-dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_converged = 0, record,
+dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, record,
                         print_citation = TRUE, extra_attr = list(), trimmed = NULL, ambiguous = NULL, stops = NULL) {
         status <- dnds_status(res$dN, res$dS, res$dNdS, failed = dnds_is_failed(res, failed_pairs),
                               engine_status = engine_status)
@@ -199,7 +201,7 @@ dnds_finish <- function(res, failed_pairs, dropped, engine_status = NULL, not_co
                         paste0("rows (", n_pairs, if (n_pairs == 1) " gene pair x " else " gene pairs x ",
                                length(unique(stats::na.omit(res$method))), " methods)")
                 })
-        message(dnds_summary_text(status, dS = res$dS, dropped = dropped, not_converged = not_converged,
+        message(dnds_summary_text(status, dS = res$dS, dropped = dropped,
                                   fun = paste0(record$fun, "()"), trimmed = trimmed, what = what,
                                   ambiguous_rows = sum(dnds_ambiguous_rows(res, ambiguous)), stops = stops))
         citation_message(print_citation)
