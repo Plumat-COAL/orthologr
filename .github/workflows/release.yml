@@ -1,0 +1,321 @@
+# Release of orthologr: when a GitHub release with a tag v<version> is published (or by hand), check that the tag is
+# the version of DESCRIPTION and that the first heading of NEWS.md names it, R CMD build the tagged commit, run
+# R CMD check --as-cran on the tarball (Linux), and attach to the release
+#   orthologr_<version>.tar.gz, orthologr_<version>-check.log (the check's 00check.log) and SHA256SUMS.txt.
+# The release notes are written by a person on the release page: this workflow never changes the title or the body.
+# Modelled on COAL's .github/workflows/release.yml (Plumat-COAL/COAL); MAINTAINER_NOTES.md, section 6, has the steps.
+#
+# By hand (Actions > Release > Run workflow): `tag` empty = a dry run of the chosen branch (its DESCRIPTION version;
+# a development version is allowed); `tag` set = that tag; `dry_run` on (the default) = everything but the upload.
+# With dry_run off the release of `tag` must exist already (it is never created here): its files are replaced
+# (--clobber), e.g. after a failed run. "Run workflow" needs this file on the default branch (master); the release
+# event does not: it runs the file of the tagged commit.
+#
+# Where third-party code runs. The build job installs only what R CMD build needs: R, pandoc, the hard dependencies
+# of DESCRIPTION (Depends, Imports, LinkingTo: CRAN and Bioconductor packages, by pak) and knitr and rmarkdown; no
+# Suggests, no Remotes (coalr, metablastr) and no bioconda programs. The vignettes run their examples only when
+# DIAMOND / BLAST+ are on the PATH, so they are built as on CRAN, without results (tested: R CMD build passes without
+# the programs, coalr and metablastr). It uses no cache (cache: false): setup-r-dependencies restores a cache by a
+# key prefix, so it could bring back a library that the check job or R-CMD-check.yaml filled while running untrusted
+# code. The tarball is hashed right after R CMD build and the hash passed on as a job output. The check job runs much more third-party code (bioconda packages, all Suggests, the Remotes - which a
+# release must pin, see release_tools.py version - and the tests; it may use the dependency cache) on a copy, and
+# only its log is published: the files and upload jobs take the build job's tarball and compare it with that hash.
+#
+# Supply chain as in R-CMD-check.yaml: every action is pinned to the full commit SHA of a release (the release in the
+# comment), the token is read-only except in the upload job, and inputs reach the shell through env only.
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag of an existing release, e.g. v0.6.0 (empty: dry run of the chosen branch)"
+        required: false
+        default: ""
+        type: string
+      dry_run:
+        description: "Dry run: build and check, upload nothing"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.event.release.tag_name }}
+  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+
+jobs:
+  version:
+    name: Tag, DESCRIPTION and NEWS.md agree
+    # a release whose tag is not v<...> (e.g. a bundle-* release made by bundle.yml) is none of this workflow's business
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - name: The tag is a release tag (before anything uses it)
+        run: |
+          if [ -z "$TAG" ] && [ "$DRY_RUN" != true ]; then
+            echo "::error::a run that uploads needs the tag of an existing release"; exit 1
+          fi
+          if [ -n "$TAG" ] && [[ ! "$TAG" =~ ^v[0-9]+(\.[0-9]+){1,3}$ ]]; then
+            echo "::error::tag '$TAG' is not v<version>, e.g. v0.6.0"; exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # a release: the commit of its tag (github.sha); by hand with a tag: refs/tags/<tag> (never a branch of the
+          # same name); by hand without one: the chosen branch
+          ref: ${{ github.event_name == 'release' && github.sha || (inputs.tag != '' && format('refs/tags/{0}', inputs.tag) || github.ref) }}
+          persist-credentials: false
+      - name: Self-test of .github/scripts/release_tools.py
+        run: python3 -I -m unittest discover -s .github/scripts -p 'test_*.py' -v
+      - name: Version of DESCRIPTION, first heading of NEWS.md
+        id: v
+        run: |
+          if [ "$DRY_RUN" = true ]; then
+            python3 -I .github/scripts/release_tools.py version "$TAG" --dry-run --github-output
+          else
+            python3 -I .github/scripts/release_tools.py version "$TAG" --github-output
+          fi
+      - name: The commit every later job builds
+        id: sha
+        run: |
+          sha=$(git rev-parse HEAD)
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no commit: '$sha'"; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "building $sha"
+
+  build:
+    name: R CMD build
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      sha256: ${{ steps.hash.outputs.sha256 }}
+    env:
+      V: ${{ needs.version.outputs.version }}
+      GITHUB_PAT: ${{ github.token }}   # setup-r-dependencies: GitHub API limits
+      R_KEEP_PKG_SOURCE: "yes"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          persist-credentials: false
+      # what R CMD build needs and nothing more (see the header): no Suggests, no Remotes, no bioconda programs
+      - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        timeout-minutes: 10
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        timeout-minutes: 15
+        with:
+          r-version: release
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        timeout-minutes: 30
+        with:
+          dependencies: '"hard"'
+          extra-packages: any::knitr any::rmarkdown
+          # no cache: its restore key is a prefix (<os>-<R>-<arch>-<version>-), so a miss could restore a library
+          # saved by the check job or by R-CMD-check.yaml, which ran untrusted code (Suggests, Remotes, tests)
+          cache: false
+      - name: R CMD build
+        timeout-minutes: 30
+        run: |
+          mkdir -p "$RUNNER_TEMP/build"
+          (cd "$RUNNER_TEMP/build" && R CMD build "$GITHUB_WORKSPACE")
+          test -s "$RUNNER_TEMP/build/orthologr_${V}.tar.gz" \
+            || { echo "::error::R CMD build made no orthologr_${V}.tar.gz: $(ls "$RUNNER_TEMP/build")"; exit 1; }
+      - name: SHA-256 of the tarball, right after R CMD build
+        id: hash
+        run: |
+          mkdir -p tarball
+          cp "$RUNNER_TEMP/build/orthologr_${V}.tar.gz" tarball/
+          sum=$(sha256sum "tarball/orthologr_${V}.tar.gz" | cut -d' ' -f1)
+          [[ "$sum" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::no SHA-256"; exit 1; }
+          echo "sha256=$sum" >> "$GITHUB_OUTPUT"
+          echo "orthologr_${V}.tar.gz: $sum"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: tarball
+          path: tarball/
+          if-no-files-found: error
+
+  check:
+    name: R CMD check --as-cran (Linux)
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      V: ${{ needs.version.outputs.version }}
+      SHA256: ${{ needs.build.outputs.sha256 }}
+      GITHUB_PAT: ${{ github.token }}   # setup-r-dependencies: GitHub API limits for the Remotes (coalr, metablastr)
+      R_KEEP_PKG_SOURCE: "yes"
+    steps:
+      # the checkout only gives setup-r-dependencies the DESCRIPTION; the check runs on the build job's tarball
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: tarball
+          path: ${{ runner.temp }}/build
+      # the external programs, as in R-CMD-check.yaml, so that the vignette chunks and tests that need them run
+      - name: Install DIAMOND, BLAST+ and the optional programs
+        timeout-minutes: 20
+        uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2.0.7
+        with:
+          environment-name: orthologr-tools
+          create-args: >-
+            -c conda-forge -c bioconda
+            diamond>=2.1
+            blast
+            clustalo
+            mafft
+            kakscalculator2
+          cache-environment: true
+          init-shell: none
+          generate-run-shell: false
+      - name: Put the programs on the PATH
+        run: |
+          echo "$MAMBA_ROOT_PREFIX/envs/orthologr-tools/bin" >> "$GITHUB_PATH"
+      - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        timeout-minutes: 10
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        timeout-minutes: 15
+        with:
+          r-version: release
+          use-public-rspm: true
+      # Imports, LinkingTo, Suggests (coalr and metablastr from the Remotes field); no rcmdcheck: plain R CMD check
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        timeout-minutes: 40
+        with:
+          needs: check
+      - name: The tarball is the one the build job hashed (just before the check)
+        run: echo "${SHA256}  $RUNNER_TEMP/build/orthologr_${V}.tar.gz" | sha256sum -c
+      - name: R CMD check --as-cran on the tarball
+        timeout-minutes: 75
+        env:
+          # no PDF manual (no LaTeX on the runner), as in R-CMD-check.yaml and COAL's r-package.yml
+          CHECK_ARGS: --as-cran --no-manual
+        run: |
+          mkdir -p "$RUNNER_TEMP/check"
+          cd "$RUNNER_TEMP/check"
+          set +e
+          # shellcheck disable=SC2086 # CHECK_ARGS is two options
+          R CMD check $CHECK_ARGS "$RUNNER_TEMP/build/orthologr_${V}.tar.gz"
+          rc=$?
+          set -e
+          log="orthologr.Rcheck/00check.log"
+          test -s "$log" || { echo "::error::R CMD check wrote no $log (exit $rc)"; exit 1; }
+          status=$(grep -E '^Status: ' "$log" | tail -n 1)
+          echo "R CMD check: exit ${rc}, ${status:-no Status line}"
+          if [ "$rc" -ne 0 ] || [ -z "$status" ] || grep -Eq '^Status: .*(ERROR|WARNING)' "$log"; then
+            echo "::error::R CMD check --as-cran: ${status:-failed (exit $rc)}"; exit 1
+          fi
+          mkdir -p "$GITHUB_WORKSPACE/check-log"
+          cp "$log" "$GITHUB_WORKSPACE/check-log/orthologr_${V}-check.log"
+      - name: The whole check folder, for a failed check
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: orthologr-Rcheck
+          path: ${{ runner.temp }}/check/orthologr.Rcheck/
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: check-log
+          path: check-log/
+          if-no-files-found: error
+
+  # Only GitHub's own artifact action and coreutils run here: the build job's tarball (compared with its hash) and the
+  # check log, with SHA256SUMS.txt; on a dry run too, so a dry run shows exactly what a release would get.
+  files:
+    name: Release files (the built tarball, the check log, SHA256SUMS.txt)
+    needs: [version, build, check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      sums_sha256: ${{ steps.sums.outputs.sha256 }}
+    env:
+      V: ${{ needs.version.outputs.version }}
+      SHA256: ${{ needs.build.outputs.sha256 }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: tarball
+          path: release
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: check-log
+          path: release
+      - name: SHA256SUMS.txt; the tarball is the one the build job hashed
+        id: sums
+        working-directory: release
+        run: |
+          echo "${SHA256}  orthologr_${V}.tar.gz" | sha256sum -c
+          expected=("orthologr_${V}.tar.gz" "orthologr_${V}-check.log")
+          for f in "${expected[@]}"; do test -s "$f" || { echo "::error::missing release file $f"; exit 1; }; done
+          n=$(find . -mindepth 1 -maxdepth 1 | wc -l)
+          test "$n" -eq "${#expected[@]}" || { echo "::error::unexpected files: $(find . -mindepth 1 -maxdepth 1 -printf '%f ')"; exit 1; }
+          printf '%s\n' "${expected[@]}" | LC_ALL=C sort | xargs sha256sum > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+          echo "sha256=$(sha256sum SHA256SUMS.txt | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: release-files
+          path: release/
+          if-no-files-found: error
+
+  upload:
+    name: Attach the files to the GitHub release
+    needs: [version, build, files]
+    if: ${{ github.event_name == 'release' || !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # upload release files; nothing else
+    env:
+      V: ${{ needs.version.outputs.version }}
+      SHA256: ${{ needs.build.outputs.sha256 }}
+      SUMS_SHA256: ${{ needs.files.outputs.sums_sha256 }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: release-files
+          path: release
+      - name: Exactly the three checked files; SHA256SUMS.txt and the tarball are the ones the files and build jobs hashed
+        working-directory: release
+        run: |
+          echo "${SUMS_SHA256}  SHA256SUMS.txt" | sha256sum -c
+          sha256sum -c SHA256SUMS.txt
+          echo "${SHA256}  orthologr_${V}.tar.gz" | sha256sum -c
+          listed=$(cut -d' ' -f3 SHA256SUMS.txt | LC_ALL=C sort | tr '\n' ' ')
+          want=$(printf '%s\n' "orthologr_${V}-check.log" "orthologr_${V}.tar.gz" | LC_ALL=C sort | tr '\n' ' ')
+          [ "$listed" = "$want" ] || { echo "::error::SHA256SUMS.txt lists '$listed', expected '$want'"; exit 1; }
+          n=$(find . -mindepth 1 -maxdepth 1 | wc -l)
+          [ "$n" -eq 3 ] || { echo "::error::unexpected files: $(find . -mindepth 1 -maxdepth 1 -printf '%f ')"; exit 1; }
+      - name: Upload (the title and the notes of the release are left as they are)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          V_TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          if ! gh api "repos/$GH_REPO/releases/tags/$V_TAG" --jq .html_url; then
+            echo "::error::there is no published release $V_TAG: publish it on the release page first"; exit 1
+          fi
+          gh release upload "$V_TAG" --clobber \
+            "release/orthologr_${V}.tar.gz" "release/orthologr_${V}-check.log" release/SHA256SUMS.txt
+          # GitHub's record of the files (name, size, SHA-256 it computed on upload)
+          gh api "repos/$GH_REPO/releases/tags/$V_TAG" --jq '.assets[] | "\(.name)  \(.size)  \(.digest)"'

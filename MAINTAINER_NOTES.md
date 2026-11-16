@@ -158,3 +158,102 @@ The first Actions run on the fork failed before any R code ran: micromamba recei
 double quotes (inside a folded YAML block no shell removes them) and could not parse the version, and pak could
 not match the `Remotes` entry to coalr. Both are corrected (`diamond>=2.1` unquoted in the two workflows; the
 `coalr=` prefix). The later runs pass on all legs (section 3).
+
+## 6. Releases of the fork, and the COAL + orthologr bundle
+
+Two workflows, modelled on COAL's `release.yml`; the checks they share are `.github/scripts/release_tools.py`
+(standard library Python, with its tests in `.github/scripts/test_release_tools.py`, which both workflows run first).
+Every action is pinned to a full commit SHA, the token is read-only except in the one job that writes, and the
+inputs reach the shell through environment variables only. Neither workflow ever writes the notes of an orthologr
+release, and neither runs anything it downloads from a release.
+
+**Where the workflows must be for each way of starting them.** The default branch of this fork is `master`, the
+upstream 0.4.3 line, which the team does not push to.
+
+- The **release event** (publishing a release `v...`) runs the `release.yml` of the tagged commit: it needs no
+  change to `master`, only `release.yml` and `release_tools.py` in the commit that gets tagged.
+- **"Run workflow"** (and `gh workflow run` / the dispatch API) is offered only for a workflow file that is on the
+  default branch; the run then uses the workflow file and the script of the branch chosen in "Use workflow from".
+  So the manual runs of `release.yml` (dry run, re-upload) and **every run of `bundle.yml`, which is started by
+  hand only, cannot happen until `bundle.yml` (and `release.yml`) are on the default branch**; dispatching them
+  now answers HTTP 404. Either merge `.github/workflows/{release,bundle}.yml` and `.github/scripts/` into `master`,
+  or (without touching `master`) switch the default branch (Settings > General > Default branch) to the release
+  branch, e.g. `integration/all`, and pick that branch in "Use workflow from". Switching the default branch also
+  changes what the repository page and a plain `git clone` show.
+
+**`release.yml`** (on a published release with a tag `v<version>`, or by hand). Job `version`: the tag must be `v`
++ the `Version` of `DESCRIPTION` (not a development version, `.9000`) and the first heading of `NEWS.md` must name
+that version; it checks out the tag as `refs/tags/<tag>` (the release event: the event's commit), never a branch of
+the same name; it refuses a `Remotes` entry, or a git / GitHub reference in a `Config/Needs/*` field, that is not
+pinned to `@<40-digit commit SHA>` (a `@v<version>` tag is accepted for `Plumat-COAL/*` repositories only), and any
+`Additional_repositories` field (a dry run only warns). Job `build`: `R CMD build` of that commit, and the SHA-256 of the tarball taken right after the
+build, passed on as a job output. Job `check`: `R CMD check --as-cran --no-manual` of a copy of that tarball,
+compared with the hash first (Linux, R release, with DIAMOND, BLAST+, Clustal Omega, MAFFT and KaKs_Calculator from
+bioconda as in `R-CMD-check.yaml`, and coalr and metablastr from the `Remotes` field); an ERROR or a WARNING fails
+the run, NOTEs do not. Job `files` takes the build job's tarball and the check log, compares the tarball with the
+build job's hash again and writes `SHA256SUMS.txt` (its own hash is a job output); job `upload` checks the hash of
+`SHA256SUMS.txt`, the files against it, the tarball against the build hash and that there are exactly these three
+files, then attaches `orthologr_<version>.tar.gz`, `orthologr_<version>-check.log` (the check's `00check.log`) and
+`SHA256SUMS.txt`, by name, with `gh release upload --clobber`. A release whose tag does not start with `v` (a
+bundle) is ignored. By hand: `tag` empty with `dry_run` on checks the chosen branch; `tag` set with `dry_run` off
+re-attaches the files of an existing release.
+
+Where third-party code runs, and what it can reach:
+
+- Job `build` installs only what `R CMD build` needs: R and pandoc (the pinned r-lib actions), the hard
+  dependencies of `DESCRIPTION` (Depends, Imports, LinkingTo, from CRAN / Bioconductor through pak) and knitr and
+  rmarkdown; no Suggests, no `Remotes` (coalr, metablastr) and no bioconda programs. This code runs before the
+  tarball exists and is hashed. The job uses no package cache (`cache: false`): setup-r-dependencies restores a
+  cache by a key prefix, so on a miss it could restore a library saved by the check job or by `R-CMD-check.yaml`,
+  which ran untrusted code; it installs from CRAN / Bioconductor every time instead. The vignettes run their examples only when DIAMOND or BLAST+ is on the PATH, so they
+  are built as CRAN would build them, as text and code without results (R CMD build of `integration/all` passes
+  without the programs, coalr and metablastr: tested); none of their evaluated chunks uses coalr, metablastr or
+  another Suggests.
+- Job `check` runs much more: the bioconda packages, all Suggests and the `Remotes` (which a release must pin, as
+  above), the package's tests; it may use the dependency cache. Nothing it writes is published except its log; it cannot change the tarball the
+  release gets (the `files` and `upload` jobs compare it with the build job's hash).
+- Jobs `version`, `files` and `upload` run only the repository's own `release_tools.py`, coreutils, `gh` and
+  GitHub's checkout and artifact actions.
+
+To publish orthologr X.Y.Z:
+
+1. `release.yml` and `.github/scripts/` must be in the commit that gets tagged: merge `ci/release` into the release
+   branch first (and see above for the manual runs).
+2. In the release commit: set `Version: X.Y.Z` (and `Date:`) in `DESCRIPTION`; make the first heading of `NEWS.md`
+   name X.Y.Z; move the `Remotes` pin of coalr (`coalr=Plumat-COAL/COAL/packaging/r/coalr@v...`, and
+   `coalr_install_hint()` in `R/coal.R` with it, section 3) to the COAL release the bundle will carry (e.g. `v0.6.1`),
+   so that the coalr the release is checked with is the coalr the bundle ships; pin `drostlab/metablastr` to a
+   commit SHA (`drostlab/metablastr@<sha>`; a tag is accepted for Plumat-COAL repositories only): the version job
+   refuses a release with an unpinned `Remotes` entry. Commit, push.
+   Optionally: Actions > Release > Run workflow on that branch, `tag` empty, `dry_run` on.
+3. On GitHub: Releases > Draft a new release > tag `vX.Y.Z` (create it on that commit) > title and notes written
+   by hand > Publish. The workflow starts by itself and attaches the three files (about 1 to 2 hours; most of it is
+   the check).
+4. If it fails: fix, and either delete the release and the tag and start again from 2, or (same commit) Actions >
+   Release > Run workflow with `tag` `vX.Y.Z` and `dry_run` off. Such a re-run builds the tarball again, and
+   `R CMD build` does not make a byte-identical tarball twice (the `Packaged:` time it writes into
+   `DESCRIPTION`, the file times in the archive), so the files and `SHA256SUMS.txt` of the release change. A bundle made from the earlier
+   files is not checked again by anything: it simply goes stale (its tarball and checksums no longer match the
+   orthologr release). Make the bundle again under a new bundle tag; the old tag cannot be reused while its tag and
+   release exist (bundle.yml refuses a taken tag), so delete the stale bundle release and tag by hand if wanted.
+
+**`bundle.yml`** (by hand only; see above: not before it is on the default branch). Inputs `coal_tag` (a COAL
+release, e.g. `v0.6.1`), `orthologr_tag` (a release of this repository, e.g. `v0.6.0`), `bundle_tag`
+(`bundle-<name>`, e.g. `bundle-2026.11`: never `v...`, so it cannot collide with a tag of either project) and
+`dry_run` (on by default). It downloads every file of both releases (`gh release download`), checks each against
+its release's `SHA256SUMS.txt` and against GitHub's own record of the file (SHA-256 digest and size), and stops if a
+release is missing, a draft or a prerelease, if a file is missing, extra or unlisted, or if any checksum differs.
+The bundle tag must not exist yet: only a 404 from GitHub for both the tag and the release counts as free, any other
+API error stops the run (checked again just before the release is created). The COAL release must contain
+`coalr_<version>.tar.gz` (COAL releases do from 0.6.1 on; 0.6.0 has none) and the orthologr tarball must export
+`orthologr_sitrep()`, which `INSTALL.md` runs. It then creates, in this repository, the release `bundle_tag` (tag
+on the commit of `orthologr_tag`; not a prerelease; not marked "Latest", so that `releases/latest` stays
+orthologr's own release) with `coalr_<v>.tar.gz` and `orthologr_<v>.tar.gz` (unchanged), `INSTALL.md` (install
+coalr, then orthologr, then `library(orthologr); orthologr_sitrep()`) and `SHA256SUMS.txt` of those three; its
+notes (`--notes-file`) list the files and their SHA-256 and end with the authors line. A dry run does all of this
+except creating the release; the files and the notes are the workflow artifact `bundle`.
+
+To publish a bundle: Actions > Bundle > Run workflow with the three tags and `dry_run` on; read the artifact
+(`INSTALL.md`, `notes.md`); run it again with `dry_run` off. From a shell:
+`gh workflow run bundle.yml -R Plumat-COAL/orthologr -f coal_tag=v0.6.1 -f orthologr_tag=v0.6.0 -f bundle_tag=bundle-2026.11 -f dry_run=true`
+(add `--ref <branch>` for "Use workflow from").
