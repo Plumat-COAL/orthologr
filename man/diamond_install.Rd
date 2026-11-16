@@ -4,15 +4,30 @@
 \alias{diamond_install}
 \title{Install the DIAMOND aligner into the user cache}
 \usage{
-diamond_install(version = "latest", force = FALSE, quiet = FALSE)
+diamond_install(
+  version = "latest",
+  force = FALSE,
+  quiet = FALSE,
+  sha256 = NULL,
+  timeout = max(600, getOption("timeout"))
+)
 }
 \arguments{
-\item{version}{a DIAMOND release tag, e.g. \code{"v2.1.9"}. The default \code{"latest"}
-uses the most recent release.}
+\item{version}{a DIAMOND release tag, e.g. \code{"v2.2.8"}. The default \code{"latest"} is the newest release
+whose checksum is pinned in this version of orthologr and that has a binary for this operating system
+(\code{"v2.2.8"}; see Details) - not necessarily the newest release of DIAMOND.}
 
 \item{force}{logical; re-download even if DIAMOND is already cached.}
 
 \item{quiet}{logical; suppress progress messages.}
+
+\item{sha256}{\code{NULL} (default): the download must match the checksum pinned in orthologr for
+\code{version}. Or the SHA-256 checksum (64 hexadecimal digits) the download must have, for a release that is
+not pinned; take it from a source you trust (e.g. the \code{sha256:} digest that GitHub shows next to the file
+on the release page).}
+
+\item{timeout}{the most seconds the download may take (R's option \code{timeout} during the download; at
+least 600 by default). The check that the program runs is given 60 seconds.}
 }
 \value{
 Invisibly, the directory containing the \code{diamond} executable. This can be passed
@@ -21,30 +36,62 @@ to the \code{path} argument of the DIAMOND functions.
 \description{
 Downloads a pre-compiled DIAMOND2 binary from the official
 GitHub releases (\url{https://github.com/bbuchfink/diamond/releases}) that
-matches the operating system of the user and stores it in a user-level cache
-directory (see \code{\link[tools]{R_user_dir}}). No administrator rights are required.
-Once installed, \code{\link{diamond}}, \code{\link{diamond_best}},
+matches the operating system of the user, checks the SHA-256 checksum of the download, and stores the
+program in a user-level cache directory (see \code{\link[tools]{R_user_dir}}). No administrator rights are
+required. Once installed, \code{\link{diamond}}, \code{\link{diamond_best}},
 \code{\link{diamond_rec}}, \code{\link{set_diamond}}, \code{\link{deepclust}} and
 \code{\link{deepclust_realign}} find the cached binary automatically whenever
 \code{path = NULL} and no \code{diamond} is available on the \code{PATH}.
 }
 \details{
-Pre-compiled binaries are provided upstream for Linux (x86_64), macOS and Windows (x86_64).
-On other platforms (e.g. Linux ARM) please install DIAMOND via conda:
+Pre-compiled binaries are provided upstream for Linux (x86_64), macOS (one universal binary for
+x86_64 and arm64) and Windows (x86_64).
+On other platforms (e.g. Linux on ARM, Windows on ARM; error of class \code{orthologr_error_tool_missing})
+please install DIAMOND via conda or build it from source:
 \code{conda install -c bioconda diamond}.
+
+\strong{Checksums.} The DIAMOND releases do not publish checksum files, so orthologr carries the SHA-256
+checksums of the release files it installs (internal table \code{diamond_release_checksums()}): DIAMOND
+v2.2.8 (19 September 2026) for Linux, macOS and Windows. They were computed from the files of the GitHub
+release, downloaded twice, and are compared with the digests GitHub records for the release files by the
+continuous integration of orthologr. A download that does not match is deleted and nothing is installed
+(error of class \code{orthologr_error_checksum_mismatch}). A release without a pinned checksum is not
+downloaded unless \code{sha256} is given (error of class \code{orthologr_error_bad_argument}): this fails
+closed rather than installing a file that was not verified. DIAMOND v2.2.9 (14 November 2026) is not pinned:
+when this version of orthologr was made its release had no macOS binary yet and its Linux file had been
+rebuilt a day after the release, so a checksum taken then might not stay valid.
+
+The checksum is computed with \code{tools::sha256sum()} (R >= 4.5.0), else with the program
+\code{sha256sum}, \code{shasum} or \code{certutil} (Windows); when none of them is available the downloaded
+file is deleted without being unpacked (error of class \code{orthologr_error_checksum_unavailable}).
+
+\strong{Errors.} A download that fails or takes longer than \code{timeout} seconds is an error of class
+\code{orthologr_error_download_failed} (and \code{orthologr_error_tool_failed}); the partial file is deleted.
+The archive is unpacked into a temporary folder; the program is copied into the cache folder under a temporary
+name and run there (not in the temporary folder, which may be mounted \code{noexec}): \code{diamond version}
+must exit with status 0 within 60 seconds and print a line \code{diamond version <number>} (otherwise an error
+of class \code{orthologr_error_tool_failed} with the program's last lines of output, and the temporary copy is
+removed). Only then is it renamed over the cached copy, so a failed installation leaves an existing copy in
+place. Temporary copies left by an interrupted installation are removed by the next one.
+
+With a cached copy and \code{force = FALSE} nothing is downloaded; a \code{version} other than
+\code{"latest"} or a \code{sha256} is then not used, with a warning.
 }
 \note{
 Pre-built DIAMOND2 releases exist for Linux x86_64, macOS and Windows; on other platforms (e.g. Linux
-aarch64) the function stops with a hint to install DIAMOND2 with a package manager. The downloaded archive is
-not verified against a checksum (the DIAMOND2 releases do not publish one); it is fetched over HTTPS from the
-GitHub releases of \url{https://github.com/bbuchfink/diamond}.
+aarch64) the function stops with a hint to install DIAMOND2 with a package manager. The archive is fetched over
+HTTPS from the GitHub releases of \url{https://github.com/bbuchfink/diamond} and verified against its pinned
+SHA-256 checksum (or the one given as \code{sha256}) before it is unpacked.
 }
 \examples{
-# NULL when DIAMOND is on the PATH, the folder of a copy installed by diamond_install(), an error otherwise
+# NULL when DIAMOND is on the PATH, the folder of a copy installed by diamond_install(),
+# an error otherwise
 tryCatch(diamond_path(), error = conditionMessage)
 \dontrun{
 # download DIAMOND into that folder (needs an internet connection)
 diamond_install()
+# a release that orthologr has no checksum for: give the checksum yourself
+diamond_install(version = "v2.1.25", sha256 = "<the 64 hexadecimal digits>")
 }
 }
 \seealso{

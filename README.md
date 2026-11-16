@@ -70,12 +70,15 @@ Available dN/dS estimation methods are:
 - "Comeron": Comeron, J.M. (1995) - the default; built into the package (no external program)
 - "Li": Li, W.H. (1993) - computed with `seqinr::kaks()` (no external program)
 
-and, computed with [KaKs_Calculator](https://anaconda.org/bioconda/kakscalculator2) (which has to be installed):
+and, computed with [KaKs_Calculator](https://anaconda.org/bioconda/kakscalculator2) (which has to be installed) or,
+for the first seven, with COAL instead (`kaks_tool = "coal"` or `engine = "coal"`, optional package `coalr`; no
+KaKs_Calculator needed):
 
 - "NG": Nei, M. and Gojobori, T. (1986)
 - "LWL": Li, W.H., et al. (1985)
 - "LPB": Li, W.H. (1993) and Pamilo, P. and Bianchi, N.O. (1993)
 - "MLWL" (Modified LWL): Tzeng, Y.H., et al. (2004)
+- "MLPB" (Modified LPB): Tzeng, Y.H., et al. (2004)
 - "YN": Yang, Z. and Nielsen, R. (2000)
 - "MYN" (Modified YN): Zhang, Z., et al. (2006)
 - "GMYN": Wang, D.P., et al. Biology Direct. (2009)
@@ -98,7 +101,7 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 # Install the Bioconductor packages orthologr imports
 BiocManager::install(c("Biostrings", "pwalign"))
 
-# install orthologr 0.5.0 from GitHub (this also installs its CRAN dependencies)
+# install orthologr 0.6.0 from GitHub (this also installs its CRAN dependencies)
 install.packages("remotes")
 remotes::install_github("Plumat-COAL/orthologr@integration/all")
 ```
@@ -123,11 +126,12 @@ remotes::install_github("drostlab/metablastr") # lncRNA orthology: orthologs_lnc
 `dNdS()` and the orthology inference functions run programs that have to be installed on your computer:
 
 - __DIAMOND2__ (>= 2.1) for the default sequence search. Either run `orthologr::diamond_install()` once (it
-  downloads the DIAMOND release for your operating system into a user-level folder; Linux x86_64, macOS, Windows),
-  or install it yourself, e.g. `conda install -c bioconda diamond`.
+  downloads DIAMOND v2.2.8 for your operating system into a user-level folder - Linux x86_64, macOS, Windows - and
+  installs it only if the file has the SHA-256 checksum pinned in orthologr; another release needs its checksum,
+  `diamond_install(version = ..., sha256 = ...)`), or install it yourself, e.g. `conda install -c bioconda diamond`.
 - __Perl__ for the codon alignments (the PAL2NAL script is part of the package).
 - Optional: __BLAST+__ (`aligner = "blast"`), __KaKs_Calculator__ 2.0 (dN/dS methods other than `"Comeron"` and
-  `"Li"`), and for `aa_aln_type = "multiple"` one of __ClustalW2__, __Clustal Omega__, __MAFFT__, __MUSCLE__ (3.8 or 5),
+  `"Li"`; not for NG, LWL, LPB, MLWL, MLPB, YN, MYN with `kaks_tool = "coal"`), and for `aa_aln_type = "multiple"` one of __ClustalW2__, __Clustal Omega__, __MAFFT__, __MUSCLE__ (3.8 or 5),
   __T-Coffee__.
 
 The file [`environment.yml`](environment.yml) describes a conda environment with R, the R packages and all of these
@@ -263,8 +267,10 @@ write_dNdS(Hs_vs_Mm, "Hs_vs_Mm_dNdS.tsv")
 Hs_vs_Mm_filtered <- filter_dNdS(Hs_vs_Mm, dnds.threshold = 2)
 ```
 
-Run time: the default engine takes about 50 ms per gene pair and core (about 17,000 gene pairs for human and
-mouse: a quarter of an hour on one core, a few minutes on eight). With the optional package `coalr`,
+Run time: in 0.5.0 the default engine took about 50 ms per gene pair and core (about 17,000 gene pairs for human
+and mouse: a quarter of an hour on one core, a few minutes on eight); 0.6.0 needs about half that CPU time on the
+data sets measured for `NEWS.md` (S. cerevisiae / C. glabrata, 4,384 pairs: 106.6 -> 53.9 CPU seconds for the whole
+`dNdS()` call), with the same results. With the optional package `coalr`,
 `engine = "coal"` computes all pairs in one call on `comp_cores` threads and is about ten times faster.
 For species that are less than about 70 % identical at the protein level use `sensitivity_mode = "default"` or
 `"sensitive"`; when the summary reports that most gene pairs are saturated, the species are too distant for
@@ -348,15 +354,21 @@ https://github.com/drostlab/orthologr/issues
 
 ## Licenses
 
-The `orthologr` package includes source code that has been published under following licenses:
+The `orthologr` package includes source code that has been published under the following licenses. The file
+[`inst/COPYRIGHTS`](inst/COPYRIGHTS) lists every third-party part of the package with its origin, copyright holders
+and licence.
 
 ### gestimator
 
-The header of `src/gestimator.cpp` and of the libsequence headers in `src/` reads (quoted as shipped):
+All files included in `orthologr` that were taken from gestimator are also part of libsequence. The header of
+`src/gestimator.cpp` reads (verbatim; the libsequence headers in `src/` carry the same licence text as comments):
 
 ```
-All files included in `orthologr` that were taken from gestimator are 
-also part of libsequence.
+Copyright (C) 2003-2009 Kevin Thornton, krthornt[]@[]uci.edu
+
+Remove the brackets to email me.
+
+This file is part of libsequence.
 
 libsequence is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -372,19 +384,28 @@ You should have received a copy of the GNU General Public License
 long with libsequence.  If not, see <http://www.gnu.org/licenses/>.
 
 
-Modified by Sarah Scharfenberg and Hajk-Georg Drost (2014) to work 
+Modified by Sarah Scharfenberg and Hajk-Georg Drost 2014 to work 
 in orthologr without using external libraries from libsequence.
 
 All changes are also free under the terms of GNU General Public License
 version 2 of the License, or any later version.
-
 ```
 
 ### KaKs_Calculator
 
-`orthologr` runs the program KaKs_Calculator when it is installed; none of its code is part of the package. (The
-script `parseFastaIntoAXT.pl` of the KaKs_Calculator project, GNU GPL v3, was shipped in `inst/KaKs_Calc_parser`
-up to version 0.4.3; it is no longer used and was removed in 0.5.0.)
+`orthologr` runs the program KaKs_Calculator when it is installed and reads its output. In addition, a small part
+of the R code is derived from the source code of KaKs_Calculator 2.0 (Copyright (C) 2009 Beijing Institute of
+Genomics of CAS; treated as GNU General Public License version 3: the source files state no licence, the
+repository bioconda builds, github.com/kullrich/kakscalculator2, added the GPL-3 text as its `LICENSE` in its
+first commit, before the original SourceForge files, which have no licence file, were imported): the internal functions `kaks_transl_table()` (the genetic
+codes, copied from `base.cpp`), `kaks_lwl_tables()` and `kaks_lwl_counts()` (a translation into R of the counts of
+the LWL family in `LWL85.cpp` and `LPB93.cpp`) in `R/substitutionrate.R`, which tell whether a value that
+KaKs_Calculator printed is a saturated estimate. See [`inst/COPYRIGHTS`](inst/COPYRIGHTS). (The script
+`parseFastaIntoAXT.pl` of the KaKs_Calculator project, GNU GPL v3, was shipped in `inst/KaKs_Calc_parser` up to
+version 0.4.3; it is no longer used and was removed in 0.5.0.)
 
+### PAL2NAL
 
-
+`inst/pal2nal/pal2nal.v14/` is PAL2NAL v14 by Mikita Suyama, David Torrents and Peer Bork. Its files state no
+licence and name only Mikita Suyama; Debian records "Copyright: 2004-2011 Mikita Suyama, David Torrents, and Peer
+Bork and their respective employing institute" and distributes it under the GNU GPL version 2. See [`inst/COPYRIGHTS`](inst/COPYRIGHTS).
