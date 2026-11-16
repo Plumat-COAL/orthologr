@@ -403,10 +403,11 @@ test_that("dnds_bind() refuses a record without rows", {
 
 test_that("plain errors of these functions are classed", {
         expect_error(split_params("-a 'b"), class = "orthologr_error_bad_argument")
-        expect_error(write_dNdS(data.frame(a = 1), NA), class = "orthologr_error_bad_argument")
-        expect_error(write_dNdS(1:3, tempfile()), class = "orthologr_error_bad_argument")
         h <- data.frame(query_id = "a", subject_id = "x", evalue = 1, alig_length = 1L)
         expect_error(best_hits(h, rule = "bitscore"), "needs the columns", class = "orthologr_error_bad_input")
+        skip_if_not(requireNamespace("jsonlite", quietly = TRUE), "jsonlite is not installed")
+        expect_error(write_dNdS(data.frame(a = 1), NA), class = "orthologr_error_bad_argument")
+        expect_error(write_dNdS(1:3, tempfile()), class = "orthologr_error_bad_argument")
 })
 
 test_that("diamond_install(): a staged copy has a name of its own; a cached copy of the release asked for is no warning", {
