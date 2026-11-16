@@ -105,6 +105,48 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   The rest is mostly DIAMOND, the protein alignments and the programs themselves. (The only values that differ
   from those before are those of the GMYN fix below: 1 - 4 pairs per data set whose dN and dN/dS of about 1e-15 are 0.)
 
+### GY with COAL, the status "not_converged", fewer messages (REVIEW-OL-3, part B)
+
+- `dnds_est.method = "GY"` with `engine = "coal"`, `dNdS_coal()`, `kaks_tool = "coal"` (`dNdS()`,
+  `substitutionrate()`), `dNdS_clusters()` and `dNdS_orthogroups(engine = "coal")` when the COAL at hand has it:
+  a coalr whose `coalr::coal_info()$features` lists `"gy94_ml"` (coalr >= 0.6.0), or a `coal-cpp` whose
+  `coal dnds --help` lists GY. It was refused although coalr 0.6.0 computes it. The feature is asked of COAL, not
+  read from a version number. Without it the error says what is needed. COAL's GY is Goldman & Yang's model with
+  F3x4 codon frequencies fitted as PAML codeml's pairwise estimate, not KaKs_Calculator's GY (GY-HKY): unlike the
+  seven methods COAL shares with KaKs_Calculator, its values differ between `kaks_tool = "coal"` and
+  `"kaks_calculator"`.
+- New status `"not_converged"` (column `status`, the summary message, `status_counts` of the record, the counts of
+  the summaries of `dNdS_clusters()` and `dNdS_orthogroups()`): COAL's YN / MYN iteration or GY optimisation did
+  not converge, so there is no estimate. Such a pair had the status `"saturated"` although `?dNdS` said it was
+  reported as not converged; with `kaks_tool = "coal"` COAL's status was dropped altogether, and
+  `dNdS_clusters()` could count a cluster as not converged while its pairs said saturated. COAL's status now
+  travels with the values (`coal_kaks_file()` -> `compute_dnds()` -> `dNdS()`; a column of the COAL engine of
+  `dNdS_orthogroups()`) instead of being read from the text of its notes. Intended changes of results: only the
+  status of such pairs (`"saturated"` -> `"not_converged"`), the counts and messages that follow from it, the new
+  column `n_not_converged` of the summary of `dNdS_orthogroups()`, and the counts `n_ok`, `n_saturated`,
+  `n_no_data`, `n_not_converged`, `n_failed` of the summary of `dNdS_clusters()`, which now count the pairs by the
+  column `status` of its table `pairs` (as in `dNdS_orthogroups()`; they were COAL's own counts). KaKs_Calculator,
+  which does not report convergence, is unchanged.
+- `orthogroups()` and `dNdS_orthogroups()` no longer print `read.cds()`'s block of messages for every file (twice
+  for `dNdS_orthogroups()` from files): as in `dNdS()`, the sequences that were left out, trimmed to a multiple of
+  3, kept with ambiguous bases or that have in-frame stop codons are counted in one line (in the summary message
+  of `dNdS_orthogroups()`) and listed in the attributes `"dropped_sequences"`, `"trimmed_sequences"`,
+  `"ambiguous_sequences"` and `"stop_codon_sequences"` of the result; `quiet = FALSE` shows the messages of every
+  file as before.
+- `dNdS_orthogroups(engine = "orthologr")` builds the codon alignments as `dNdS()` does (COAL when coalr is
+  installed, else PAL2NAL; `options(orthologr.codon_aln_tool)`); it always used PAL2NAL. The alignments are
+  byte-identical, so the values are the same.
+- `dNdS_clusters()` and `dNdS_orthogroups(engine = "coal")` with `aa_aln_path` naming a folder find the program as
+  every other function does (on Windows also `clustalo.exe`, `mafft.exe`); the folder was turned into
+  `<folder>/clustalo`.
+- The summary of `dNdS_orthogroups()` takes its statistics from the helper of `dNdS_clusters()` (the same numbers);
+  `n_ok` counts the pairs with status `"ok"` in both.
+- Internal: one table of the dN/dS methods (`dnds_method_registry()`) from which every list, check and message
+  about methods is derived (there were seven lists); user-facing errors of the method and orthogroup code have
+  orthologr's condition classes.
+- `DESCRIPTION` `Remotes` installs coalr from COAL's release tag `v0.6.0` (it was main 03612da, which has no GY, so
+  the GY tests of the COAL engine were skipped in CI); the install hints of the messages name the same tag.
+
 ### Changed results
 
 - Comeron's method (both engines; COAL #76): the rule of 0.5.0 that a site class with fewer than

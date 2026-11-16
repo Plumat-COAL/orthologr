@@ -56,7 +56,8 @@
 #' \code{"--masking 0"}. Default is \code{NULL}.
 #' @param comp_cores the number of threads DIAMOND uses. The result does not depend on it.
 #' @param path the folder that holds the DIAMOND executable (in case it is not on the PATH).
-#' @param quiet a logical value: run DIAMOND quietly and show only the summary messages of this function.
+#' @param quiet a logical value: run DIAMOND quietly and show only the summary messages of this function (the messages
+#' about single input sequences of every file are then counted in one line; see Value).
 #' @param ... \code{method = "deepclust"}: further arguments for \code{\link{deepclust}}, e.g. \code{approx_id},
 #' \code{mutual_cover}, \code{deepclust_params}. Not used with \code{method = "rbh"}.
 #' @details
@@ -106,6 +107,11 @@
 #' length, \code{orthogroup});
 #' \item \code{params}: the parameters of the call, the versions of DIAMOND and of \pkg{orthologr}, and the files.
 #' }
+#' As in \code{\link{dNdS}}, input sequences that were left out, trimmed to a multiple of 3 (\code{delete_corrupt_cds =
+#' FALSE}), kept with ambiguous bases or that have in-frame stop codons are listed in the attributes
+#' \code{"dropped_sequences"}, \code{"trimmed_sequences"}, \code{"ambiguous_sequences"} and
+#' \code{"stop_codon_sequences"} (only those that have rows) and counted in one message; with \code{quiet = FALSE}
+#' the messages of every file are shown as well.
 #' See \code{\link{write_orthogroups}} for files in OrthoFinder's layout and \code{\link{dNdS_orthogroups}} for dN/dS
 #' within the groups.
 #' @author Chloe Newton
@@ -196,7 +202,13 @@ orthogroups <- function(files,
         on.exit(end_tmpdir(), add = TRUE)
         work <- call_dir_start("orthogroups_")
 
+        # (the messages about single input sequences are collected, as in dNdS(): one line below, the tables in the
+        # result)
+        end_report <- input_report_start(quiet = quiet)
+        report <- NULL
+        on.exit(if (is.null(report)) end_report(), add = TRUE)
         prot <- orthogroups_read(input, seq_type = seq_type, delete_corrupt_cds = delete_corrupt_cds)
+        report <- end_report()
         genes <- prot$genes
         n_sp <- nrow(input)
 
@@ -266,6 +278,9 @@ orthogroups <- function(files,
                 ids_prefixed = prot$ids_prefixed
         )
         class(res) <- "orthogroups"
+        res <- input_report_attributes(res, report)
+        if (report$owner && !is.null(txt <- input_report_text(report, "orthogroups()")))
+                message(txt)
 
         message("orthogroups(): ", nrow(res$wide), " orthogroups with ", nrow(res$groups), " genes (",
                 nrow(res$single_copy), " single-copy in all ", n_sp, " species), ", nrow(res$unassigned),
@@ -420,7 +435,7 @@ orthogroups_search <- function(genes, aa, work, eval, sensitivity_mode, max.targ
         )
         if (!identical(as.integer(res$status), 0L) || !file.exists(output)) {
                 said <- utils::tail(res$stderr[nzchar(trimws(res$stderr))], 5)
-                stop("diamond blastp failed in the all-against-all search of orthogroups(): exit status ", res$status, ".",
+                orthologr_abort(class = "tool_failed", "diamond blastp failed in the all-against-all search of orthogroups(): exit status ", res$status, ".",
                      if (length(said) > 0) paste0("\ndiamond said: ", paste(said, collapse = "\n")) else "", call. = FALSE)
         }
         message("DIAMOND search completed in ", format_elapsed(proc.time()[["elapsed"]] - t0))

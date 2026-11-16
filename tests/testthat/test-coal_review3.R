@@ -36,8 +36,9 @@ test_that("coal_orthologr_values() applies orthologr's rules to COAL's Comeron a
 })
 
 test_that("a COAL without Comeron and Li gives a message that names what is needed", {
-        testthat::local_mocked_bindings(coal_has_native_methods = function() FALSE, .package = "orthologr")
-        expect_identical(coal_methods(), coal_kaks_calculator_methods())
+        testthat::local_mocked_bindings(coal_has_native_methods = function() FALSE, coal_has_gy = function() FALSE,
+                                        .package = "orthologr")
+        expect_identical(coal_methods(), dnds_methods(coal = "always"))
         expect_error(coal_check_methods("Comeron", "engine = \"coal\""),
                      "engine = \"coal\": dnds_est.method = \"Comeron\" needs a COAL that computes Comeron's and Li's method \\(coalr >= 0.5.0")
         expect_error(coal_check_methods(c("YN", "Li"), "engine = \"coal\""), "\"Li\" needs a COAL")

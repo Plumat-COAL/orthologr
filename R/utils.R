@@ -62,20 +62,6 @@ is.codon_aln_tool <- function(tool = NULL){
         return(is.element(tool, provided))
 }
 
-is.dnds_est_method <- function(method = NULL){
-        
-        # dNdS estimation methods provided by the KaKs_Calculator program (one list for the whole package)
-        provided <- c("Comeron", "Li", kaks_calculator_methods())
-        
-        if (is.null(method)){
-                message("The following methods are provided: ", paste(provided, collapse = ", "))
-                return(FALSE)
-        }
-        
-        return(is.element(method, provided))
-}
-
-
 #' @title Translate CDS file to Amino Acids file
 #' @description This function takes a \code{data.table} object as input and
 #' translates the cds sequences stored as \code{seqs} column into the corresponding amino acid
@@ -374,6 +360,56 @@ dropped_start <- function(quiet = FALSE) {
                 rownames(res) <- NULL
                 res
         }
+}
+
+# The reports about input sequences for orthogroups() and dNdS_orthogroups() (M4 of REVIEW-OL-3): as in dNdS(),
+# the messages read.cds() and cds2aa() give for every file (sequences trimmed to a multiple of 3, left out, kept
+# with ambiguous bases) are collected while the files are read - with quiet = TRUE they are not shown - and the
+# tables are kept in the result. Returns a function that ends the collecting and returns
+# list(owner, dropped, trimmed, ambiguous, stops): `owner` is FALSE inside a call that already collects (orthogroups()
+# called by dNdS_orthogroups()), which then reports them itself; the tables are NULL when empty.
+input_report_start <- function(quiet = TRUE) {
+        owner <- is.null(.orthologr_state$dropped)
+        end <- dropped_start(quiet = quiet)
+        function() {
+                trimmed <- trimmed_table()
+                ambiguous <- ambiguous_table()
+                stops <- stop_codon_table()
+                dropped <- if (owner) end() else NULL
+                if (!is.null(dropped) && nrow(dropped) == 0)
+                        dropped <- NULL
+                list(owner = owner, dropped = dropped, trimmed = trimmed, ambiguous = ambiguous, stops = stops)
+        }
+}
+
+# The tables of input_report_start() as the attributes dNdS() uses ("dropped_sequences", "trimmed_sequences",
+# "ambiguous_sequences", "stop_codon_sequences"), set on `res` (only those with rows).
+input_report_attributes <- function(res, report) {
+        tabs <- list(dropped_sequences = report$dropped, trimmed_sequences = report$trimmed,
+                     ambiguous_sequences = report$ambiguous, stop_codon_sequences = report$stops)
+        for (n in names(tabs)) {
+                if (!is.null(tabs[[n]]) && NROW(tabs[[n]]) > 0)
+                        attr(res, n) <- tabs[[n]]
+        }
+        res
+}
+
+# One line about the input sequences of a report of input_report_start() for `fun` ("orthogroups()"); NULL when there
+# is nothing to say.
+input_report_text <- function(report, fun) {
+        n <- function(x) if (is.null(x)) 0L else length(unique(paste(x$file, x$id, sep = "\r")))
+        parts <- c(
+                if (n(report$dropped) > 0) paste0(n(report$dropped), " left out (attr(<result>, \"dropped_sequences\"))"),
+                if (n(report$trimmed) > 0) paste0(n(report$trimmed), " with a length that is not a multiple of 3, trimmed at the 3' end ",
+                                                  "(delete_corrupt_cds = FALSE; attr(<result>, \"trimmed_sequences\"))"),
+                if (n(report$ambiguous) > 0) paste0(n(report$ambiguous), " kept with ambiguous bases, whose codons are not compared ",
+                                                    "(attr(<result>, \"ambiguous_sequences\"))"),
+                if (n(report$stops) > 0) paste0(n(report$stops), " with in-frame stop codons, used as they are ",
+                                                "(attr(<result>, \"stop_codon_sequences\"))")
+        )
+        if (length(parts) == 0)
+                return(NULL)
+        paste0(fun, ": input coding sequences - ", paste(parts, collapse = "; "), ".")
 }
 
 # Translate coding sequences (character vector) with the standard genetic code; the result is what transl()

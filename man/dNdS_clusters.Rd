@@ -30,8 +30,9 @@ with these two columns first, or the path to such a tab-separated file. If \code
 \code{\link{deepclust}} is run on \code{cds_file}.}
 
 \item{dnds_est.method}{the dN/dS estimation method(s): \code{"YN"} (Default), \code{"NG"}, \code{"LWL"},
-\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"} or \code{"MYN"}. \code{"Comeron"} and \code{"Li"} with a \pkg{coalr} that
-has them (see \code{\link{dNdS_coal}}; values as \code{\link{substitutionrate}} returns them).}
+\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"} or \code{"MYN"}. \code{"Comeron"}, \code{"Li"} and \code{"GY"} with a
+\pkg{coalr} that has them (see \code{\link{dNdS_coal}}; Comeron and Li as \code{\link{substitutionrate}} returns
+them).}
 
 \item{aa_aln_tool}{how the proteins of clusters with three or more members are aligned:
 \itemize{
@@ -76,14 +77,15 @@ A list of three tibbles:
 \code{method}, \code{dN}, \code{dS}, \code{dNdS}, standard errors, numbers of sites and differences,
 \code{codons_compared}, \code{prot_aln_length}, \code{prot_identity}, \code{status} and \code{note};
 \item \code{summary}: one row per cluster and method: \code{cluster_id}, \code{n_members}, \code{n_used},
-\code{method}, \code{pair_selection}, \code{aligner}, \code{n_pairs}, \code{n_ok}, \code{n_saturated},
-\code{n_no_data}, \code{n_failed}, \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
+\code{method}, \code{pair_selection}, \code{aligner}, \code{n_pairs}, \code{n_ok}, \code{n_not_converged},
+\code{n_saturated}, \code{n_no_data}, \code{n_failed} (the pairs by their \code{status} in the table \code{pairs},
+see \code{\link{dNdS}}, section "Status of a gene pair"; up to 0.6.0 COAL's own counts), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
 and a dN/dS value), and median, mean, quartiles (\code{_q25}, \code{_q75}), minimum and maximum of dN, dS and
 dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
 cluster that have a dN (dS, dN/dS) value, whatever their status - a pair with status \code{"saturated"} that
 has a dN counts with it. \code{n_dN}, \code{n_dS} and \code{n_dNdS} are the numbers behind the statistics
-(\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rule and the
-same column names (the names of \pkg{coalr}'s summary), but has no minimum and maximum.
+(\code{n_ok} counts the pairs with status \code{"ok"}). \code{\link{dNdS_orthogroups}} uses the same rules and the
+same column names (the names of \pkg{coalr}'s summary).
 The column \code{status} of the summary: \code{"ok"} (at least one pair has an estimate), \code{"failed"} (no
 estimate, and a pair failed or the cluster could not be aligned), \code{"saturated"} / \code{"no_data"} /
 \code{"not_converged"} (no estimate because the pairs are saturated, have no codons to compare or did not
@@ -101,7 +103,8 @@ the codons are threaded onto the alignment and Ka/Ks is estimated for the pairs 
 }
 \details{
 This function needs the R package \pkg{coalr}:
-\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+\code{remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.0")} (COAL's release 0.6.0; a newer
+release works as well).
 A gene, pair or cluster that cannot be used never ends the run: see the \code{status} and \code{note} columns and
 the \code{failed} table.
 }

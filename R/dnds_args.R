@@ -92,17 +92,76 @@ check_evalue <- function(eval) {
         eval
 }
 
-# The dN/dS methods that are computed by KaKs_Calculator: the one list used by is.dnds_est_method(), the argument
-# checks and substitutionrate(). ("MLPB" was missing from the list of substitutionrate(), which then returned NULL
-# for it, and dNdS() ended after the whole search with an error about a missing column.)
-kaks_calculator_methods <- function() {
-        c("MA", "MS", "NG", "LWL", "LPB", "MLWL", "MLPB", "YN", "MYN", "GY", "GMYN", "kaks_calc", "ALL")
+# ---- the dN/dS methods: one table ------------------------------------------------------------------------------
+
+# Every dN/dS method orthologr knows, one entry each; every list of methods, every check of a method name and every
+# message that names methods is derived from this table (they were seven separate lists).
+#   kind    : "own"    - computed by orthologr's own code whatever kaks_tool is (Comeron: gestimator; Li:
+#                        seqinr::kaks())
+#             "kaks"   - a method of KaKs_Calculator (engine = "orthologr", kaks_tool = "kaks_calculator")
+#             "pseudo" - not a method but a choice of KaKs_Calculator: "ALL" (every method) and "kaks_calc" (the
+#                        methods are in kaks_calc.params; substitutionrate() only)
+#   coal    : whether COAL computes it: "always" (every COAL), "native" (a COAL whose coalr::coal_info()$methods
+#             lists "Comeron" and "Li", coalr >= 0.5.0), "gy" (a COAL with Goldman & Yang's maximum likelihood
+#             estimate, coalr::coal_info()$features "gy94_ml", coalr >= 0.6.0), NA (never)
+#   family  : the LWL family (Li, Wu and Luo 1985; Li 1993; Tzeng et al. 2004) or Yang and Nielsen (2000), for
+#             reading KaKs_Calculator's output (kaks_saturated(), kaks_zero_ds())
+#   counted : KaKs_Calculator's columns "S-Substitutions" and "N-Substitutions" count the synonymous and
+#             nonsynonymous differences (NA for a count of 0). GMYN counts as MYN does; GY, MA, MS print
+#             expected numbers.
+dnds_method_registry <- function() {
+        # (a list of columns, not a data.frame: the views below are called for every gene pair)
+        list(
+                method  = c("Comeron", "Li", "NG",     "LWL",    "MLWL",   "LPB",    "MLPB",   "YN",     "MYN",
+                            "GY",   "MA",   "MS",   "GMYN", "kaks_calc", "ALL"),
+                kind    = c("own",     "own", "kaks",  "kaks",   "kaks",   "kaks",   "kaks",   "kaks",   "kaks",
+                            "kaks", "kaks", "kaks", "kaks", "pseudo",    "pseudo"),
+                coal    = c("native",  "native", "always", "always", "always", "always", "always", "always", "always",
+                            "gy",   NA,     NA,     NA,     NA,          NA),
+                family  = c(NA,        NA,    NA,      "LWL",    "LWL",    "LWL",    "LWL",    "YN",     "YN",
+                            NA,     NA,     NA,     NA,     NA,          NA),
+                counted = c(FALSE,     FALSE, TRUE,    FALSE,    FALSE,    FALSE,    FALSE,    TRUE,     TRUE,
+                            FALSE,  FALSE,  FALSE,  TRUE,   FALSE,       FALSE)
+        )
+}
+
+# The methods of the table with the given properties (NULL: any), in the order of the table.
+dnds_methods <- function(kind = NULL, coal = NULL, family = NULL, counted = NULL) {
+        r <- dnds_method_registry()
+        keep <- rep(TRUE, length(r$method))
+        if (!is.null(kind))
+                keep <- keep & is.element(r$kind, kind)
+        if (!is.null(coal))
+                keep <- keep & is.element(r$coal, coal)
+        if (!is.null(family))
+                keep <- keep & is.element(r$family, family)
+        if (!is.null(counted))
+                keep <- keep & r$counted == counted
+        r$method[keep]
+}
+
+# Views of the table that are used in many places.
+#   kaks_calculator_methods() : what KaKs_Calculator is asked for, the pseudo methods included
+#   coal_native_methods()     : orthologr's own methods that newer versions of COAL also compute
+#   coal_kaks_methods()       : the KaKs_Calculator methods COAL can compute (kaks_tool = "coal"); "GY" only with a
+#                               COAL that has it (coal_method_missing())
+#   is.dnds_est_method()      : is it a name of the table?
+kaks_calculator_methods <- function() dnds_methods(kind = c("kaks", "pseudo"))
+coal_native_methods <- function() dnds_methods(kind = "own", coal = "native")
+coal_kaks_methods <- function() dnds_methods(kind = "kaks", coal = c("always", "gy"))
+is.dnds_est_method <- function(method = NULL) {
+        # (without an argument it lists the methods, as the other is.*() helpers do)
+        if (is.null(method)) {
+                message("The following methods are provided: ", paste(dnds_methods(), collapse = ", "))
+                return(FALSE)
+        }
+        is.element(method, dnds_methods())
 }
 
 # Messages for a dnds_est.method that is not a method (U09): the methods of each engine, and the method a mistyped
 # name probably meant - the one that matches it ignoring case ("comeron" -> "Comeron"), else the only one at an edit
 # distance of 1 ("YNN" -> "YN"). Method names stay case-sensitive: the hint only names the method.
-dnds_method_hint <- function(method, candidates = c("Comeron", "Li", kaks_calculator_methods())) {
+dnds_method_hint <- function(method, candidates = dnds_methods()) {
         if (!is.character(method) || length(method) != 1 || is.na(method) || !nzchar(method))
                 return("")
         same <- candidates[tolower(candidates) == tolower(method)]
@@ -117,9 +176,10 @@ dnds_method_hint <- function(method, candidates = c("Comeron", "Li", kaks_calcul
 # dNdS(), substitutionrate() and dNdS_orthogroups(); `kaks_calc`: whether "kaks_calc" is a choice (substitutionrate())
 dnds_method_list <- function(kaks_calc = FALSE) {
         q <- function(x) paste0("\"", x, "\"", collapse = ", ")
-        kc <- setdiff(kaks_calculator_methods(), c("kaks_calc", "ALL", coal_kaks_calculator_methods()))
-        paste0("Methods: ", q(coal_native_methods()), " (both engines), ", q(coal_kaks_calculator_methods()),
-               " (both engines; KaKs_Calculator or COAL), ", q(kc), ", \"ALL\"",
+        paste0("Methods: ", q(coal_native_methods()), " (both engines), ", q(dnds_methods(kind = "kaks", coal = "always")),
+               " (both engines; KaKs_Calculator or COAL), ", q(dnds_methods(kind = "kaks", coal = "gy")),
+               " (KaKs_Calculator, or a COAL that has it - other numbers, see ?dNdS), ",
+               q(dnds_methods(kind = "kaks", coal = NA)), ", \"ALL\"",
                if (kaks_calc) ", \"kaks_calc\"", " (KaKs_Calculator only, engine = \"orthologr\").")
 }
 

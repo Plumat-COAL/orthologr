@@ -19,7 +19,8 @@ dnds_groups_coal_check <- function(dnds_est.method, aa_aln_tool) {
 #   aa_aln_tool = "clustalo" / "mafft"  : coalr::coal_dnds_clusters() - one multiple alignment per group, as
 #                                         dNdS_clusters(); the pairs of genes of the same species it also computes
 #                                         are left out
-# Returns the table dnds_groups_orthologr() returns: orthogroup, query_id, subject_id, method, dN, dS, dNdS, note.
+# Returns the table dnds_groups_orthologr() returns: orthogroup, query_id, subject_id, method, dN, dS, dNdS, note,
+# and COAL's status of each pair in the column engine_status ("error" for a pair COAL returned no row for).
 #   aa_aln_scoring : the scoring of the pairwise protein alignments COAL makes itself ("pwalign": that of dNdS();
 #                    "needle": COAL's own defaults) - the same argument, with the same default, as in
 #                    dNdS(engine = "coal"), dNdS_coal() and dNdS_clusters()
@@ -36,15 +37,7 @@ dnds_groups_coal <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_aln_pa
                         preset      = aa_aln_scoring
                 ), coal_flavour_args(coalr::coal_dnds_pairs, dnds_est.method)))
         } else {
-                exe <- if (is.null(aa_aln_path)) NULL else {
-                        if (dir.exists(aa_aln_path)) file.path(aa_aln_path, aa_aln_tool) else aa_aln_path
-                }
-                msa_aligner <- tryCatch(
-                        coalr::coal_msa_aligner(aa_aln_tool, path = exe, threads = 1),
-                        error = function(e) stop(conditionMessage(e),
-                                                 "\nOr use aa_aln_tool = \"pairwise\" (no external program needed).",
-                                                 call. = FALSE)
-                )
+                msa_aligner <- coal_msa_aligner_for(aa_aln_tool, aa_aln_path)
                 # the groups as clusters (representative: the first gene of the group)
                 members <- unique(data.frame(orthogroup = c(pairs$orthogroup, pairs$orthogroup),
                                              member_id = c(pairs$query_id, pairs$subject_id), stringsAsFactors = FALSE))
@@ -77,7 +70,7 @@ dnds_groups_coal <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_aln_pa
         got <- data.table::data.table(
                 orthogroup = pairs$orthogroup[at], query_id = pairs$query_id[at], subject_id = pairs$subject_id[at],
                 method = as.character(res$method), dN = as.numeric(res$dN), dS = as.numeric(res$dS),
-                dNdS = as.numeric(res$dNdS), note = note
+                dNdS = as.numeric(res$dNdS), note = note, engine_status = as.character(res$status)
         )
         # pairs COAL returned no row for (e.g. a group it could not align)
         lost <- setdiff(seq_len(nrow(pairs)), at)
@@ -85,7 +78,7 @@ dnds_groups_coal <- function(pairs, cds, dnds_est.method, aa_aln_tool, aa_aln_pa
                 got <- rbind(got, data.table::data.table(
                         orthogroup = pairs$orthogroup[lost], query_id = pairs$query_id[lost], subject_id = pairs$subject_id[lost],
                         method = dnds_est.method[1], dN = NA_real_, dS = NA_real_, dNdS = NA_real_,
-                        note = "COAL returned no result for this pair"))
+                        note = "COAL returned no result for this pair", engine_status = "error"))
         got
 }
 
