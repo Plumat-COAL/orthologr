@@ -868,8 +868,11 @@ number_text <- function(x) {
         ok <- !is.na(x) & is.finite(x)
         longer <- ok & suppressWarnings(as.numeric(txt)) != x
         txt[longer] <- sprintf("%.17g", x[longer])
-        hex <- longer & suppressWarnings(as.numeric(txt)) != x
-        txt[hex] <- sprintf("%a", x[hex])
+        hex <- which(longer & suppressWarnings(as.numeric(txt)) != x)
+        # (only where R reads the hexadecimal text back exactly; not every platform does so for subnormal numbers)
+        h <- sprintf("%a", x[hex])
+        exact <- !is.na(suppressWarnings(as.numeric(h))) & suppressWarnings(as.numeric(h)) == x[hex]
+        txt[hex[exact]] <- h[exact]
         txt[is.na(x)] <- NA_character_
         txt
 }
