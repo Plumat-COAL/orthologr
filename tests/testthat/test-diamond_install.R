@@ -306,10 +306,7 @@ archive_with <- function(content) {
 # an error that shows the program's output, and the cached copy is unchanged
 expect_not_installed <- function(content, pattern) {
         archive <- archive_with(content)
-        dir <- place_fake_diamond()
-        writeLines(c("#!/bin/sh", "echo 'diamond version 2.1.0'"), file.path(dir, "diamond"))
-        Sys.chmod(file.path(dir, "diamond"), "755")
-        before <- readLines(file.path(dir, "diamond"))
+        # (the Linux file name 'diamond' on every OS, also for the cached copy)
         local_mocked_bindings(diamond_platform = function() c(sysname = "Linux", machine = "x86_64"),
                               diamond_exe_name = function() "diamond",
                               diamond_release_checksums = function() data.frame(version = "v2.2.8", asset = "diamond-linux64.tar.gz",
@@ -317,6 +314,10 @@ expect_not_installed <- function(content, pattern) {
                                                                                 stringsAsFactors = FALSE),
                               diamond_download = function(url, file, timeout, quiet = FALSE) file.copy(archive, file),
                               .package = "orthologr")
+        dir <- place_fake_diamond()
+        writeLines(c("#!/bin/sh", "echo 'diamond version 2.1.0'"), file.path(dir, "diamond"))
+        Sys.chmod(file.path(dir, "diamond"), "755")
+        before <- readLines(file.path(dir, "diamond"))
         e <- tryCatch(diamond_install(force = TRUE, quiet = TRUE), error = function(e) e)
         expect_s3_class(e, "orthologr_error_tool_failed")
         expect_match(conditionMessage(e), "does not run on this computer")
