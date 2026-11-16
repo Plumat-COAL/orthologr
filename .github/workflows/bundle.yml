@@ -1,0 +1,149 @@
+# Bundle: one GitHub release in this repository with the R packages of a COAL release and an orthologr release, for
+# people who want both. By hand only (Actions > Bundle > Run workflow) with
+#   coal_tag       a published COAL release, e.g. v0.6.1 (it must have coalr_<version>.tar.gz, as COAL releases do
+#                  from 0.6.1 on)
+#   orthologr_tag  a published release of this repository, e.g. v0.6.0 (made by release.yml)
+#   bundle_tag     bundle-<name>, e.g. bundle-2026.11: never v<...>, so it cannot collide with a tag of either project
+#                  (and release.yml ignores it)
+#   dry_run        on (the default): everything but creating the release; the files are a workflow artifact
+#
+# Every file of both releases is downloaded and checked against its release's SHA256SUMS.txt and against GitHub's
+# own record of the file (digest, size); a missing release, a draft or prerelease, an extra or unlisted file or any
+# checksum difference stops the run. The bundle release holds coalr_<v>.tar.gz and orthologr_<v>.tar.gz (unchanged),
+# INSTALL.md and SHA256SUMS.txt (all three files), and is created as a full release (not a prerelease) that is not
+# marked "Latest", so that releases/latest stays orthologr's own release; its tag points at the commit of
+# orthologr_tag. MAINTAINER_NOTES.md, section 6, has the steps.
+#
+# Supply chain as in release.yml: actions pinned to full commit SHAs, a read-only token except in the publish job,
+# inputs reach the shell through env only.
+name: Bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      coal_tag:
+        description: "COAL release, e.g. v0.6.1"
+        required: true
+        type: string
+      orthologr_tag:
+        description: "orthologr release of this repository, e.g. v0.6.0"
+        required: true
+        type: string
+      bundle_tag:
+        description: "Tag of the bundle release, bundle-<name>, e.g. bundle-2026.11"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run: download, check and assemble, create no release"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bundle-${{ inputs.bundle_tag }}
+  cancel-in-progress: false
+
+env:
+  COAL_REPO: Plumat-COAL/COAL
+  COAL_TAG: ${{ inputs.coal_tag }}
+  ORTHOLOGR_TAG: ${{ inputs.orthologr_tag }}
+  BUNDLE_TAG: ${{ inputs.bundle_tag }}
+
+jobs:
+  assemble:
+    name: Download, verify and assemble
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      target: ${{ steps.sources.outputs.target }}
+    env:
+      GH_TOKEN: ${{ github.token }}   # read-only here; for the API's rate limits (both repositories are public)
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Self-test of .github/scripts/release_tools.py
+        run: python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'
+      - name: The inputs (tag forms)
+        run: python3 -I .github/scripts/release_tools.py check-inputs "$COAL_TAG" "$ORTHOLOGR_TAG" "$BUNDLE_TAG"
+      - name: The bundle tag is not taken
+        run: |
+          if gh api "repos/$GH_REPO/git/ref/tags/$BUNDLE_TAG" > /dev/null 2>&1 \
+             || gh api "repos/$GH_REPO/releases/tags/$BUNDLE_TAG" > /dev/null 2>&1; then
+            echo "::error::$GH_REPO already has a tag or release $BUNDLE_TAG"; exit 1
+          fi
+      - name: The two releases (published), and the commit of the orthologr tag
+        id: sources
+        run: |
+          mkdir -p "$RUNNER_TEMP/meta"
+          gh api "repos/$COAL_REPO/releases/tags/$COAL_TAG" > "$RUNNER_TEMP/meta/coal.json" \
+            || { echo "::error::$COAL_REPO has no published release $COAL_TAG"; exit 1; }
+          gh api "repos/$GH_REPO/releases/tags/$ORTHOLOGR_TAG" > "$RUNNER_TEMP/meta/orthologr.json" \
+            || { echo "::error::$GH_REPO has no published release $ORTHOLOGR_TAG"; exit 1; }
+          target=$(gh api "repos/$GH_REPO/commits/$ORTHOLOGR_TAG" --jq .sha)
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no commit for $ORTHOLOGR_TAG"; exit 1; }
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "the bundle tag will point at $target ($ORTHOLOGR_TAG)"
+      - name: Download every file of both releases
+        timeout-minutes: 15
+        run: |
+          # each into a new, empty folder of its own; nothing in them is run
+          gh release download "$COAL_TAG" -R "$COAL_REPO" -D "$RUNNER_TEMP/coal"
+          gh release download "$ORTHOLOGR_TAG" -R "$GH_REPO" -D "$RUNNER_TEMP/orthologr"
+          ls -l "$RUNNER_TEMP/coal" "$RUNNER_TEMP/orthologr"
+      - name: Each file against its release's SHA256SUMS.txt and GitHub's record
+        run: |
+          python3 -I .github/scripts/release_tools.py verify "$RUNNER_TEMP/coal" \
+            --release-json "$RUNNER_TEMP/meta/coal.json" --tag "$COAL_TAG"
+          python3 -I .github/scripts/release_tools.py verify "$RUNNER_TEMP/orthologr" \
+            --release-json "$RUNNER_TEMP/meta/orthologr.json" --tag "$ORTHOLOGR_TAG"
+      - name: The bundle (the two tarballs, INSTALL.md, SHA256SUMS.txt) and its notes
+        run: |
+          python3 -I .github/scripts/release_tools.py bundle \
+            --coal-dir "$RUNNER_TEMP/coal" --coal-tag "$COAL_TAG" --coal-repo "$COAL_REPO" \
+            --orthologr-dir "$RUNNER_TEMP/orthologr" --orthologr-tag "$ORTHOLOGR_TAG" --orthologr-repo "$GH_REPO" \
+            --bundle-tag "$BUNDLE_TAG" --out out/files --notes out/notes.md
+          (cd out/files && sha256sum -c SHA256SUMS.txt)
+          ls -l out/files
+          echo "----- INSTALL.md"; cat out/files/INSTALL.md
+          echo "----- release notes"; cat out/notes.md
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: bundle
+          path: out/
+          if-no-files-found: error
+
+  publish:
+    name: Create the bundle release
+    needs: assemble
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # create the release (and its tag); nothing else
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET: ${{ needs.assemble.outputs.target }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: bundle
+          path: out
+      - name: The checked files, unchanged
+        working-directory: out/files
+        run: sha256sum -c SHA256SUMS.txt
+      - name: gh release create
+        run: |
+          if gh api "repos/$GH_REPO/git/ref/tags/$BUNDLE_TAG" > /dev/null 2>&1 \
+             || gh api "repos/$GH_REPO/releases/tags/$BUNDLE_TAG" > /dev/null 2>&1; then
+            echo "::error::$GH_REPO already has a tag or release $BUNDLE_TAG"; exit 1
+          fi
+          gh release create "$BUNDLE_TAG" out/files/* --target "$TARGET" \
+            --title "COAL $COAL_TAG + orthologr $ORTHOLOGR_TAG" --notes-file out/notes.md \
+            --prerelease=false --latest=false
+          gh api "repos/$GH_REPO/releases/tags/$BUNDLE_TAG" --jq '.html_url, (.assets[] | "\(.name)  \(.digest)")'

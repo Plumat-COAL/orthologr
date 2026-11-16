@@ -158,3 +158,51 @@ The first Actions run on the fork failed before any R code ran: micromamba recei
 double quotes (inside a folded YAML block no shell removes them) and could not parse the version, and pak could
 not match the `Remotes` entry to coalr. Both are corrected (`diamond>=2.1` unquoted in the two workflows; the
 `coalr=` prefix). The later runs pass on all legs (section 3).
+
+## 6. Releases of the fork, and the COAL + orthologr bundle
+
+Two workflows, modelled on COAL's `release.yml`; the checks they share are `.github/scripts/release_tools.py`
+(standard library Python, with its tests in `.github/scripts/test_release_tools.py`, which both workflows run first).
+Every action is pinned to a full commit SHA, the token is read-only except in the one job that writes, and the
+inputs reach the shell through environment variables only. Neither workflow ever writes the notes of an orthologr
+release, and neither runs anything it downloads.
+
+**`release.yml`** (on a published release with a tag `v<version>`, or by hand). Checks that the tag is `v` + the
+`Version` of `DESCRIPTION` (not a development version, `.9000`) and that the first heading of `NEWS.md` names that
+version; `R CMD build` of the tagged commit; `R CMD check --as-cran --no-manual` of the tarball on Linux (R release,
+with DIAMOND, BLAST+, Clustal Omega, MAFFT and KaKs_Calculator from bioconda as in `R-CMD-check.yaml`, and coalr from
+the `Remotes` pin); an ERROR or a WARNING fails the run, NOTEs do not. Then it attaches `orthologr_<version>.tar.gz`,
+`orthologr_<version>-check.log` (the check's `00check.log`) and `SHA256SUMS.txt` (of those two) to the release
+with `gh release upload --clobber`. A release whose tag does not start with `v` (a bundle) is ignored. By hand:
+`tag` empty with `dry_run` on checks the chosen branch; `tag` set with `dry_run` off re-attaches the files of an
+existing release (e.g. after a failed run).
+
+To publish orthologr X.Y.Z:
+
+1. `release.yml` must be in the commit that gets tagged (GitHub runs the workflow file of the tagged commit), and
+   in the default branch for "Run workflow" to be offered: merge `ci/release` first.
+2. Set `Version: X.Y.Z` (and `Date:`) in `DESCRIPTION` and make the first heading of `NEWS.md` name X.Y.Z; commit,
+   push. Optionally: Actions > Release > Run workflow on that branch, `tag` empty, `dry_run` on.
+3. On GitHub: Releases > Draft a new release > tag `vX.Y.Z` (create it on that commit) > title and notes written
+   by hand > Publish. The workflow starts by itself and attaches the three files (about 1 hour; most of it is the
+   check).
+4. If it fails: fix, and either delete the release and the tag and start again from 2, or (same commit) Actions >
+   Release > Run workflow with `tag` `vX.Y.Z` and `dry_run` off.
+
+**`bundle.yml`** (by hand only). Inputs `coal_tag` (a COAL release, e.g. `v0.6.1`), `orthologr_tag` (a release of
+this repository, e.g. `v0.6.0`), `bundle_tag` (`bundle-<name>`, e.g. `bundle-2026.11`: never `v...`, so it cannot
+collide with a tag of either project) and `dry_run` (on by default). It downloads every file of both releases
+(`gh release download`), checks each against its release's `SHA256SUMS.txt` and against GitHub's own record of the
+file (SHA-256 digest and size), and stops if a release is missing, a draft or a prerelease, if a file is missing,
+extra or unlisted, or if any checksum differs; the bundle tag must not exist yet. The COAL release must contain
+`coalr_<version>.tar.gz` (COAL releases do from 0.6.1 on; 0.6.0 has none) and the orthologr tarball must export
+`orthologr_sitrep()`, which `INSTALL.md` runs. It then creates, in this repository, the release `bundle_tag` (tag
+on the commit of `orthologr_tag`; not a prerelease; not marked "Latest", so that `releases/latest` stays
+orthologr's own release) with `coalr_<v>.tar.gz` and `orthologr_<v>.tar.gz` (unchanged), `INSTALL.md` (install
+coalr, then orthologr, then `library(orthologr); orthologr_sitrep()`) and `SHA256SUMS.txt` of those three; its
+notes (`--notes-file`) list the files and their SHA-256 and end with the authors line. A dry run does all of this
+except creating the release; the files and the notes are the workflow artifact `bundle`.
+
+To publish a bundle: Actions > Bundle > Run workflow with the three tags and `dry_run` on; read the artifact
+(`INSTALL.md`, `notes.md`); run it again with `dry_run` off. From a shell:
+`gh workflow run bundle.yml -R Plumat-COAL/orthologr -f coal_tag=v0.6.1 -f orthologr_tag=v0.6.0 -f bundle_tag=bundle-2026.11 -f dry_run=true`.
