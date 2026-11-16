@@ -90,7 +90,8 @@ way. The model below gives the printed values for all 274,176 rows (`an3.py`, to
 - Lowercase counts as uppercase.
 - U is translated like T, but when changes are counted it is a letter of its own. T<->U is a counted difference
   and a transversion; C<->U is a transition; U<->A and U<->G are transversions. The model with this rule matched
-  9012 U-containing pairs (LWL, MLWL) with 0 mismatches.
+  9012 U-containing pairs (LWL, MLWL) with 0 mismatches. This rule was implemented first (see section 4a) and
+  then replaced by "return NULL for sequences with U".
 
 **Exp 4: floating-point summation** (`zero_gen.py`, `schemes.py`, `an_zero.py`, `an_zero2.py`). These decide the
 sign of 1 - 2P - Q when it is exactly 0 in rational arithmetic.
@@ -130,7 +131,35 @@ Comparison scripts: /home/claude/w-olclean-scratch/cmp_kc.R and cmp_zero.R. They
 
 ## 4. Identity of the package with integration/all
 
-See the "Identity" section at the end (filled in after the runs).
+Merged tree 1cd0470 (this branch + integration/all bf8d61b) against bf8d61b. Both were installed from `git archive`
+and run with `/home/claude/w-olclean-scratch/run_id.R`, `dNdS()`, `comp_cores = 2`, using the KaKs_Calculator 2.0
+binary of tools-g and coalr 0.6.x.
+
+Configurations:
+- d20 and d1000 (the package's example data): `dnds_est.method` LWL, MLWL, LPB and MLPB through KaKs_Calculator;
+  the default route; `engine = "coal"`; and `engine = "coal"` with LWL (d1000);
+- S. cerevisiae / C. glabrata with LWL, and S. cerevisiae / K. lactis with MLPB. These are the two genome pairs
+  that the exact-zero fixtures come from. A tracer counted how often `kaks_saturated()` recomputed the counts:
+  82 times for ScCg and 90 times for ScKl. d20 and d1000 never reach that path.
+
+Results (`cmp_id.R` / `cmp_cols.R`): in all 15 configurations every column of the result table is identical with
+`identical()` and no normalisation. The table attributes differ only in installed-library paths, temp paths and
+dates; after normalising those they are `identical()` too.
+
+### 4a. Function-level check after the freeze, and the one change it led to
+
+After the implementation was frozen (commit a1d0712), I ran the old `kaks_lwl_counts()` (installed from
+integration/all) and the new one on the same 28,499 inputs: the random sets plus the boundary set. Only their
+return values were compared; no code was read. Any mismatch was to be settled by KaKs_Calculator only.
+- On every input without `U`, the results were `identical()` (bitwise, all five fields): 25,059 of 25,059. These
+  include gaps, N, ambiguity codes, lowercase and all exact-zero boundary cases.
+- On all 3,440 inputs with `U`, the old function returned NULL; the new one returned KaKs_Calculator's counts
+  (verified against KC's printed output in section 3).
+
+NULL means "the printed counts decide" in `kaks_saturated()`. To keep package results identical to integration/all,
+the new function now also returns NULL for sequences containing U/u. This is commit 2 on this branch. It is a
+contract-level choice (decline RNA letters), not a port of any code. All KaKs_Calculator comparisons were re-run
+after it, and the U rows were dropped from the comparison set.
 
 ## 5. Proposed licence wording (README "Licenses" / inst/COPYRIGHTS)
 
@@ -148,3 +177,14 @@ chore/ol-hygiene. If chore/ol-hygiene and this branch both merge, replace its Ka
 For inst/COPYRIGHTS: drop the entry that attributes the three functions to KaKs_Calculator 2.0 (Zhang et al., GPL-3).
 If wanted, replace it with: "R/lwl_counts.R: independent implementation (clean room, see CLEANROOM.md on branch
 chore/gpl2-cleanroom); the genetic code tables are NCBI data (public domain, US Government work)."
+
+## 6. CI and R CMD check
+
+- **Fork CI** (R-CMD-check.yaml, workflow_dispatch):
+  - 7/7 green on a1d0712 (run 43788724616) and 7/7 green on the merged 1cd0470 (run 43796527172);
+  - the jobs: ubuntu release / devel / oldrel-1 / 4.4 / no optional tools, macOS, Windows;
+  - on ubuntu release (bioconda kakscalculator2 2.0.1) the live black-box test in test-lwl_counts.R ran and passed:
+    FAIL 0, 5273 PASS, and no skip for it.
+- **Local `R CMD check --no-manual --as-cran`** of 1cd0470: Status 6 NOTEs, 0 errors, 0 warnings. These are the same
+  six NOTEs as integration/all (future file timestamps, Rd line widths, Rd cross-references, compilation flags,
+  examples timing, and CRAN incoming: no internet + `Remotes` field). None comes from this change.

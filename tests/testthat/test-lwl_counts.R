@@ -12,9 +12,9 @@ lwl_cases <- list(
         # the arginine and isoleucine codon pairs of Tzeng et al. (2004), with a background
         arg_ile = c("CGAAGACGGAGGATAATAATTATGGCTTTTAAACATGCTGGCCCAGTGTTTAAAGATCATGCTGGCCCAGTGTTTAAAGATCATGCTGGCCCAGTGTTTAAAGATCAT",
                     "AGACGAAGGCGGATTATGATAATACCTTTCCAGCACGCCGGCCCAGTGTTTAAAGATCATGCCGGCCCAGTGTTTAAAGATCATGCCGGCCCAGTGTTTAAAGATCAT"),
-        # stop codon, lower case, gap, N, U, ambiguity code
-        odd = c("ATGTAAgct---NNNGCTUUUAGRCATGGGTTTCCCAAAGGGTTTCCC",
-                "ATGCAAGCCGCTGCTGCAUUCAGACAAGGATTCCCGAAGGAATTTCCA"),
+        # stop codon, lower case, gap, N, ambiguity code
+        odd = c("ATGTAAgct---NNNGCTTTTAGRCATGGGTTTCCCAAAGGGTTTCCC",
+                "ATGCAAGCCGCTGCTGCATTCAGACAAGGATTCCCGAAGGAATTTCCA"),
         # codons that differ at two and three positions (pathways, some through stop codons)
         multi = c("ATGGCTTGGCCCAAAGATGAGCGTTTATCACATCAGGGGTGGATAACTGACATG",
                   "ATGGAGTGTCAAAGGTAAGAAAGCTCAGTCCGTCATGGCTGCATGACCTGGATG"))
@@ -77,6 +77,9 @@ test_that("kaks_lwl_counts() returns NULL where it cannot compute", {
         expect_null(kaks_lwl_counts("ATGA", "ATGA", "LWL"))
         expect_null(kaks_lwl_counts("ATG", "ATG", "LWL", genetic_code = 7))
         expect_null(kaks_lwl_counts(c("ATG", "ATG"), "ATG", "LWL"))
+        # RNA letters: left to the counts KaKs_Calculator printed
+        expect_null(kaks_lwl_counts("AUGTTT", "ATGTTC", "LWL"))
+        expect_null(kaks_lwl_counts("ATGTTT", "augttc", "MLPB"))
         # a stop codon pair and an identical pair
         e <- kaks_lwl_counts("TAAATG", "TAAATG", "MLWL")
         expect_identical(e$L, c(3, 0, 0))
