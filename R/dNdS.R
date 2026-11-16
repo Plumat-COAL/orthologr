@@ -251,7 +251,7 @@
 #' and 934 of 7,728 in the same files) are trimmed by default (\code{delete_corrupt_cds = FALSE}); they are listed in
 #' \code{attr(result, "trimmed_sequences")} (\code{file}, \code{id}, \code{removed_nt}, \code{corrupted_file}: the
 #' sequences as read) and counted in the summary message. Coding sequences with in-frame stop codons before their last
-#' codon are used as they are (how such a codon is treated is up to the alignment and estimation programs; COAL does
+#' codon (also stop codons written with an ambiguity code, \code{TAR} or \code{TRA}, since 0.6.0) are used as they are (how such a codon is treated is up to the alignment and estimation programs; COAL does
 #' not compare it) and listed in
 #' \code{attr(result, "stop_codon_sequences")} (\code{file}, \code{id}, \code{stop_codons}: their number), with a
 #' line in the summary message (also with \code{engine = "coal"}).

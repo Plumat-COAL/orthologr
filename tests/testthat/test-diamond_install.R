@@ -439,3 +439,8 @@ test_that("diamond_install() fails clearly for a non-existing version", {
                              "Could not download DIAMOND", class = "orthologr_error_download_failed")
         })
 })
+
+test_that("the condition classes of diamond_install() are registered", {
+        expect_true(all(c("checksum_mismatch", "download_failed", "checksum_unavailable", "bad_argument", "tool_failed",
+                          "tool_missing") %in% orthologr:::orthologr_condition_classes()$error))
+})

@@ -49,3 +49,7 @@ gestimator <- function(file, file_out = "", maxHits = 3L, verbose = FALSE, remov
     invisible(.Call(`_orthologr_gestimator`, file, file_out, maxHits, verbose, remove_all_gaps, legacy_saturation, twosubs_libsequence, min_sites))
 }
 
+gestimator_pairs <- function(seq1, seq2, maxHits = 3L, legacy_saturation = FALSE, twosubs_libsequence = FALSE, min_sites = 3.0) {
+    .Call(`_orthologr_gestimator_pairs`, seq1, seq2, maxHits, legacy_saturation, twosubs_libsequence, min_sites)
+}
+

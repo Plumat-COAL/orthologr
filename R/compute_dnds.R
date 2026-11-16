@@ -249,6 +249,9 @@ compute_dnds <- function(complete_tbl,
         
         # step 3: dN/dS of the codon alignment in 'codon_file'
         pair_rates <- function(i, codon_file) {
+                # Comeron's method: what substitutionrate() computes, as a "dnds_values" record (no table per pair)
+                if (comeron_values_ok)
+                        return(comeron_rates(codon_file, subst_name = paste0("q", i), quiet = TRUE, values = TRUE))
                 # compute kaks
                 substitutionrate(
                         file           = codon_file,
@@ -262,6 +265,13 @@ compute_dnds <- function(complete_tbl,
         
         # step 4: the result rows of the pair from the table 'rates' of pair_rates()
         pair_finish <- function(i, rates) {
+                # values of the pair (dnds_values()): they become rows of the table of the chunk (dnds_bind())
+                if (inherits(rates, "dnds_values")) {
+                        rates$query_id <- as.character(q_ids[i])
+                        rates$subject_id <- as.character(s_ids[i])
+                        rates$reason <- dnds_pair_reason(rates$reason, q_ids[i], s_ids[i])
+                        return(rates)
+                }
                 # The IDs of the pair are those of the pair table - not what came back from the programs.
                 # Alignment programs and file readers change IDs (MAFFT cuts them to 15 characters in CLUSTAL
                 # output, fread() turned '007' into 7, KaKs_Calculator labels were split at '-'), and the result
@@ -341,12 +351,65 @@ compute_dnds <- function(complete_tbl,
         batch_kc <- batch_tools && identical(kaks_tool, "kaks_calculator") &&
                 is.element(dnds_est.method, setdiff(kaks_calculator_methods(), "kaks_calc"))
         
-        # the gene pairs 'idx' (a chunk): a list with the result table of each pair
+        # Comeron's method (substitutionrate()'s own checks of kaks_tool passed in dNdS()): pair_rates() gives
+        # the values of a pair (comeron_rates(values = TRUE)); with the codon alignments in memory (the default
+        # route: pairwise alignments, COAL through coalr, the files of the pair not kept) they are handed to
+        # gestimator as strings (gestimator_pairs(), one call per chunk) instead of a file that is written and read
+        # back - unless keep_tmp keeps the files, or a pair cannot go this way (then it takes the file route).
+        comeron_values_ok <- identical(dnds_est.method, "Comeron") && is.element(kaks_tool, c("kaks_calculator", "coal"))
+        comeron_in_memory <- comeron_values_ok && skip_pair_files
+        
+        # the gene pairs 'idx' (a chunk): a list with the result tables of the pairs (one table for the pairs
+        # whose values were computed together, dnds_bind())
         run_pairs <- function(idx) {
                 rows <- if (batch_aln) pairwise_aln_rows(q_aa[idx], s_aa[idx], aa_sub_matrix) else vector("list", length(idx))
                 if (batch_p2n || batch_kc)
-                        return(run_pairs_staged(idx, rows))
-                lapply(seq_along(idx), function(k) safe_pair(idx[k], rows[[k]]))
+                        return(dnds_bind(run_pairs_staged(idx, rows)))
+                if (comeron_in_memory)
+                        return(dnds_bind(run_pairs_comeron(idx, rows)))
+                dnds_bind(lapply(seq_along(idx), function(k) safe_pair(idx[k], rows[[k]])))
+        }
+        
+        # run_pairs() for Comeron's method with the codon alignments in memory: the codon alignment of every pair of
+        # the chunk (as pair_codon() builds it), then gestimator for all of them with one call. A pair whose
+        # alignment is not a plain codon alignment, or whose numbers gestimator writes in another form than plain
+        # decimals, goes through the files as before (safe_pair(): the same values, and its own error message).
+        run_pairs_comeron <- function(idx, rows) {
+                n <- length(idx)
+                res <- vector("list", n)
+                aln <- vector("list", n)
+                for (k in seq_len(n)) {
+                        i <- idx[k]
+                        if (is.null(rows[[k]]) || !plain_seqs(c(q_cds[i], s_cds[i])))
+                                next
+                        aln[[k]] <- tryCatch(
+                                coal_codon_rows(rows[[k]], c(q_cds[i], s_cds[i]),
+                                                paste0("gene pair '", pair_names[1], "' / '", pair_names[2], "' (q", i, ")")),
+                                error = function(e) e)
+                        if (inherits(aln[[k]], "error")) {
+                                res[[k]] <- pair_failed(i, aln[[k]])
+                                aln[k] <- list(NULL)
+                        } else if (!comeron_plain_alignment(aln[[k]])) {
+                                aln[k] <- list(NULL)
+                        }
+                }
+                todo <- which(!vapply(aln, is.null, TRUE))
+                vals <- if (length(todo) > 0) tryCatch(
+                        gestimator_pairs(vapply(aln[todo], `[`, "", 1), vapply(aln[todo], `[`, "", 2),
+                                         legacy_saturation = comeron_legacy_saturation(),
+                                         twosubs_libsequence = identical(comeron_twosubs(), "libsequence"),
+                                         min_sites = comeron_min_sites()),
+                        error = function(e) rep(NA_character_, length(todo))) else character(0)
+                for (j in seq_along(todo)) {
+                        k <- todo[j]
+                        f <- if (is.na(vals[j])) NULL else strsplit(vals[j], "\t", fixed = TRUE)[[1]]
+                        if (length(f) == 3 && gestimator_plain_numbers(f))
+                                res[[k]] <- pair_finish(idx[k], comeron_values(list(dN = as.numeric(f[1]), dS = as.numeric(f[2]),
+                                                                                    dNdS = as.numeric(f[3]))))
+                }
+                for (k in which(vapply(res, is.null, TRUE)))
+                        res[[k]] <- safe_pair(idx[k], rows[[k]])
+                res
         }
         
         # run_pairs() step by step: every step of one_pair() for all pairs of the chunk before the next step, the
@@ -386,6 +449,7 @@ compute_dnds <- function(complete_tbl,
                                                        est.method = dnds_est.method, kaks_calc_path = kaks_calc_path)
                 for (k in todo) {
                         res[[k]] <- tryCatch({
+                                # (a table, a "dnds_values" record of kaks_calc_batch(), or NULL)
                                 r <- rates[[k]]
                                 if (is.null(r))
                                         r <- pair_rates(idx[k], codon[k])
@@ -409,13 +473,16 @@ compute_dnds <- function(complete_tbl,
         # dnds_chunk_size() pairs, at least one chunk per R process
         pieces <- split(seq_len(n_pairs), ceiling(seq_len(n_pairs) / step))
         
+        # (the tables of a chunk hold the rows of one or more pairs: the pairs done are counted with 'done')
         if (!multicore) {
                 dNdS_values <- list()
+                done <- 0L
                 for (piece in pieces) {
                         for (chunk in dnds_chunks(piece, 1))
                                 dNdS_values <- c(dNdS_values, run_pairs(chunk))
-                        if (show_progress && length(dNdS_values) < n_pairs)
-                                progress_message(length(dNdS_values), n_pairs, t_start)
+                        done <- done + length(piece)
+                        if (show_progress && done < n_pairs)
+                                progress_message(done, n_pairs, t_start)
                 }
         }
         
@@ -431,10 +498,12 @@ compute_dnds <- function(complete_tbl,
                         dNdS_values <- do.call(c, parallel::parLapply(par_cores, dnds_chunks(seq_len(n_pairs), comp_cores), run_pairs))
                 } else {
                         dNdS_values <- list()
+                        done <- 0L
                         for (piece in pieces) {
                                 dNdS_values <- c(dNdS_values, do.call(c, parallel::parLapply(par_cores, dnds_chunks(piece, comp_cores), run_pairs)))
-                                if (length(dNdS_values) < n_pairs)
-                                        progress_message(length(dNdS_values), n_pairs, t_start)
+                                done <- done + length(piece)
+                                if (done < n_pairs)
+                                        progress_message(done, n_pairs, t_start)
                         }
                 }
                 finished <- TRUE
@@ -516,6 +585,52 @@ dnds_pair_reason <- function(reason, query_id, subject_id) {
         n <- dnds_pair_names()
         gsub(paste0("gene pair '", n[1], "' / '", n[2], "'"),
              paste0("gene pair '", query_id, "' / '", subject_id, "'"), reason, fixed = TRUE)
+}
+
+# The result tables of a chunk of gene pairs from 'res' (per pair, in order: a table, or a "dnds_values" record of
+# pair_finish()): consecutive records with the same columns become one table, with the rows, columns and types the
+# tables of pair_finish() would have (query_id, subject_id, dN, dS, dNdS, [method,] .reason), so that rbindlist()
+# of the list gives the same result. (A table per gene pair - data.table(), setkey(), as.data.table() and set() -
+# took about a fifth of the run time of the YN and Comeron routes.)
+dnds_bind <- function(res) {
+        n <- length(res)
+        if (n == 0)
+                return(res)
+        light <- vapply(res, inherits, TRUE, what = "dnds_values")
+        if (!any(light))
+                return(res)
+        has_method <- vapply(res, function(r) inherits(r, "dnds_values") && !is.null(r$method), TRUE)
+        # runs of consecutive records of the same kind
+        grp <- cumsum(c(TRUE, light[-1] != light[-n] | has_method[-1] != has_method[-n] | !light[-1]))
+        out <- vector("list", max(grp))
+        for (g in unique(grp)) {
+                at <- which(grp == g)
+                if (!light[at[1]]) {
+                        out[[g]] <- res[[at[1]]]
+                        next
+                }
+                r <- res[at]
+                len <- vapply(r, function(x) length(x$dN), 1L)
+                col <- function(name) unlist(lapply(r, `[[`, name), use.names = FALSE)
+                tbl <- list(query_id   = rep(vapply(r, `[[`, "", "query_id"), len),
+                            subject_id = rep(vapply(r, `[[`, "", "subject_id"), len),
+                            dN         = as.numeric(col("dN")),
+                            dS         = as.numeric(col("dS")),
+                            dNdS       = as.numeric(col("dNdS")))
+                if (has_method[at[1]])
+                        tbl$method <- col("method")
+                tbl$.reason <- as.character(col("reason"))
+                out[[g]] <- data.table::setDT(tbl)
+        }
+        out
+}
+
+# Is the codon alignment 'x' (two strings) one that gestimator_pairs() computes as gestimator() computes it after
+# write_alignment() and check_codon_alignment_file() (letters, '*' and '-'; the same length, a multiple of 3 and at
+# least 3)?
+comeron_plain_alignment <- function(x) {
+        length(x) == 2 && is.character(x) && plain_seqs(x) && nchar(x[1]) == nchar(x[2]) && nchar(x[1]) >= 3 &&
+                nchar(x[1]) %% 3 == 0
 }
 
 # A result row of NA values for a gene pair that could not be processed, with the columns substitutionrate()
