@@ -7,9 +7,10 @@ starting "release_tools:" when a check fails, 0 otherwise.
       release.yml: the tag must be v<Version of DESCRIPTION> and the first heading of NEWS.md must name that version.
       A development version (a component >= 9000, R's convention) is no release. With --dry-run an empty TAG means
       "the version DESCRIPTION has" and a development version is allowed; NEWS.md is still checked.
-      Every entry of the Remotes field must be pinned, to a full commit SHA (@<40 hex digits>) or a release tag
-      (@v<version>): the check of a release installs them, so a branch would make it check moving code. A dry run
-      only warns.
+      Every entry of the Remotes field, and every git / GitHub reference in a Config/Needs/* field, must be pinned to
+      a full commit SHA (@<40 hex digits>), or, for a repository of Plumat-COAL only, to a release tag (@v<version>):
+      the check of a release installs them, so a branch would make it check moving code. Additional_repositories is
+      refused. A dry run only warns.
       Prints the version; --github-output writes version=, tag= to $GITHUB_OUTPUT.
 
   check-inputs COAL_TAG ORTHOLOGR_TAG BUNDLE_TAG
@@ -107,14 +108,33 @@ def heading_names(heading, version):
 # ---------------------------------------------------------------------------------------------------------------
 # version (release.yml)
 
-# @ + a full commit SHA, or @ + a release tag v<numbers>; nothing after it (no #PR, no further text)
-PINNED_REMOTE_RE = re.compile(r"[^@\s]+@(?:[0-9a-f]{40}|v\d+(?:\.\d+){1,3})")
+# a pinned reference: anything without "@" or whitespace, then @ + a full commit SHA; or, for Plumat-COAL's own
+# repositories only, @ + a release tag v<numbers>. Nothing after it (no #PR, no further text).
+PINNED_SHA_RE = re.compile(r"[^@\s,]+@[0-9a-f]{40}")
+PINNED_OWN_TAG_RE = re.compile(r"(?:[A-Za-z0-9._]+=)?(?:github::)?Plumat-COAL/[^@\s,/]+(?:/[^@\s,]+)?@v\d+(?:\.\d+){1,3}",
+                               re.IGNORECASE)
+# pak references that name a package repository, not code at a moving ref: these need no pin in Config/Needs/*
+PACKAGE_REF_RE = re.compile(r"(?:(?:any|cran|bioc|standard)::)?[A-Za-z][A-Za-z0-9.]*(?:@[<>=]*[0-9.-]+)?")
 
 
-def unpinned_remotes(desc):
-    """The entries of the Remotes field that are not pinned to a commit SHA or a v<version> tag."""
-    entries = [e.strip() for e in (desc.get("Remotes") or "").split(",") if e.strip()]
-    return [e for e in entries if not PINNED_REMOTE_RE.fullmatch(e)]
+def is_pinned(entry):
+    return bool(PINNED_SHA_RE.fullmatch(entry) or PINNED_OWN_TAG_RE.fullmatch(entry))
+
+
+def field_entries(value):
+    return [e.strip() for e in (value or "").split(",") if e.strip()]
+
+
+def unpinned_refs(desc):
+    """Entries of Remotes, and git / GitHub references of Config/Needs/* fields, that are not pinned (is_pinned);
+    and an Additional_repositories field, which the release check would install from as well."""
+    loose = [f"Remotes: {e}" for e in field_entries(desc.get("Remotes")) if not is_pinned(e)]
+    for field in sorted(f for f in desc if f.startswith("Config/Needs/")):
+        loose += [f"{field}: {e}" for e in field_entries(desc[field])
+                  if not PACKAGE_REF_RE.fullmatch(e) and not is_pinned(e)]
+    if desc.get("Additional_repositories", "").strip():
+        loose.append(f"Additional_repositories: {desc['Additional_repositories'].strip()}")
+    return loose
 
 
 def check_version(tag, root=".", dry_run=False):
@@ -135,10 +155,10 @@ def check_version(tag, root=".", dry_run=False):
                       f"commit, then tag that commit")
     if is_development(version) and not dry_run:
         raise Failure(f"{version} is a development version (a component >= 9000): a release sets X.Y.Z first")
-    loose = unpinned_remotes(desc)
+    loose = unpinned_refs(desc)
     if loose:
-        msg = (f"DESCRIPTION Remotes not pinned to @<commit SHA> or @v<version>: {', '.join(loose)} (the release "
-               f"check installs them)")
+        msg = (f"DESCRIPTION has package sources that are not pinned to @<commit SHA> (or, for Plumat-COAL, "
+               f"@v<version>): {'; '.join(loose)} (the release check installs them)")
         if not dry_run:
             raise Failure(msg)
         print(f"::warning::{msg}; a release refuses this", file=sys.stderr)

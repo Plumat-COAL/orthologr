@@ -86,11 +86,13 @@ def api_json(directory, tag, json_path, digests=True):
 
 
 class Version(unittest.TestCase):
-    def repo(self, version="0.6.0", heading="## `orthologr` 0.6.0", remotes=None, package="orthologr"):
+    def repo(self, version="0.6.0", heading="## `orthologr` 0.6.0", remotes=None, package="orthologr", extra="",
+             sep=",\n    "):
         d = tmpdir(self)
         desc = DESC.format(v=version).replace("Package: orthologr", f"Package: {package}")
         if remotes is not None:
-            desc += "Remotes:\n    " + ",\n    ".join(remotes) + "\n"
+            desc += "Remotes:\n    " + sep.join(remotes) + "\n"
+        desc += extra
         write(os.path.join(d, "DESCRIPTION"), desc)
         write(os.path.join(d, "NEWS.md"), f"{heading}\n\n### Section\n\n## `orthologr` 0.5.0\n")
         return d
@@ -106,27 +108,57 @@ class Version(unittest.TestCase):
         with self.assertRaisesRegex(rt.Failure, "not orthologr"):
             rt.check_version("", self.repo(package="orthologrx"), dry_run=True)
 
+    SHA = "0123456789abcdef0123456789abcdef01234567"
+    COALR = "coalr=Plumat-COAL/COAL/packaging/r/coalr@v0.6.1"
+
+    def refused(self, msg=None, **kw):
+        """A release refuses the DESCRIPTION; a dry run only warns ("::warning::")."""
+        with self.assertRaisesRegex(rt.Failure, "not pinned", msg=msg):
+            rt.check_version("v0.6.0", self.repo(**kw))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):   # "::warning::" in a workflow log would be an annotation
+            self.assertEqual(rt.check_version("", self.repo(**kw), dry_run=True)[0], "0.6.0")
+        self.assertIn("::warning::", err.getvalue())
+
     def test_remotes_pinned(self):
-        sha = "0123456789abcdef0123456789abcdef01234567"
-        ok = [f"drostlab/metablastr@{sha}", "coalr=Plumat-COAL/COAL/packaging/r/coalr@v0.6.1",
-              f"github::owner/repo@{sha}"]
+        ok = [f"drostlab/metablastr@{self.SHA}", self.COALR, f"github::owner/repo@{self.SHA}",
+              "Plumat-COAL/orthologr@v0.6.0", "github::plumat-coal/COAL@v0.6.1",
+              f"git::https://github.com/owner/repo.git@{self.SHA}"]
         self.assertEqual(rt.check_version("v0.6.0", self.repo(remotes=ok))[0], "0.6.0")
         self.assertEqual(rt.check_version("v0.6.0", self.repo(remotes=[]))[0], "0.6.0")
 
     def test_remotes_not_pinned(self):
-        sha = "0123456789abcdef0123456789abcdef01234567"
+        sha = self.SHA
         for bad in ("drostlab/metablastr", "drostlab/metablastr@main", "drostlab/metablastr@v0.6.0rc1",
                     f"drostlab/metablastr@{sha[:12]}", f"drostlab/metablastr@{sha.upper()}",
                     "drostlab/metablastr#12", f"drostlab/metablastr#{sha}", f"drostlab/metablastr@{sha}#12",
-                    "coalr=Plumat-COAL/COAL@0.6.1", "coalr=Plumat-COAL/COAL#v0.6.1"):
-            remotes = ["coalr=Plumat-COAL/COAL/packaging/r/coalr@v0.6.1", bad]
-            with self.assertRaisesRegex(rt.Failure, "Remotes not pinned", msg=bad):
-                rt.check_version("v0.6.0", self.repo(remotes=remotes))
-            # a dry run warns only (captured here: "::warning::" in the log of a workflow is an annotation)
-            err = io.StringIO()
-            with contextlib.redirect_stderr(err):
-                self.assertEqual(rt.check_version("", self.repo(remotes=remotes), dry_run=True)[0], "0.6.0")
-            self.assertIn("::warning::", err.getvalue())
+                    "coalr=Plumat-COAL/COAL@0.6.1", "coalr=Plumat-COAL/COAL#v0.6.1",
+                    "git::https://github.com/owner/repo.git", "url::https://example.org/pkg.tar.gz"):
+            self.refused(msg=bad, remotes=[self.COALR, bad])
+
+    def test_tag_pins_only_for_plumat_coal(self):
+        for bad in ("drostlab/metablastr@v1.0.0", "github::drostlab/metablastr@v1.0.0",
+                    "coalr=someone/COAL/packaging/r/coalr@v0.6.1", "Plumat-COAL-fork/COAL@v0.6.1",
+                    "git::https://github.com/Plumat-COAL/COAL.git@v0.6.1", "x/Plumat-COAL/COAL@v0.6.1"):
+            self.refused(msg=bad, remotes=[bad])
+
+    def test_missing_comma(self):
+        # without the comma the two lines are one entry "a b": refused whichever comes first
+        for remotes in (["drostlab/metablastr", self.COALR], [self.COALR, "drostlab/metablastr"],
+                        ["drostlab/metablastr", f"owner/repo@{self.SHA}"],
+                        [f"drostlab/metablastr@{self.SHA}", self.COALR]):
+            self.refused(msg=str(remotes), remotes=remotes, sep="\n    ")
+
+    def test_config_needs(self):
+        ok = ("Config/Needs/website: any::pkgdown, tidyverse/tidytemplate@" + self.SHA + "\n"
+              "Config/Needs/check: rcmdcheck, cran::xml2, bioc::Biostrings, knitr@>=1.6\n")
+        self.assertEqual(rt.check_version("v0.6.0", self.repo(extra=ok))[0], "0.6.0")
+        for bad in ("github::tidyverse/tidytemplate", "tidyverse/tidytemplate@main", "git::https://x.org/r.git",
+                    "github::owner/repo@v1.0.0", "url::https://example.org/p.tar.gz", "local::."):
+            self.refused(msg=bad, extra=f"Config/Needs/website: any::pkgdown,\n    {bad}\n")
+
+    def test_additional_repositories(self):
+        self.refused(extra="Additional_repositories: https://example.org/drat\n")
 
     def test_tag_differs_from_description(self):
         with self.assertRaisesRegex(rt.Failure, "DESCRIPTION says Version: 0.6.0"):

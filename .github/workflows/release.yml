@@ -15,9 +15,10 @@
 # of DESCRIPTION (Depends, Imports, LinkingTo: CRAN and Bioconductor packages, by pak) and knitr and rmarkdown; no
 # Suggests, no Remotes (coalr, metablastr) and no bioconda programs. The vignettes run their examples only when
 # DIAMOND / BLAST+ are on the PATH, so they are built as on CRAN, without results (tested: R CMD build passes without
-# the programs, coalr and metablastr). The tarball is hashed right after R CMD build and the hash passed on as a job
-# output. The check job runs much more third-party code (bioconda packages, all Suggests, the Remotes - which a
-# release must pin to a commit SHA or a v<version> tag, see release_tools.py version - and the tests) on a copy, and
+# the programs, coalr and metablastr). It uses no cache (cache: false): setup-r-dependencies restores a cache by a
+# key prefix, so it could bring back a library that the check job or R-CMD-check.yaml filled while running untrusted
+# code. The tarball is hashed right after R CMD build and the hash passed on as a job output. The check job runs much more third-party code (bioconda packages, all Suggests, the Remotes - which a
+# release must pin, see release_tools.py version - and the tests; it may use the dependency cache) on a copy, and
 # only its log is published: the files and upload jobs take the build job's tarball and compare it with that hash.
 #
 # Supply chain as in R-CMD-check.yaml: every action is pinned to the full commit SHA of a release (the release in the
@@ -124,6 +125,9 @@ jobs:
         with:
           dependencies: '"hard"'
           extra-packages: any::knitr any::rmarkdown
+          # no cache: its restore key is a prefix (<os>-<R>-<arch>-<version>-), so a miss could restore a library
+          # saved by the check job or by R-CMD-check.yaml, which ran untrusted code (Suggests, Remotes, tests)
+          cache: false
       - name: R CMD build
         timeout-minutes: 30
         run: |

@@ -184,8 +184,9 @@ upstream 0.4.3 line, which the team does not push to.
 **`release.yml`** (on a published release with a tag `v<version>`, or by hand). Job `version`: the tag must be `v`
 + the `Version` of `DESCRIPTION` (not a development version, `.9000`) and the first heading of `NEWS.md` must name
 that version; it checks out the tag as `refs/tags/<tag>` (the release event: the event's commit), never a branch of
-the same name; it refuses a `Remotes` entry that is not pinned to `@<40-digit commit SHA>` or `@v<version>` (a dry
-run only warns). Job `build`: `R CMD build` of that commit, and the SHA-256 of the tarball taken right after the
+the same name; it refuses a `Remotes` entry, or a git / GitHub reference in a `Config/Needs/*` field, that is not
+pinned to `@<40-digit commit SHA>` (a `@v<version>` tag is accepted for `Plumat-COAL/*` repositories only), and any
+`Additional_repositories` field (a dry run only warns). Job `build`: `R CMD build` of that commit, and the SHA-256 of the tarball taken right after the
 build, passed on as a job output. Job `check`: `R CMD check --as-cran --no-manual` of a copy of that tarball,
 compared with the hash first (Linux, R release, with DIAMOND, BLAST+, Clustal Omega, MAFFT and KaKs_Calculator from
 bioconda as in `R-CMD-check.yaml`, and coalr and metablastr from the `Remotes` field); an ERROR or a WARNING fails
@@ -202,12 +203,14 @@ Where third-party code runs, and what it can reach:
 - Job `build` installs only what `R CMD build` needs: R and pandoc (the pinned r-lib actions), the hard
   dependencies of `DESCRIPTION` (Depends, Imports, LinkingTo, from CRAN / Bioconductor through pak) and knitr and
   rmarkdown; no Suggests, no `Remotes` (coalr, metablastr) and no bioconda programs. This code runs before the
-  tarball exists and is hashed. The vignettes run their examples only when DIAMOND or BLAST+ is on the PATH, so they
+  tarball exists and is hashed. The job uses no package cache (`cache: false`): setup-r-dependencies restores a
+  cache by a key prefix, so on a miss it could restore a library saved by the check job or by `R-CMD-check.yaml`,
+  which ran untrusted code; it installs from CRAN / Bioconductor every time instead. The vignettes run their examples only when DIAMOND or BLAST+ is on the PATH, so they
   are built as CRAN would build them, as text and code without results (R CMD build of `integration/all` passes
   without the programs, coalr and metablastr: tested); none of their evaluated chunks uses coalr, metablastr or
   another Suggests.
 - Job `check` runs much more: the bioconda packages, all Suggests and the `Remotes` (which a release must pin, as
-  above), the package's tests. Nothing it writes is published except its log; it cannot change the tarball the
+  above), the package's tests; it may use the dependency cache. Nothing it writes is published except its log; it cannot change the tarball the
   release gets (the `files` and `upload` jobs compare it with the build job's hash).
 - Jobs `version`, `files` and `upload` run only the repository's own `release_tools.py`, coreutils, `gh` and
   GitHub's checkout and artifact actions.
@@ -220,7 +223,8 @@ To publish orthologr X.Y.Z:
    name X.Y.Z; move the `Remotes` pin of coalr (`coalr=Plumat-COAL/COAL/packaging/r/coalr@v...`, and
    `coalr_install_hint()` in `R/coal.R` with it, section 3) to the COAL release the bundle will carry (e.g. `v0.6.1`),
    so that the coalr the release is checked with is the coalr the bundle ships; pin `drostlab/metablastr` to a
-   commit SHA (`drostlab/metablastr@<sha>`): the version job refuses a release with an unpinned `Remotes` entry. Commit, push.
+   commit SHA (`drostlab/metablastr@<sha>`; a tag is accepted for Plumat-COAL repositories only): the version job
+   refuses a release with an unpinned `Remotes` entry. Commit, push.
    Optionally: Actions > Release > Run workflow on that branch, `tag` empty, `dry_run` on.
 3. On GitHub: Releases > Draft a new release > tag `vX.Y.Z` (create it on that commit) > title and notes written
    by hand > Publish. The workflow starts by itself and attaches the three files (about 1 to 2 hours; most of it is
