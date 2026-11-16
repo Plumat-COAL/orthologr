@@ -20,12 +20,19 @@
 #' @param subst_name a character string specifying the substitution name that shall be added to the internal folder path naming. 
 #' Default is \code{subst_name} = \code{NULL}.
 #' @param kaks_tool the program that computes the KaKs_Calculator methods (\code{est.method} = \code{"NG"}, \code{"LWL"},
-#' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the
+#' \code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}, and \code{"GY"} with a COAL that has it):
+#' \code{"kaks_calculator"} (Default; the
 #' external program KaKs_Calculator) or \code{"coal"} (COAL's implementation of the same methods, which gives
 #' KaKs_Calculator 2.0's values for the same alignment and runs inside R when the package \pkg{coalr} is installed;
 #' see \code{\link{codon_aln}} for how to install COAL). With \code{"coal"} a dN or dS of exactly 0 is returned as
 #' 0 (KaKs_Calculator prints \code{NA} for values below 1e-6) and a saturated estimate is \code{NA}.
-#' The methods \code{"MA"}, \code{"MS"}, \code{"GY"}, \code{"GMYN"} and \code{"ALL"} need KaKs_Calculator.
+#' The methods \code{"MA"}, \code{"MS"}, \code{"GMYN"} and \code{"ALL"} need KaKs_Calculator. \code{"GY"} with
+#' \code{"coal"} needs a COAL that has it (a \pkg{coalr} whose \code{coalr::coal_info()$features} lists
+#' \code{"gy94_ml"}, coalr >= 0.6.0, or a \code{coal-cpp} whose \code{coal dnds --help} lists GY); COAL's GY is
+#' Goldman and Yang's model with F3x4 codon frequencies fitted as PAML codeml's pairwise estimate, not
+#' KaKs_Calculator's GY (GY-HKY), so its values differ between the two values of \code{kaks_tool} (unlike the
+#' other seven methods). An estimate of COAL that did not converge (YN, MYN, GY) is \code{NA}; \code{\link{dNdS}}
+#' gives such a pair the status \code{"not_converged"}.
 #' \code{est.method = "Comeron"} and \code{"Li"} are always computed by \pkg{orthologr}'s own code (gestimator,
 #' \code{seqinr::kaks()}), whatever \code{kaks_tool} is: \code{kaks_tool} only chooses the program for the
 #' KaKs_Calculator methods. (COAL's ports of the two methods, which \code{dNdS(engine = "coal")} uses, give the same
@@ -250,7 +257,7 @@ substitutionrate <- function(file,
         if (!is.element(kaks_tool, c("kaks_calculator", "coal")))
                 orthologr_abort(class = "bad_argument", "Please choose kaks_tool = \"kaks_calculator\" or kaks_tool = \"coal\".", call. = FALSE)
         
-        if (kaks_tool == "coal" && !is.element(est.method, c(coal_native_methods(), coal_kaks_calculator_methods())))
+        if (kaks_tool == "coal" && !is.element(est.method, c(dnds_methods(kind = "own"), coal_kaks_methods())))
                 kaks_tool_coal_abort("est.method", est.method)
         
         if (!is.element(format, c("mase", "clustal", "phylip", "fasta" , "msf")))
@@ -272,7 +279,7 @@ substitutionrate <- function(file,
         if (est.method == "Comeron") {
                 # file in fasta required
                 if (format != "fasta")
-                        stop("To use gestimator an alignment file in fasta format is required.")
+                        orthologr_abort(class = "bad_argument", "To use gestimator an alignment file in fasta format is required.")
                 return(comeron_rates(file, subst_name = subst_name, quiet = quiet))
         }
         
@@ -314,7 +321,7 @@ substitutionrate <- function(file,
         
         # the KaKs_Calculator methods computed by COAL (in process, or by the coal-cpp program): no KaKs_Calculator
         # (Comeron and Li were computed above, by orthologr's own code, whatever kaks_tool is)
-        if (kaks_tool == "coal" && is.element(est.method, coal_kaks_calculator_methods())) {
+        if (kaks_tool == "coal" && is.element(est.method, coal_kaks_methods())) {
                 if (format != "fasta")
                         orthologr_abort(class = "bad_argument", "kaks_tool = \"coal\" needs the codon alignment in fasta format.", call. = FALSE)
                 res <- coal_kaks_file(file = file, est.method = est.method, subst_name = subst_name)
@@ -337,7 +344,7 @@ substitutionrate <- function(file,
                 # '<query>-<subject>' and so made IDs with a hyphen impossible to recover).
                 aln_seqs <- seqinr::read.fasta(file, as.string = TRUE, set.attributes = FALSE, forceDNAtolower = FALSE)
                 if (length(aln_seqs) != 2)
-                        stop("The codon alignment of ", context, " must hold two sequences, but '", file, "' holds ",
+                        orthologr_abort(class = "bad_input", "The codon alignment of ", context, " must hold two sequences, but '", file, "' holds ",
                              length(aln_seqs), ".", call. = FALSE)
                 pair_ids <- fasta_ids(file)[1:2]
                 
@@ -364,7 +371,7 @@ substitutionrate <- function(file,
                 kaks_tbl <- tryCatch({
                         utils::read.csv(text = kaks_output_lines(readLines(kaks_file, warn = FALSE)), sep = "\t", header = TRUE)
                 }, error = function(e) {
-                        stop("The output of KaKs_Calculator for ", context, " ('", kaks_file, "') could not be read: ",
+                        orthologr_abort(class = "tool_failed", "The output of KaKs_Calculator for ", context, " ('", kaks_file, "') could not be read: ",
                              conditionMessage(e), call. = FALSE)
                 })
                 
@@ -434,7 +441,7 @@ comeron_rates <- function(file, subst_name = NULL, quiet = TRUE, values = FALSE)
                         return(comeron_values(hit.table))
                 return(hit.table)
         }, error = function(e) {
-                stop(
+                orthologr_abort(class = "tool_failed",
                         "dN/dS estimation with Comeron's method (gestimator) failed for ",
                         pair_context(file, subst_name), ": ", conditionMessage(e),
                         call. = FALSE
@@ -555,7 +562,7 @@ kaks_calc_args <- function(est.method, kaks_calc.params = NULL) {
         has_params <- !is.null(kaks_calc.params) && any(nzchar(trimws(kaks_calc.params)))
         if (identical(est.method, "kaks_calc")) {
                 if (!has_params)
-                        stop("est.method = \"kaks_calc\" needs the methods in 'kaks_calc.params', e.g. kaks_calc.params = \"-m NG -m YN\".",
+                        orthologr_abort(class = "bad_argument", "est.method = \"kaks_calc\" needs the methods in 'kaks_calc.params', e.g. kaks_calc.params = \"-m NG -m YN\".",
                              call. = FALSE)
                 return(list(I(kaks_calc.params)))
         }
@@ -599,7 +606,7 @@ kaks_result_table <- function(kaks_tbl, pair_ids, context = "the gene pair", aln
 kaks_result_values <- function(kaks_tbl, context = "the gene pair", aln = NULL, genetic_code = 1L) {
         ctx_of <- function(rows) if (is.function(context)) context(rows) else if (length(context) == 1) context else context[rows]
         if (nrow(kaks_tbl) == 0 || ncol(kaks_tbl) < 5)
-                stop("KaKs_Calculator returned no result for ", ctx_of(1L)[1], ".", call. = FALSE)
+                orthologr_abort(class = "tool_failed", "KaKs_Calculator returned no result for ", ctx_of(1L)[1], ".", call. = FALSE)
         num <- function(x) suppressWarnings(as.numeric(as.character(x)))
         dN   <- num(kaks_tbl[ , 3])
         dS   <- num(kaks_tbl[ , 4])
@@ -682,13 +689,14 @@ kaks_columns <- function(kaks_tbl) {
         )
 }
 
-# The methods of the LWL family (Li, Wu and Luo 1985; Li 1993; Tzeng et al. 2004) and of Yang and Nielsen (2000).
-kaks_lwl_methods <- function() c("LWL", "MLWL", "LPB", "MLPB")
-kaks_yn_methods <- function() c("YN", "MYN")
+# The methods of the LWL family (Li, Wu and Luo 1985; Li 1993; Tzeng et al. 2004) and of Yang and Nielsen (2000)
+# (views of dnds_method_registry()).
+kaks_lwl_methods <- function() dnds_methods(family = "LWL")
+kaks_yn_methods <- function() dnds_methods(family = "YN")
 # The methods whose columns "S-Substitutions" and "N-Substitutions" count the synonymous and nonsynonymous
 # differences (KaKs_Calculator prints NA for a count of 0). GMYN counts as MYN does (its Ka/Ks for a pair without
 # nonsynonymous difference is a residue such as 1.3e-15, its dN Ka/Ks * Ks; GY, MA, MS print expected numbers).
-kaks_counted_methods <- function() c("NG", kaks_yn_methods(), "GMYN")
+kaks_counted_methods <- function() dnds_methods(counted = TRUE)
 
 # Gene pairs for which KaKs_Calculator printed 'NA' for a dS that is 0 (it prints NA for every value below 1e-6):
 #   identical     : no nucleotide differs ("Substitutions" 0) - dN = dS = 0 (KaKs_Calculator: NA NA NA)

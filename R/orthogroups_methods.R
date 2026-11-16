@@ -135,13 +135,13 @@ as.data.frame.orthogroups <- function(x, row.names = NULL, optional = FALSE, una
 #' @export
 write_orthogroups <- function(x, dir, ortholog_tables = FALSE, query_species = NULL) {
         if (!inherits(x, "orthogroups"))
-                stop("'x' must be the result of orthogroups().", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "'x' must be the result of orthogroups().", call. = FALSE)
         if (!is.character(dir) || length(dir) != 1 || is.na(dir) || !nzchar(dir))
-                stop("'dir' must be the path of one folder.", call. = FALSE)
+                orthologr_abort(class = "bad_argument", "'dir' must be the path of one folder.", call. = FALSE)
         check_flag(ortholog_tables, "ortholog_tables")
         og_dir <- file.path(dir, "Orthogroups")
         if (!dir.exists(og_dir) && !dir.create(og_dir, recursive = TRUE))
-                stop("The folder '", og_dir, "' could not be created.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "The folder '", og_dir, "' could not be created.", call. = FALSE)
         sp <- x$species
         write_tsv <- function(tbl, file) {
                 data.table::fwrite(tbl, file, sep = "\t", quote = FALSE, na = "NA")
@@ -176,7 +176,7 @@ write_orthogroups <- function(x, dir, ortholog_tables = FALSE, query_species = N
                 if (is.null(query_species))
                         query_species <- sp[1]
                 if (!is.character(query_species) || length(query_species) != 1 || !is.element(query_species, sp))
-                        stop("query_species must be one of the species: '", paste(sp, collapse = "', '"), "'.", call. = FALSE)
+                        orthologr_abort(class = "bad_argument", "query_species must be one of the species: '", paste(sp, collapse = "', '"), "'.", call. = FALSE)
                 tbl_dir <- file.path(dir, "ortholog_tables")
                 if (!dir.exists(tbl_dir))
                         dir.create(tbl_dir, recursive = TRUE)

@@ -41,17 +41,19 @@ computed); or a character vector with the IDs of the groups to compute (e.g. \co
 Default (\code{NULL}) is \code{"Comeron"} with \code{engine = "orthologr"}. With \code{engine = "coal"} the default is \code{"YN"};
 \code{"Comeron"} and \code{"Li"} are computed by COAL as well when the installed \pkg{coalr} has them
 (\code{coalr::coal_info()$methods}) and then give the values of \code{engine = "orthologr"} for the same
-alignment.}
+alignment; \code{"GY"} when it has that (\code{coalr::coal_info()$features} lists \code{"gy94_ml"}; COAL's GY is
+not KaKs_Calculator's, see \code{\link{dNdS}}).}
 
 \item{engine}{\code{"orthologr"} (Default): the programs \code{\link{dNdS}} uses - \code{\link{multi_aln}} or
-\code{\link{pairwise_aln}}, PAL2NAL (\code{\link{codon_aln}}) and \code{\link{substitutionrate}}. The codon
-alignments are always built by PAL2NAL (it needs Perl; one start per gene pair), also when \pkg{coalr} is
-installed, where \code{dNdS()} uses COAL for them by default: the alignments of the two are byte-identical, so
-the results are the same.
+\code{\link{pairwise_aln}}, \code{\link{codon_aln}} and \code{\link{substitutionrate}}. The codon alignments are
+built as in \code{dNdS()}: by COAL when \pkg{coalr} is installed (no Perl), else by PAL2NAL;
+\code{options(orthologr.codon_aln_tool)} chooses. The alignments of the two are byte-identical, so the results are
+the same. (Up to 0.6.0 they were always built by PAL2NAL.)
 \code{"coal"}: COAL (\url{https://github.com/Plumat-COAL/COAL}) through the R package \pkg{coalr}, as
 \code{\link{dNdS_clusters}} does: all groups are computed in one call on \code{comp_cores} threads, which is much
 faster. It computes the methods \code{"YN"} (its default), \code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"},
-\code{"MLPB"} and \code{"MYN"} (several can be given), with \code{aa_aln_tool = "clustalo"}, \code{"mafft"} or
+\code{"MLPB"} and \code{"MYN"}, and \code{"Comeron"}, \code{"Li"} and \code{"GY"} with a \pkg{coalr} that has
+them (several can be given), with \code{aa_aln_tool = "clustalo"}, \code{"mafft"} or
 \code{"pairwise"}; \code{aa_aln_params} and \code{kaks_calc_path} are not used.}
 
 \item{aa_aln_tool}{how the proteins of a group are aligned: \code{"clustalo"} (Default), \code{"mafft"},
@@ -76,7 +78,10 @@ end is cut off. \code{TRUE}: the sequence is left out (table \code{failed}).}
 
 \item{comp_cores}{the number of R processes (\code{engine = "orthologr"}) or threads.}
 
-\item{quiet}{a logical value: do not show the messages of the alignment and estimation steps.}
+\item{quiet}{a logical value: do not show the messages of the alignment and estimation steps, and count the messages
+about single input sequences (left out, trimmed to a multiple of 3, ambiguous bases) in the summary message, as
+\code{\link{dNdS}} does; the sequences are listed in the attributes \code{"dropped_sequences"},
+\code{"trimmed_sequences"}, \code{"ambiguous_sequences"} and \code{"stop_codon_sequences"} of the result.}
 
 \item{aa_aln_scoring}{with \code{engine = "coal"}: how the pairwise protein alignments COAL makes itself are
 scored (\code{aa_aln_tool = "pairwise"}, and groups of two genes): \code{"pwalign"} (Default) - the scoring of
@@ -92,11 +97,13 @@ A list of three tibbles:
 \itemize{
 \item \code{pairs}: one row per pair of genes of different species in a group (and per method):
 \code{orthogroup}, \code{query_species}, \code{query_id}, \code{subject_species}, \code{subject_id}, \code{method},
-\code{dN}, \code{dS}, \code{dNdS}, \code{note}. The query is the gene of the species that comes first in \code{x$species};
+\code{dN}, \code{dS}, \code{dNdS}, \code{note}, \code{status}. The query is the gene of the species that comes first
+in \code{x$species};
 \item \code{summary}: one row per group (and method): \code{orthogroup}, \code{method}, \code{n_genes},
-\code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with a dN/dS value, i.e. status \code{"ok"}), \code{n_na}
-(the others), \code{n_dS_zero}, \code{n_saturated}, \code{n_no_data}, \code{n_failed} (pairs by status, see
-\code{\link{dNdS}}, section "Status of a gene pair"; the same columns as in \code{\link{dNdS_clusters}}),
+\code{n_species}, \code{n_pairs}, \code{n_ok} (pairs with status \code{"ok"}, i.e. with a dN/dS value), \code{n_na}
+(pairs without dN/dS), \code{n_dS_zero}, \code{n_saturated}, \code{n_no_data}, \code{n_not_converged} (since
+0.6.0), \code{n_failed} (pairs by status, see \code{\link{dNdS}}, section "Status of a gene pair"; counted as in
+\code{\link{dNdS_clusters}}),
 \code{n_dS_above} (pairs with dS above \code{dS_saturation}: estimated, but hardly informative; this column was
 called \code{n_saturated} in development versions of 0.5.0), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the
 numbers of pairs with a dN, a dS and a dN/dS value), and median, mean, first and third quartile (\code{_q25},

@@ -89,7 +89,8 @@ than A, C, G, T (e.g. \code{N}) are always left out, as in \code{dNdS()}.}
 
 \item{path}{the folder that holds the DIAMOND executable (in case it is not on the PATH).}
 
-\item{quiet}{a logical value: run DIAMOND quietly and show only the summary messages of this function.}
+\item{quiet}{a logical value: run DIAMOND quietly and show only the summary messages of this function (the messages
+about single input sequences of every file are then counted in one line; see Value).}
 
 \item{...}{\code{method = "deepclust"}: further arguments for \code{\link{deepclust}}, e.g. \code{approx_id},
 \code{mutual_cover}, \code{deepclust_params}. Not used with \code{method = "rbh"}.}
@@ -114,6 +115,11 @@ reciprocal best hits; \code{relation} is \code{"1:1"} when both species have exa
 length, \code{orthogroup});
 \item \code{params}: the parameters of the call, the versions of DIAMOND and of \pkg{orthologr}, and the files.
 }
+As in \code{\link{dNdS}}, input sequences that were left out, trimmed to a multiple of 3 (\code{delete_corrupt_cds =
+FALSE}), kept with ambiguous bases or that have in-frame stop codons are listed in the attributes
+\code{"dropped_sequences"}, \code{"trimmed_sequences"}, \code{"ambiguous_sequences"} and
+\code{"stop_codon_sequences"} (only those that have rows) and counted in one message; with \code{quiet = FALSE}
+the messages of every file are shown as well.
 See \code{\link{write_orthogroups}} for files in OrthoFinder's layout and \code{\link{dNdS_orthogroups}} for dN/dS
 within the groups.
 }

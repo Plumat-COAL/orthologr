@@ -20,8 +20,9 @@
 # channel's package index.
 #
 # The optional R package coalr (Suggests) is installed from the place named in the Remotes field of DESCRIPTION,
-# pinned there to a commit of COAL (main 03612da, which has COAL #76), so that a change on COAL's default branch
-# cannot change or break a check of this package; move the pin when a newer coalr is needed. The leg without
+# pinned there to COAL's release tag v0.6.0 (COAL #76's Comeron refinements and GY, coalr::coal_info()$features
+# "gy94_ml", so that the tests of dnds_est.method = "GY" with the COAL engine run), so that a change on COAL's
+# default branch cannot change or break a check of this package; move the pin when a newer coalr is needed. The leg without
 # optional tools removes coalr again, so that the routes without COAL (PAL2NAL as the default codon aligner, the
 # errors that ask for COAL) are checked as well.
 on:

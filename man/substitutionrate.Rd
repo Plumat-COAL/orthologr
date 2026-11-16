@@ -41,12 +41,19 @@ With \code{est.method = "kaks_calc"} the methods themselves are given here, e.g.
 Default is \code{subst_name} = \code{NULL}.}
 
 \item{kaks_tool}{the program that computes the KaKs_Calculator methods (\code{est.method} = \code{"NG"}, \code{"LWL"},
-\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}): \code{"kaks_calculator"} (Default; the
+\code{"MLWL"}, \code{"LPB"}, \code{"MLPB"}, \code{"YN"}, \code{"MYN"}, and \code{"GY"} with a COAL that has it):
+\code{"kaks_calculator"} (Default; the
 external program KaKs_Calculator) or \code{"coal"} (COAL's implementation of the same methods, which gives
 KaKs_Calculator 2.0's values for the same alignment and runs inside R when the package \pkg{coalr} is installed;
 see \code{\link{codon_aln}} for how to install COAL). With \code{"coal"} a dN or dS of exactly 0 is returned as
 0 (KaKs_Calculator prints \code{NA} for values below 1e-6) and a saturated estimate is \code{NA}.
-The methods \code{"MA"}, \code{"MS"}, \code{"GY"}, \code{"GMYN"} and \code{"ALL"} need KaKs_Calculator.
+The methods \code{"MA"}, \code{"MS"}, \code{"GMYN"} and \code{"ALL"} need KaKs_Calculator. \code{"GY"} with
+\code{"coal"} needs a COAL that has it (a \pkg{coalr} whose \code{coalr::coal_info()$features} lists
+\code{"gy94_ml"}, coalr >= 0.6.0, or a \code{coal-cpp} whose \code{coal dnds --help} lists GY); COAL's GY is
+Goldman and Yang's model with F3x4 codon frequencies fitted as PAML codeml's pairwise estimate, not
+KaKs_Calculator's GY (GY-HKY), so its values differ between the two values of \code{kaks_tool} (unlike the
+other seven methods). An estimate of COAL that did not converge (YN, MYN, GY) is \code{NA}; \code{\link{dNdS}}
+gives such a pair the status \code{"not_converged"}.
 \code{est.method = "Comeron"} and \code{"Li"} are always computed by \pkg{orthologr}'s own code (gestimator,
 \code{seqinr::kaks()}), whatever \code{kaks_tool} is: \code{kaks_tool} only chooses the program for the
 KaKs_Calculator methods. (COAL's ports of the two methods, which \code{dNdS(engine = "coal")} uses, give the same

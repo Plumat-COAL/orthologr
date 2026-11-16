@@ -136,7 +136,7 @@ test_that("argument and input-file errors of the main functions have the documen
         ))
         if (requireNamespace("coalr", quietly = TRUE))
                 probes <- c(probes, list(
-                        list("dNdS coal method GY", quote(dNdS(q, s, engine = "coal", dnds_est.method = "GY")), "bad_argument")))
+                        list("dNdS coal method GMYN", quote(dNdS(q, s, engine = "coal", dnds_est.method = "GMYN")), "bad_argument")))
         for (p in probes) {
                 e <- tryCatch(suppressMessages(eval(p[[2]])), error = function(e) e)
                 expect_s3_class(e, paste0("orthologr_error_", p[[3]]))

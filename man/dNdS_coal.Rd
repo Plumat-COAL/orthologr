@@ -54,8 +54,11 @@ dNdS_coal(
 KaKs_Calculator 2.0's for the same codon alignment. Several methods can be given; the result then has one row
 per gene pair and method.
 \code{"Comeron"} and \code{"Li"} - the two methods \pkg{orthologr} computes itself - are available when the
-installed \pkg{coalr} lists them in \code{coalr::coal_info()$methods} (coalr >= 0.5.0); otherwise an error
-says so. See Details.}
+installed \pkg{coalr} lists them in \code{coalr::coal_info()$methods} (coalr >= 0.5.0), \code{"GY"} (Goldman and
+Yang 1994, maximum likelihood) when \code{coalr::coal_info()$features} lists \code{"gy94_ml"} (coalr >= 0.6.0);
+otherwise an error says so. COAL's GY uses F3x4 codon frequencies and is fitted as PAML codeml's pairwise
+estimate; it is not KaKs_Calculator's GY (GY-HKY), so its values differ from those of
+\code{dNdS(dnds_est.method = "GY")} with KaKs_Calculator. See Details.}
 
 \item{aa_aln_scoring}{how the pairwise protein alignment is scored:
 \itemize{
@@ -125,7 +128,8 @@ COAL's complete table for the gene pairs (standard errors, numbers of sites and 
 protein identity, status and note) is attached as \code{attr(result, "coal")}.
 
 This function needs the R package \pkg{coalr}:
-\code{remotes::install_github("Plumat-COAL/COAL", subdir = "packaging/r/coalr")}.
+\code{remotes::install_github("Plumat-COAL/COAL/packaging/r/coalr@v0.6.0")} (COAL's release 0.6.0; a newer
+release works as well).
 
 \strong{The same run with the COAL command line, and the other way.} The record of the run,
 \code{attr(result, "orthologr_run")}, has in \code{engine_settings} what orthologr gave COAL (\code{preset},

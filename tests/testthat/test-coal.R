@@ -36,7 +36,7 @@ test_that("COAL is optional: a helpful message when it is not installed ...", {
         old <- options(orthologr.coal_backend = "none")
         on.exit(options(old), add = TRUE)
         expect_false(is_installed_coal())
-        expect_error(coal_backend(), "install_github(\"Plumat-COAL/COAL\", subdir = \"packaging/r/coalr\"", fixed = TRUE)
+        expect_error(coal_backend(), "install_github(\"Plumat-COAL/COAL/packaging/r/coalr@v0.6.0\")", fixed = TRUE)
         aln <- write_fasta(c(aa_a, aa_b), c("gene-A", "gene-B"))
         nuc <- write_fasta(c(cds_a, cds_b), c("gene-A", "gene-B"))
         expect_error(codon_aln(file_aln = aln, file_nuc = nuc, format = "fasta", tool = "coal", quiet = TRUE),
@@ -64,7 +64,7 @@ test_that("arguments of the COAL options are checked ...", {
         expect_true(is.dnds_est_method("MLPB"))
         expect_error(run_dNdS(engine = "INVALID"), "engine")
         expect_error(run_dNdS(kaks_tool = "INVALID"), "kaks_tool")
-        expect_error(run_dNdS(dnds_est.method = "GY", kaks_tool = "coal"), "needs kaks_tool = \"kaks_calculator\"")
+        expect_error(run_dNdS(dnds_est.method = "GMYN", kaks_tool = "coal"), "needs kaks_tool = \"kaks_calculator\"")
         skip_if_not(coalr_available, "the R package coalr is not installed")
         # Comeron (the default method) and Li need a COAL that has them; other methods are not COAL's at all
         if (!coal_has_native_methods())
@@ -74,7 +74,7 @@ test_that("arguments of the COAL options are checked ...", {
         expect_error(run_dNdS(aa_aln_scoring = "needle"), "needs engine = \"coal\"")
         expect_error(run_dNdS(engine = "coal", dnds_est.method = "YN", ortho_detection = "Orthofinder2"),
                      "RBH")
-        expect_error(dNdS_clusters(query_cds, dnds_est.method = "GY"), "dnds_est.method")
+        expect_error(dNdS_clusters(query_cds, dnds_est.method = "GMYN"), "dnds_est.method")
         expect_error(dNdS_clusters(query_cds, aa_aln_scoring = "x"), "aa_aln_scoring")
         expect_error(dNdS_clusters(query_cds, aa_aln_tool = "clustalw"), "aa_aln_tool")
         expect_error(dNdS_clusters("no_such_file.fasta"), "not found")
@@ -174,7 +174,7 @@ test_that("substitutionrate(kaks_tool = \"coal\") computes the KaKs_Calculator m
                                 expect_identical(substitutionrate(f, est.method = m, quiet = TRUE, subst_name = "t", kaks_tool = "coal"),
                                                  substitutionrate(f, est.method = m, quiet = TRUE, subst_name = "t"))
                 })
-                expect_error(substitutionrate(f, est.method = "GY", quiet = TRUE, kaks_tool = "coal"), "kaks_calculator")
+                expect_error(substitutionrate(f, est.method = "GMYN", quiet = TRUE, kaks_tool = "coal"), "kaks_calculator")
                 # sequences that are not a codon alignment: an error naming the pair
                 bad <- write_fasta(c("ATGAAAACCG", "ATGAAGACCGCC"), c("x", "y"))
                 expect_error(substitutionrate(bad, est.method = "YN", quiet = TRUE, kaks_tool = "coal"),
