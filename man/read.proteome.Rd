@@ -27,6 +27,11 @@ of interest as first argument.
 It is possible to read in different proteome file standards such as \emph{fasta} or \emph{fastq}.
 
 Proteomes stored in fasta files can be downloaded from https://www.ebi.ac.uk/reference_proteomes, etc.
+
+A FASTA file that holds nucleotide sequences rather than proteins (90 \% or more of the first residues are
+A, C, G, T, U or N) is rejected with an error of class \code{orthologr_error_bad_input}: DIAMOND, which
+searches the proteins, can hang on such input instead of stopping with an error. Coding sequences are read
+with \code{\link{read.cds}}, or with \code{seq_type = "cds"} in the functions that search them.
 }
 \examples{
 # reading a proteome stored in a fasta file
@@ -34,10 +39,6 @@ Ath.proteome <- read.proteome(system.file('seqs/ortho_thal_aa.fasta', package = 
                                format = "fasta")
 head(Ath.proteome, 2)
 
-A FASTA file that holds nucleotide sequences rather than proteins (90 \\% or more of the first residues are
-A, C, G, T, U or N) is rejected with an error of class \code{orthologr_error_bad_input}: DIAMOND, which
-searches the proteins, can hang on such input instead of stopping with an error. Coding sequences are read
-with \code{\link{read.cds}}, or with \code{seq_type = "cds"} in the functions that search them.
 }
 \author{
 Hajk-Georg Drost
