@@ -11,10 +11,14 @@
 # (--clobber), e.g. after a failed run. "Run workflow" needs this file on the default branch (master); the release
 # event does not: it runs the file of the tagged commit.
 #
-# The tarball is built in a job of its own and hashed there, right after R CMD build; the check job (which runs
-# third-party code: bioconda packages, pak, the Remotes of DESCRIPTION, the package's tests) gets a copy and cannot
-# change what is published: the files and upload jobs take the build job's tarball and compare it with the SHA-256
-# the build job reported as a job output.
+# Where third-party code runs. The build job installs only what R CMD build needs: R, pandoc, the hard dependencies
+# of DESCRIPTION (Depends, Imports, LinkingTo: CRAN and Bioconductor packages, by pak) and knitr and rmarkdown; no
+# Suggests, no Remotes (coalr, metablastr) and no bioconda programs. The vignettes run their examples only when
+# DIAMOND / BLAST+ are on the PATH, so they are built as on CRAN, without results (tested: R CMD build passes without
+# the programs, coalr and metablastr). The tarball is hashed right after R CMD build and the hash passed on as a job
+# output. The check job runs much more third-party code (bioconda packages, all Suggests, the Remotes - which a
+# release must pin to a commit SHA or a v<version> tag, see release_tools.py version - and the tests) on a copy, and
+# only its log is published: the files and upload jobs take the build job's tarball and compare it with that hash.
 #
 # Supply chain as in R-CMD-check.yaml: every action is pinned to the full commit SHA of a release (the release in the
 # comment), the token is read-only except in the upload job, and inputs reach the shell through env only.
@@ -100,32 +104,14 @@ jobs:
       sha256: ${{ steps.hash.outputs.sha256 }}
     env:
       V: ${{ needs.version.outputs.version }}
-      GITHUB_PAT: ${{ github.token }}   # setup-r-dependencies: GitHub API limits for the Remotes (coalr, metablastr)
+      GITHUB_PAT: ${{ github.token }}   # setup-r-dependencies: GitHub API limits
       R_KEEP_PKG_SOURCE: "yes"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.version.outputs.sha }}
           persist-credentials: false
-      # the external programs, as in R-CMD-check.yaml, so that the vignette chunks and tests that need them run
-      - name: Install DIAMOND, BLAST+ and the optional programs
-        timeout-minutes: 20
-        uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2.0.7
-        with:
-          environment-name: orthologr-tools
-          create-args: >-
-            -c conda-forge -c bioconda
-            diamond>=2.1
-            blast
-            clustalo
-            mafft
-            kakscalculator2
-          cache-environment: true
-          init-shell: none
-          generate-run-shell: false
-      - name: Put the programs on the PATH
-        run: |
-          echo "$MAMBA_ROOT_PREFIX/envs/orthologr-tools/bin" >> "$GITHUB_PATH"
+      # what R CMD build needs and nothing more (see the header): no Suggests, no Remotes, no bioconda programs
       - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
         timeout-minutes: 10
       - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
@@ -133,11 +119,11 @@ jobs:
         with:
           r-version: release
           use-public-rspm: true
-      # Imports, LinkingTo, Suggests (coalr and metablastr from the Remotes field); no rcmdcheck: plain R CMD check
       - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
-        timeout-minutes: 40
+        timeout-minutes: 30
         with:
-          needs: check
+          dependencies: '"hard"'
+          extra-packages: any::knitr any::rmarkdown
       - name: R CMD build
         timeout-minutes: 30
         run: |
@@ -168,7 +154,7 @@ jobs:
     env:
       V: ${{ needs.version.outputs.version }}
       SHA256: ${{ needs.build.outputs.sha256 }}
-      GITHUB_PAT: ${{ github.token }}
+      GITHUB_PAT: ${{ github.token }}   # setup-r-dependencies: GitHub API limits for the Remotes (coalr, metablastr)
       R_KEEP_PKG_SOURCE: "yes"
     steps:
       # the checkout only gives setup-r-dependencies the DESCRIPTION; the check runs on the build job's tarball
@@ -255,6 +241,8 @@ jobs:
     needs: [version, build, check]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      sums_sha256: ${{ steps.sums.outputs.sha256 }}
     env:
       V: ${{ needs.version.outputs.version }}
       SHA256: ${{ needs.build.outputs.sha256 }}
@@ -268,16 +256,18 @@ jobs:
           name: check-log
           path: release
       - name: SHA256SUMS.txt; the tarball is the one the build job hashed
+        id: sums
         working-directory: release
         run: |
           echo "${SHA256}  orthologr_${V}.tar.gz" | sha256sum -c
           expected=("orthologr_${V}.tar.gz" "orthologr_${V}-check.log")
           for f in "${expected[@]}"; do test -s "$f" || { echo "::error::missing release file $f"; exit 1; }; done
           n=$(find . -mindepth 1 -maxdepth 1 | wc -l)
-          test "$n" -eq "${#expected[@]}" || { echo "::error::unexpected files: $(ls -A)"; exit 1; }
+          test "$n" -eq "${#expected[@]}" || { echo "::error::unexpected files: $(find . -mindepth 1 -maxdepth 1 -printf '%f ')"; exit 1; }
           printf '%s\n' "${expected[@]}" | LC_ALL=C sort | xargs sha256sum > SHA256SUMS.txt
           cat SHA256SUMS.txt
           sha256sum -c SHA256SUMS.txt
+          echo "sha256=$(sha256sum SHA256SUMS.txt | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: release-files
@@ -292,19 +282,26 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write   # upload release files; nothing else
+    env:
+      V: ${{ needs.version.outputs.version }}
+      SHA256: ${{ needs.build.outputs.sha256 }}
+      SUMS_SHA256: ${{ needs.files.outputs.sums_sha256 }}
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: release-files
           path: release
-      - name: The checked files, unchanged; the tarball is the one the build job hashed
+      - name: Exactly the three checked files; SHA256SUMS.txt and the tarball are the ones the files and build jobs hashed
         working-directory: release
-        env:
-          V: ${{ needs.version.outputs.version }}
-          SHA256: ${{ needs.build.outputs.sha256 }}
         run: |
+          echo "${SUMS_SHA256}  SHA256SUMS.txt" | sha256sum -c
           sha256sum -c SHA256SUMS.txt
           echo "${SHA256}  orthologr_${V}.tar.gz" | sha256sum -c
+          listed=$(cut -d' ' -f3 SHA256SUMS.txt | LC_ALL=C sort | tr '\n' ' ')
+          want=$(printf '%s\n' "orthologr_${V}-check.log" "orthologr_${V}.tar.gz" | LC_ALL=C sort | tr '\n' ' ')
+          [ "$listed" = "$want" ] || { echo "::error::SHA256SUMS.txt lists '$listed', expected '$want'"; exit 1; }
+          n=$(find . -mindepth 1 -maxdepth 1 | wc -l)
+          [ "$n" -eq 3 ] || { echo "::error::unexpected files: $(find . -mindepth 1 -maxdepth 1 -printf '%f ')"; exit 1; }
       - name: Upload (the title and the notes of the release are left as they are)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -314,6 +311,7 @@ jobs:
           if ! gh api "repos/$GH_REPO/releases/tags/$V_TAG" --jq .html_url; then
             echo "::error::there is no published release $V_TAG: publish it on the release page first"; exit 1
           fi
-          gh release upload "$V_TAG" release/* --clobber
+          gh release upload "$V_TAG" --clobber \
+            "release/orthologr_${V}.tar.gz" "release/orthologr_${V}-check.log" release/SHA256SUMS.txt
           # GitHub's record of the files (name, size, SHA-256 it computed on upload)
           gh api "repos/$GH_REPO/releases/tags/$V_TAG" --jq '.assets[] | "\(.name)  \(.size)  \(.digest)"'

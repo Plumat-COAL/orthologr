@@ -184,21 +184,33 @@ upstream 0.4.3 line, which the team does not push to.
 **`release.yml`** (on a published release with a tag `v<version>`, or by hand). Job `version`: the tag must be `v`
 + the `Version` of `DESCRIPTION` (not a development version, `.9000`) and the first heading of `NEWS.md` must name
 that version; it checks out the tag as `refs/tags/<tag>` (the release event: the event's commit), never a branch of
-the same name. Job `build`: `R CMD build` of that commit, and the SHA-256 of the tarball taken right after the build,
-passed on as a job output. Job `check`: `R CMD check --as-cran --no-manual` of a copy of that tarball, compared with
-the hash first (Linux, R release, with DIAMOND, BLAST+, Clustal Omega, MAFFT and KaKs_Calculator from bioconda as in
-`R-CMD-check.yaml`, and coalr and metablastr from the `Remotes` field); an ERROR or a WARNING fails the run, NOTEs do
-not. The check runs third-party code (bioconda packages, pak, the `Remotes`, the tests), so nothing it writes is
-published except its log: job `files` takes the build job's tarball, compares it with the build job's hash again,
-and writes `SHA256SUMS.txt`; job `upload` checks both once more and attaches `orthologr_<version>.tar.gz`,
-`orthologr_<version>-check.log` (the check's `00check.log`) and `SHA256SUMS.txt` to the release with
-`gh release upload --clobber`. A release whose tag does not start with `v` (a bundle) is ignored. By hand: `tag`
-empty with `dry_run` on checks the chosen branch; `tag` set with `dry_run` off re-attaches the files of an existing
-release.
+the same name; it refuses a `Remotes` entry that is not pinned to `@<40-digit commit SHA>` or `@v<version>` (a dry
+run only warns). Job `build`: `R CMD build` of that commit, and the SHA-256 of the tarball taken right after the
+build, passed on as a job output. Job `check`: `R CMD check --as-cran --no-manual` of a copy of that tarball,
+compared with the hash first (Linux, R release, with DIAMOND, BLAST+, Clustal Omega, MAFFT and KaKs_Calculator from
+bioconda as in `R-CMD-check.yaml`, and coalr and metablastr from the `Remotes` field); an ERROR or a WARNING fails
+the run, NOTEs do not. Job `files` takes the build job's tarball and the check log, compares the tarball with the
+build job's hash again and writes `SHA256SUMS.txt` (its own hash is a job output); job `upload` checks the hash of
+`SHA256SUMS.txt`, the files against it, the tarball against the build hash and that there are exactly these three
+files, then attaches `orthologr_<version>.tar.gz`, `orthologr_<version>-check.log` (the check's `00check.log`) and
+`SHA256SUMS.txt`, by name, with `gh release upload --clobber`. A release whose tag does not start with `v` (a
+bundle) is ignored. By hand: `tag` empty with `dry_run` on checks the chosen branch; `tag` set with `dry_run` off
+re-attaches the files of an existing release.
 
-`Remotes: drostlab/metablastr` (a Suggests) is not pinned: the check of a release installs whatever metablastr's
-default branch is at that moment. Pin it to a commit SHA (`drostlab/metablastr@<sha>`) in the release commit, as the
-coalr entry is pinned to a tag.
+Where third-party code runs, and what it can reach:
+
+- Job `build` installs only what `R CMD build` needs: R and pandoc (the pinned r-lib actions), the hard
+  dependencies of `DESCRIPTION` (Depends, Imports, LinkingTo, from CRAN / Bioconductor through pak) and knitr and
+  rmarkdown; no Suggests, no `Remotes` (coalr, metablastr) and no bioconda programs. This code runs before the
+  tarball exists and is hashed. The vignettes run their examples only when DIAMOND or BLAST+ is on the PATH, so they
+  are built as CRAN would build them, as text and code without results (R CMD build of `integration/all` passes
+  without the programs, coalr and metablastr: tested); none of their evaluated chunks uses coalr, metablastr or
+  another Suggests.
+- Job `check` runs much more: the bioconda packages, all Suggests and the `Remotes` (which a release must pin, as
+  above), the package's tests. Nothing it writes is published except its log; it cannot change the tarball the
+  release gets (the `files` and `upload` jobs compare it with the build job's hash).
+- Jobs `version`, `files` and `upload` run only the repository's own `release_tools.py`, coreutils, `gh` and
+  GitHub's checkout and artifact actions.
 
 To publish orthologr X.Y.Z:
 
@@ -207,7 +219,8 @@ To publish orthologr X.Y.Z:
 2. In the release commit: set `Version: X.Y.Z` (and `Date:`) in `DESCRIPTION`; make the first heading of `NEWS.md`
    name X.Y.Z; move the `Remotes` pin of coalr (`coalr=Plumat-COAL/COAL/packaging/r/coalr@v...`, and
    `coalr_install_hint()` in `R/coal.R` with it, section 3) to the COAL release the bundle will carry (e.g. `v0.6.1`),
-   so that the coalr the release is checked with is the coalr the bundle ships; pin metablastr (above). Commit, push.
+   so that the coalr the release is checked with is the coalr the bundle ships; pin `drostlab/metablastr` to a
+   commit SHA (`drostlab/metablastr@<sha>`): the version job refuses a release with an unpinned `Remotes` entry. Commit, push.
    Optionally: Actions > Release > Run workflow on that branch, `tag` empty, `dry_run` on.
 3. On GitHub: Releases > Draft a new release > tag `vX.Y.Z` (create it on that commit) > title and notes written
    by hand > Publish. The workflow starts by itself and attaches the three files (about 1 to 2 hours; most of it is
@@ -215,8 +228,10 @@ To publish orthologr X.Y.Z:
 4. If it fails: fix, and either delete the release and the tag and start again from 2, or (same commit) Actions >
    Release > Run workflow with `tag` `vX.Y.Z` and `dry_run` off. Such a re-run builds the tarball again, and
    `R CMD build` does not make a byte-identical tarball twice (the `Packaged:` time it writes into
-   `DESCRIPTION`, the file times in the archive), so the files and `SHA256SUMS.txt` of the release change: a bundle made from the earlier files no
-   longer matches the release (bundle.yml refuses it from then on) and must be made again under a new bundle tag.
+   `DESCRIPTION`, the file times in the archive), so the files and `SHA256SUMS.txt` of the release change. A bundle made from the earlier
+   files is not checked again by anything: it simply goes stale (its tarball and checksums no longer match the
+   orthologr release). Make the bundle again under a new bundle tag; the old tag cannot be reused while its tag and
+   release exist (bundle.yml refuses a taken tag), so delete the stale bundle release and tag by hand if wanted.
 
 **`bundle.yml`** (by hand only; see above: not before it is on the default branch). Inputs `coal_tag` (a COAL
 release, e.g. `v0.6.1`), `orthologr_tag` (a release of this repository, e.g. `v0.6.0`), `bundle_tag`

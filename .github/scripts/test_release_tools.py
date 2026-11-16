@@ -1,5 +1,6 @@
 """Tests of release_tools.py (run by release.yml and bundle.yml before they use it):
 python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'"""
+import contextlib
 import hashlib
 import io
 import json
@@ -85,9 +86,12 @@ def api_json(directory, tag, json_path, digests=True):
 
 
 class Version(unittest.TestCase):
-    def repo(self, version="0.6.0", heading="## `orthologr` 0.6.0"):
+    def repo(self, version="0.6.0", heading="## `orthologr` 0.6.0", remotes=None, package="orthologr"):
         d = tmpdir(self)
-        write(os.path.join(d, "DESCRIPTION"), DESC.format(v=version))
+        desc = DESC.format(v=version).replace("Package: orthologr", f"Package: {package}")
+        if remotes is not None:
+            desc += "Remotes:\n    " + ",\n    ".join(remotes) + "\n"
+        write(os.path.join(d, "DESCRIPTION"), desc)
         write(os.path.join(d, "NEWS.md"), f"{heading}\n\n### Section\n\n## `orthologr` 0.5.0\n")
         return d
 
@@ -95,6 +99,34 @@ class Version(unittest.TestCase):
         self.assertEqual(rt.check_version("v0.6.0", self.repo()), ("0.6.0", "v0.6.0"))
         self.assertEqual(rt.check_version("v0.6.0", self.repo(heading="# orthologr 0.6.0 (2026-11-20)"))[0],
                          "0.6.0")
+
+    def test_another_package(self):
+        with self.assertRaisesRegex(rt.Failure, "is the package 'orthologrx', not orthologr"):
+            rt.check_version("v0.6.0", self.repo(package="orthologrx"))
+        with self.assertRaisesRegex(rt.Failure, "not orthologr"):
+            rt.check_version("", self.repo(package="orthologrx"), dry_run=True)
+
+    def test_remotes_pinned(self):
+        sha = "0123456789abcdef0123456789abcdef01234567"
+        ok = [f"drostlab/metablastr@{sha}", "coalr=Plumat-COAL/COAL/packaging/r/coalr@v0.6.1",
+              f"github::owner/repo@{sha}"]
+        self.assertEqual(rt.check_version("v0.6.0", self.repo(remotes=ok))[0], "0.6.0")
+        self.assertEqual(rt.check_version("v0.6.0", self.repo(remotes=[]))[0], "0.6.0")
+
+    def test_remotes_not_pinned(self):
+        sha = "0123456789abcdef0123456789abcdef01234567"
+        for bad in ("drostlab/metablastr", "drostlab/metablastr@main", "drostlab/metablastr@v0.6.0rc1",
+                    f"drostlab/metablastr@{sha[:12]}", f"drostlab/metablastr@{sha.upper()}",
+                    "drostlab/metablastr#12", f"drostlab/metablastr#{sha}", f"drostlab/metablastr@{sha}#12",
+                    "coalr=Plumat-COAL/COAL@0.6.1", "coalr=Plumat-COAL/COAL#v0.6.1"):
+            remotes = ["coalr=Plumat-COAL/COAL/packaging/r/coalr@v0.6.1", bad]
+            with self.assertRaisesRegex(rt.Failure, "Remotes not pinned", msg=bad):
+                rt.check_version("v0.6.0", self.repo(remotes=remotes))
+            # a dry run warns only (captured here: "::warning::" in the log of a workflow is an annotation)
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                self.assertEqual(rt.check_version("", self.repo(remotes=remotes), dry_run=True)[0], "0.6.0")
+            self.assertIn("::warning::", err.getvalue())
 
     def test_tag_differs_from_description(self):
         with self.assertRaisesRegex(rt.Failure, "DESCRIPTION says Version: 0.6.0"):

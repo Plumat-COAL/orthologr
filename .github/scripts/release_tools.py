@@ -7,6 +7,9 @@ starting "release_tools:" when a check fails, 0 otherwise.
       release.yml: the tag must be v<Version of DESCRIPTION> and the first heading of NEWS.md must name that version.
       A development version (a component >= 9000, R's convention) is no release. With --dry-run an empty TAG means
       "the version DESCRIPTION has" and a development version is allowed; NEWS.md is still checked.
+      Every entry of the Remotes field must be pinned, to a full commit SHA (@<40 hex digits>) or a release tag
+      (@v<version>): the check of a release installs them, so a branch would make it check moving code. A dry run
+      only warns.
       Prints the version; --github-output writes version=, tag= to $GITHUB_OUTPUT.
 
   check-inputs COAL_TAG ORTHOLOGR_TAG BUNDLE_TAG
@@ -104,6 +107,16 @@ def heading_names(heading, version):
 # ---------------------------------------------------------------------------------------------------------------
 # version (release.yml)
 
+# @ + a full commit SHA, or @ + a release tag v<numbers>; nothing after it (no #PR, no further text)
+PINNED_REMOTE_RE = re.compile(r"[^@\s]+@(?:[0-9a-f]{40}|v\d+(?:\.\d+){1,3})")
+
+
+def unpinned_remotes(desc):
+    """The entries of the Remotes field that are not pinned to a commit SHA or a v<version> tag."""
+    entries = [e.strip() for e in (desc.get("Remotes") or "").split(",") if e.strip()]
+    return [e for e in entries if not PINNED_REMOTE_RE.fullmatch(e)]
+
+
 def check_version(tag, root=".", dry_run=False):
     with open(os.path.join(root, "DESCRIPTION"), encoding="utf-8") as fh:
         desc = parse_dcf(fh.read())
@@ -122,6 +135,13 @@ def check_version(tag, root=".", dry_run=False):
                       f"commit, then tag that commit")
     if is_development(version) and not dry_run:
         raise Failure(f"{version} is a development version (a component >= 9000): a release sets X.Y.Z first")
+    loose = unpinned_remotes(desc)
+    if loose:
+        msg = (f"DESCRIPTION Remotes not pinned to @<commit SHA> or @v<version>: {', '.join(loose)} (the release "
+               f"check installs them)")
+        if not dry_run:
+            raise Failure(msg)
+        print(f"::warning::{msg}; a release refuses this", file=sys.stderr)
     with open(os.path.join(root, "NEWS.md"), encoding="utf-8") as fh:
         heading = first_heading(fh.read())
     if heading is None:
