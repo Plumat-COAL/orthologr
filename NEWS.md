@@ -205,9 +205,14 @@ cores, and under `orthologr_legacy_options()` (which still reproduces the stored
   the limit, and the partial file is removed. The archive is unpacked into a temporary folder; the program must
   run - `diamond version` exits with status 0 within 60 s and prints `diamond version <number>` (before, any
   output containing "diamond" was accepted, also a loader error such as "GLIBC_2.38 not found", whose path
-  contains "diamond") - otherwise nothing is installed and the error shows its last lines of output. It is then
-  copied next to the cached copy under a temporary name and renamed over it, so a failed reinstallation
-  (`force = TRUE`) leaves the cached copy in place (before, the archive was unpacked over it).
+  contains "diamond") - otherwise nothing is installed and the error shows its last lines of output (a time-out
+  is named as such; status 126 gets a hint about folders mounted `noexec`). The check runs the program in the
+  cache folder under a temporary name (not in the temporary folder, which may be mounted `noexec`), which is then
+  renamed over the cached copy, so a failed reinstallation (`force = TRUE`) leaves the cached copy in place
+  (before, the archive was unpacked over it); temporary copies left by an interrupted installation are removed
+  by the next one. All errors of `diamond_install()` are classed; Windows on ARM (like Linux on ARM) is told to
+  use conda instead of getting the x86_64 file; with a cached copy, a `version` or `sha256` that is not used
+  gives a warning.
 - Tests with a mocked download (matching and wrong checksum, timeout, truncated transfer, unpinned release with and
   without `sha256`, no program to compute the checksum) and with real programs that do not run (not an executable,
   missing library, exit status 1, no version line) over a working cached copy; on CI (`ORTHOLOGR_TEST_DIAMOND_DOWNLOAD=true`) the real pinned

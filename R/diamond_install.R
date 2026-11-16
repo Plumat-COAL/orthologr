@@ -20,7 +20,8 @@
 #' least 600 by default). The check that the program runs is given 60 seconds.
 #' @details Pre-compiled binaries are provided upstream for Linux (x86_64), macOS (one universal binary for
 #' x86_64 and arm64) and Windows (x86_64).
-#' On other platforms (e.g. Linux ARM) please install DIAMOND via conda:
+#' On other platforms (e.g. Linux on ARM, Windows on ARM; error of class \code{orthologr_error_tool_missing})
+#' please install DIAMOND via conda or build it from source:
 #' \code{conda install -c bioconda diamond}.
 #'
 #' \strong{Checksums.} The DIAMOND releases do not publish checksum files, so orthologr carries the SHA-256
@@ -40,11 +41,15 @@
 #'
 #' \strong{Errors.} A download that fails or takes longer than \code{timeout} seconds is an error of class
 #' \code{orthologr_error_download_failed} (and \code{orthologr_error_tool_failed}); the partial file is deleted.
-#' The archive is unpacked into a temporary folder and the program is copied into the cache only after it ran:
-#' \code{diamond version} must exit with status 0 within 60 seconds and print a line \code{diamond version
-#' <number>} (otherwise an error of class \code{orthologr_error_tool_failed} with the program's last lines of
-#' output). It is then copied next to the cached copy under a temporary name and renamed over it, so a failed
-#' installation leaves an existing copy in place.
+#' The archive is unpacked into a temporary folder; the program is copied into the cache folder under a temporary
+#' name and run there (not in the temporary folder, which may be mounted \code{noexec}): \code{diamond version}
+#' must exit with status 0 within 60 seconds and print a line \code{diamond version <number>} (otherwise an error
+#' of class \code{orthologr_error_tool_failed} with the program's last lines of output, and the temporary copy is
+#' removed). Only then is it renamed over the cached copy, so a failed installation leaves an existing copy in
+#' place. Temporary copies left by an interrupted installation are removed by the next one.
+#'
+#' With a cached copy and \code{force = FALSE} nothing is downloaded; a \code{version} other than
+#' \code{"latest"} or a \code{sha256} is then not used, with a warning.
 #' @return Invisibly, the directory containing the \code{diamond} executable. This can be passed
 #' to the \code{path} argument of the DIAMOND functions.
 #' @note Pre-built DIAMOND2 releases exist for Linux x86_64, macOS and Windows; on other platforms (e.g. Linux
@@ -80,16 +85,21 @@ diamond_install <- function(version = "latest", force = FALSE, quiet = FALSE, sh
         platform <- diamond_platform()
         asset <- diamond_platform_asset(platform[["sysname"]], platform[["machine"]])
         if (is.na(asset))
-                stop("No pre-compiled DIAMOND binary is available for ", platform[["sysname"]], " (", platform[["machine"]], "). ",
-                     "Please install it via conda: 'conda install -c bioconda diamond'.",
-                     call. = FALSE)
+                orthologr_abort(class = "tool_missing",
+                                "No pre-compiled DIAMOND binary is available for ", platform[["sysname"]], " (", platform[["machine"]], "). ",
+                                "Please install it via conda: 'conda install -c bioconda diamond' (or build it from source).")
 
         exe_name <- diamond_exe_name()
         dest     <- diamond_cache_dir()
         exe      <- file.path(dest, exe_name)
 
         if (file.exists(exe) && !force) {
-                if (!quiet) message("DIAMOND is already installed in ", dest, " (use force = TRUE to reinstall).")
+                if (!identical(version, "latest") || !is.null(sha256))
+                        orthologr_warn(class = "tool_version",
+                                       "DIAMOND is already installed in ", dest, "; 'version' and 'sha256' were not used. ",
+                                       "Use force = TRUE to install the release asked for.")
+                else if (!quiet)
+                        message("DIAMOND is already installed in ", dest, " (use force = TRUE to reinstall).")
                 return(invisible(dest))
         }
 
@@ -164,31 +174,39 @@ diamond_install <- function(version = "latest", force = FALSE, quiet = FALSE, sh
         }
         new_exe <- file.path(unpacked, exe_name)
         if (!file.exists(new_exe))
-                stop("The downloaded archive did not contain '", exe_name, "'.", call. = FALSE)
-        Sys.chmod(new_exe, mode = "0755")
+                orthologr_abort(class = c("download_failed", "tool_failed"),
+                                "The downloaded archive did not contain '", exe_name, "'; nothing was installed.")
 
-        # verify that the binary runs before it replaces a copy in the cache: exit status 0 and its version line
-        out <- diamond_binary_version(new_exe)
+        # Into the cache folder under a temporary name (ending in the program's name, so that Windows runs it),
+        # checked there - not in the temporary folder, which may be mounted noexec - and then renamed over the old
+        # copy in one step. Temporary copies that an interrupted installation left behind are removed first.
+        dir.create(dest, recursive = TRUE, showWarnings = FALSE)
+        diamond_remove_stale_staged(dest, exe_name)
+        staged <- file.path(dest, paste0(".new-", Sys.getpid(), "-", exe_name))
+        on.exit(unlink(staged), add = TRUE)
+        if (!file.copy(new_exe, staged, overwrite = TRUE))
+                orthologr_abort(class = "tool_failed", "Could not copy DIAMOND into ", dest, "; nothing was installed.")
+        Sys.chmod(staged, mode = "0755")
+
+        # the program must run: exit status 0 and its version line
+        out <- diamond_binary_version(staged)
         status <- attr(out, "status")
         version_line <- grep("^diamond version [0-9]", out, value = TRUE)
         if (is.null(out) || !(is.null(status) || identical(as.integer(status), 0L)) || length(version_line) == 0) {
                 last <- utils::tail(out[nzchar(trimws(out))], 5)
+                how <- if (is.null(out)) "could not be started"
+                       else if (identical(as.integer(status), 124L)) "did not finish within 60 seconds"
+                       else paste0("exited with status ", if (is.null(status)) 0L else status)
                 orthologr_abort(class = "tool_failed",
-                                "DIAMOND ", version, " was downloaded and verified but does not run on this computer ('diamond version' ",
-                                if (is.null(out)) "could not be started" else paste0("exited with status ", if (is.null(status)) 0L else status),
+                                "DIAMOND ", version, " was downloaded and verified but does not run here ('diamond version' ", how,
                                 if (length(last)) paste0("; its last output: ", paste(last, collapse = " | ")) else "; no output",
-                                "). Nothing was installed. Please install DIAMOND via conda instead: 'conda install -c bioconda diamond'.")
+                                "; it was run from ", dest, "). Nothing was installed. ",
+                                if (identical(as.integer(status), 126L)) "Status 126 means it may not be executed there (e.g. a folder on a filesystem mounted noexec; the cache folder is tools::R_user_dir(\"orthologr\", \"cache\"), set R_USER_CACHE_DIR to move it). " else "",
+                                "Otherwise please install DIAMOND via conda: 'conda install -c bioconda diamond'.")
         }
 
-        # into the cache under a temporary name, then renamed over the old copy (one step)
-        dir.create(dest, recursive = TRUE, showWarnings = FALSE)
-        staged <- file.path(dest, paste0(".", exe_name, ".new-", Sys.getpid()))
-        on.exit(unlink(staged), add = TRUE)
-        if (!file.copy(new_exe, staged, overwrite = TRUE))
-                stop("Could not copy DIAMOND into ", dest, ".", call. = FALSE)
-        Sys.chmod(staged, mode = "0755")
         if (!file.rename(staged, exe))
-                stop("Could not move DIAMOND into place in ", dest, ".", call. = FALSE)
+                orthologr_abort(class = "tool_failed", "Could not move DIAMOND into place in ", dest, "; the copy there is unchanged.")
 
         if (!quiet) message("Installed ", version_line[1], " in ", dest)
         invisible(dest)
@@ -218,14 +236,26 @@ diamond_platform <- function() {
 }
 
 # the name of the release file for an operating system, NA when DIAMOND has none
+# (macOS: one universal binary for x86_64 and arm64; Windows and Linux: x86_64 only)
 diamond_platform_asset <- function(sysname, machine) {
+        x64 <- tolower(machine) %in% c("x86_64", "amd64", "x86-64", "x64")
         switch(
                 sysname,
-                Linux   = if (machine %in% c("x86_64", "amd64")) "diamond-linux64.tar.gz" else NA_character_,
+                Linux   = if (x64) "diamond-linux64.tar.gz" else NA_character_,
                 Darwin  = "diamond-macos.tar.gz",
-                Windows = "diamond-windows.zip",
+                Windows = if (x64) "diamond-windows.zip" else NA_character_,
                 NA_character_
         )
+}
+
+# Remove copies '.new-<pid>-diamond[.exe]' that an installation interrupted between the copy and the rename left in
+# the cache folder (older than an hour, so that an installation running in another R process is not disturbed).
+diamond_remove_stale_staged <- function(dest, exe_name) {
+        f <- list.files(dest, pattern = paste0("^\\.new-[0-9]+-", gsub(".", "\\.", exe_name, fixed = TRUE), "$"),
+                        all.files = TRUE, full.names = TRUE)
+        old <- f[difftime(Sys.time(), file.mtime(f), units = "hours") > 1]
+        unlink(old)
+        invisible(old)
 }
 
 # Download 'url' to 'file' within 'timeout' seconds (R's option 'timeout' applies to the whole transfer).
