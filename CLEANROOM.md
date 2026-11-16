@@ -228,7 +228,10 @@ chore/gpl2-cleanroom); the genetic code tables are NCBI data." The libsequence e
 - **Fork CI** (R-CMD-check.yaml, workflow_dispatch). Each run was 7/7 green:
   - a1d0712, run 43788724616;
   - the merged 1cd0470, run 43796527172;
-  - the final 6d353c1, run 43808677077 (ubuntu release: FAIL 0, PASS 5275);
+  - 6d353c1, run 43808677077 (ubuntu release: FAIL 0, PASS 5275);
+  - b286297, run 43815732510;
+  - 7cd1271 (the audit follow-ups; the last commit with package changes; later commits touch only this file,
+    which is excluded from the build), run 43845420004;
   - the jobs: ubuntu release / devel / oldrel-1 / 4.4 / no optional tools, macOS, Windows;
   - on ubuntu release (bioconda kakscalculator2 2.0.1) the live black-box test in test-lwl_counts.R ran and passed:
     FAIL 0, 5273 PASS on 1cd0470, and no skip for it.
