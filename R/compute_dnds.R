@@ -278,7 +278,12 @@ compute_dnds <- function(complete_tbl,
                 # was then joined with the hit table by these changed IDs: rows were lost or held IDs that are in
                 # no input file.
                 kaks_failed <- attr(rates, "kaks_failed")
+                # (kaks_tool = "coal": COAL's status of the pair, attr "engine_status" of coal_kaks_file(), as the
+                # column '.engine_status', which dNdS() takes out of the table for the column 'status')
+                engine_status <- attr(rates, "engine_status")
                 rates <- data.table::as.data.table(rates)
+                if (!is.null(engine_status))
+                        data.table::set(rates, j = ".engine_status", value = engine_status)
                 data.table::set(rates, j = "query_id", value = as.character(q_ids[i]))
                 data.table::set(rates, j = "subject_id", value = as.character(s_ids[i]))
                 # an estimate of KaKs_Calculator that failed ('nan'): the row is a failed gene pair (with the method);
