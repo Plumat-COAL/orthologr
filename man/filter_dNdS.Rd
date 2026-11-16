@@ -13,7 +13,7 @@ filter_dNdS(
 \arguments{
 \item{dNdS_tbl}{a \code{data.table} returned by \code{\link{dNdS}}.}
 
-\item{dnds.threshold}{a numeric value specifying the dnds threshold for genes that shall be retained.
+\item{dnds.threshold}{a number (not \code{NA}) specifying the dnds threshold for genes that shall be retained.
 Hence all genes having a dNdS value <= \code{dnds.threshold} are retained. Default is \code{dnds.threshold} = 2.}
 
 \item{dS_zero}{what to do with gene pairs whose dS is 0, so that dN/dS is not defined (\code{dNdS = NA}): gene
@@ -41,7 +41,7 @@ filters the output by the following criteria:
 
 2) all dS values having an NA value are omitted
 
-3) all dNdS values >= the specified \code{dnds.threshold} are omitted
+3) all dNdS values > the specified \code{dnds.threshold} are omitted (a value equal to it is kept)
 }
 \details{
 The dNdS ratio quantifies the selection pressure acting on a given protein sequence.

@@ -49,7 +49,8 @@ dnds_check_args <- function(aligner, sensitivity_mode, seq_type, format, ortho_d
         if (identical(ortho_detection, "Orthofinder2"))
                 orthologr_abort(class = "bad_argument", "ortho_detection = 'Orthofinder2' is not available in dNdS(): OrthoFinder is not run by this function. ",
                      "Please choose 'RBH' (reciprocal best hit, default) or 'BH' (best hit).", call. = FALSE)
-        if (is.element(ortho_detection, c("PO", "DELTA")))
+        # (a vector of several values is refused by check_choice() below)
+        if (is.character(ortho_detection) && length(ortho_detection) == 1 && is.element(ortho_detection, c("PO", "DELTA")))
                 orthologr_abort(class = "bad_argument", "ortho_detection = '", ortho_detection, "' (", if (ortho_detection == "PO") "ProteinOrtho" else "DELTA-BLAST",
                      ") is no longer available in dNdS(). ",
                      "Please choose 'RBH' (reciprocal best hit, default) or 'BH' (best hit).", call. = FALSE)

@@ -463,7 +463,7 @@ kaks_tool_coal_methods <- function() c(dnds_methods(kind = "own"), coal_kaks_met
 # kaks_tool is.
 # COAL's status of the pair ("ok", "warning", "not_converged", "saturated", "no_data") is the attribute
 # "engine_status" of the table: compute_dnds() carries it to dNdS(), which reports an estimate that did not
-# converge as status "not_converged" (up to 0.6.0 such a pair was reported as "saturated").
+# converge as status "not_converged" (before 0.6.0 such a pair was reported as "saturated").
 coal_kaks_file <- function(file, est.method, subst_name = NULL) {
         query_id <- NULL
         coal_check_methods(est.method, "kaks_tool = \"coal\"", other = "kaks_tool = \"kaks_calculator\"",
@@ -656,13 +656,16 @@ dNdS_coal <- function(query_file,
                       quiet              = TRUE,
                       print_citation     = TRUE,
                       best_hit_rule      = getOption("orthologr.best_hit_rule", "bitscore")) {
+        for (flag in c("quiet", "delete_corrupt_cds", "print_citation"))
+                check_flag(get(flag), flag)
         sensitivity_mode <- orthologr_sensitivity_mode(if (missing(sensitivity_mode)) NULL else sensitivity_mode)
 
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)
 
-        if (!is.element(aligner, c("diamond", "blast")))
+        one_of <- function(x, choices) is.character(x) && length(x) == 1 && !is.na(x) && is.element(x, choices)
+        if (!one_of(aligner, c("diamond", "blast")))
                 orthologr_abort(class = "bad_argument", "engine = \"coal\" detects orthologs with aligner = \"diamond\" or \"blast\".", call. = FALSE)
-        if (!is.element(ortho_detection, c("BH", "RBH")))
+        if (!one_of(ortho_detection, c("BH", "RBH")))
                 orthologr_abort(class = "bad_argument", "engine = \"coal\" supports ortho_detection = \"RBH\" or \"BH\".", call. = FALSE)
         if (!identical(seq_type, "cds"))
                 orthologr_abort(class = "bad_argument", "dN/dS estimation needs coding sequences: seq_type = \"cds\".", call. = FALSE)
@@ -851,7 +854,7 @@ dNdS_coal <- function(query_file,
 #' \item \code{summary}: one row per cluster and method: \code{cluster_id}, \code{n_members}, \code{n_used},
 #' \code{method}, \code{pair_selection}, \code{aligner}, \code{n_pairs}, \code{n_ok}, \code{n_not_converged},
 #' \code{n_saturated}, \code{n_no_data}, \code{n_failed} (the pairs by their \code{status} in the table \code{pairs},
-#' see \code{\link{dNdS}}, section "Status of a gene pair"; up to 0.6.0 COAL's own counts), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
+#' see \code{\link{dNdS}}, section "Status of a gene pair"; before 0.6.0 COAL's own counts), \code{n_dN}, \code{n_dS}, \code{n_dNdS} (the numbers of pairs with a dN, a dS
 #' and a dN/dS value), and median, mean, quartiles (\code{_q25}, \code{_q75}), minimum and maximum of dN, dS and
 #' dN/dS. \strong{Which pairs enter the statistics:} every statistic of dN (dS, dN/dS) is taken over all pairs of the
 #' cluster that have a dN (dS, dN/dS) value, whatever their status - a pair with status \code{"saturated"} that

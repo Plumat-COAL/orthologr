@@ -13,7 +13,8 @@ dnds_status_levels <- function() {
 #   failed        : logical, TRUE for pairs that could not be processed (a program failed; attr "failed_pairs")
 #   engine_status : NULL, or what the engine said about the pair (COAL: "ok", "warning", "not_converged",
 #                   "saturated", "no_data", "error"; NA where the engine said nothing)
-# Both engines are read by the same rule, so that the same pair has the same status with either:
+# The values of both engines are read by the same rule (the engines can still differ for a pair: KaKs_Calculator
+# prints nan where COAL reports that YN / MYN did not converge, which is "failed" here and "not_converged" there):
 #   failed        - the pair could not be processed
 #   ok            - there is a dN/dS value
 #   dS_zero       - dN and dS were estimated and dS is 0: the ratio is not defined
@@ -249,7 +250,8 @@ saturation_hint_text <- function(n_saturated, n, median_dS, species_pair = NULL,
                        "Compare more closely related species, or use dN only.")
         }
         paste0("Note: ", n_saturated, " of ", n, " pairs (", round(100 * n_saturated / n), " %) are saturated",
-               if (!is.na(median_dS)) paste0(" and the median dS of the others is ", signif(median_dS, 3)) else "",
+               # (the median of every dS that was estimated: a pair saturated at nonsynonymous sites only has one)
+               if (!is.na(median_dS)) paste0(" and the median of the dS values that were estimated is ", signif(median_dS, 3)) else "",
                ". Synonymous sites have changed too often for dS to be estimated reliably: ", who)
 }
 
@@ -586,8 +588,9 @@ run_record <- function(fun, args, engine, tools, files, status = NULL, settings 
 #' @return \code{write_dNdS()}: the two file names, invisibly. \code{read_dNdS()}: the table (a tibble) with the
 #' attributes \code{"orthologr_run"}, \code{"failed_pairs"}, \code{"dropped_sequences"}, \code{"trimmed_sequences"},
 #' \code{"stop_codon_sequences"}, \code{"ambiguous_sequences"} and \code{"coal"} as far as they were written (files
-#' written by orthologr 0.6.0 and earlier hold the first three only). A table file without a sidecar file is read
-#' with a warning. \code{dnds_equal()}: \code{TRUE} or \code{FALSE}.
+#' written by orthologr 0.5.0 hold the first three only). A table file without a sidecar file is read
+#' with a warning: the number columns of the dN/dS tables (dN, dS, dNdS, the columns of the search such as
+#' \code{evalue} and \code{bit_score}, and those of COAL) as numbers, every other column as text. \code{dnds_equal()}: \code{TRUE} or \code{FALSE}.
 #' @examples
 #' tbl <- data.frame(query_id = c("a", "b"), subject_id = c("x", "y"), dN = c(0.01, 0.02),
 #'                   dS = c(0.1, 0.2), dNdS = c(0.1, 0.1), status = "ok")
@@ -712,8 +715,10 @@ read_dNdS <- function(file) {
                         tbl[[col]] <- v
                 }
         tbl <- restore_text_marks(tbl, side$text_encoding, from_json = FALSE)
+        # (without the record: the known number columns of the dN/dS tables are numbers, every other column -
+        # IDs such as "007" or "1e3", method, status, orthogroup - stays text)
         classes <- if (!is.null(side$columns)) unlist(side$columns) else
-                vapply(tbl, function(v) if (all(is.na(v) | v == "NaN" | !is.na(suppressWarnings(as.numeric(v))))) "numeric" else "character", "")
+                stats::setNames(ifelse(names(tbl) %in% dnds_number_columns(), "numeric", "character"), names(tbl))
         for (col in intersect(names(tbl), names(classes)))
                 tbl[[col]] <- switch(classes[[col]],
                                      numeric = as.numeric(tbl[[col]]), integer = as.integer(tbl[[col]]),
@@ -742,7 +747,7 @@ read_dNdS <- function(file) {
                                 next
                         v <- restore_text_marks(as_table(side[[a]]), side[[paste0(a, "_encoding")]], from_json = TRUE)
                         info <- side$tables[[a]]
-                        # (files of 0.6.0 and earlier: failed_pairs and dropped_sequences, without types)
+                        # (files of 0.5.0: failed_pairs and dropped_sequences, without types)
                         if (!is.null(info)) {
                                 cls <- unlist(info$columns)
                                 for (col in intersect(names(v), names(cls)))
@@ -761,6 +766,14 @@ read_dNdS <- function(file) {
                 }
         }
         tbl
+}
+
+# The columns of the dN/dS tables (dNdS(), dNdS_coal(), dNdS_clusters(), dNdS_orthogroups()) that hold numbers:
+# read_dNdS() reads them as numbers from a table file without its record.
+dnds_number_columns <- function() {
+        c("dN", "dS", "dNdS", "perc_identity", "num_ident_matches", "alig_length", "mismatches", "gap_openings", "n_gaps",
+          "pos_match", "ppos", "q_start", "q_end", "q_len", "qcov", "qcovhsp", "s_start", "s_end", "s_len", "evalue",
+          "bit_score", "score_raw", "codons_compared", "prot_aln_length", "prot_identity")
 }
 
 # The attributes of a dN/dS result that hold tables of the run (written and read by write_dNdS() / read_dNdS()).

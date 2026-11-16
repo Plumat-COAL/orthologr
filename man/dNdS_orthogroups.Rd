@@ -48,7 +48,7 @@ not KaKs_Calculator's, see \code{\link{dNdS}}).}
 \code{\link{pairwise_aln}}, \code{\link{codon_aln}} and \code{\link{substitutionrate}}. The codon alignments are
 built as in \code{dNdS()}: by COAL when \pkg{coalr} is installed (no Perl), else by PAL2NAL;
 \code{options(orthologr.codon_aln_tool)} chooses. The alignments of the two are byte-identical, so the results are
-the same. (Up to 0.6.0 they were always built by PAL2NAL.)
+the same. (Up to 0.5.0 they were always built by PAL2NAL.)
 \code{"coal"}: COAL (\url{https://github.com/Plumat-COAL/COAL}) through the R package \pkg{coalr}, as
 \code{\link{dNdS_clusters}} does: all groups are computed in one call on \code{comp_cores} threads, which is much
 faster. It computes the methods \code{"YN"} (its default), \code{"NG"}, \code{"LWL"}, \code{"MLWL"}, \code{"LPB"},

@@ -21,13 +21,17 @@ translate_cds_to_protein <-
         function(input_file,
                  output_file,
                  delete_corrupt_cds = FALSE) {
-                if (!file.exists(input_file))
-                        stop(
+                if (!is.character(input_file) || length(input_file) != 1 || is.na(input_file) || !file.exists(input_file))
+                        orthologr_abort(class = "bad_input",
                                 "The file '",
-                                input_file,
+                                paste(input_file, collapse = "', '"),
                                 "' seems not to exist. Please check your file path.",
                                 call. = FALSE
                         )
+                if (!is.character(output_file) || length(output_file) != 1 || is.na(output_file) || !nzchar(output_file))
+                        orthologr_abort(class = "bad_argument", "'output_file' must be the path of one file.", call. = FALSE)
+                # (the translation must not replace the coding sequences it is made from)
+                check_output_not_input(output_file, input_file, what = "output_file")
                 message("Starting translation of file ",
                         basename(input_file),
                         " ...")

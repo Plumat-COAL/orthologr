@@ -25,13 +25,15 @@ translate_cds_to_protein_all <-
                  output_folder,
                  delete_corrupt_cds = FALSE) {
                 
-                if (!file.exists(input_folder))
-                        stop(
+                if (!is.character(input_folder) || length(input_folder) != 1 || is.na(input_folder) || !file.exists(input_folder))
+                        orthologr_abort(class = "bad_input",
                                 "The folder '",
-                                input_folder,
+                                paste(input_folder, collapse = "', '"),
                                 "' seems not to exist. Please check your file path.",
                                 call. = FALSE
                         )
+                # (the files would be written over the coding sequences they are translated from)
+                check_output_folder_not_input(output_folder, input_folder)
                 
                 if (!file.exists(output_folder)) {
                         message("Creating new output folder '", output_folder, "'.")
@@ -45,7 +47,7 @@ translate_cds_to_protein_all <-
                         file_list <- file_list[!found_documentation]
                 
                 if (length(file_list) == 0)
-                        stop("No files were found in your specified input_folder.", call. = FALSE)
+                        orthologr_abort(class = "bad_input", "No files were found in your specified input_folder.", call. = FALSE)
                 
                 for (i in seq_len(length(file_list))) {
                         message("Processing file ", file_list[i], " ...")

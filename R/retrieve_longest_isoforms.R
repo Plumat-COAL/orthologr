@@ -55,13 +55,18 @@
 retrieve_longest_isoforms <- function(proteome_file, annotation_file, new_file, annotation_format = "gff") {
         
         if (!file.exists(proteome_file))
-                stop("File ", proteome_file, " seems not to exist.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "File ", proteome_file, " seems not to exist.", call. = FALSE)
         
         if (!file.exists(annotation_file))
-                stop("File ", annotation_file, " seems not to exist.", call. = FALSE)
+                orthologr_abort(class = "bad_input", "File ", annotation_file, " seems not to exist.", call. = FALSE)
         
-        if (!is.element(annotation_format, c("gtf", "gff")))
-                stop("Please specify a valid annotation format. Options are: annotation_file = 'gtf' or annotation_file = 'gff'.", call. = FALSE)
+        if (!is.character(annotation_format) || length(annotation_format) != 1 || !is.element(annotation_format, c("gtf", "gff")))
+                orthologr_abort(class = "bad_argument", "Please specify a valid annotation format. Options are: annotation_format = 'gtf' or annotation_format = 'gff'.", call. = FALSE)
+        
+        if (!is.character(new_file) || length(new_file) != 1 || is.na(new_file) || !nzchar(new_file))
+                orthologr_abort(class = "bad_argument", "'new_file' must be the path of one file.", call. = FALSE)
+        # (the longest isoforms must not replace the files they are taken from)
+        check_output_not_input(new_file, c(proteome_file, annotation_file), what = "new_file")
         
         gene_id <- id <- pos <- width <- NULL
         
@@ -110,7 +115,7 @@ retrieve_longest_isoforms <- function(proteome_file, annotation_file, new_file, 
                         loci <- loci[!other]
                 }
                 if (nrow(loci) == 0)
-                        stop("No sequence of '", basename(proteome_file), "' belongs to a gene with gene_biotype 'protein_coding' in '",
+                        orthologr_abort(class = "bad_input", "No sequence of '", basename(proteome_file), "' belongs to a gene with gene_biotype 'protein_coding' in '",
                              basename(annotation_file), "'.", call. = FALSE)
         }
         

@@ -143,11 +143,11 @@ file). A message names the file.}
 \code{orthologs()} and \code{orthogroups()} do not check whether the input files hold several isoforms per gene.}
 \item{\code{orthologr.check_protein}}{\code{TRUE} (default): \code{\link{read.proteome}}, and with it every function
 that reads proteins (\code{seq_type = "protein"}), and \code{deepclust(direct_input = TRUE)} refuse a FASTA file
-whose first residues (the first 2,000 lines) are 90 \% or more A, C, G, T, U or N and less than 1 \% E, F, I, L,
-P or Q (letters that no nucleotide code uses), with an error of class \code{orthologr_error_bad_input}: such a
+whose first residues (the first 2,000 lines) are 90 \% or more nucleotide codes (A, C, G, T, U and the IUPAC codes
+N, R, Y, K, M, S, W, B, D, H, V) and less than 1 \% E, F, I, L, P or Q (letters that no nucleotide code uses), with an error of class \code{orthologr_error_bad_input}: such a
 file holds nucleotide sequences, on which DIAMOND can hang instead of stopping with an error. \code{FALSE}: no
 such check, for files of proteins that are rejected (very short or low-complexity proteins made of A, G, T, N,
-C and S: a silk-like GAGAGS repeat has 92 \% of these letters). The option changes no result.}
+C and S: a silk-like GAGAGS repeat is made of them alone). The option changes no result.}
 \item{\code{orthologr.ambiguous_cds}}{\code{"keep"} (default since 0.5.0): coding sequences whose characters other
 than A, C, G, T are IUPAC ambiguity codes (N, R, Y, K, M, S, W, B, D, H, V) are kept; a codon with such a base is
 translated to \code{X}, and the alignment and estimation programs do not compare it. \code{dNdS()} and

@@ -29,8 +29,9 @@ lines of the searches name files of the working folder of the call, whose names 
 \code{write_dNdS()}: the two file names, invisibly. \code{read_dNdS()}: the table (a tibble) with the
 attributes \code{"orthologr_run"}, \code{"failed_pairs"}, \code{"dropped_sequences"}, \code{"trimmed_sequences"},
 \code{"stop_codon_sequences"}, \code{"ambiguous_sequences"} and \code{"coal"} as far as they were written (files
-written by orthologr 0.6.0 and earlier hold the first three only). A table file without a sidecar file is read
-with a warning. \code{dnds_equal()}: \code{TRUE} or \code{FALSE}.
+written by orthologr 0.5.0 hold the first three only). A table file without a sidecar file is read
+with a warning: the number columns of the dN/dS tables (dN, dS, dNdS, the columns of the search such as
+\code{evalue} and \code{bit_score}, and those of COAL) as numbers, every other column as text. \code{dnds_equal()}: \code{TRUE} or \code{FALSE}.
 }
 \description{
 \code{write_dNdS()} writes the table returned by \code{\link{dNdS}} (or \code{\link{dNdS_coal}}, the

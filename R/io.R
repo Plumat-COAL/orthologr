@@ -69,7 +69,8 @@ read.genome <- function(file, format, ...){
 #' Proteomes stored in fasta files can be downloaded from https://www.ebi.ac.uk/reference_proteomes, etc.
 #'
 #' A FASTA file that holds nucleotide sequences rather than proteins (90 \% or more of the first residues are
-#' A, C, G, T, U or N, and fewer than 1 \% are E, F, I, L, P or Q, letters no nucleotide code uses) is rejected
+#' nucleotide codes - A, C, G, T, U and the IUPAC codes N, R, Y, K, M, S, W, B, D, H, V - and fewer than 1 \% are
+#' E, F, I, L, P or Q, letters no nucleotide code uses) is rejected
 #' with an error of class \code{orthologr_error_bad_input}: DIAMOND, which searches the proteins, can hang on such
 #' input instead of stopping with an error. Coding sequences are read with \code{\link{read.cds}}, or with
 #' \code{seq_type = "cds"} in the functions that search them. A file of proteins that is rejected (short
@@ -382,7 +383,8 @@ fasta_nucleotide_share <- function(file) {
 }
 
 # Stop with an orthologr_error_bad_input when the FASTA file `file` looks like nucleotide sequences rather than
-# proteins: 90 % or more of its first residues are A, C, G, T, U or N (fasta_nucleotide_share()), and fewer than 1 %
+# proteins: 90 % or more of its first residues are nucleotide codes (A, C, G, T, U and the IUPAC codes N, R, Y, K,
+# M, S, W, B, D, H, V: coding sequences with ambiguous bases count as nucleotides), and fewer than 1 %
 # are letters that only proteins have (E, F, I, L, P, Q: no IUPAC nucleotide code, so a nucleotide file has none of
 # them; a short low-complexity protein rich in A, G, T, N and C can reach 90 %, but one with a few Q, P, L, ... is
 # not taken for nucleotides). DIAMOND 2.2 hangs on nucleotide sequences given as proteins (makedb, blastp,
@@ -396,11 +398,12 @@ check_protein_file <- function(file, name = file) {
         total <- sum(n[c(65:90, 42L)])
         if (total < 30)
                 return(invisible(NA))
-        nt <- sum(n[as.integer(charToRaw("ACGTUN"))]) / total
+        nt <- sum(n[as.integer(charToRaw("ACGTUNRYKMSWBDHV"))]) / total
         protein_only <- sum(n[as.integer(charToRaw("EFILPQ"))]) / total
         if (nt >= 0.9 && protein_only < 0.01)
                 orthologr_abort(class = "bad_input", "'", name, "' does not look like protein sequences: ",
-                                floor(100 * nt), " % of the first residues are A, C, G, T, U or N. ",
+                                floor(100 * nt), " % of the first residues are nucleotide codes (A, C, G, T, U, N or ",
+                                "another IUPAC code) and less than 1 % are E, F, I, L, P or Q. ",
                                 "Is this a file of coding sequences? Use seq_type = \"cds\" (the coding sequences are ",
                                 "translated) where a function has it, or give the protein file. If these are proteins ",
                                 "(e.g. short low-complexity ones), options(orthologr.check_protein = FALSE) switches this ",

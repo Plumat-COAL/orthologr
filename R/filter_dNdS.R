@@ -6,10 +6,10 @@
 #' 
 #' 2) all dS values having an NA value are omitted
 #' 
-#' 3) all dNdS values >= the specified \code{dnds.threshold} are omitted
+#' 3) all dNdS values > the specified \code{dnds.threshold} are omitted (a value equal to it is kept)
 #' 
 #' @param dNdS_tbl a \code{data.table} returned by \code{\link{dNdS}}.
-#' @param dnds.threshold a numeric value specifying the dnds threshold for genes that shall be retained.
+#' @param dnds.threshold a number (not \code{NA}) specifying the dnds threshold for genes that shall be retained.
 #' Hence all genes having a dNdS value <= \code{dnds.threshold} are retained. Default is \code{dnds.threshold} = 2.
 #' @param dS_zero what to do with gene pairs whose dS is 0, so that dN/dS is not defined (\code{dNdS = NA}): gene
 #' pairs without any substitution (dN = dS = 0, e.g. identical coding sequences) and gene pairs with nonsynonymous
@@ -63,6 +63,10 @@ filter_dNdS <- function(dNdS_tbl, dnds.threshold = 2, dS_zero = getOption("ortho
         dN <- dS <- NULL
         if (!is.character(dS_zero) || length(dS_zero) != 1 || !is.element(dS_zero, c("keep", "drop")))
                 orthologr_abort(class = "bad_argument", "dS_zero must be \"keep\" or \"drop\".", call. = FALSE)
+        # (a text such as "2" was compared as text: "10" <= "2" is TRUE)
+        if (!is.numeric(dnds.threshold) || length(dnds.threshold) != 1 || is.na(dnds.threshold))
+                orthologr_abort(class = "bad_argument", "dnds.threshold must be one number, e.g. dnds.threshold = 2 (given: ",
+                                choice_text(dnds.threshold), ").", call. = FALSE)
         message("Filtering out NA values in dN or dS and all values with dNdS > ", dnds.threshold, " ...")
         message("Initial input contains ", nrow(dNdS_tbl), " rows.")
         

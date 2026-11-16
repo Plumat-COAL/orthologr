@@ -268,7 +268,9 @@
 #' @section Status of a gene pair:
 #' The last column of the result, \code{status}, says how each gene pair came out. The same words are used by
 #' \code{dNdS()} with either engine, \code{\link{dNdS_coal}}, and in the \code{pairs} tables of
-#' \code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}:
+#' \code{\link{dNdS_clusters}} and \code{\link{dNdS_orthogroups}}; a pair need not have the same status with both
+#' engines (where KaKs_Calculator prints \code{nan} for YN or MYN, the pair is \code{"failed"}, and COAL may report
+#' the same pair as \code{"not_converged"}):
 #' \describe{
 #' \item{\code{"ok"}}{dN, dS and dN/dS were estimated;}
 #' \item{\code{"dS_zero"}}{dN and dS were estimated and dS is 0 (no synonymous change), so that the ratio is not
@@ -280,7 +282,7 @@
 #' programs of \code{engine = "orthologr"} do not tell this case from \code{"saturated"});}
 #' \item{\code{"not_converged"}}{COAL reports that its iteration (\code{"YN"}, \code{"MYN"}) or optimisation
 #' (\code{"GY"}) did not converge: there is no estimate, dN, dS and dNdS are \code{NA} (\code{engine = "coal"},
-#' \code{kaks_tool = "coal"}; up to 0.6.0 such a pair had the status \code{"saturated"});}
+#' \code{kaks_tool = "coal"}; before 0.6.0 such a pair had the status \code{"saturated"});}
 #' \item{\code{"failed"}}{a step of the pipeline failed for the pair, or KaKs_Calculator printed \code{nan} for
 #' its estimate (see \code{\link{substitutionrate}}); the reason is in \code{attr(result, "failed_pairs")} (with
 #' \code{dnds_est.method = "ALL"} also the method, in the column \code{method}).}
@@ -291,7 +293,7 @@
 #' \code{engine = "coal"} computes these methods and reports such pairs with the status \code{"not_converged"}.
 #' At the end of a run one message gives the numbers by status and the median dS, and says so when a large part of
 #' the pairs is saturated or the median dS is above 1.5: the two species are then too distant for pairwise dN/dS
-#' (S. cerevisiae against C. glabrata: 72 \% of 4,164 pairs saturated, median dS of the others 1.9).
+#' (S. cerevisiae against C. glabrata: 72 \% of 4,164 pairs saturated, median of the estimated dS 1.9).
 #' The counts are also in \code{attr(result, "orthologr_run")$status_counts}.
 #' \code{options(orthologr.status_column = FALSE)} returns the table without the column (as 0.4.3 did; also set by
 #' \code{\link{orthologr_legacy_options}}).
@@ -413,6 +415,9 @@ dNdS <- function(query_file,
                  aa_aln_scoring  = "pwalign",
                  best_hit_rule   = getOption("orthologr.best_hit_rule", "bitscore")
                  ){
+        # the switches are checked before any work (clean_folders = NA failed only after the whole run)
+        for (flag in c("quiet", "store_locally", "clean_folders", "delete_corrupt_cds", "print_citation"))
+                check_flag(get(flag), flag)
         sensitivity_mode <- orthologr_sensitivity_mode(if (missing(sensitivity_mode)) NULL else sensitivity_mode)
         
         best_hit_rule <- orthologr_best_hit_rule(if (missing(best_hit_rule)) NULL else best_hit_rule)

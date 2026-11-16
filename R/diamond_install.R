@@ -280,7 +280,7 @@ diamond_platform_asset <- function(sysname, machine) {
 
 # Remove copies '.new-<pid>-<random>-diamond[.exe]' that an installation interrupted between the copy and the
 # rename left in the cache folder (older than an hour, so that an installation running in another R process is not
-# disturbed). The random part may be missing (copies of orthologr 0.6.0).
+# disturbed). The random part may be missing (copies made by orthologr 0.5.0).
 diamond_remove_stale_staged <- function(dest, exe_name) {
         f <- list.files(dest, pattern = paste0("^\\.new-[0-9]+-([0-9a-f]+-)?", gsub(".", "\\.", exe_name, fixed = TRUE), "$"),
                         all.files = TRUE, full.names = TRUE)
